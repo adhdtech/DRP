@@ -75,8 +75,19 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
         // (methods should return output and optionally accept [params, wsConn, token] for streaming)
         this.RegisterCmd("register", function (params, wsConn, token) {
             return broker.RegisterConsumer(params, wsConn);
-        })
+        });
         this.RegisterCmd("subscribe", "Subscribe");
+        this.RegisterCmd("cliGetPath", function (params, wsConn, token) {
+            //console.log("Client sent cliGetPath...");
+            //console.dir(params);
+            return {
+                pathItems: [
+                    { "Name": "Bob", "Size": "1234" },
+                    { "Name": "Ted", "Size": "2345" },
+                    { "Name": "Phil", "Size": "3456" }
+                ]
+            };
+        });
 
         this.Consumers = [];
         this.DummyCounter = 0;

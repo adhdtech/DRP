@@ -137,6 +137,7 @@ class DRP_Endpoint {
             wsConn.close();
             return;
         }
+        //console.log("RECV <- " + rawMessage);
 
         // Is this a response?
         if (typeof (message.token) !== "undefined" && message.token !== null && message.token !== "") {
