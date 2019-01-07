@@ -53,9 +53,12 @@ class DRPRegistry {
     }
 
     RegisterProvider(params, wsConn, token) {
+        this.ProviderDeclarations[params.ProviderID] = params;
+        return "OKAY";
     }
 
     RegisterBroker(params, wsConn, token) {
+        return "OKAY";
     }
 }
 
@@ -66,21 +69,8 @@ class DRPRegistry_ProviderRoute extends drpEndpoint.Server {
     */
     constructor(registry, route) {
 
-        // Define handlers
-        let openHandler = function (wsConn, req) {
-            console.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
-        }
-
-        let closeHandler = function (wsConn, closeCode) {
-            console.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
-        }
-
-        let errorHandler = function (wsConn, error) {
-            console.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
-        }
-
         // Initialize server
-        super(registry.expressApp, route, openHandler, closeHandler, errorHandler);
+        super(registry.expressApp, route);
 
         let thisRegistryRoute = this;
 
@@ -90,6 +80,21 @@ class DRPRegistry_ProviderRoute extends drpEndpoint.Server {
             return registry.RegisterProvider(params, wsConn, token);
         })
     }
+
+    // Define Handlers
+    async OpenHander(wsConn, req) {
+        console.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
+    }
+
+    async CloseHandler(wsConn, closeCode) {
+        console.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
+    }
+
+    async ErrorHandler(wsConn, error) {
+        console.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
+    }
+
+    // Define Endpoints commands
 }
 
 class DRPRegistry_BrokerRoute extends drpEndpoint.Server {
@@ -99,29 +104,38 @@ class DRPRegistry_BrokerRoute extends drpEndpoint.Server {
     */
     constructor(registry, route) {
 
-        // Define handlers
-        let openHandler = function (wsConn, req) {
-            console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
-        }
-
-        let closeHandler = function (wsConn, closeCode) {
-            console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
-        }
-
-        let errorHandler = function (wsConn, error) {
-            console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
-        }
-
         // Initialize server
-        super(registry.expressApp, route, openHandler, closeHandler, errorHandler);
+        super(registry.expressApp, route);
 
         let thisRegistryRoute = this;
+        this.Registry = registry;
 
         // Register Endpoint commands
         // (methods should return output and optionally accept [params, wsConn, token] for streaming)
-        this.RegisterCmd("register", function (params, wsConn, token) {
-            return registry.RegisterBroker(params, wsConn);
-        })
+        this.RegisterCmd("register", "Register");
+        this.RegisterCmd("getDeclarations", "GetDeclarations");
+    }
+
+    // Define Handlers
+    async OpenHander(wsConn, req) {
+        console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
+    }
+
+    async CloseHandler(wsConn, closeCode) {
+        console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
+    }
+
+    async ErrorHandler(wsConn, error) {
+        console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
+    }
+
+    // Define Endpoints commands
+    async Register(params, wsConn, token) {
+        return this.Registry.RegisterBroker(params, wsConn, token);
+    }
+
+    async GetDeclarations() {
+        return this.Registry.ProviderDeclarations;
     }
 }
 

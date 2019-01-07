@@ -27,7 +27,7 @@ class DRPBroker {
         this.ConsumerRouteHandler = new DRPBroker_ConsumerRoute(this, '/consumer');
 
         // Initiate Registry Connection
-        let myClient = new DRPBroker_RegistryClient(registryBrokerURL);
+        let myClient = new DRPBroker_RegistryClient(this, registryBrokerURL);
     }
 
     StartWebServer(port) {
@@ -66,21 +66,8 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
     */
     constructor(broker, route) {
 
-        // Define handlers
-        let openHandler = function (wsConn, req) {
-            console.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
-        }
-
-        let closeHandler = function (wsConn, closeCode) {
-            console.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
-        }
-
-        let errorHandler = function (wsConn, error) {
-            console.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
-        }
-
         // Initialize server
-        super(broker.expressApp, route, openHandler, closeHandler, errorHandler);
+        super(broker.expressApp, route);
 
         let thisBrokerRoute = this;
 
@@ -93,7 +80,7 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
 
         this.Consumers = [];
         this.DummyCounter = 0;
-        
+
         setInterval(function () {
             thisBrokerRoute.DummyCounter++;
             let i = thisBrokerRoute.Consumers.length;
@@ -106,19 +93,38 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
                 }
             }
         }, 3000);
-        
+
     }
 
+    // Define Handlers
+    async OpenHandler(wsConn, req) {
+        console.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
+    }
+
+    async CloseHandler(wsConn, closeCode) {
+        console.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
+    }
+
+    async ErrorHandler (wsConn, error) {
+        console.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
+    }
+
+    // Define Endpoints commands
     Subscribe(params, wsConn, token) {
         this.Consumers.push({ "wsConn": wsConn, "token": params });
         console.log("Client[" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] subscribed on token[" + token + "] with params[" + params + "]");
     }
-    
+
 }
 
 class DRPBroker_RegistryClient extends drpEndpoint.Client {
-    constructor(wsTarget) {
+    /**
+    * @param {DRPBroker} broker DRPBroker
+    * @param {string} wsTarget WS target
+    */
+    constructor(broker, wsTarget) {
         super(wsTarget);
+        this.Broker = broker;
     }
 
     async OpenHandler(wsConn, req) {
@@ -129,7 +135,9 @@ class DRPBroker_RegistryClient extends drpEndpoint.Client {
 
         response = await this.SendCmd(this.wsConn, "register", null, true, null);
 
-        console.log(response);
+        response = await this.SendCmd(this.wsConn, "getDeclarations", null, true, null);
+
+        console.dir(response, { depth: 10 });
     }
 
     async CloseHandler(wsConn, closeCode) {
