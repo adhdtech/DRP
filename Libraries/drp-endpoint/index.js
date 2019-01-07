@@ -191,8 +191,11 @@ class DRP_Server extends DRP_Endpoint {
                 // Process command
                 thisServer.ReceiveMessage(wsConn, message);
             });
-
-            wsConn.on("close", function (closeCode) { thisServer.CloseHandler(wsConn, closeCode) });
+            //wsConn.onclose = function (ev) { console.dir(ev, {depth:2}) };
+            wsConn.on("close", function (closeCode, reason) {
+                //console.log("CLOSED -> " + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort);
+                thisServer.CloseHandler(wsConn, closeCode)
+            });
 
             wsConn.on("error", function (error) { thisServer.ErrorHandler(wsConn, error) });
 

@@ -127,6 +127,7 @@ class DRPProvider_RegistryClient extends drpEndpoint.Client {
         this.Provider = provider;
     }
 
+    // Define handlers
     async OpenHandler(wsConn, req) {
         console.log("Provider to Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
 
