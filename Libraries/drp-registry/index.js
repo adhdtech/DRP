@@ -52,13 +52,37 @@ class DRPRegistry {
         this.expressApp = expressApp;
     }
 
-    RegisterProvider(params, wsConn, token) {
-        this.ProviderDeclarations[params.ProviderID] = params;
+    RegisterProvider(declaration, wsConn, token) {
+        // Add provider and relay to Brokers
+        this.ProviderConnections[declaration.ProviderID] = wsConn;
+        this.ProviderDeclarations[declaration.ProviderID] = declaration;
+        this.RelayProviderChange("registerProvider", declaration);
         return "OKAY";
     }
 
+    UnregisterProvider(providerID) {
+        // Delete provider and relay to Brokers
+        delete this.ProviderConnections[providerID];
+        delete this.ProviderDeclarations[providerID];
+        this.RelayProviderChange("unregisterProvider", providerID);
+    }
+
+    RelayProviderChange(cmd, params) {
+        // Relay to Brokers
+        let brokerIDList = Object.keys(this.BrokerConnections);
+        for (let i = 0; i < brokerIDList.length; i++) {
+            this.BrokerRouteHandler.SendCmd(this.BrokerConnections[brokerIDList[i]], cmd, parms, false, null);
+        }
+    }
+
     RegisterBroker(params, wsConn, token) {
+        wsConn.BrokerID = params;
+        this.BrokerConnections[wsConn.BrokerID] = wsConn;
         return "OKAY";
+    }
+
+    UnregisterBroker(brokerID) {
+        delete this.BrokerConnections[brokerID];
     }
 }
 
@@ -73,12 +97,11 @@ class DRPRegistry_ProviderRoute extends drpEndpoint.Server {
         super(registry.expressApp, route);
 
         let thisRegistryRoute = this;
+        this.Registry = registry;
 
         // Register Endpoint commands
         // (methods should return output and optionally accept [params, wsConn, token] for streaming)
-        this.RegisterCmd("register", function (params, wsConn, token) {
-            return registry.RegisterProvider(params, wsConn, token);
-        })
+        this.RegisterCmd("register", "Register");
     }
 
     // Define Handlers
@@ -88,6 +111,9 @@ class DRPRegistry_ProviderRoute extends drpEndpoint.Server {
 
     async CloseHandler(wsConn, closeCode) {
         console.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
+        //if (wsConn.ProviderID) {
+        //    this.Registry.UnregisterProvider(wsConn.ProviderID);
+        //}
     }
 
     async ErrorHandler(wsConn, error) {
@@ -95,6 +121,10 @@ class DRPRegistry_ProviderRoute extends drpEndpoint.Server {
     }
 
     // Define Endpoints commands
+    async Register(params, wsConn, token) {
+        let response = this.Registry.RegisterProvider(params, wsConn, token);
+        return response;
+    }
 }
 
 class DRPRegistry_BrokerRoute extends drpEndpoint.Server {
@@ -123,6 +153,9 @@ class DRPRegistry_BrokerRoute extends drpEndpoint.Server {
 
     async CloseHandler(wsConn, closeCode) {
         console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
+        //if (wsConn.BrokerID) {
+        //    this.Registry.UnregisterBroker(wsConn.BrokerID);
+        //}
     }
 
     async ErrorHandler(wsConn, error) {
