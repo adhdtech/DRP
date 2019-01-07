@@ -18,7 +18,32 @@ class DRPProvider {
 
         this.StartWebServer(port);
 
-        this.ProviderDeclaration = {};
+        this.ProviderDeclaration = {
+            ProviderID: "Provider-1",
+            ProviderURL: "ws://localhost:8081/broker",
+            Classes: {
+                "Person": {
+                    "Attributes": {
+                        "FirstName": "string(128)",
+                        "LastName": "string(128)",
+                        "EmployeeNumber": "string(128)[PK]<employeeNumber>"
+                    },
+                    "Methods": {}
+                },
+                "FakeData": {
+                    "Attributes": {
+                        "SomeValue": "int"
+                    },
+                    "Methods": {}
+                }
+            },
+            Structure: {
+                "People": "Person"
+            },
+            Streams: {
+                "dummy": { Class: "FakeData" }
+            }
+        };
 
         this.RegistryConnections = {};
         this.BrokerConnections = {};
@@ -26,7 +51,8 @@ class DRPProvider {
         this.BrokerRouteHandler = new DRPProvider_BrokerRoute(this, '/broker');
 
         // Initiate Registry Connection
-        let myClient = new DRPProvider_RegistryClient(registryProviderURL);
+        let myClient = new DRPProvider_RegistryClient(this, registryProviderURL);
+
     }
 
     StartWebServer(port) {
@@ -65,21 +91,8 @@ class DRPProvider_BrokerRoute extends drpEndpoint.Server {
     */
     constructor(provider, route) {
 
-        // Define handlers
-        let openHandler = function (wsConn, req) {
-            console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
-        }
-
-        let closeHandler = function (wsConn, closeCode) {
-            console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
-        }
-
-        let errorHandler = function (wsConn, error) {
-            console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
-        }
-
         // Initialize server
-        super(provider.expressApp, route, openHandler, closeHandler, errorHandler);
+        super(provider.expressApp, route);
 
         let thisProviderRoute = this;
 
@@ -89,11 +102,29 @@ class DRPProvider_BrokerRoute extends drpEndpoint.Server {
             return provider.RegisterBroker(params, wsConn);
         })
     }
+
+    // Define handlers
+    async OpenHandler(wsConn, req) {
+        console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
+    }
+
+    async CloseHandler(wsConn, closeCode) {
+        console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
+    }
+
+    async ErrorHandler(wsConn, error) {
+        console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
+    }
 }
 
 class DRPProvider_RegistryClient extends drpEndpoint.Client {
-    constructor(wsTarget) {
+    /**
+    * @param {DRPProvider} provider DRPProvider
+    * @param {string} wsTarget WS target
+    */
+    constructor(provider, wsTarget) {
         super(wsTarget);
+        this.Provider = provider;
     }
 
     async OpenHandler(wsConn, req) {
@@ -102,9 +133,10 @@ class DRPProvider_RegistryClient extends drpEndpoint.Client {
         let response = await this.SendCmd(this.wsConn, "getCmds", null, true, null);
         //console.dir(response, { "depth": 10 });
 
-        response = await this.SendCmd(this.wsConn, "register", null, true, null);
+        response = await this.SendCmd(this.wsConn, "register", this.Provider.ProviderDeclaration, true, null);
 
-        console.log(response);
+        console.log("Register response...");
+        console.dir(response, { depth: 10 });
     }
 
     async CloseHandler(wsConn, closeCode) {

@@ -157,11 +157,17 @@ class DRP_Endpoint {
     GetCmds() {
         return Object.keys(this.EndpointCmds);
     }
+
+    async OpenHandler() { }
+
+    async CloseHandler() { }
+
+    async ErrorHandler() { }
 }
 
 // Handles incoming DRP connections
 class DRP_Server extends DRP_Endpoint {
-    constructor(expressApp, route, openHandler, closeHandler, errorHandler) {
+    constructor(expressApp, route) {
         super();
 
         let thisServer = this;
@@ -178,23 +184,18 @@ class DRP_Server extends DRP_Endpoint {
         }
 
         expressApp.ws(route, async function (wsConn, req) {
-            
-            if (typeof openHandler === 'function') {
-               openHandler(wsConn, req);
-            }
+
+            thisServer.OpenHandler(wsConn, req);
             
             wsConn.on("message", function (message) {
                 // Process command
                 thisServer.ReceiveMessage(wsConn, message);
             });
 
-            if (typeof closeHandler === 'function') {
-                wsConn.on("close", function (closeCode) { closeHandler(wsConn, closeCode) });
-            }
+            wsConn.on("close", function (closeCode) { thisServer.CloseHandler(wsConn, closeCode) });
 
-            if (typeof errorHandler === 'function') {
-                wsConn.on("error", function (error) { errorHandler(wsConn, error) });
-            }
+            wsConn.on("error", function (error) { thisServer.ErrorHandler(wsConn, error) });
+
         });
     }
 }
@@ -220,12 +221,6 @@ class DRP_Client extends DRP_Endpoint {
 
         wsConn.on("error", function (error) { thisClient.ErrorHandler(wsConn, error) });
     }
-
-    async OpenHandler() { }
-
-    async CloseHandler() { }
-
-    async ErrorHandler() { }
 }
 
 class DRP_Cmd {
