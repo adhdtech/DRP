@@ -1,0 +1,12 @@
+{
+  "name": "test-provider",
+  "version": "1.0.0",
+  "description": "TestProvider",
+  "main": "testProvider.js",
+  "author": {
+    "name": "Sarah"
+  },
+  "dependencies": {
+    "drp-provider": "file:../Libraries/drp-provider"
+  }
+}

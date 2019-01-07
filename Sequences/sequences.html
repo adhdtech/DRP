@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<body>
+<script src="webfont.js"></script>
+<script src="snap.svg-min.js"></script>
+<script src="underscore-min.js"></script>
+<script src="sequence-diagram-min.js"></script>
+
+<div id="diagram1"></div>
+<div id="diagram2"></div>
+<div id="diagram3"></div>
+<div id="diagram4"></div>
+<script>
+  var diagram1 = Diagram.parse(`
+Title: Provider Session
+Note left of Provider: Startup
+Provider-->Registry: ws://<regsvc>/provider
+Provider->Registry: {cmd:"declaration",replytoken:1}
+Registry->Provider: {token:1, data:"accepted"}
+  `);
+  diagram1.drawSVG("diagram1", {theme: 'simple'});
+  
+  var diagram2 = Diagram.parse(`
+Title: Proxy Session
+Note left of Proxy: Startup
+Proxy-->Registry: ws://<regsvc>/proxy
+Proxy->Registry: {cmd:"getDeclarations",replytoken:1}
+Note right of Registry: * Gather Declarations <payload>
+Registry->Proxy: {token:1, data: <payload>}
+  `);
+  diagram2.drawSVG("diagram2", {theme: 'simple'});
+  
+  var diagram3 = Diagram.parse(`
+Title: Consumer Session
+Note left of Consumer: Startup
+Consumer-->Proxy: ws://<regsvc>/consumer
+Consumer->Proxy: {cmd:"observe", data:"hostReport", replytoken:1}
+Note right of Proxy: * Register observation\\n* Determine list of providers
+Proxy-->Provider(*): ws://<providersvc>/proxy
+Proxy->Provider(*): {cmd:"subscribe", data:"hostReport", replytoken:123}
+Note right of Provider(*): Stream Data <payload>
+Provider(*)->Proxy: {token:123, data: <payload>}
+Note right of Proxy: Relay to\\nConsumers
+Proxy->Consumer: {token:1,  data: <payload>}
+  `);
+  diagram3.drawSVG("diagram3", {theme: 'simple'});
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "name": "drp-broker",
+  "version": "1.0.0",
+  "description": "DRP Broker",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "drp",
+    "broker"
+  ],
+  "author": "chykn <jpbrown@adhdtech.com>",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "*",
+    "express": "*",
+    "express-ws": "*",
+    "flake-idgen": "*",
+    "biguint-format": "*",
+    "drp-endpoint": "file:../drp-endpoint"
+  }
+}

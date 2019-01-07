@@ -1,0 +1,12 @@
+{
+  "name": "test-client",
+  "version": "0.0.0",
+  "description": "TestClient",
+  "main": "app.js",
+  "author": {
+    "name": "pbrown2"
+  },
+  "dependencies": {
+    "drp-endpoint": "file:../Libraries/drp-endpoint"
+  }
+}

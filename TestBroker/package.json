@@ -1,0 +1,12 @@
+{
+  "name": "test-broker",
+  "version": "0.0.0",
+  "description": "TestBroker",
+  "main": "app.js",
+  "author": {
+    "name": "Sarah"
+  },
+  "dependencies": {
+    "drp-broker": "file:../Libraries/drp-broker"
+  }
+}

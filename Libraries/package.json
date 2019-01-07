@@ -1,0 +1,15 @@
+{
+  "name": "libraries",
+  "version": "0.0.0",
+  "description": "Libraries",
+  "main": "app.js",
+  "author": {
+    "name": "pbrown2"
+  },
+  "dependencies": {
+    "drp-broker": "file:drp-broker",
+    "drp-endpoint": "file:drp-endpoint",
+    "drp-provider": "file:drp-provider",
+    "drp-registry": "file:drp-registry"
+  }
+}

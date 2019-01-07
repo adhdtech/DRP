@@ -1,0 +1,21 @@
+{
+  "name": "drp-endpoint",
+  "version": "1.0.0",
+  "description": "DRP Endpoint",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "drp",
+    "endpoint"
+  ],
+  "files": [
+    "index.js"
+  ],
+  "author": "chykn <jpbrown@adhdtech.com>",
+  "license": "ISC",
+  "dependencies": {
+    "ws": "*"
+  }
+}
