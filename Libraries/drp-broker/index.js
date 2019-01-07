@@ -139,7 +139,7 @@ class DRPBroker_RegistryClient extends drpEndpoint.Client {
         let response = await this.SendCmd(this.wsConn, "getCmds", null, true, null);
         //console.dir(response, { "depth": 10 });
 
-        response = await this.SendCmd(this.wsConn, "register", null, true, null);
+        response = await this.SendCmd(this.wsConn, "register", "Broker-1", true, null);
 
         response = await this.SendCmd(this.wsConn, "getDeclarations", null, true, null);
 

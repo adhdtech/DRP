@@ -53,11 +53,14 @@ class DRPRegistry {
     }
 
     RegisterProvider(declaration, wsConn, token) {
-        // Add provider and relay to Brokers
-        this.ProviderConnections[declaration.ProviderID] = wsConn;
-        this.ProviderDeclarations[declaration.ProviderID] = declaration;
-        this.RelayProviderChange("registerProvider", declaration);
-        return "OKAY";
+        if (typeof (declaration) !== "undefined" && typeof (declaration.ProviderID) !== "undefined" && declaration.ProviderID !== null && declaration.ProviderID !== "") {
+            // Add provider and relay to Brokers
+            wsConn.ProviderID = declaration.ProviderID;
+            this.ProviderConnections[declaration.ProviderID] = wsConn;
+            this.ProviderDeclarations[declaration.ProviderID] = declaration;
+            this.RelayProviderChange("registerProvider", declaration);
+            return "OKAY";
+        } else return "NO PROVIDER ID";
     }
 
     UnregisterProvider(providerID) {
@@ -71,14 +74,16 @@ class DRPRegistry {
         // Relay to Brokers
         let brokerIDList = Object.keys(this.BrokerConnections);
         for (let i = 0; i < brokerIDList.length; i++) {
-            this.BrokerRouteHandler.SendCmd(this.BrokerConnections[brokerIDList[i]], cmd, parms, false, null);
+            this.BrokerRouteHandler.SendCmd(this.BrokerConnections[brokerIDList[i]], cmd, params, false, null);
         }
     }
 
     RegisterBroker(params, wsConn, token) {
-        wsConn.BrokerID = params;
-        this.BrokerConnections[wsConn.BrokerID] = wsConn;
-        return "OKAY";
+        if (typeof (params) !== "undefined" && params !== null && params !== "") {
+            wsConn.BrokerID = params;
+            this.BrokerConnections[wsConn.BrokerID] = wsConn;
+            return "OKAY";
+        } else return "NO BROKER ID";
     }
 
     UnregisterBroker(brokerID) {
@@ -111,9 +116,10 @@ class DRPRegistry_ProviderRoute extends drpEndpoint.Server {
 
     async CloseHandler(wsConn, closeCode) {
         console.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
-        //if (wsConn.ProviderID) {
-        //    this.Registry.UnregisterProvider(wsConn.ProviderID);
-        //}
+        //console.log("Provider client [" + remoteAddress + ":" + remotePort + "] closed with code [" + closeCode + "]");
+        if (wsConn.ProviderID) {
+            this.Registry.UnregisterProvider(wsConn.ProviderID);
+        }
     }
 
     async ErrorHandler(wsConn, error) {
@@ -153,9 +159,9 @@ class DRPRegistry_BrokerRoute extends drpEndpoint.Server {
 
     async CloseHandler(wsConn, closeCode) {
         console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
-        //if (wsConn.BrokerID) {
-        //    this.Registry.UnregisterBroker(wsConn.BrokerID);
-        //}
+        if (wsConn.BrokerID) {
+            this.Registry.UnregisterBroker(wsConn.BrokerID);
+        }
     }
 
     async ErrorHandler(wsConn, error) {
