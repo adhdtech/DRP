@@ -101,8 +101,9 @@ class DRP_Endpoint {
         }
 
         // Reply with results
-        thisEndpoint.SendResponse(wsConn, message.replytoken, cmdResults.status, cmdResults.output);
-
+        if (typeof (message.replytoken) !== "undefined" && message.replytoken !== null) {
+            thisEndpoint.SendResponse(wsConn, message.replytoken, cmdResults.status, cmdResults.output);
+        }
     }
 
     async ProcessResponse(wsConn, message) {
@@ -186,6 +187,8 @@ class DRP_Server extends DRP_Endpoint {
         expressApp.ws(route, async function (wsConn, req) {
 
             thisServer.OpenHandler(wsConn, req);
+            let remoteAddress = wsConn._socket.remoteAddress;
+            let remotePort = wsConn._socket.remotePort;
             
             wsConn.on("message", function (message) {
                 // Process command
@@ -194,7 +197,8 @@ class DRP_Server extends DRP_Endpoint {
             //wsConn.onclose = function (ev) { console.dir(ev, {depth:2}) };
             wsConn.on("close", function (closeCode, reason) {
                 //console.log("CLOSED -> " + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort);
-                thisServer.CloseHandler(wsConn, closeCode)
+                //thisServer.CloseHandler(wsConn, closeCode, remoteAddress, remotePort)
+                thisServer.CloseHandler(wsConn, closeCode);
             });
 
             wsConn.on("error", function (error) { thisServer.ErrorHandler(wsConn, error) });
