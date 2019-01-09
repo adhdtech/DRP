@@ -42,7 +42,8 @@ class DRPProvider {
             },
             Streams: {
                 "dummy": { Class: "FakeData" }
-            }
+            },
+            SomeList: ['a','b','c']
         };
 
         this.RegistryConnections = {};

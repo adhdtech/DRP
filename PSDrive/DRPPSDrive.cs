@@ -15,11 +15,6 @@ namespace ADHDTech.DRP
     public class DRPProvider : NavigationCmdletProvider
     {
 
-        protected override bool IsValidPath(string path)
-        {
-            return true;
-        }
-
         protected override Collection<PSDriveInfo> InitializeDefaultDrives()
         {
             PSDriveInfo drive = new PSDriveInfo("DRP", this.ProviderInfo, "", "", null);
@@ -29,11 +24,54 @@ namespace ADHDTech.DRP
 
         protected override bool ItemExists(string path)
         {
+            bool isContainer = false;
             return true;
+
+            DRPClient myDRPClient = new DRPClient(@"ws://localhost:8082/consumer");
+
+            while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
+            {
+                System.Threading.Thread.Sleep(100);
+            }
+
+            JObject returnedData = myDRPClient.SendDRPCmd("cliGetItem", ChunkPath(path));
+            JObject returnItem = (JObject)returnedData["item"];
+            if (returnItem["Type"].Value<string>() == "Array" || returnItem["Type"].Value<string>() == "Object")
+            {
+                isContainer = true;
+            }
+
+            myDRPClient.CloseSession();
+
+            return isContainer;
+        }
+
+        protected override bool IsValidPath(string path)
+        {
+            bool isValidPath = false;
+
+            DRPClient myDRPClient = new DRPClient(@"ws://localhost:8082/consumer");
+
+            while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
+            {
+                System.Threading.Thread.Sleep(100);
+            }
+
+            JObject returnedData = myDRPClient.SendDRPCmd("cliGetItem", ChunkPath(path));
+
+            if (returnedData["item"].Value<string>() != null)
+            {
+                isValidPath = true;
+            }
+
+            myDRPClient.CloseSession();
+
+            return isValidPath;
         }
 
         protected override bool IsItemContainer(string path)
         {
+
             return true;
         }
 
@@ -61,38 +99,71 @@ namespace ADHDTech.DRP
                 newTable.Columns.Add(newColumn);
             }
 
-            // Create a new DataTable titled 'Names.'
-
-
-            // Add three column objects to the table.
-
-            /*
-            DataColumn fNameColumn = new DataColumn();
-            fNameColumn.DataType = System.Type.GetType("System.String");
-            fNameColumn.ColumnName = "Fname";
-            fNameColumn.DefaultValue = "Fname";
-            namesTable.Columns.Add(fNameColumn);
-
-            DataColumn lNameColumn = new DataColumn();
-            lNameColumn.DataType = System.Type.GetType("System.String");
-            lNameColumn.ColumnName = "LName";
-            namesTable.Columns.Add(lNameColumn);
-
-            // Create an array for DataColumn objects.
-            DataColumn[] keys = new DataColumn[1];
-            keys[0] = idColumn;
-            namesTable.PrimaryKey = keys;
-            */
-            // Return the new DataTable.
             return newTable;
         }
 
-        /*
+        
         protected override void GetItem(string path)
         {
-            base.GetItem(path);
-        }
+            DRPClient myDRPClient = new DRPClient(@"ws://localhost:8082/consumer");
+            //rSageHiveClient myHiveClient = new rSageHiveClient(@"wss://rsage.autozone.com/vdm");
+            while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
+            {
+                System.Threading.Thread.Sleep(100);
+            }
 
+            //Console.WriteLine("Connected to DRP Broker!");
+
+            JObject returnedData = myDRPClient.SendDRPCmd("cliGetItem", ChunkPath(path));
+
+            // Return base Objects
+            /*
+            DataTable returnTable = null;
+
+            foreach (JObject objData in (JArray)returnedData["item"])
+            {
+                var fields = new List<Field>();
+
+                // Create table if null
+                if (returnTable == null)
+                {
+                    returnTable = ReturnTable(objData);
+                }
+
+                DataRow newRow = returnTable.NewRow();
+                foreach (JProperty thisProperty in objData.Properties())
+                {
+                    newRow.SetField(thisProperty.Name, thisProperty.Value.ToString());
+                }
+                returnTable.Rows.Add(newRow);
+            }
+            */
+
+            
+            if (returnedData["item"] != null)
+            {
+                object returnObj;
+                string itemType = returnedData["item"].GetType().ToString();
+                if (itemType.Equals("Newtonsoft.Json.Linq.JValue"))
+                {
+                    returnObj = returnedData["item"].Value<string>();
+                }
+                else
+                {
+                    returnObj = returnedData["item"];
+                }
+                if (returnObj != null) {
+                    WriteItemObject(returnObj, this.ProviderInfo + "::" + path, false);
+                } else {
+                    Console.WriteLine("Returned value is null!");
+                }
+            }
+            
+            //WriteItemObject(returnedData, this.ProviderInfo + "::" + path, true);
+
+            myDRPClient.CloseSession();
+        }
+        /*
         protected override void SetItem(string path, object value)
         {
             base.SetItem(path, value);
@@ -109,8 +180,8 @@ namespace ADHDTech.DRP
             }
 
             //Console.WriteLine("Connected to DRP Broker!");
-
-            JObject returnedData = myDRPClient.SendDRPCmd("cliGetPath", ChunkPath(path));
+            string[] chunkedPath = ChunkPath(path);
+            JObject returnedData = myDRPClient.SendDRPCmd("cliGetPath", chunkedPath);
 
             // Return base Objects
             DataTable returnTable = null;
@@ -137,17 +208,14 @@ namespace ADHDTech.DRP
             {
                 WriteItemObject(returnTable, this.ProviderInfo + "::" + path, true);
             }
-            //WriteItemObject("Hello", "Hello", true);
 
             myDRPClient.CloseSession();
         }
 
-        private static Dictionary<string, DRPBaseObject> _CortexDict = new Dictionary<string, DRPBaseObject>
+        protected override string NormalizeRelativePath(string path, string basePath)
         {
-            {"Objects", new DRPBaseObject("Objects","Aggregated Objects",5) },
-            {"Managers", new DRPBaseObject("Managers","Object Managers",5) },
-            {"Hive", new DRPBaseObject("Hive","Hive Data",5) }
-        };
+            return base.NormalizeRelativePath(path, basePath);
+        }
 
         private string NormalizePath(string path)
         {
@@ -155,7 +223,7 @@ namespace ADHDTech.DRP
 
             if (!String.IsNullOrEmpty(path))
             {
-                result = path.Replace("/", pathSeparator);
+                //result = path.Replace("/", pathSeparator);
             }
 
             return result;
@@ -168,10 +236,10 @@ namespace ADHDTech.DRP
 
             // Return the path with the drive name and first path 
             // separator character removed, split by the path separator.
-            string pathNoDrive = normalPath.Replace(this.PSDriveInfo.Root
-                                           + pathSeparator, "");
-
-            if (pathNoDrive.Length == 0)
+            //string pathNoDrive = normalPath.Replace(this.PSDriveInfo.Root
+            //                               + pathSeparator, "");
+            normalPath = normalPath.TrimEnd(pathSeparator.ToCharArray());
+            if (normalPath.Length == 0)
             {
                 return new string[] { };
             }
@@ -186,18 +254,5 @@ namespace ADHDTech.DRP
 
         private string pathSeparator = "\\";
 
-    }
-
-    class DRPBaseObject
-    {
-        public string Name;
-        public string Type;
-        public int ChildItemCount;
-        public DRPBaseObject(string newName, string newType, int newCount)
-        {
-            Name = newName;
-            Type = newType;
-            ChildItemCount = newCount;
-        }
     }
 }

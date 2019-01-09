@@ -57,6 +57,55 @@ class DRPBroker {
 
     RegisterConsumer(params, wsConn, token) {
     }
+
+    GetPath(pathList) {
+        let currentPathObj = this.ProviderDeclarations;
+        for (let i = 0; i < pathList.length; i++) {
+            if (currentPathObj.hasOwnProperty(pathList[i]) && typeof currentPathObj[pathList[i]] === 'object') {
+                currentPathObj = currentPathObj[pathList[i]];
+            } else {
+                return { "pathItems": [] };
+            }
+        }
+        let pathObjList = [];
+        let objKeys = Object.keys(currentPathObj);
+        for (let i = 0; i < objKeys.length; i++) {
+            let returnVal;
+            //let attrType = typeof currentPathObj[objKeys[i]];
+            let childAttrObj= currentPathObj[objKeys[i]];
+            let attrType = Object.prototype.toString.call(childAttrObj).match(/^\[object (.*)\]$/)[1];
+
+            switch(attrType) {
+                case "Object":
+                    returnVal = Object.keys(childAttrObj).length;
+                    break;
+                case "Array":
+                    returnVal = childAttrObj.length;
+                    break;
+                default:
+                    returnVal = currentPathObj[objKeys[i]];
+            }
+            pathObjList.push({
+                "Name": objKeys[i],
+                "Type": attrType,
+                "Value": returnVal
+            });
+        }
+        return { "pathItems": pathObjList };
+    }
+
+    GetItem(pathList) {
+        let currentPathObj = this.ProviderDeclarations;
+        for (let i = 0; i < pathList.length; i++) {
+            if (currentPathObj.hasOwnProperty(pathList[i])) {
+                currentPathObj = currentPathObj[pathList[i]];
+            } else {
+                return { "item": null };
+            }
+        }
+        
+        return { "item": currentPathObj };
+    }
 }
 
 class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
@@ -74,19 +123,14 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
         // Register Endpoint commands
         // (methods should return output and optionally accept [params, wsConn, token] for streaming)
         this.RegisterCmd("register", function (params, wsConn, token) {
-            return broker.RegisterConsumer(params, wsConn);
+            return broker.RegisterConsumer(params, wsConn, token);
         });
         this.RegisterCmd("subscribe", "Subscribe");
         this.RegisterCmd("cliGetPath", function (params, wsConn, token) {
-            //console.log("Client sent cliGetPath...");
-            //console.dir(params);
-            return {
-                pathItems: [
-                    { "Name": "Bob", "Size": "1234" },
-                    { "Name": "Ted", "Size": "2345" },
-                    { "Name": "Phil", "Size": "3456" }
-                ]
-            };
+            return broker.GetPath(params, wsConn, token);
+        });
+        this.RegisterCmd("cliGetItem", function (params, wsConn, token) {
+            return broker.GetItem(params, wsConn, token);
         });
 
         this.Consumers = [];
@@ -154,7 +198,8 @@ class DRPBroker_RegistryClient extends drpEndpoint.Client {
 
         response = await this.SendCmd(this.wsConn, "getDeclarations", null, true, null);
 
-        console.dir(response, { depth: 10 });
+        this.Broker.ProviderDeclarations = response.payload;
+        //console.dir(response, { depth: 10 });
     }
 
     async CloseHandler(wsConn, closeCode) {
@@ -168,10 +213,12 @@ class DRPBroker_RegistryClient extends drpEndpoint.Client {
     // Define Endpoints commands
     async RegisterProvider(declaration) {
         console.log("Registering provider [" + declaration.ProviderID + "]");
+        this.Broker.ProviderDeclarations[declaration.ProviderID] = declaration;
     }
 
     async UnregisterProvider(providerID) {
         console.log("Unregistering provider [" + providerID + "]");
+        delete this.Broker.ProviderDeclarations[providerID]
     }
 }
 
