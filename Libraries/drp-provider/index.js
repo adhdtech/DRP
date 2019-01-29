@@ -9,8 +9,17 @@ var os = require("os");
 //var WebSocket = require('ws');
 var drpEndpoint = require('drp-endpoint');
 
+class ProviderDeclaration extends drpEndpoint.ProviderDeclaration {
+    constructor(...args) { super(...args); }
+}
+
 class DRPProvider {
-    constructor(port, registryProviderURL) {
+    /**
+    * @param {string} port TCP Listening Port
+    * @param {ProviderDeclaration} providerDeclaration Provider Declaration
+    * @param {string} registryProviderURL Registry URL
+    */
+    constructor(port, providerDeclaration, registryProviderURL) {
 
         let thisDRPProvider = this;
 
@@ -18,38 +27,16 @@ class DRPProvider {
 
         this.StartWebServer(port);
 
-        this.ProviderDeclaration = {
-            ProviderID: "Provider-1",
-            ProviderURL: "ws://localhost:8081/broker",
-            Classes: {
-                "Person": {
-                    "Attributes": {
-                        "FirstName": "string(128)",
-                        "LastName": "string(128)",
-                        "EmployeeNumber": "string(128)[PK]<employeeNumber>"
-                    },
-                    "Methods": {}
-                },
-                "FakeData": {
-                    "Attributes": {
-                        "SomeValue": "int"
-                    },
-                    "Methods": {}
-                }
-            },
-            Structure: {
-                "People": "Person"
-            },
-            Streams: {
-                "dummy": { Class: "FakeData" }
-            },
-            SomeList: ['a','b','c']
-        };
+        this.ProviderDeclaration = providerDeclaration;
 
         this.RegistryConnections = {};
         this.BrokerConnections = {};
 
+        // Create BrokerRoute
         this.BrokerRouteHandler = new DRPProvider_BrokerRoute(this, '/broker');
+
+        // Create topic manager, assign to BrokerRoute
+        this.TopicManager = new drpEndpoint.TopicManager(this.BrokerRouteHandler);
 
         // Initiate Registry Connection
         let myClient = new DRPProvider_RegistryClient(this, registryProviderURL);
@@ -83,6 +70,14 @@ class DRPProvider {
 
     RegisterBroker(params, wsConn, token) {
     }
+
+    Subscribe(params, wsConn, token) {
+        this.TopicManager.SubscribeToTopic(params.topicName, wsConn, token, params.filter);
+    }
+
+    Unsubscribe(params, wsConn, token) {
+        this.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, token, params.filter);
+    }
 }
 
 class DRPProvider_BrokerRoute extends drpEndpoint.Server {
@@ -96,12 +91,18 @@ class DRPProvider_BrokerRoute extends drpEndpoint.Server {
         super(provider.expressApp, route);
 
         let thisProviderRoute = this;
+        this.Provider = provider;
 
         // Register Endpoint commands
         // (methods should return output and optionally accept [params, wsConn, token] for streaming)
+        this.RegisterCmd("register", "Register");
+        this.RegisterCmd("subscribe", "Subscribe");
+        this.RegisterCmd("unsubscribe", "Unsubscribe");
+        /*
         this.RegisterCmd("register", function (params, wsConn, token) {
             return provider.RegisterBroker(params, wsConn);
         })
+        */
     }
 
     // Define handlers
@@ -115,6 +116,21 @@ class DRPProvider_BrokerRoute extends drpEndpoint.Server {
 
     async ErrorHandler(wsConn, error) {
         console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
+    }
+
+    // Define Endpoints commands
+    async Register(params, wsConn, token) {
+        return this.Provider.RegisterBroker(params, wsConn, token);
+    }
+
+    // Subscribe to data stream
+    async Subscribe(params, wsConn, token) {
+        return this.Provider.Subscribe(params, wsConn, token);
+    }
+
+    // Unsubscribe from data stream
+    async Unsubscribe(params, wsConn, token) {
+        return this.Provider.Unsubscribe(params, wsConn, token);
     }
 }
 

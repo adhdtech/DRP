@@ -9,6 +9,10 @@ var os = require("os");
 //var WebSocket = require('ws');
 var drpEndpoint = require('drp-endpoint');
 
+class ProviderDeclaration extends drpEndpoint.ProviderDeclaration {
+    constructor(...args) { super(...args); }
+}
+
 class DRPRegistry {
     constructor(port) {
 
@@ -173,6 +177,9 @@ class DRPRegistry_BrokerRoute extends drpEndpoint.Server {
         return this.Registry.RegisterBroker(params, wsConn, token);
     }
 
+    /**
+    * @returns {{providerID:ProviderDeclaration}} Provider Declarations
+    */
     async GetDeclarations() {
         return this.Registry.ProviderDeclarations;
     }

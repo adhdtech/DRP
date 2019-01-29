@@ -9,6 +9,10 @@ var os = require("os");
 //var WebSocket = require('ws');
 var drpEndpoint = require('drp-endpoint');
 
+class ProviderDeclaration extends drpEndpoint.ProviderDeclaration {
+    constructor(...args) { super(...args); }
+}
+
 class DRPBroker {
     constructor(port, registryBrokerURL) {
 
@@ -18,11 +22,20 @@ class DRPBroker {
 
         this.StartWebServer(port);
 
+        /**
+         * @type {{string: ProviderDeclaration}} ProviderDeclarations
+         * */
         this.ProviderDeclarations = {};
 
         this.ProviderConnections = {};
         this.RegistryConnections = {};
         this.ConsumerConnections = {};
+
+        this.ClientBase = {
+            "Registry": function () {}, //this.ProviderDeclarations,
+            "Providers": function() {}, // Implements structure from Declarations, relies on connections to each provider
+            "Loggers": function() {} // Need to add mechanism to define loggers in the registry; they are special case brokers
+        }
 
         this.ConsumerRouteHandler = new DRPBroker_ConsumerRoute(this, '/consumer');
 
@@ -59,6 +72,12 @@ class DRPBroker {
     }
 
     GetPath(pathList) {
+        /*
+         * Currently this is based on a static struct; need to make it dynamic.
+         * If the client requests access to actual objects on a provider, we
+         * need to establish a connection to the provider (if not already) and
+         * send a command to retrieve the objects
+         */ 
         let currentPathObj = this.ProviderDeclarations;
         for (let i = 0; i < pathList.length; i++) {
             if (currentPathObj.hasOwnProperty(pathList[i]) && typeof currentPathObj[pathList[i]] === 'object') {
@@ -118,6 +137,7 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
         // Initialize server
         super(broker.expressApp, route);
 
+        this.Broker = broker;
         let thisBrokerRoute = this;
 
         // Register Endpoint commands
@@ -133,9 +153,10 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
             return broker.GetItem(params, wsConn, token);
         });
 
-        this.Consumers = [];
-        this.DummyCounter = 0;
+        //this.Consumers = [];
+        //this.DummyCounter = 0;
 
+        /*
         setInterval(function () {
             thisBrokerRoute.DummyCounter++;
             let i = thisBrokerRoute.Consumers.length;
@@ -148,7 +169,7 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
                 }
             }
         }, 3000);
-
+        */
     }
 
     // Define Handlers
@@ -165,17 +186,48 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
     }
 
     // Define Endpoints commands
-    Subscribe(params, wsConn, token) {
-        this.Consumers.push({ "wsConn": wsConn, "token": params });
-        console.log("Consumer client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] subscribed on token[" + token + "] with params[" + params + "]");
+    async Subscribe(params, wsConn, token) {
+        let thisConsumerRoute = this;
+        // Find anyone who provides this data and subscribe on the consumer's behalf
+        let providerIDList = Object.keys(this.Broker.ProviderDeclarations);
+        for (let i = 0; i < providerIDList.length; i++) {
+            let providerID = providerIDList[i];
+            let thisProviderDeclaration = this.Broker.ProviderDeclarations[providerID];
+            if (thisProviderDeclaration.Streams && thisProviderDeclaration.Streams[params.topicName]) {
+                // This provider offers the desired stream
+                /**
+                * @type {DRPBroker_ProviderClient} thisProviderClient DRPBroker_ProviderClient
+                */
+                let thisProviderClient = this.Broker.ProviderConnections[providerID];
+
+                // Establish a wsConn client if not already established
+                if (!thisProviderClient) {
+                    thisProviderClient = new DRPBroker_ProviderClient(this.Broker, thisProviderDeclaration.ProviderURL);
+                    this.Broker.ProviderConnections[providerID] = thisProviderClient;
+                    // Wait a few seconds for connection to initiate; need to add checks in here...
+                    await sleep(2000);
+                }
+
+                // Subscribe on behalf of the Consumer
+                thisProviderClient.SendCmd(thisProviderClient.wsConn, "subscribe", { "topicName": params.topicName }, false, function(payload) {
+                    thisConsumerRoute.SendResponse(wsConn, token, 2, payload);
+                });
+            }
+        }
     }
 
+}
+
+function sleep(ms) {
+    return new Promise(resolve => {
+        setTimeout(resolve, ms)
+    })
 }
 
 class DRPBroker_RegistryClient extends drpEndpoint.Client {
     /**
     * @param {DRPBroker} broker DRPBroker
-    * @param {string} wsTarget WS target
+    * @param {string} wsTarget Registry WS target
     */
     constructor(broker, wsTarget) {
         super(wsTarget);
@@ -200,6 +252,9 @@ class DRPBroker_RegistryClient extends drpEndpoint.Client {
 
         this.Broker.ProviderDeclarations = response.payload;
         //console.dir(response, { depth: 10 });
+
+        // TODO - Iterate over provider declarations and build tree for data lookups
+        // OR - Do it on the fly
     }
 
     async CloseHandler(wsConn, closeCode) {
@@ -219,6 +274,39 @@ class DRPBroker_RegistryClient extends drpEndpoint.Client {
     async UnregisterProvider(providerID) {
         console.log("Unregistering provider [" + providerID + "]");
         delete this.Broker.ProviderDeclarations[providerID]
+    }
+}
+
+class DRPBroker_ProviderClient extends drpEndpoint.Client {
+    /**
+    * @param {DRPBroker} broker DRPBroker
+    * @param {string} wsTarget Provider WS target
+    */
+    constructor(broker, wsTarget) {
+        super(wsTarget);
+        this.Broker = broker;
+
+        // Register Endpoint commands
+        // (methods should return output and optionally accept [params, wsConn, token] for streaming)
+    }
+
+    // Define Handlers
+    async OpenHandler(wsConn, req) {
+        console.log("Broker to Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
+
+        let response = await this.SendCmd(this.wsConn, "getCmds", null, true, null);
+        //console.dir(response, { "depth": 10 });
+
+        response = await this.SendCmd(this.wsConn, "register", "Broker-1", true, null);
+
+    }
+
+    async CloseHandler(wsConn, closeCode) {
+        //console.log("Broker to Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
+    }
+
+    async ErrorHandler(wsConn, error) {
+        console.log("Broker to Provider client encountered error [" + error + "]");
     }
 }
 
