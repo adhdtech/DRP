@@ -8,24 +8,38 @@ class DRP_Endpoint {
     }
 
     GetToken(wsConn) {
-        if (typeof (wsConn.ReturnCmdQueue) === "undefined") {
-            wsConn.ReturnCmdQueue = {};
-            wsConn.TokenNum = 0;
+        if (! wsConn.TokenNum) {
+            wsConn.ReplyHandlerQueue = {};
+            wsConn.StreamHandlerQueue = {};
+            wsConn.TokenNum = 1;
         }
         let replyToken = wsConn.TokenNum;
         wsConn.TokenNum++;
         return replyToken;
     }
 
-    AddCmdHandler(wsConn, callback) {
+    AddReplyHandler(wsConn, callback) {
         let token = this.GetToken(wsConn);
-        wsConn.ReturnCmdQueue[token] = callback;
+        wsConn.ReplyHandlerQueue[token] = callback;
         return token;
     }
 
-    DeleteCmdHandler(wsConn, token) {
+    DeleteReplyHandler(wsConn, token) {
+        delete wsConn.ReplyHandlerQueue[token];
+    }
+
+    AddStreamHandler(wsConn, callback) {
         let streamToken = this.GetToken(wsConn);
-        delete wsConn.ReturnCmdQueue[token];
+        wsConn.StreamHandlerQueue[streamToken] = callback;
+        return streamToken;
+    }
+
+    DeleteStreamHandler(wsConn, streamToken) {
+        if (wsConn && wsConn.StreamHandlerQueue) {
+            delete wsConn.StreamHandlerQueue[streamToken];
+        } else {
+            console.log("ERROR: Could not delete streamToken[" + streamToken + "]");
+        }
     }
 
     RegisterCmd(cmd, method) {
@@ -49,29 +63,42 @@ class DRP_Endpoint {
 
         if (promisify) {
             // We expect a response, using await; add 'resolve' to queue
-            returnVal = new Promise(function (resolve, reject) {
-                replyToken = thisEndpoint.GetToken(wsConn);
-                wsConn.ReturnCmdQueue[replyToken] = function (message) {
+            returnVal = new Promise(function(resolve, reject) {
+                replyToken = thisEndpoint.AddReplyHandler(wsConn, function(message) {
                     resolve(message);
-                };
+                });
             });
         } else if (typeof callback === 'function') {
             // We expect a response, using callback; add callback to queue
-            replyToken = thisEndpoint.GetToken(wsConn);
-            wsConn.ReturnCmdQueue[replyToken] = callback;
+            replyToken = thisEndpoint.AddReplyHandler(wsConn, callback);
+            //replyToken = thisEndpoint.GetToken(wsConn);
+            //wsConn.ReturnCmdQueue[replyToken] = callback;
         } else {
             // We don't expect a response; leave replyToken null
         }
 
         let sendCmd = new DRP_Cmd(cmd, params, replyToken);
         wsConn.send(JSON.stringify(sendCmd));
-
+        console.log("SEND -> " + JSON.stringify(sendCmd));
         return returnVal;
     }
 
-    SendResponse(wsConn, token, status, payload) {
+    SendReply(wsConn, token, status, payload) {
         if (wsConn.readyState === WebSocket.OPEN) {
-            wsConn.send(JSON.stringify(new DRP_Response(token, status, payload)));
+            let replyCmd = new DRP_Reply(token, status, payload);
+            wsConn.send(JSON.stringify(replyCmd));
+            console.log("SEND -> " + JSON.stringify(replyCmd));
+            return 0;
+        } else {
+            return 1;
+        }
+    }
+
+    SendStream(wsConn, token, status, payload) {
+        if (wsConn.readyState === WebSocket.OPEN) {
+            let streamCmd = new DRP_Stream(token, status, payload);
+            wsConn.send(JSON.stringify(streamCmd));
+            console.log("SEND -> " + JSON.stringify(streamCmd));
             return 0;
         } else {
             return 1;
@@ -102,25 +129,38 @@ class DRP_Endpoint {
 
         // Reply with results
         if (typeof (message.replytoken) !== "undefined" && message.replytoken !== null) {
-            thisEndpoint.SendResponse(wsConn, message.replytoken, cmdResults.status, cmdResults.output);
+            thisEndpoint.SendReply(wsConn, message.replytoken, cmdResults.status, cmdResults.output);
         }
     }
 
-    async ProcessResponse(wsConn, message) {
+    async ProcessReply(wsConn, message) {
         let thisEndpoint = this;
 
         //console.dir(message, {"depth": 10})
 
         // Yes - do we have the token?
-        if (wsConn.hasOwnProperty("ReturnCmdQueue") && wsConn.ReturnCmdQueue.hasOwnProperty(message.token)) {
+        if (wsConn.hasOwnProperty("ReplyHandlerQueue") && wsConn.ReplyHandlerQueue.hasOwnProperty(message.token)) {
 
             // We have the token - execute the reply callback
-            wsConn.ReturnCmdQueue[message.token](message);
+            wsConn.ReplyHandlerQueue[message.token](message);
 
-            // If complete, delete the entry
-            if (message.status < 2) {
-                //delete wsConn.ReturnCmdQueue[message.token];
-            }
+            delete wsConn.ReplyHandlerQueue[message.token];
+
+        } else {
+            // We do not have the token - tell the sender we do not honor this token
+        }
+    }
+
+    async ProcessStream(wsConn, message) {
+        let thisEndpoint = this;
+
+        //console.dir(message, {"depth": 10})
+
+        // Yes - do we have the token?
+        if (wsConn.hasOwnProperty("StreamHandlerQueue") && wsConn.StreamHandlerQueue.hasOwnProperty(message.token)) {
+
+            // We have the token - execute the reply callback
+            wsConn.StreamHandlerQueue[message.token](message);
 
         } else {
             // We do not have the token - tell the sender we do not honor this token
@@ -137,22 +177,20 @@ class DRP_Endpoint {
             wsConn.close();
             return;
         }
-        //console.log("RECV <- " + rawMessage);
+        console.log("RECV <- " + rawMessage);
 
-        // Is this a response?
-        if (typeof (message.token) !== "undefined" && message.token !== null && message.token !== "") {
-
-            // We have a response; try to process it
-            thisEndpoint.ProcessResponse(wsConn, message);
-
-        } else if (typeof (message.cmd) !== "undefined" && message.cmd !== null && message.cmd !== "") {
-
-            // We have a command; try to process it
-            thisEndpoint.ProcessCmd(wsConn, message);
-
-        } else {
-            console.log("No cmd or token; here's the JSON data..." + rawMessage);
-            //thisStoreBotClient.wsConn.send("Bad command.  Here's the JSON data..." + jsonMessage);
+        switch (message.type) {
+            case 'cmd':
+                thisEndpoint.ProcessCmd(wsConn, message);
+                break;
+            case 'reply':
+                thisEndpoint.ProcessReply(wsConn, message);
+                break;
+            case 'stream':
+                thisEndpoint.ProcessStream(wsConn, message);
+                break;
+            default:
+                console.log("Invalid message.type; here's the JSON data..." + rawMessage);
         }
     }
 
@@ -233,14 +271,25 @@ class DRP_Client extends DRP_Endpoint {
 
 class DRP_Cmd {
     constructor(cmd, params, replytoken) {
+        this.type = "cmd";
         this.cmd = cmd;
         this.params = params;
         this.replytoken = replytoken;
     }
 }
 
-class DRP_Response {
+class DRP_Reply {
     constructor(token, status, payload) {
+        this.type = "reply";
+        this.token = token;
+        this.status = status;
+        this.payload = payload;
+    }
+}
+
+class DRP_Stream {
+    constructor(token, status, payload) {
+        this.type = "stream";
         this.token = token;
         this.status = status;
         this.payload = payload;
@@ -369,7 +418,7 @@ class DRP_TopicManager_Topic {
         let i = thisTopic.Subscribers.length;
         while (i--) {
             let thisSubscriberObj = thisTopic.Subscribers[i];
-            let sendFailed = this.TopicManager.DRPEndpoint.SendResponse(thisSubscriberObj.conn, thisSubscriberObj.token, 2, message);
+            let sendFailed = this.TopicManager.DRPEndpoint.SendStream(thisSubscriberObj.conn, thisSubscriberObj.token, 2, message);
             if (sendFailed) {
                 thisTopic.Subscribers.splice(i, 1);
                 console.log("Subscription client[" + i + "] removed forcefully");

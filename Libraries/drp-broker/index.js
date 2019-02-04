@@ -162,7 +162,7 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
             let i = thisBrokerRoute.Consumers.length;
             while (i--) {
                 let thisSubscriber = thisBrokerRoute.Consumers[i];
-                let sendFailed = thisBrokerRoute.SendResponse(thisSubscriber.wsConn, thisSubscriber.token, 2, "DummyCounter=" + thisBrokerRoute.DummyCounter);
+                let sendFailed = thisBrokerRoute.SendStream(thisSubscriber.wsConn, thisSubscriber.token, 2, "DummyCounter=" + thisBrokerRoute.DummyCounter);
                 if (sendFailed) {
                     thisBrokerRoute.Consumers.splice(i, 1);
                     console.log("Broadcast client[" + i + "] removed");
@@ -188,6 +188,8 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
     // Define Endpoints commands
     async Subscribe(params, wsConn, token) {
         let thisConsumerRoute = this;
+        // Register the declaration for future reference
+
         // Find anyone who provides this data and subscribe on the consumer's behalf
         let providerIDList = Object.keys(this.Broker.ProviderDeclarations);
         for (let i = 0; i < providerIDList.length; i++) {
@@ -209,9 +211,22 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
                 }
 
                 // Subscribe on behalf of the Consumer
-                thisProviderClient.SendCmd(thisProviderClient.wsConn, "subscribe", { "topicName": params.topicName }, false, function(payload) {
-                    thisConsumerRoute.SendResponse(wsConn, token, 2, payload);
+                //let streamToken = thisConsumerRoute.GetToken(thisProviderClient.wsConn);
+                let streamToken = thisConsumerRoute.AddStreamHandler(thisProviderClient.wsConn, async function(response) {
+                    let sendFailed = thisConsumerRoute.SendStream(wsConn, params.streamToken, 2, response.payload);
+                    if (sendFailed) {
+                        // Client disconnected
+                        thisConsumerRoute.DeleteStreamHandler(wsConn, params.streamToken);
+                        console.log("Stream handler removed forcefully");
+                        let unsubResults = await thisConsumerRoute.SendCmd(thisProviderClient.wsConn, "unsubscribe", { "topicName": params.topicName, "streamToken": streamToken }, true, null);
+                        console.log("Unsubscribe results...");
+                        console.dir(unsubResults);
+                    }
                 });
+
+                // Await for command from provider
+                let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "subscribe", { "topicName": params.topicName, "streamToken": streamToken }, true, null);
+                return results;
             }
         }
     }
@@ -273,7 +288,7 @@ class DRPBroker_RegistryClient extends drpEndpoint.Client {
 
     async UnregisterProvider(providerID) {
         console.log("Unregistering provider [" + providerID + "]");
-        delete this.Broker.ProviderDeclarations[providerID]
+        delete this.Broker.ProviderDeclarations[providerID];
     }
 }
 

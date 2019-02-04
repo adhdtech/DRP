@@ -42,11 +42,23 @@ let providerDeclaration =
         },
         Streams: {
             "dummy": { Class: "FakeData" }
-        },
-        SomeList: ['a', 'b', 'c']
+        }
     };
 
 let myProvider = new drpProvider(port, providerDeclaration, "http://localhost:8080/provider");
+
+myProvider.BrokerRouteHandler.RegisterCmd("query", function(path, parameters) {
+    // Query logic
+    let results = null;
+    return results;
+});
+
+myProvider.BrokerRouteHandler.RegisterCmd("execute", function(path, parameters) {
+    // Execute logic
+    let results = null;
+    // See if object has method; if so, execute
+    return results;
+});
 
 // Start sending to dummy topic
 setInterval(function () {

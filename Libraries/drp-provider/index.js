@@ -72,11 +72,11 @@ class DRPProvider {
     }
 
     Subscribe(params, wsConn, token) {
-        this.TopicManager.SubscribeToTopic(params.topicName, wsConn, token, params.filter);
+        this.TopicManager.SubscribeToTopic(params.topicName, wsConn, params.streamToken, params.filter);
     }
 
     Unsubscribe(params, wsConn, token) {
-        this.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, token, params.filter);
+        this.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, params.streamToken, params.filter);
     }
 }
 

@@ -63,6 +63,8 @@ class DRPRegistry {
             this.ProviderConnections[declaration.ProviderID] = wsConn;
             this.ProviderDeclarations[declaration.ProviderID] = declaration;
             this.RelayProviderChange("registerProvider", declaration);
+            console.log("Provider registered...");
+            console.dir(declaration);
             return "OKAY";
         } else return "NO PROVIDER ID";
     }

@@ -7,12 +7,13 @@ class DRPConsumer_BrokerClient extends drpEndpoint.Client {
     }
 
     async OpenHandler(wsConn, req) {
+        let thisBrokerClient = this;
         console.log("Consumer to Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
 
         let response = await this.SendCmd(this.wsConn, "getCmds", null, true, null);
         //console.dir(response, { "depth": 10 });
 
-        let streamToken = this.AddCmdHandler(this.wsConn, function (message) {
+        let streamToken = this.AddStreamHandler(this.wsConn, function (message) {
             console.log(" STREAM -> " + message.payload);
         });
 
