@@ -29,7 +29,7 @@ class DRPProvider {
 
         this.ProviderDeclaration = providerDeclaration;
 
-        this.RegistryConnections = {};
+        //this.RegistryConnections = {};
         this.BrokerConnections = {};
 
         // Create BrokerRoute
@@ -39,7 +39,7 @@ class DRPProvider {
         this.TopicManager = new drpEndpoint.TopicManager(this.BrokerRouteHandler);
 
         // Initiate Registry Connection
-        let myClient = new DRPProvider_RegistryClient(this, registryProviderURL);
+        this.RegistryClient = new DRPProvider_RegistryClient(this, registryProviderURL);
 
     }
 
@@ -78,6 +78,105 @@ class DRPProvider {
     Unsubscribe(params, wsConn, token) {
         this.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, params.streamToken, params.filter);
     }
+
+    GetBaseObj() {
+        return this;
+    }
+
+    ListObjChildren(oTargetObject) {
+        // Return only child keys and data types
+        let pathObjList = [];
+        let objKeys = Object.keys(oTargetObject);
+        for (let i = 0; i < objKeys.length; i++) {
+            let returnVal;
+            //let attrType = typeof currentPathObj[objKeys[i]];
+            let childAttrObj = oTargetObject[objKeys[i]];
+            let attrType = Object.prototype.toString.call(childAttrObj).match(/^\[object (.*)\]$/)[1];
+
+            switch (attrType) {
+                case "Object":
+                    returnVal = Object.keys(childAttrObj).length;
+                    break;
+                case "Array":
+                    returnVal = childAttrObj.length;
+                    break;
+                case "Function":
+                    returnVal = null;
+                    break;
+                default:
+                    returnVal = childAttrObj;
+            }
+            pathObjList.push({
+                "Name": objKeys[i],
+                "Type": attrType,
+                "Value": returnVal
+            });
+        }
+
+        return { "pathItems": pathObjList }
+    }
+
+    /**
+    * @param {Array.<string>} aChildPathArray Remaining path
+    * @param {Boolean} bReturnChildList Flag to return list of children
+    */
+    async GetObjFromPath(aChildPathArray, bReturnChildList) {
+
+        // Initial object
+        let oCurrentObject = this.GetBaseObj();
+
+        // Return object
+        let oReturnObject = null;
+
+        // Do we have a path array?
+        if (aChildPathArray.length == 0) {
+            // No - act on parent object
+            oReturnObject = oCurrentObject;
+        } else {
+            // Yes - get child
+            PathLoop:
+            for (let i = 0; i < aChildPathArray.length; i++) {
+
+                // Does the child exist?
+                if (oCurrentObject.hasOwnProperty(aChildPathArray[i])) {
+
+                    // See what we're dealing with
+                    switch (typeof oCurrentObject[aChildPathArray[i]]) {
+                        case 'object':
+                            // Set current object
+                            oCurrentObject = oCurrentObject[aChildPathArray[i]];
+                            if (i + 1 == aChildPathArray.length) {
+                                // Last one - make this the return object
+                                oReturnObject = oCurrentObject;
+                            }
+                            break;
+                        case 'function':
+                            // Send the rest of the path to a function
+                            let oResults = await oCurrentObject[aChildPathArray[i]](aChildPathArray.splice(i + 1));
+                            if (typeof oResults == 'object') {
+                                oReturnObject = oResults;
+                            }
+                            break PathLoop;
+                        default:
+                            break PathLoop;
+                    }
+
+                } else {
+                    // Child doesn't exist
+                    break PathLoop;
+                }
+            }
+        }
+
+        // If we have a return object and want only a list of children, do that now
+        if (oReturnObject && typeof oReturnObject == 'object' && bReturnChildList) {
+
+            // Return only child keys and data types
+            oReturnObject = this.ListObjChildren(oReturnObject);
+        }
+
+        return oReturnObject;
+    }
 }
 
 class DRPProvider_BrokerRoute extends drpEndpoint.Server {
@@ -98,6 +197,10 @@ class DRPProvider_BrokerRoute extends drpEndpoint.Server {
         this.RegisterCmd("register", "Register");
         this.RegisterCmd("subscribe", "Subscribe");
         this.RegisterCmd("unsubscribe", "Unsubscribe");
+        this.RegisterCmd("cliGetPath", async function (params, wsConn, token) {
+            let results = await provider.GetObjFromPath(params, true)
+            return results;
+        });
         /*
         this.RegisterCmd("register", function (params, wsConn, token) {
             return provider.RegisterBroker(params, wsConn);
@@ -158,7 +261,7 @@ class DRPProvider_RegistryClient extends drpEndpoint.Client {
     }
 
     async CloseHandler(wsConn, closeCode) {
-        //console.log("Broker to Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
+        console.log("Broker to Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
     }
 
     async ErrorHandler(wsConn, error) {

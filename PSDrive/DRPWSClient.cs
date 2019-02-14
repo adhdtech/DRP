@@ -121,13 +121,13 @@ namespace ADHDTech.DRP
             ClientWSConn.Send(Newtonsoft.Json.JsonConvert.SerializeObject(sendCmd));
         }
 
-        // Send VDMAppCmd and wait for results
+        // Send DRP Cmd and wait for results
         public JObject SendDRPCmd(string cmd, object @params)
         {
             // Define return object
             JObject returnObject = null;
 
-            // Define task
+            // Define task dummy task to await return
             Task<object> ReturnDataTask = new Task<object>(() => {
                 return null;
             });
@@ -138,8 +138,13 @@ namespace ADHDTech.DRP
             };
 
             SendDRPCmd(cmd, @params, data => {
-                JObject returnData = (JObject)data;
-                returnObject = returnData;
+                try
+                {
+                    JObject returnData = (JObject)data;
+                    returnObject = returnData;
+                } catch (Exception ex) {
+                    Console.Error.WriteLine("Error converting message to JObject: " + ex.Message + "\r\n<<<" + data + ">>>");
+                }
                 returnAction.Invoke();
             });
 
@@ -153,12 +158,14 @@ namespace ADHDTech.DRP
 
     public class DRP_Cmd
     {
+        public string type;
         public string cmd;
         public object @params;
         public string replytoken;
 
         public DRP_Cmd(string cmdName, string cmdToken, object sendData)
         {
+            type = "cmd";
             cmd = cmdName;
             @params = sendData;
             replytoken = cmdToken;

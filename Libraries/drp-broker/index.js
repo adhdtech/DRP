@@ -31,12 +31,6 @@ class DRPBroker {
         this.RegistryConnections = {};
         this.ConsumerConnections = {};
 
-        this.ClientBase = {
-            "Registry": function () {}, //this.ProviderDeclarations,
-            "Providers": function() {}, // Implements structure from Declarations, relies on connections to each provider
-            "Loggers": function() {} // Need to add mechanism to define loggers in the registry; they are special case brokers
-        }
-
         this.ConsumerRouteHandler = new DRPBroker_ConsumerRoute(this, '/consumer');
 
         // Initiate Registry Connection
@@ -71,13 +65,188 @@ class DRPBroker {
     RegisterConsumer(params, wsConn, token) {
     }
 
+    async VerifyProviderConnection(providerID) {
+
+        let thisBroker = this;
+
+        let thisProviderDeclaration = this.ProviderDeclarations[providerID];
+
+        let thisProviderClient = this.ProviderConnections[providerID];
+
+        // Establish a wsConn client if not already established
+        if (!thisProviderClient || thisProviderClient.wsConn.readyState != 1) {
+            thisProviderClient = new DRPBroker_ProviderClient(this, thisProviderDeclaration.ProviderURL);
+            this.ProviderConnections[providerID] = thisProviderClient;
+
+            // Wait a few seconds for connection to initiate; need to add checks in here...
+            for (let i = 0; i < 50; i++) {
+
+                // Are we still trying?
+                if (!thisProviderClient.wsConn.readyState) {
+                    // Yes - wait
+                    await sleep(100);
+                } else {
+                    // No - break the for loop
+                    break;
+                }
+            }
+
+            // If no good connection, return false
+            if (thisProviderClient.wsConn.readyState != 1) {
+                thisProviderClient = null;
+                delete this.ProviderConnections[providerID];
+            }
+        }
+
+        return thisProviderClient;
+    }
+
+    GetBaseObj() {
+        let myBroker = this;
+        let myRegistry = this.ProviderDeclarations;
+        return {
+            "Broker": myBroker,
+            "Registry": myBroker.ProviderDeclarations,
+            "Providers": async function (remainingChildPath) {
+                let oReturnObject = null;
+                if (remainingChildPath && remainingChildPath.length > 0) {
+
+                    let providerID = remainingChildPath.shift();
+
+                    // Need to send command to provider with remaining tree data
+                    //let oResults = await oCurrentObject[aChildPathArray[i]](aChildPathArray.splice(i + 1));
+                    //if (typeof oResults == 'object') {
+                    //    oReturnObject = oResults;
+                    //}
+
+                    let thisProviderClient = await myBroker.VerifyProviderConnection(providerID);
+
+                    // Await for command from provider
+                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "cliGetPath", remainingChildPath, true, null);
+                    if (results && results.payload && results.payload) {
+                        oReturnObject = results.payload;
+                    }
+
+                } else {
+                    // Return list of providers
+                    oReturnObject = {};
+                    let aProviderKeys = Object.keys(myRegistry);
+                    for (let i = 0; i < aProviderKeys.length; i++) {
+                        oReturnObject[aProviderKeys[i]] = {
+                            "ProviderType": "SomeType1",
+                            "Status": "Unknown"
+                        };
+                    }
+                }
+                return oReturnObject;
+            }
+        }
+    }
+
+    ListObjChildren(oTargetObject) {
+        // Return only child keys and data types
+        let pathObjList = [];
+        let objKeys = Object.keys(oTargetObject);
+        for (let i = 0; i < objKeys.length; i++) {
+            let returnVal;
+            //let attrType = typeof currentPathObj[objKeys[i]];
+            let childAttrObj = oTargetObject[objKeys[i]];
+            let attrType = Object.prototype.toString.call(childAttrObj).match(/^\[object (.*)\]$/)[1];
+
+            switch (attrType) {
+                case "Object":
+                    returnVal = Object.keys(childAttrObj).length;
+                    break;
+                case "Array":
+                    returnVal = childAttrObj.length;
+                    break;
+                case "Function":
+                    returnVal = null;
+                    break;
+                default:
+                    returnVal = childAttrObj;
+            }
+            pathObjList.push({
+                "Name": objKeys[i],
+                "Type": attrType,
+                "Value": returnVal
+            });
+        }
+
+        return { "pathItems": pathObjList }
+    }
+
+    /**
+    * @param {Array.<string>} aChildPathArray Remaining path
+    * @param {Boolean} bReturnChildList Flag to return list of children
+    */
+    async GetObjFromPath(aChildPathArray, bReturnChildList) {
+
+        // Initial object
+        let oCurrentObject = this.GetBaseObj();
+
+        // Return object
+        let oReturnObject = null;
+
+        // Do we have a path array?
+        if (aChildPathArray.length == 0) {
+            // No - act on parent object
+            oReturnObject = oCurrentObject;
+        } else {
+            // Yes - get child
+            PathLoop:
+            for (let i = 0; i < aChildPathArray.length; i++) {
+
+                // Does the child exist?
+                if (oCurrentObject.hasOwnProperty(aChildPathArray[i])) {
+
+                    // See what we're dealing with
+                    let objectType = typeof oCurrentObject[aChildPathArray[i]];
+                    switch (typeof oCurrentObject[aChildPathArray[i]]) {
+                        case 'object':
+                            // Set current object
+                            oCurrentObject = oCurrentObject[aChildPathArray[i]];
+                            if (i + 1 == aChildPathArray.length) {
+                                // Last one - make this the return object
+                                oReturnObject = oCurrentObject;
+                            }
+                            break;
+                        case 'function':
+                            // Send the rest of the path to a function
+                            let oResults = await oCurrentObject[aChildPathArray[i]](aChildPathArray.splice(i + 1));
+                            if (typeof oResults == 'object') {
+                                oReturnObject = oResults;
+                            }
+                            break PathLoop;
+                        default:
+                            break PathLoop;
+                    }
+
+                } else {
+                    // Child doesn't exist
+                    break PathLoop;
+                }
+            }
+        }
+
+        // If we have a return object and want only a list of children, do that now
+        if (oReturnObject && typeof oReturnObject == 'object' && bReturnChildList) {
+            if (! oReturnObject.pathItems) {
+                // Return only child keys and data types
+                oReturnObject = this.ListObjChildren(oReturnObject);
+            }
+        }
+
+        return oReturnObject;
+    }
+
     GetPath(pathList) {
         /*
          * Currently this is based on a static struct; need to make it dynamic.
          * If the client requests access to actual objects on a provider, we
          * need to establish a connection to the provider (if not already) and
          * send a command to retrieve the objects
-         */ 
+         */
         let currentPathObj = this.ProviderDeclarations;
         for (let i = 0; i < pathList.length; i++) {
             if (currentPathObj.hasOwnProperty(pathList[i]) && typeof currentPathObj[pathList[i]] === 'object') {
@@ -91,15 +260,18 @@ class DRPBroker {
         for (let i = 0; i < objKeys.length; i++) {
             let returnVal;
             //let attrType = typeof currentPathObj[objKeys[i]];
-            let childAttrObj= currentPathObj[objKeys[i]];
+            let childAttrObj = currentPathObj[objKeys[i]];
             let attrType = Object.prototype.toString.call(childAttrObj).match(/^\[object (.*)\]$/)[1];
 
-            switch(attrType) {
+            switch (attrType) {
                 case "Object":
                     returnVal = Object.keys(childAttrObj).length;
                     break;
                 case "Array":
                     returnVal = childAttrObj.length;
+                    break;
+                case "Function":
+                    returnVal = null;
                     break;
                 default:
                     returnVal = currentPathObj[objKeys[i]];
@@ -122,7 +294,7 @@ class DRPBroker {
                 return { "item": null };
             }
         }
-        
+
         return { "item": currentPathObj };
     }
 }
@@ -146,8 +318,9 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
             return broker.RegisterConsumer(params, wsConn, token);
         });
         this.RegisterCmd("subscribe", "Subscribe");
-        this.RegisterCmd("cliGetPath", function (params, wsConn, token) {
-            return broker.GetPath(params, wsConn, token);
+        this.RegisterCmd("cliGetPath", async function (params, wsConn, token) {
+            let results = await broker.GetObjFromPath(params, true)
+            return results;
         });
         this.RegisterCmd("cliGetItem", function (params, wsConn, token) {
             return broker.GetItem(params, wsConn, token);
@@ -181,7 +354,7 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
         console.log("Consumer client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
     }
 
-    async ErrorHandler (wsConn, error) {
+    async ErrorHandler(wsConn, error) {
         console.log("Consumer client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
     }
 
@@ -200,6 +373,9 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
                 /**
                 * @type {DRPBroker_ProviderClient} thisProviderClient DRPBroker_ProviderClient
                 */
+
+                let thisProviderClient = await this.Broker.VerifyProviderConnection(providerID);
+                /*VerifyProviderConnection
                 let thisProviderClient = this.Broker.ProviderConnections[providerID];
 
                 // Establish a wsConn client if not already established
@@ -209,10 +385,11 @@ class DRPBroker_ConsumerRoute extends drpEndpoint.Server {
                     // Wait a few seconds for connection to initiate; need to add checks in here...
                     await sleep(2000);
                 }
+                */
 
                 // Subscribe on behalf of the Consumer
                 //let streamToken = thisConsumerRoute.GetToken(thisProviderClient.wsConn);
-                let streamToken = thisConsumerRoute.AddStreamHandler(thisProviderClient.wsConn, async function(response) {
+                let streamToken = thisConsumerRoute.AddStreamHandler(thisProviderClient.wsConn, async function (response) {
                     let sendFailed = thisConsumerRoute.SendStream(wsConn, params.streamToken, 2, response.payload);
                     if (sendFailed) {
                         // Client disconnected
@@ -288,6 +465,7 @@ class DRPBroker_RegistryClient extends drpEndpoint.Client {
 
     async UnregisterProvider(providerID) {
         console.log("Unregistering provider [" + providerID + "]");
+        delete this.Broker.ProviderConnections[providerID];
         delete this.Broker.ProviderDeclarations[providerID];
     }
 }
