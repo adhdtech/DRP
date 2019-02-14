@@ -183,30 +183,33 @@ namespace ADHDTech.DRP
             string[] chunkedPath = ChunkPath(path);
             JObject returnedData = myDRPClient.SendDRPCmd("cliGetPath", chunkedPath);
 
-            // Return base Objects
-            DataTable returnTable = null;
+            if (returnedData != null && returnedData.ContainsKey("pathItems")) {
 
-            foreach (JObject objData in (JArray)returnedData["pathItems"])
-            {
-                var fields = new List<Field>();
+                // Return base Objects
+                DataTable returnTable = null;
 
-                // Create table if null
-                if (returnTable == null)
+                foreach (JObject objData in (JArray)returnedData["pathItems"])
                 {
-                    returnTable = ReturnTable(objData);
+                    var fields = new List<Field>();
+
+                    // Create table if null
+                    if (returnTable == null)
+                    {
+                        returnTable = ReturnTable(objData);
+                    }
+
+                    DataRow newRow = returnTable.NewRow();
+                    foreach (JProperty thisProperty in objData.Properties())
+                    {
+                        newRow.SetField(thisProperty.Name, thisProperty.Value.ToString());
+                    }
+                    returnTable.Rows.Add(newRow);
                 }
 
-                DataRow newRow = returnTable.NewRow();
-                foreach (JProperty thisProperty in objData.Properties())
+                if (returnTable != null)
                 {
-                    newRow.SetField(thisProperty.Name, thisProperty.Value.ToString());
+                    WriteItemObject(returnTable, this.ProviderInfo + "::" + path, true);
                 }
-                returnTable.Rows.Add(newRow);
-            }
-
-            if (returnTable != null)
-            {
-                WriteItemObject(returnTable, this.ProviderInfo + "::" + path, true);
             }
 
             myDRPClient.CloseSession();

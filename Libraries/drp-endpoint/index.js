@@ -398,6 +398,7 @@ class DRP_TopicManager_Topic {
         this.Subscribers = [];
         this.ReceivedMessages = 0;
         this.SentMessages = 0;
+        this.LastTen = [];
 
         /*
         Subscribers: [
@@ -414,6 +415,11 @@ class DRP_TopicManager_Topic {
         let thisTopic = this;
 
         thisTopic.ReceivedMessages++;
+
+        if (thisTopic.LastTen.length == 10) {
+            thisTopic.LastTen.shift();
+        }
+        thisTopic.LastTen.push(message);
 
         let i = thisTopic.Subscribers.length;
         while (i--) {

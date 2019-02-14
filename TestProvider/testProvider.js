@@ -17,6 +17,10 @@ if (!port) {
 
 console.log("Loading Provider...");
 
+let myApp = {
+
+};
+
 let providerDeclaration =
     {
         ProviderID: providerID,
@@ -62,5 +66,6 @@ myProvider.BrokerRouteHandler.RegisterCmd("execute", function(path, parameters) 
 
 // Start sending to dummy topic
 setInterval(function () {
-    myProvider.TopicManager.SendToTopic("dummy", "Dummy message from Provider[" + providerDeclaration.ProviderID + "]");
+    let timeStamp = new Date().getTime();
+    myProvider.TopicManager.SendToTopic("dummy", timeStamp + " Dummy message from Provider[" + providerDeclaration.ProviderID + "]");
 }, 3000);
