@@ -5,7 +5,7 @@
     <Name>TestProvider</Name>
     <RootNamespace>Provider</RootNamespace>
     <LastActiveSolutionConfig>Debug|Any CPU</LastActiveSolutionConfig>
-    <ScriptArguments>test1 8090</ScriptArguments>
+    <ScriptArguments>test1 8090 http://localhost:8080/provider</ScriptArguments>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>

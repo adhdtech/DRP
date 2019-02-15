@@ -5,6 +5,7 @@
     <Name>TestBroker</Name>
     <RootNamespace>TestBroker</RootNamespace>
     <NodejsPort>8082</NodejsPort>
+    <ScriptArguments>8082 http://localhost:8080/broker</ScriptArguments>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
