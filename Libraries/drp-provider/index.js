@@ -29,6 +29,8 @@ class DRPProvider {
 
         this.ProviderDeclaration = providerDeclaration;
 
+        this.Structure = {};
+
         //this.RegistryConnections = {};
         this.BrokerConnections = {};
 
@@ -80,7 +82,10 @@ class DRPProvider {
     }
 
     GetBaseObj() {
-        return this;
+        return {
+            Structure: this.Structure,
+            Streams: this.TopicManager.Topics
+        }
     }
 
     ListObjChildren(oTargetObject) {
@@ -113,17 +118,17 @@ class DRPProvider {
             });
         }
 
-        return { "pathItems": pathObjList }
+        return pathObjList;
     }
 
     /**
     * @param {Array.<string>} aChildPathArray Remaining path
-    * @param {Boolean} bReturnChildList Flag to return list of children
+    * @param {Object} oBaseObject Starting object
     */
-    async GetObjFromPath(aChildPathArray, bReturnChildList) {
+    async GetObjFromPath(aChildPathArray, oBaseObject) {
 
         // Initial object
-        let oCurrentObject = this.GetBaseObj();
+        let oCurrentObject = oBaseObject;
 
         // Return object
         let oReturnObject = null;
@@ -168,15 +173,9 @@ class DRPProvider {
             }
         }
 
-        // If we have a return object and want only a list of children, do that now
-        if (oReturnObject && typeof oReturnObject == 'object' && bReturnChildList) {
-
-            // Return only child keys and data types
-            oReturnObject = this.ListObjChildren(oReturnObject);
-        }
-
         return oReturnObject;
     }
+
 }
 
 class DRPProvider_BrokerRoute extends drpEndpoint.Server {
@@ -198,8 +197,13 @@ class DRPProvider_BrokerRoute extends drpEndpoint.Server {
         this.RegisterCmd("subscribe", "Subscribe");
         this.RegisterCmd("unsubscribe", "Unsubscribe");
         this.RegisterCmd("cliGetPath", async function (params, wsConn, token) {
-            let results = await provider.GetObjFromPath(params, true)
-            return results;
+            let oReturnObject = await provider.GetObjFromPath(params, provider.GetBaseObj());
+            // If we have a return object, get children
+            if (oReturnObject && typeof oReturnObject == 'object') {
+                // Return only child keys and data types
+                oReturnObject = { "pathItems": provider.ListObjChildren(oReturnObject) };
+            }
+            return oReturnObject;
         });
         /*
         this.RegisterCmd("register", function (params, wsConn, token) {
