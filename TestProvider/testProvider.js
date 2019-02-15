@@ -17,10 +17,6 @@ if (!port) {
 
 console.log("Loading Provider...");
 
-let myApp = {
-
-};
-
 let providerDeclaration =
     {
         ProviderID: providerID,
@@ -50,6 +46,35 @@ let providerDeclaration =
     };
 
 let myProvider = new drpProvider(port, providerDeclaration, "http://localhost:8080/provider");
+
+myProvider.Structure = {
+    "People": function (aChildPathArray) {
+
+        // Initial object
+        let oCurrentObject = {
+            "1001": {
+                "FirstName": "Robert",
+                "LastName": "Jones",
+                "EmployeeNumber": "1001"
+            },
+            "1002": {
+                "FirstName": "Ted",
+                "LastName": "Smith",
+                "EmployeeNumber": "1002"
+            },
+            "1003": {
+                "FirstName": "John",
+                "LastName": "Green",
+                "EmployeeNumber": "1003"
+            }
+        }
+
+        // Return object
+        let oReturnObject = myProvider.GetObjFromPath(aChildPathArray, oCurrentObject);
+
+        return oReturnObject;
+    }
+};
 
 myProvider.BrokerRouteHandler.RegisterCmd("query", function(path, parameters) {
     // Query logic
