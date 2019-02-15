@@ -5,13 +5,19 @@ var drpProvider = require('drp-provider');
 
 var providerID = process.argv[2];
 if (!providerID) {
-    console.error("No ProviderID specified!\n\n> node " + process.argv[1] + " <ProviderID> <listenPort>");
+    console.error("No ProviderID specified!\n\n> node " + process.argv[1] + " <ProviderID> <listenPort> <registryProviderURL>");
     process.exit(0);
 }
 
 var port = process.argv[3];
 if (!port) {
-    console.error("No listening port specified!\n\n> node " + process.argv[1] + " <ProviderID> <listenPort>");
+    console.error("No listening port specified!\n\n> node " + process.argv[1] + " <ProviderID> <listenPort> <registryProviderURL>");
+    process.exit(0);
+}
+
+var registryProviderURL = process.argv[4];
+if (!port) {
+    console.error("No registry provider URL specified!\n\n> node " + process.argv[1] + " <ProviderID> <listenPort> <registryProviderURL>");
     process.exit(0);
 }
 
@@ -45,7 +51,7 @@ let providerDeclaration =
         }
     };
 
-let myProvider = new drpProvider(port, providerDeclaration, "http://localhost:8080/provider");
+let myProvider = new drpProvider(port, providerDeclaration, registryProviderURL);
 
 myProvider.Structure = {
     "People": function (aChildPathArray) {
