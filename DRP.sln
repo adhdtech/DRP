@@ -3,17 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27130.2010
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}") = "TestClient", "TestClient\TestClient.njsproj", "{C1676C62-3A33-4404-BF59-6E5451478BB3}"
-EndProject
-Project("{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}") = "Libraries", "Libraries\Libraries.njsproj", "{46CFA375-69B2-4A8C-A841-59EFB4EADA6C}"
-EndProject
-Project("{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}") = "TestBroker", "TestBroker\TestBroker.njsproj", "{74F8745C-990E-491C-92F0-105CA8DA2630}"
-EndProject
-Project("{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}") = "TestProvider", "TestProvider\TestProvider.njsproj", "{197840A3-5B61-4770-A28F-2EDE0C8D7E2A}"
-EndProject
-Project("{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}") = "TestRegistry", "TestRegistry\TestRegistry.njsproj", "{DF340B64-DC2B-4A13-9175-BB261BFF01BE}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DRPDrive", "PSDrive\DRPDrive.csproj", "{5FD47B7D-F522-427B-95D0-386A2D0DC3A8}"
+EndProject
+Project("{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}") = "DRPServices", "DRPServices\DRPServices.njsproj", "{A2FCBE11-746E-4F1E-BED3-87FFA449C849}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,30 +13,14 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{C1676C62-3A33-4404-BF59-6E5451478BB3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C1676C62-3A33-4404-BF59-6E5451478BB3}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C1676C62-3A33-4404-BF59-6E5451478BB3}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C1676C62-3A33-4404-BF59-6E5451478BB3}.Release|Any CPU.Build.0 = Release|Any CPU
-		{46CFA375-69B2-4A8C-A841-59EFB4EADA6C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{46CFA375-69B2-4A8C-A841-59EFB4EADA6C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{46CFA375-69B2-4A8C-A841-59EFB4EADA6C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{46CFA375-69B2-4A8C-A841-59EFB4EADA6C}.Release|Any CPU.Build.0 = Release|Any CPU
-		{74F8745C-990E-491C-92F0-105CA8DA2630}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{74F8745C-990E-491C-92F0-105CA8DA2630}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{74F8745C-990E-491C-92F0-105CA8DA2630}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{74F8745C-990E-491C-92F0-105CA8DA2630}.Release|Any CPU.Build.0 = Release|Any CPU
-		{197840A3-5B61-4770-A28F-2EDE0C8D7E2A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{197840A3-5B61-4770-A28F-2EDE0C8D7E2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{197840A3-5B61-4770-A28F-2EDE0C8D7E2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{197840A3-5B61-4770-A28F-2EDE0C8D7E2A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{DF340B64-DC2B-4A13-9175-BB261BFF01BE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DF340B64-DC2B-4A13-9175-BB261BFF01BE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DF340B64-DC2B-4A13-9175-BB261BFF01BE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DF340B64-DC2B-4A13-9175-BB261BFF01BE}.Release|Any CPU.Build.0 = Release|Any CPU
 		{5FD47B7D-F522-427B-95D0-386A2D0DC3A8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{5FD47B7D-F522-427B-95D0-386A2D0DC3A8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5FD47B7D-F522-427B-95D0-386A2D0DC3A8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5FD47B7D-F522-427B-95D0-386A2D0DC3A8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A2FCBE11-746E-4F1E-BED3-87FFA449C849}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A2FCBE11-746E-4F1E-BED3-87FFA449C849}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A2FCBE11-746E-4F1E-BED3-87FFA449C849}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A2FCBE11-746E-4F1E-BED3-87FFA449C849}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
