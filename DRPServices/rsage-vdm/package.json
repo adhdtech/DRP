@@ -1,0 +1,23 @@
+{
+  "name": "rsage-vdm",
+  "version": "1.0.0",
+  "description": "virtual desktop manager",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "rsage",
+    "vdm",
+    "virtual",
+    "desktop",
+    "manager"
+  ],
+  "dependencies": {
+    "flake-idgen": "*",
+    "biguint-format": "*",
+    "node-sspi": "*"
+  },
+  "author": "chykn <jpbrown@adhdtech.com>",
+  "license": "ISC"
+}

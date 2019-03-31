@@ -11,6 +11,8 @@ namespace ADHDTech.DRP
     {
         public WebSocketSharp.WebSocket ClientWSConn;
         Dictionary<string, Action<object>> DRPCallbacks = new Dictionary<string, Action<object>>();
+        public bool clientConnected = false;
+        public bool clientDied = false;
 
         public DRPClient(string targetWS)
         {
@@ -28,7 +30,6 @@ namespace ADHDTech.DRP
             ClientWSConn.OnClose += EndClientSession;
 
             ClientWSConn.Connect();
-
         }
 
         public void CloseSession()
@@ -41,6 +42,7 @@ namespace ADHDTech.DRP
         {
             // We have a connection
             //Console.WriteLine("Session open!");
+            clientConnected = true;
         }
 
         public void ProcessMessage(object sender, EventArgs e)
@@ -65,6 +67,9 @@ namespace ADHDTech.DRP
         {
             // The session has ended
             WebSocketSharp.CloseEventArgs closeArgs = (WebSocketSharp.CloseEventArgs)e;
+            if (!clientConnected) {
+                clientDied = true;
+            }
             //Console.WriteLine("Close code: '" + closeArgs.Code + "'");
         }
 
@@ -140,8 +145,10 @@ namespace ADHDTech.DRP
             SendDRPCmd(cmd, @params, data => {
                 try
                 {
-                    JObject returnData = (JObject)data;
-                    returnObject = returnData;
+                    if (data.GetType() == typeof(JObject)) {
+                        JObject returnData = (JObject)data;
+                        returnObject = returnData;
+                    }
                 } catch (Exception ex) {
                     Console.Error.WriteLine("Error converting message to JObject: " + ex.Message + "\r\n<<<" + data + ">>>");
                 }
@@ -149,7 +156,7 @@ namespace ADHDTech.DRP
             });
 
             // Wait for task to complete
-            ReturnDataTask.Wait();
+            ReturnDataTask.Wait(30000);
 
             // Return Data
             return returnObject;

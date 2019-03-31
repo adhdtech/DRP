@@ -7,13 +7,16 @@ using System.Threading.Tasks;
 using System.Collections.ObjectModel;
 using System.Management.Automation;
 using System.Management.Automation.Provider;
+using System.Management.Automation.Runspaces;
 using Newtonsoft.Json.Linq;
 
 namespace ADHDTech.DRP
 {
+
     [CmdletProvider("DRPProvider", ProviderCapabilities.None)]
     public class DRPProvider : NavigationCmdletProvider
     {
+        public static Dictionary<string, string> drpURLHash = new Dictionary<string, string>();
 
         protected override Collection<PSDriveInfo> InitializeDefaultDrives()
         {
@@ -26,8 +29,8 @@ namespace ADHDTech.DRP
         {
             bool isContainer = false;
             return true;
-
-            DRPClient myDRPClient = new DRPClient(@"ws://localhost:8082/consumer");
+            /*
+            DRPClient myDRPClient = new DRPClient(drpURL);
 
             while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
             {
@@ -44,27 +47,40 @@ namespace ADHDTech.DRP
             myDRPClient.CloseSession();
 
             return isContainer;
+            */
         }
 
         protected override bool IsValidPath(string path)
         {
             bool isValidPath = false;
 
-            DRPClient myDRPClient = new DRPClient(@"ws://localhost:8082/consumer");
-
-            while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
+            string[] pathArray = ChunkPath(path);
+            if (pathArray.Length == 0)
             {
-                System.Threading.Thread.Sleep(100);
+                return true;
             }
-
-            JObject returnedData = myDRPClient.SendDRPCmd("cliGetItem", ChunkPath(path));
-
-            if (returnedData["item"].Value<string>() != null)
+            else
             {
-                isValidPath = true;
-            }
+                // Send cmd to DRP broker
+                string drpURL = pathArray[0];
+                string[] remainingPath = pathArray.Skip(1).ToArray();
 
-            myDRPClient.CloseSession();
+                DRPClient myDRPClient = new DRPClient(drpURLHash[drpURL]);
+
+                while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
+                {
+                    System.Threading.Thread.Sleep(100);
+                }
+
+                JObject returnedData = myDRPClient.SendDRPCmd("cliGetItem", remainingPath);
+
+                if (returnedData["item"].Value<string>() != null)
+                {
+                    isValidPath = true;
+                }
+
+                myDRPClient.CloseSession();
+            }
 
             return isValidPath;
         }
@@ -102,107 +118,126 @@ namespace ADHDTech.DRP
             return newTable;
         }
 
-        
+
         protected override void GetItem(string path)
         {
-            DRPClient myDRPClient = new DRPClient(@"ws://localhost:8082/consumer");
-            //rSageHiveClient myHiveClient = new rSageHiveClient(@"wss://rsage.autozone.com/vdm");
-            while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
+            string[] pathArray = ChunkPath(path);
+            if (pathArray.Length == 0)
             {
-                System.Threading.Thread.Sleep(100);
+                // Do nothing
             }
-
-            //Console.WriteLine("Connected to DRP Broker!");
-
-            JObject returnedData = myDRPClient.SendDRPCmd("cliGetItem", ChunkPath(path));
-
-            // Return base Objects
-            /*
-            DataTable returnTable = null;
-
-            foreach (JObject objData in (JArray)returnedData["item"])
+            else
             {
-                var fields = new List<Field>();
+                string drpURL = pathArray[0];
+                string[] remainingPath = pathArray.Skip(1).ToArray();
 
-                // Create table if null
-                if (returnTable == null)
+                DRPClient myDRPClient = new DRPClient(drpURLHash[drpURL]);
+                //rSageHiveClient myHiveClient = new rSageHiveClient(@"wss://rsage.autozone.com/vdm");
+                while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
                 {
-                    returnTable = ReturnTable(objData);
+                    System.Threading.Thread.Sleep(100);
                 }
 
-                DataRow newRow = returnTable.NewRow();
-                foreach (JProperty thisProperty in objData.Properties())
+                //Console.WriteLine("Connected to DRP Broker!");
+                JObject returnedData = myDRPClient.SendDRPCmd("pathCmd", new Dictionary<string, object>() { { "method", "cliGetPath" }, { "pathList", remainingPath }, { "listOnly", false } });
+
+                if (returnedData != null && returnedData["pathItem"] != null)
                 {
-                    newRow.SetField(thisProperty.Name, thisProperty.Value.ToString());
+                    object returnObj;
+                    string itemType = returnedData["pathItem"].GetType().ToString();
+                    if (itemType.Equals("Newtonsoft.Json.Linq.JValue"))
+                    {
+                        returnObj = returnedData["pathItem"].Value<string>();
+                    }
+                    else
+                    {
+                        returnObj = returnedData["pathItem"];
+                    }
+                    if (returnObj != null)
+                    {
+                        WriteItemObject(returnObj, this.ProviderInfo + "::" + path, false);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Returned value is null!");
+                    }
                 }
-                returnTable.Rows.Add(newRow);
+
+                //WriteItemObject(returnedData, this.ProviderInfo + "::" + path, true);
+
+                myDRPClient.CloseSession();
             }
-            */
-
-            
-            if (returnedData["item"] != null)
-            {
-                object returnObj;
-                string itemType = returnedData["item"].GetType().ToString();
-                if (itemType.Equals("Newtonsoft.Json.Linq.JValue"))
-                {
-                    returnObj = returnedData["item"].Value<string>();
-                }
-                else
-                {
-                    returnObj = returnedData["item"];
-                }
-                if (returnObj != null) {
-                    WriteItemObject(returnObj, this.ProviderInfo + "::" + path, false);
-                } else {
-                    Console.WriteLine("Returned value is null!");
-                }
-            }
-            
-            //WriteItemObject(returnedData, this.ProviderInfo + "::" + path, true);
-
-            myDRPClient.CloseSession();
         }
-        /*
+
         protected override void SetItem(string path, object value)
         {
-            base.SetItem(path, value);
+            string[] pathArray = ChunkPath(path);
+            if (pathArray.Length == 0)
+            {
+                // Do nothing
+            }
+            else
+            {
+                //base.SetItem(path, value);
+                string drpAlias = pathArray[0];
+                string[] remainingPath = pathArray.Skip(1).ToArray();
+
+                DRPClient myDRPClient = new DRPClient(drpURLHash[drpAlias]);
+                //rSageHiveClient myHiveClient = new rSageHiveClient(@"wss://rsage.autozone.com/vdm");
+                while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
+                {
+                    System.Threading.Thread.Sleep(100);
+                }
+
+                //Console.WriteLine("Connected to DRP Broker!");
+                //JObject returnedData = myDRPClient.SendDRPCmd("cliSetItem", new List<Object> { ChunkPath(path), value });
+                JObject returnedData = myDRPClient.SendDRPCmd("pathCmd", new Dictionary<string, object>() { { "method", "SetItem" }, { "pathList", remainingPath }, { "params", value } });
+
+                if (returnedData["success"] != null)
+                {
+                    object returnObj;
+                    string itemType = returnedData["pathItem"].GetType().ToString();
+                    if (itemType.Equals("Newtonsoft.Json.Linq.JValue"))
+                    {
+                        returnObj = returnedData["pathItem"].Value<string>();
+                    }
+                    else
+                    {
+                        returnObj = returnedData["pathItem"];
+                    }
+                    if (returnObj != null)
+                    {
+                        Console.WriteLine("SetItem returned status = [" + returnObj + "]");
+                        //WriteItemObject(returnObj, this.ProviderInfo + "::" + path, false);
+                    }
+                    else
+                    {
+                        Console.WriteLine("SetItem returned status is null!");
+                    }
+
+                }
+
+                //WriteItemObject(returnedData, this.ProviderInfo + "::" + path, true);
+
+                myDRPClient.CloseSession();
+            }
         }
-        */
 
         protected override void GetChildItems(string path, bool recurse)
         {
-            DRPClient myDRPClient = new DRPClient(@"ws://localhost:8082/consumer");
-            //rSageHiveClient myHiveClient = new rSageHiveClient(@"wss://rsage.autozone.com/vdm");
-            while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
+            string[] pathArray = ChunkPath(path);
+            if (pathArray.Length == 0)
             {
-                System.Threading.Thread.Sleep(100);
-            }
-
-            //Console.WriteLine("Connected to DRP Broker!");
-            string[] chunkedPath = ChunkPath(path);
-            JObject returnedData = myDRPClient.SendDRPCmd("cliGetPath", chunkedPath);
-
-            if (returnedData != null && returnedData.ContainsKey("pathItems")) {
-
                 // Return base Objects
-                DataTable returnTable = null;
+                DataTable returnTable = new DataTable();
+                returnTable.Columns.Add(new DataColumn("Alias", typeof(string)));
+                returnTable.Columns.Add(new DataColumn("URL", typeof(string)));
 
-                foreach (JObject objData in (JArray)returnedData["pathItems"])
+                foreach (string key in drpURLHash.Keys)
                 {
-                    var fields = new List<Field>();
-
-                    // Create table if null
-                    if (returnTable == null)
-                    {
-                        returnTable = ReturnTable(objData);
-                    }
-
                     DataRow newRow = returnTable.NewRow();
-                    foreach (JProperty thisProperty in objData.Properties())
-                    {
-                        newRow.SetField(thisProperty.Name, thisProperty.Value.ToString());
-                    }
+                    newRow.SetField("Alias", key);
+                    newRow.SetField("URL", drpURLHash[key]);
                     returnTable.Rows.Add(newRow);
                 }
 
@@ -211,8 +246,59 @@ namespace ADHDTech.DRP
                     WriteItemObject(returnTable, this.ProviderInfo + "::" + path, true);
                 }
             }
+            else
+            {
+                string drpAlias = pathArray[0];
+                string[] remainingPath = pathArray.Skip(1).ToArray();
 
-            myDRPClient.CloseSession();
+                DRPClient myDRPClient = new DRPClient(drpURLHash[drpAlias]);
+
+                while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
+                {
+                    if (myDRPClient.clientDied)
+                    {
+                        // Client wasn't able to connect
+                        Console.WriteLine("Client couldn't connect to URL: {0}", drpURLHash[drpAlias]);
+                        return;
+                    }
+                    System.Threading.Thread.Sleep(100);
+                }
+
+                //Console.WriteLine("Connected to DRP Broker!");
+                JObject returnedData = myDRPClient.SendDRPCmd("pathCmd", new Dictionary<string, object>() { { "method", "cliGetPath" }, { "pathList", remainingPath }, { "listOnly", true } });
+
+                if (returnedData != null && returnedData.ContainsKey("pathItemList"))
+                {
+
+                    // Return base Objects
+                    DataTable returnTable = null;
+
+                    foreach (JObject objData in (JArray)returnedData["pathItemList"])
+                    {
+                        var fields = new List<Field>();
+
+                        // Create table if null
+                        if (returnTable == null)
+                        {
+                            returnTable = ReturnTable(objData);
+                        }
+
+                        DataRow newRow = returnTable.NewRow();
+                        foreach (JProperty thisProperty in objData.Properties())
+                        {
+                            newRow.SetField(thisProperty.Name, thisProperty.Value.ToString());
+                        }
+                        returnTable.Rows.Add(newRow);
+                    }
+
+                    if (returnTable != null)
+                    {
+                        WriteItemObject(returnTable, this.ProviderInfo + "::" + path, true);
+                    }
+                }
+
+                myDRPClient.CloseSession();
+            }
         }
 
         protected override string NormalizeRelativePath(string path, string basePath)
@@ -257,5 +343,23 @@ namespace ADHDTech.DRP
 
         private string pathSeparator = "\\";
 
+    }
+
+    // Declare the class as a cmdlet and specify the
+    // appropriate verb and noun for the cmdlet name.
+    [Cmdlet(VerbsCommunications.Connect, "DRP")]
+    public class ConnectDRP : Cmdlet
+    {
+        // Declare the parameters for the cmdlet.
+        [Parameter(Mandatory = true)]
+        public string URL { get; set; }
+
+        [Parameter(Mandatory = true)]
+        public string Alias { get; set; }
+
+        protected override void BeginProcessing () {
+            Console.WriteLine("Setting: {0} to {1}", this.Alias, this.URL);
+            DRPProvider.drpURLHash[this.Alias] = this.URL;
+        }
     }
 }

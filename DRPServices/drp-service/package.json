@@ -1,0 +1,27 @@
+{
+  "name": "drp-service",
+  "version": "1.0.0",
+  "description": "DRP Services",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "drp",
+    "service",
+    "registry",
+    "provider",
+    "broker"
+  ],
+  "author": "chykn <jpbrown@adhdtech.com>",
+  "license": "ISC",
+  "dependencies": {
+    "drp-endpoint": "*",
+    "body-parser": "*",
+    "express": "*",
+    "express-ws": "*",
+    "flake-idgen": "*",
+    "biguint-format": "*",
+    "cors": "*"
+  }
+}
