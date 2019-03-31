@@ -148,66 +148,20 @@ class VDMServer extends drpService.ServerRoute {
             return thisVDMServer.intformat(thisVDMServer.generator.next(), 'dec')
         }
 
-        var IS_WIN = process.platform === 'win32';
-        if (IS_WIN) {
-            // For SSPI Authentication - Windows only
-            var nodeSSPI = require('node-sspi');
-            this.expressApp.use('/login', function (req, res, next) {
-                var nodeSSPIObj = new nodeSSPI({
-                    retrieveGroups: true
-                });
-                nodeSSPIObj.authenticate(req, res, function (err) {
-                    res.finished || next();
-                });
+        this.expressApp.get('/login', function (req, res, next) {
+            var userName = "testUser";
+            var ip = req.connection.remoteAddress;
+            var sessionID = thisVDMServer.GenerateID();
+            thisVDMServer.AddClientSession({
+                'sessionID': sessionID,
+                'userName': userName,
+                'userGroups': [],
+                'openApps': {}
             });
-            this.expressApp.route('/login')
-                .get(function (req, res, next) {
-                    var ip = req.connection.remoteAddress;
-                    var sessionID = thisVDMServer.GenerateID();
-                    thisVDMServer.AddClientSession({
-                        'sessionID': sessionID,
-                        'userName': req.connection.user,
-                        'userGroups': req.connection.userGroups,
-                        'openApps': {}
-                    });
-                    thisVDMServer.LogSysEvent("EXPRESS - Authenticated user [" + req.connection.user + "] from ip (" + ip + "), key {" + sessionID + "}");
-                    res.cookie('sessionID', sessionID);
-                    res.redirect('/client.html');
-                });
-        } else {
-            // For Basic Authentication - Cross platform
-            var basicAuth = require('basic-auth');
-            var auth = function (req, res, next) {
-                function unauthorized(res) {
-                    res.set('WWW-Authenticate', 'Basic realm=Authorization Required');
-                    return res.sendStatus(401);
-                }
-                var user = basicAuth(req);
-                if (!user || !user.name || !user.pass) {
-                    return unauthorized(res);
-                }
-                // Static username and password for testing purposes only; you'll need to write your own user/pass check function
-                if (user.name === 'testUser' && user.pass === 'testPass') {
-                    return next();
-                } else {
-                    return unauthorized(res);
-                }
-            }
-            this.expressApp.get('/login', auth, function (req, res, next) {
-                var user = basicAuth(req);
-                var ip = req.connection.remoteAddress;
-                var sessionID = thisVDMServer.GenerateID();
-                thisVDMServer.AddClientSession({
-                    'sessionID': sessionID,
-                    'userName': user.name,
-                    'userGroups': [],
-                    'openApps': {}
-                });
-                console.log("EXPRESS - Authenticated user [" + user.name + "] from ip (" + ip + "), key {" + sessionID + "}");
-                res.cookie('sessionID', sessionID);
-                res.redirect('/client.html');
-            });
-        }
+            console.log("EXPRESS - Authenticated user [" + userName + "] from ip (" + ip + "), key {" + sessionID + "}");
+            res.cookie('sessionID', sessionID);
+            res.redirect('/client.html');
+        });
 
         this.expressApp.use(function (req, res, next) {
             req.VDMServer = thisVDMServer;

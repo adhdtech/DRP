@@ -15,8 +15,7 @@
   ],
   "dependencies": {
     "flake-idgen": "*",
-    "biguint-format": "*",
-    "node-sspi": "*"
+    "biguint-format": "*"
   },
   "author": "chykn <jpbrown@adhdtech.com>",
   "license": "ISC"
