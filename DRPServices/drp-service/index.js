@@ -1,6 +1,7 @@
 var drpEndpoint = require('drp-endpoint');
 var bodyParser = require('body-parser');
 var express = require('express');
+var expressWs = require('express-ws');
 var cors = require('cors');
 var https = require('https');
 var fs = require('fs');
@@ -164,11 +165,11 @@ class DRP_Server {
                 passphrase: webServerConfig.SSLCrtFilePwd
             };
             let httpsServer = https.createServer(optionsExpress, this.expressApp);
-            require('express-ws')(this.expressApp, httpsServer);
+            expressWs(this.expressApp, httpsServer);
             this.webServer = httpsServer;
 
         } else {
-            require('express-ws')(this.expressApp);
+            expressWs(this.expressApp);
             this.webServer = this.expressApp;
         }
 
