@@ -13,10 +13,20 @@ using Newtonsoft.Json.Linq;
 namespace ADHDTech.DRP
 {
 
+    public class BrokerProfile
+    {
+        public string Alias;
+        public string URL;
+        public string ProxyAddress;
+        public string ProxyUser;
+        public string ProxyPass;
+    }
+
     [CmdletProvider("DRPProvider", ProviderCapabilities.None)]
     public class DRPProvider : NavigationCmdletProvider
     {
-        public static Dictionary<string, string> drpURLHash = new Dictionary<string, string>();
+
+        public static Dictionary<string, BrokerProfile> drpURLHash = new Dictionary<string, BrokerProfile>();
 
         protected override Collection<PSDriveInfo> InitializeDefaultDrives()
         {
@@ -357,9 +367,26 @@ namespace ADHDTech.DRP
         [Parameter(Mandatory = true)]
         public string Alias { get; set; }
 
+        [Parameter(Mandatory = false)]
+        public string ProxyAddress { get; set; }
+
+        [Parameter(Mandatory = false)]
+        public string ProxyUser { get; set; }
+
+        [Parameter(Mandatory = false)]
+        public string ProxyPass { get; set; }
+
         protected override void BeginProcessing () {
+
             Console.WriteLine("Setting: {0} to {1}", this.Alias, this.URL);
-            DRPProvider.drpURLHash[this.Alias] = this.URL;
+            DRPProvider.drpURLHash[this.Alias] = new BrokerProfile
+            {
+                Alias = Alias,
+                URL = URL,
+                ProxyAddress = ProxyAddress,
+                ProxyUser = ProxyUser,
+                ProxyPass = ProxyPass
+            };
         }
     }
 }
