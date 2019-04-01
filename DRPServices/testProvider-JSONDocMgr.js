@@ -93,6 +93,7 @@ let myProviderName = "testJSONDocMgr1";
 let myRegistryURL = "ws://localhost:8080/registry";
 let myProviderURL = null;
 let myServer = null;
+let myProxy = null;
 let expressApp = null;
 
 
@@ -110,9 +111,12 @@ myServer.start();
 expressApp = myServer.expressApp;
 myProviderURL = "ws://localhost:8081/provider";
 
+// Necessary if your proxy does SSL interception and the certs aren't loaded
+//process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
 // Load Provider
 console.log(`Loading Provider [${myProviderName}]`);
-let myProvider = new drpService.Provider(myProviderName, expressApp, myRegistryURL, myProviderURL);
+let myProvider = new drpService.Provider(myProviderName, expressApp, myRegistryURL, myProviderURL, myProxy);
 
 // Add JSONDocMgr Service
 myProvider.AddService("JSONDocMgr", new JSONDocMgr("jsondocs\\"));

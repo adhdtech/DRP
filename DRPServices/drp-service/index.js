@@ -1,4 +1,6 @@
 var WebSocket = require('ws');
+var HttpsProxyAgent = require('https-proxy-agent');
+var url = require('url');
 var drpEndpoint = require('drp-endpoint');
 var bodyParser = require('body-parser');
 var express = require('express');
@@ -407,8 +409,9 @@ class DRP_Provider extends DRP_Service {
 	* @param {string} providerID Globally unique ID for Provider
     * @param {string} registryURL Provider to Registry URL
 	* @param {string} providerURLBroker Broker to Provider URL
+    * @param {string} proxy Web proxy
     */
-    constructor(providerID, expressApp, registryURL, providerURL) {
+    constructor(providerID, expressApp, registryURL, providerURL, proxy) {
 
         super(providerID, expressApp);
         this.serviceType = "Provider";
@@ -420,6 +423,8 @@ class DRP_Provider extends DRP_Service {
         this.ProviderDeclaration = new DRP_ProviderDeclaration(providerID, providerURL);
 
         this.registryURL = registryURL;
+
+        this.proxy = proxy;
 
         this.Structure = {};
 
@@ -447,7 +452,7 @@ class DRP_Provider extends DRP_Service {
 
     ConnectToRegistry() {
         // Initiate Registry Connection
-        this.RegistryClient = new DRP_Provider_RegistryClient(this, this.registryURL);
+        this.RegistryClient = new DRP_Provider_RegistryClient(this, this.registryURL, this.proxy);
     }
 
     RegisterBroker(params, wsConn, token) {
@@ -681,9 +686,10 @@ class DRP_Provider_RegistryClient extends drpEndpoint.Client {
     /**
     * @param {DRP_Provider} provider DRP Provider
     * @param {string} wsTarget WS target
+    * @param {string} proxy Web proxy
     */
-    constructor(provider, wsTarget) {
-        super(wsTarget);
+    constructor(provider, wsTarget, proxy) {
+        super(wsTarget, proxy);
         this.service = provider;
 
         this.RegisterCmd("brokerToProviderCmd", "BrokerToProviderCmd");
@@ -703,11 +709,11 @@ class DRP_Provider_RegistryClient extends drpEndpoint.Client {
     }
 
     async CloseHandler(wsConn, closeCode) {
-        this.service.log("Broker to Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
+        this.service.log("Provider to Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
     }
 
     async ErrorHandler(wsConn, error) {
-        this.service.log("Broker to Registry client encountered error [" + error + "]");
+        this.service.log("Provider to Registry client encountered error [" + error + "]");
     }
 
     async BrokerToProviderCmd(params, wsConn, token) {
@@ -718,10 +724,12 @@ class DRP_Provider_RegistryClient extends drpEndpoint.Client {
 
         this.service.log(`Connecting to broker [${params.brokerID}] @ '${params.wsTarget}'`);
         let wsConnBroker = null;
-        try {
+        if (thisRegistryClient.proxy) {
+            let opts = url.parse(thisRegistryClient.proxy);
+            let agent = new HttpsProxyAgent(opts);
+            wsConnBroker = new WebSocket(params.wsTarget, { agent: agent });
+        } else {
             wsConnBroker = new WebSocket(params.wsTarget);
-        } catch (err) {
-            console.log(`ERR -> ${err}`);
         }
         wsConnBroker.on('open', function () {
             thisRegistryClient.service.log("Connected to broker...");

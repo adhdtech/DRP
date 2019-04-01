@@ -1,4 +1,6 @@
 var WebSocket = require('ws');
+var HttpsProxyAgent = require('https-proxy-agent');
+var url = require('url');
 
 class DRP_Endpoint {
     constructor() {
@@ -210,16 +212,29 @@ class DRP_Endpoint {
 }
 
 class DRP_Client extends DRP_Endpoint {
-    constructor(wsTarget) {
+    constructor(wsTarget, proxy) {
         super();
-
+        this.wsTarget = wsTarget;
+        this.proxy = proxy;
         let thisClient = this;
 
         // Create wsConn
-        let wsConn = new WebSocket(wsTarget);
+        let wsConn = null;
+        if (thisClient.proxy) {
+            let opts = url.parse(thisClient.proxy);
+            let agent = new HttpsProxyAgent(opts);
+            wsConn = new WebSocket(thisClient.wsTarget, { agent: agent });
+        } else {
+            wsConn = new WebSocket(thisClient.wsTarget);
+        }
         this.wsConn = wsConn;
 
-        wsConn.on('open', function () { thisClient.OpenHandler(wsConn); });
+        wsConn.on('open', function () {
+            setInterval(function ping() {
+                wsConn.ping(function () { });
+            }, 30000);
+            thisClient.OpenHandler(wsConn);
+        });
 
         wsConn.on("message", function (message) {
             // Process command
@@ -229,10 +244,6 @@ class DRP_Client extends DRP_Endpoint {
         wsConn.on("close", function (closeCode) { thisClient.CloseHandler(wsConn, closeCode); });
 
         wsConn.on("error", function (error) { thisClient.ErrorHandler(wsConn, error); });
-
-        setInterval(function ping() {
-            wsConn.ping(function () { });
-        }, 30000);
     }
 }
 
