@@ -37,7 +37,7 @@ namespace ADHDTech.DRP
 
         protected override bool ItemExists(string path)
         {
-            bool isContainer = false;
+            //bool isContainer = false;
             return true;
             /*
             DRPClient myDRPClient = new DRPClient(drpURL);

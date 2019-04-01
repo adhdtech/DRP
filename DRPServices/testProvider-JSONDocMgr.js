@@ -35,7 +35,7 @@ class JSONDocMgr {
                 console.log("Saved JSON File - '" + appData.fileName + "'");
                 return "Saved";
             }
-        }
+        };
     }
 
     ListFiles(basePath) {
@@ -109,7 +109,6 @@ myServer = new drpService.Server({
 myServer.start();
 expressApp = myServer.expressApp;
 myProviderURL = "ws://localhost:8081/provider";
-
 
 // Load Provider
 console.log(`Loading Provider [${myProviderName}]`);

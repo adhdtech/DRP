@@ -4,10 +4,10 @@ var drpService = require('drp-service');
 // Create a test service to expose
 class testService {
 	constructor() {
-		this.ClientCmds = {
-			sayHi: async function() { return {pathItem: "Hello!"} },
-			sayBye: async function() { return {pathItem: "Goodbye..."} }
-		}
+        this.ClientCmds = {
+            sayHi: async function () { return { pathItem: "Hello!" }; },
+            sayBye: async function () { return { pathItem: "Goodbye..." }; }
+        };
 	}
 }
 
@@ -21,7 +21,7 @@ let myServerConfig = {
     "SSLKeyFile": "ssl/mydomain.key",
     "SSLCrtFile": "ssl/mydomain.crt",
     "SSLCrtFilePwd": "mycertpw"
-}
+};
 
 // Create expressApp
 let myServer = new drpService.Server(myServerConfig);
@@ -31,8 +31,8 @@ myServer.start();
 console.log(`Loading Provider [${myServerConfig["Name"]}]`);
 let myProvider = new drpService.Provider(myServerConfig["Name"], myServer.expressApp, myServerConfig["RegistryURL"], myServerConfig["ProviderURL"]);
 myProvider.ProviderDeclaration.Streams = {
-	"dummy": { Class : "FakeData" }
-}
+    "dummy": { Class: "FakeData" }
+};
 
 // Add a test service
 myProvider.AddService("TestService", new testService());
