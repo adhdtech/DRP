@@ -260,5 +260,4 @@ paket-files/
 __pycache__/
 *.pyc
 
-Visual Studio 2017/*
-Visualizers/*
+Visualizers/attribcache140.bin
