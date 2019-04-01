@@ -16,6 +16,7 @@
   "author": "chykn <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
-    "ws": "*"
+    "ws": "*",
+    "https-proxy-agent": "*"
   }
 }

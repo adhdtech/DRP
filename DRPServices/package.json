@@ -18,7 +18,8 @@
   "dependencies": {
     "drp-endpoint": "./drp-endpoint",
     "drp-service": "./drp-service",
-    "rsage-vdm": "./rsage-vdm",
-    "rsage-cortex": "./rsage-cortex"
+    "https-proxy-agent": "^2.2.1",
+    "rsage-cortex": "./rsage-cortex",
+    "rsage-vdm": "./rsage-vdm"
   }
 }
