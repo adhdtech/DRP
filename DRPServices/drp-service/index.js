@@ -1,4 +1,3 @@
-var WebSocket = require('ws');
 var drpEndpoint = require('drp-endpoint');
 var bodyParser = require('body-parser');
 var express = require('express');
@@ -207,8 +206,8 @@ class DRP_ServerRoute extends drpEndpoint.Endpoint {
                 throw new Error("Must enable ws on Express server");
             }
         } else {
-            // Express server not present
-            return;
+            // This isn't an Express server
+            throw new Error("Object must be an Express server");
         }
 
         expressApp.ws(route, async function (wsConn, req) {
@@ -540,15 +539,9 @@ class DRP_Provider extends DRP_Service {
                         case 'function':
                             // Send the rest of the path to a function
                             let oResults = await oCurrentObject[aChildPathArray[i]](aChildPathArray.splice(i + 1));
-                            oReturnObject = oResults;
-                            /*
                             if (typeof oResults == 'object') {
                                 oReturnObject = oResults;
-                            } else {
-                                console.log("Umm...");
-                                console.dir(oResults);
                             }
-                            */
                             break PathLoop;
                         default:
                             break PathLoop;
@@ -613,8 +606,6 @@ class DRP_Provider_Route extends DRP_ServerRoute {
         });
         this.RegisterCmd("cliGetPath", async function (params, wsConn, token) {
             let oReturnObject = await thisProviderRoute.service.GetObjFromPath(params.pathList, thisProviderRoute.service.GetBaseObj());
-            //console.log("OUTPUT FROM cliGetPath...");
-            //console.dir(oReturnObject);
 
             // If we have a return object and want only a list of children, do that now
             if (params.listOnly) {
@@ -635,7 +626,6 @@ class DRP_Provider_Route extends DRP_ServerRoute {
                 oReturnObject = { "pathItems": provider.ListObjChildren(oReturnObject) };
             }
             */
-            //console.dir(oReturnObject);
             return oReturnObject;
         });
         /*
@@ -648,9 +638,6 @@ class DRP_Provider_Route extends DRP_ServerRoute {
     // Define handlers
     async OpenHandler(wsConn, req) {
         this.service.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
-        setInterval(function ping() {
-            wsConn.ping(function () { });
-        }, 30000);
     }
 
     async CloseHandler(wsConn, closeCode) {
@@ -714,15 +701,10 @@ class DRP_Provider_RegistryClient extends drpEndpoint.Client {
         let thisRegistryClient = this;
         // We've received a message from a Broker through the Registry; should be a connection request
         this.service.log("We've received a message from a Broker through the Registry...");
-        //console.dir(params);
+        console.dir(params);
 
-        this.service.log(`Connecting to broker [${params.brokerID}] @ '${params.wsTarget}'`);
-        let wsConnBroker = null;
-        try {
-            wsConnBroker = new WebSocket(params.wsTarget);
-        } catch (err) {
-            console.log(`ERR -> ${err}`);
-        }
+        let wsConnBroker = new WebSocket(params.wsTarget);
+        this.service.log(`Connecting to broker [${params.wsTarget}]`);
         wsConnBroker.on('open', function () {
             thisRegistryClient.service.log("Connected to broker...");
             thisRegistryClient.service.RouteHandler.OpenHandler(wsConnBroker);
@@ -731,19 +713,16 @@ class DRP_Provider_RegistryClient extends drpEndpoint.Client {
 
         wsConnBroker.on("message", function (message) {
             // Process command
-            //thisRegistryClient.service.log("Message to broker...");
             thisRegistryClient.service.RouteHandler.ReceiveMessage(wsConnBroker, message);
         });
 
-        wsConnBroker.on("close", function (closeCode) {
-            thisRegistryClient.service.log(`Closed conn to broker: [${closeCode}]`);
-            thisRegistryClient.service.RouteHandler.CloseHandler(wsConnBroker, closeCode)
-        });
+        wsConnBroker.on("close", function (closeCode) { thisRegistryClient.service.RouteHandler.CloseHandler(wsConnBroker, closeCode) });
 
-        wsConnBroker.on("error", function (error) {
-            thisRegistryClient.service.log(`Errored conn to broker: [${error}]`);
-            thisRegistryClient.service.RouteHandler.ErrorHandler(wsConnBroker, error)
-        });
+        wsConnBroker.on("error", function (error) { thisRegistryClient.service.RouteHandler.ErrorHandler(wsConnBroker, error) });
+
+        setInterval(function ping() {
+            wsConnBroker.ping(function () { });
+        }, 30000);
 
         thisRegistryClient.service.BrokerConnections[params.brokerID] = wsConnBroker;
     }
@@ -803,7 +782,7 @@ class DRP_Broker extends DRP_Service {
 
         // Establish a wsConn client if not already established
         if (!thisProviderClient || thisProviderClient.wsConn.readyState != 1) {
-            this.log(`Connecting to provider [${providerID}] @ '${thisProviderDeclaration.ProviderURL}'`);
+            this.log(`Connecting to provider [${providerID}]`);
             thisProviderClient = new DRP_Broker_ProviderClient(this, thisProviderDeclaration.ProviderURL);
             this.ProviderConnections[providerID] = thisProviderClient;
 
@@ -848,8 +827,8 @@ class DRP_Broker extends DRP_Service {
 
                 // If still not successful, return ProviderClient
                 if (thisProviderClient.wsConn.readyState != 1) {
-                    this.log(`Not successful... readyState[${thisProviderClient.wsConn.readyState}]`);
                     thisProviderClient = null;
+                    this.log("Not successful...");
                     delete this.ProviderConnections[providerID];
                 }
             }
