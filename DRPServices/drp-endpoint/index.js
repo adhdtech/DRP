@@ -226,9 +226,9 @@ class DRP_Client extends DRP_Endpoint {
             thisClient.ReceiveMessage(wsConn, message);
         });
 
-        wsConn.on("close", function (closeCode) { thisClient.CloseHandler(wsConn, closeCode) });
+        wsConn.on("close", function (closeCode) { thisClient.CloseHandler(wsConn, closeCode); });
 
-        wsConn.on("error", function (error) { thisClient.ErrorHandler(wsConn, error) });
+        wsConn.on("error", function (error) { thisClient.ErrorHandler(wsConn, error); });
 
         setInterval(function ping() {
             wsConn.ping(function () { });
@@ -266,4 +266,4 @@ class DRP_Stream {
 module.exports = {
     Client: DRP_Client,
     Endpoint: DRP_Endpoint
-}
+};
