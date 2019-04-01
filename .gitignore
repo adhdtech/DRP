@@ -261,5 +261,5 @@ __pycache__/
 *.pyc
 
 # Visual Studio 2017 dirs
-Visual\ Studio\ 2017\
-visual\ studio\ 2017Templates\
+"Visual Studio 2017"\
+"visual studio 2017Templates"\
