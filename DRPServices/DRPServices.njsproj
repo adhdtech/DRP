@@ -58,7 +58,6 @@
     <Compile Include="testBroker.js" />
     <Compile Include="testBrokerVDM.js" />
     <Compile Include="testClient.js" />
-    <Compile Include="testProvider-JSONDocMgr.js" />
     <Compile Include="testProvider.js" />
     <Compile Include="testRegistry.js" />
     <Content Include="drp-endpoint\package.json" />
@@ -72,7 +71,6 @@
     <Content Include="drp-service\node_modules\ws\package.json" />
     <Content Include="drp-service\node_modules\ws\README.md" />
     <Content Include="drp-service\package.json" />
-    <Content Include="jsondocs\testdoc1.json" />
     <Content Include="package.json" />
     <Content Include="README.md" />
     <Content Include="rsage-cortex\package.json" />
@@ -87,7 +85,6 @@
     <Folder Include="drp-service\node_modules\express-ws\lib\" />
     <Folder Include="drp-service\node_modules\ws\" />
     <Folder Include="drp-service\node_modules\ws\lib\" />
-    <Folder Include="jsondocs\" />
     <Folder Include="rsage-cortex\" />
     <Folder Include="rsage-vdm\" />
   </ItemGroup>
