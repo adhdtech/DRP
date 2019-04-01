@@ -14,10 +14,13 @@ namespace ADHDTech.DRP
         public bool clientConnected = false;
         public bool clientDied = false;
 
-        public DRPClient(string targetWS)
+        public DRPClient(BrokerProfile brokerProfile)
         {
             // Connect to WS
-            ClientWSConn = new WebSocketSharp.WebSocket(targetWS);
+            ClientWSConn = new WebSocketSharp.WebSocket(brokerProfile.URL);
+            if (brokerProfile.ProxyAddress != null && brokerProfile.ProxyAddress != "") {
+                ClientWSConn.SetProxy(brokerProfile.ProxyAddress, brokerProfile.ProxyUser, brokerProfile.ProxyPass);
+            }
             //ClientWSConn.SslConfiguration.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
 
             ClientWSConn.OnOpen += StartClientSession;
