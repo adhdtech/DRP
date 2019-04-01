@@ -132,7 +132,7 @@ class DRP_Endpoint {
         }
 
         // Reply with results
-        if (typeof (message.replytoken) !== "undefined" && message.replytoken !== null) {
+        if (typeof message.replytoken !== "undefined" && message.replytoken !== null) {
             thisEndpoint.SendReply(wsConn, message.replytoken, cmdResults.status, cmdResults.output);
         }
     }
@@ -219,7 +219,7 @@ class DRP_Client extends DRP_Endpoint {
         let wsConn = new WebSocket(wsTarget);
         this.wsConn = wsConn;
 
-        wsConn.on('open', function () { thisClient.OpenHandler(wsConn) });
+        wsConn.on('open', function () { thisClient.OpenHandler(wsConn); });
 
         wsConn.on("message", function (message) {
             // Process command
