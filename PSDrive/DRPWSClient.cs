@@ -18,7 +18,7 @@ namespace ADHDTech.DRP
         {
             // Connect to WS
             ClientWSConn = new WebSocketSharp.WebSocket(brokerProfile.URL);
-            if (brokerProfile.ProxyAddress != null && brokerProfile.ProxyAddress != "") {
+            if (brokerProfile.ProxyAddress != "") {
                 ClientWSConn.SetProxy(brokerProfile.ProxyAddress, brokerProfile.ProxyUser, brokerProfile.ProxyPass);
             }
             //ClientWSConn.SslConfiguration.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;

@@ -242,12 +242,16 @@ namespace ADHDTech.DRP
                 DataTable returnTable = new DataTable();
                 returnTable.Columns.Add(new DataColumn("Alias", typeof(string)));
                 returnTable.Columns.Add(new DataColumn("URL", typeof(string)));
+                returnTable.Columns.Add(new DataColumn("ProxyAddress", typeof(string)));
+                returnTable.Columns.Add(new DataColumn("ProxyUser", typeof(string)));
 
                 foreach (string key in drpURLHash.Keys)
                 {
                     DataRow newRow = returnTable.NewRow();
                     newRow.SetField("Alias", key);
-                    newRow.SetField("URL", drpURLHash[key]);
+                    newRow.SetField("URL", drpURLHash[key].URL);
+                    newRow.SetField("ProxyAddress", drpURLHash[key].ProxyAddress);
+                    newRow.SetField("ProxyUser", drpURLHash[key].ProxyUser);
                     returnTable.Rows.Add(newRow);
                 }
 
@@ -383,9 +387,9 @@ namespace ADHDTech.DRP
             {
                 Alias = Alias,
                 URL = URL,
-                ProxyAddress = ProxyAddress,
-                ProxyUser = ProxyUser,
-                ProxyPass = ProxyPass
+                ProxyAddress = ProxyAddress ?? "",
+                ProxyUser = ProxyUser ?? "",
+                ProxyPass = ProxyPass ?? ""
             };
         }
     }
