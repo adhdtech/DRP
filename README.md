@@ -18,6 +18,7 @@ resource requests.
 **Brokers** - Process resource requests and track declarations from consumers<br>
 **Consumers** - Client facing applications, monitoring and analytics<br>
 
+## Sample Session of Stream Subscription
 ![Stream diagram](./img/sequence-stream.png)
 
 ## Demo
