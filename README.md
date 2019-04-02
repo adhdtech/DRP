@@ -19,3 +19,10 @@ resource requests.
 **Consumers** - Client facing applications, monitoring and analytics<br>
 
 ![Stream diagram](./img/sequence-stream.png)
+
+## Demo
+Checkout repo, change to directory.  Execute the following to start a demo service which provides the Registry, Provider and Broker routes on http://localhost:8080
+```
+npm install
+node server.js
+```
