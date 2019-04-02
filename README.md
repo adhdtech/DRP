@@ -18,12 +18,98 @@ resource requests.
 **Brokers** - Process resource requests and track declarations from consumers<br>
 **Consumers** - Client facing applications, monitoring and analytics<br>
 
-## Sample Session of Stream Subscription
-![Stream diagram](./img/sequence-stream.png)
-
 ## Demo
-Checkout repo, change to directory.  Execute the following to start a demo service which provides the Registry, Provider and Broker routes on http://localhost:8080
+Checkout repo, change to directory.  Execute the following to start a demo service which provides the Registry, Provider and Broker routes on ws://localhost:8080
 ```
 npm install
 node server.js
+```
+
+## Sample Provider
+This sample will start a Provider which listens on ws://localhost:8081/provider and connects to the Registry on ws://localhost:8080/registry
+```
+node testProvider.js
+```
+## Sample Provider - No Listener
+This sample will start a Provider which does not listen for connections; it connects directly to Brokers who need it
+```
+node testProvider-NoListener.js
+```
+
+## Sample Client
+This sample will start a Consumer which connects to the Broker on ws://localhost:8080/broker and subscribes to the dummy stream
+```
+node testClient.js
+```
+
+## Web UI
+Running server.js will also start the rSage web interface on http://localhost:8080 which connects to the Broker on ws://localhost:8080/broker.  Click Go -> Command Testing to see the commands exposed to DRP Consumers.<br>
+* **getCmds** - List DRP Consumer commands<br>
+* **getRegistry** - Get dump of Registry<br>
+* **listServiceInstances** - List Services and which Providers offer them<br>
+* ... more ....
+
+## PowerShell PSDrive
+Navigate the DRP environment via CLI using the DRPDrive.dll module.  Open a PowerShell session and run the following.
+The last two lines will show you recent entries in a topic as well as execute a function offered by the test service.
+```
+cd PSDrive\bin\Debug
+Import-Module .\DRPDrive.dll
+Connect-DRP -Alias dev -URL ws://localhost:8080/broker
+dir drp:\dev
+dir drp:\dev\Registry
+dir drp:\dev\Providers
+dir drp:\dev\Providers\testProvider1\Streams\dummy\LastTen
+dir drp:\dev\Providers\testProvider1\Services\TestService\ClientCmds\sayHi
+```
+
+
+## Stream Subscription
+```mermaid
+sequenceDiagram
+    participant Provider
+    participant Registry
+    participant Broker
+    Note left of Provider: Startup
+    Provider-->>Registry: ws://<regsvc>/registry
+    Broker-->>Registry: ws://<regsvc>/registry
+    Broker->>Registry: {cmd:"getDeclarations",replytoken:1}
+    Note right of Registry: *Gather Declarations <payload>
+    Registry->>Broker: {token:1, payload: {streams:["hostReport"]}}}
+    Note left of Consumer: Startup
+    Consumer-->>Broker: ws://<regsvc>/broker
+    Consumer->>Broker: {"type":"cmd","cmd":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
+    Note right of Broker: *Register subscription<br>*Determine list of providers
+    Broker-->>Provider: ws://<providersvc>/provider
+    Broker->>Provider: {"type":"cmd","cmd":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
+    Note right of Provider: Stream Data <payload>
+    Provider->>Broker: {"type":"stream", token:123, status, payload: <payload>}
+    Note right of Broker: Relay to<br>Consumers
+    Broker->>Consumer: {"type":"stream", token:123, status, payload: <payload>}
+```
+
+## Stream Subscription (Provider behind firewall or not listening)
+```mermaid
+sequenceDiagram
+    participant Provider
+    participant Registry
+    participant Broker
+    Note left of Provider: Startup
+    Provider-->>Registry: ws://<regsvc>/registry
+    Broker-->>Registry: ws://<regsvc>/registry
+    Broker->>Registry: {cmd:"getDeclarations",replytoken:1}
+    Note right of Registry: *Gather Declarations <payload>
+    Registry->>Broker: {token:1, payload: {streams:["hostReport"]}}}
+    Note left of Consumer: Startup
+    Consumer-->>Broker: ws://<regsvc>/broker
+    Consumer->>Broker: {"type":"cmd","cmd":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
+    Note right of Broker: *Register subscription<br>*Determine list of providers
+    Broker->>Registry: {"type":"cmd","cmd":"brokerToProvider","params":{"brokerID":<brokerID>,"brokerURL":"ws://<brokersvc>/broker"}}
+    Registry->>Provider: {"type":"cmd","cmd":"brokerToProvider","params":{"brokerID":<brokerID>,"brokerURL":"ws://<brokersvc>/broker"}}
+    Provider-->>Broker: ws://<brokersvc>/broker
+    Broker->>Provider: {"type":"cmd","cmd":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
+    Note right of Provider: Stream Data <payload>
+    Provider->>Broker: {"type":"stream", token:123, status, payload: <payload>}
+    Note right of Broker: Relay to<br>Consumers
+    Broker->>Consumer: {"type":"stream", token:123, status, payload: <payload>}
 ```
