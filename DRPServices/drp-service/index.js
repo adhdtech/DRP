@@ -202,7 +202,7 @@ class DRP_ServerRoute extends drpEndpoint.Endpoint {
         let expressApp = service.expressApp;
         this.service = service;
 
-        if (expressApp !== null && expressApp.route !== null) {
+        if (expressApp && expressApp.route !== null) {
             // This may be an Express server
             if (typeof (expressApp.ws) === "undefined") {
                 // Websockets aren't enabled
@@ -405,13 +405,11 @@ class DRP_Registry_Route extends DRP_ServerRoute {
 
 class DRP_Provider extends DRP_Service {
     /**
-    * @param {string} port TCP Listening Port
 	* @param {string} providerID Globally unique ID for Provider
-    * @param {string} registryURL Provider to Registry URL
-	* @param {string} providerURLBroker Broker to Provider URL
-    * @param {string} proxy Web proxy
+    * @param {express} expressApp WS enabled ExpressApp
+	* @param {string} providerURL Broker to Provider URL
     */
-    constructor(providerID, expressApp, registryURL, providerURL, proxy) {
+    constructor(providerID, expressApp, providerURL) {
 
         super(providerID, expressApp);
         this.serviceType = "Provider";
@@ -422,13 +420,11 @@ class DRP_Provider extends DRP_Service {
 
         this.ProviderDeclaration = new DRP_ProviderDeclaration(providerID, providerURL);
 
-        this.registryURL = registryURL;
-
-        this.proxy = proxy;
-
         this.Structure = {};
 
         this.Services = {};
+
+        this.RegistryClients = {};
 
         //this.RegistryConnections = {};
         this.BrokerConnections = {};
@@ -438,9 +434,6 @@ class DRP_Provider extends DRP_Service {
 
         // Create topic manager, assign to BrokerRoute
         this.TopicManager = new DRP_TopicManager(this.RouteHandler);
-
-        // Set RegistryClient
-        this.RegistryClient = null;
     }
 
     AddService(serviceName, serviceObject) {
@@ -450,9 +443,15 @@ class DRP_Provider extends DRP_Service {
         }
     }
 
-    ConnectToRegistry() {
+    AddStream(streamName, streamDescription) {
+        if (streamName && streamDescription) {
+            this.ProviderDeclaration.Streams[streamName] = streamDescription;
+        }
+    }
+
+    ConnectToRegistry(registryURL, proxy) {
         // Initiate Registry Connection
-        this.RegistryClient = new DRP_Provider_RegistryClient(this, this.registryURL, this.proxy);
+        this.RegistryClients[registryURL] = new DRP_Provider_RegistryClient(this, registryURL, proxy);
     }
 
     RegisterBroker(params, wsConn, token) {
@@ -811,20 +810,28 @@ class DRP_Broker extends DRP_Service {
 
         // Establish a wsConn client if not already established
         if (!thisProviderClient || thisProviderClient.wsConn.readyState != 1) {
-            this.log(`Connecting to provider [${providerID}] @ '${thisProviderDeclaration.ProviderURL}'`);
-            thisProviderClient = new DRP_Broker_ProviderClient(this, thisProviderDeclaration.ProviderURL);
+
+            let targetURL = thisProviderDeclaration.ProviderURL;
+            if (!targetURL) {
+                targetURL = null;
+            }
+
+            this.log(`Connecting to provider [${providerID}] @ '${targetURL}'`);
+            thisProviderClient = new DRP_Broker_ProviderClient(this, targetURL);
             this.ProviderConnections[providerID] = thisProviderClient;
 
-            // Wait a few seconds for connection to initiate; need to add checks in here...
-            for (let i = 0; i < 50; i++) {
+            // If we have a valid target URL, wait a few seconds for connection to initiate
+            if (targetURL) {
+                for (let i = 0; i < 50; i++) {
 
-                // Are we still trying?
-                if (!thisProviderClient.wsConn.readyState) {
-                    // Yes - wait
-                    await sleep(100);
-                } else {
-                    // No - break the for loop
-                    break;
+                    // Are we still trying?
+                    if (!thisProviderClient.wsConn.readyState) {
+                        // Yes - wait
+                        await sleep(100);
+                    } else {
+                        // No - break the for loop
+                        break;
+                    }
                 }
             }
 
@@ -840,7 +847,7 @@ class DRP_Broker extends DRP_Service {
 
                 this.log("Starting wait...");
                 // Wait a few seconds
-                for (let i = 0; i < 30; i++) {
+                for (let i = 0; i < 50; i++) {
 
                     // Are we still trying?
                     if (!thisBroker.ProviderConnections[providerID] || !thisBroker.ProviderConnections[providerID].readyState) {
