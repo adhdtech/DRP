@@ -1,27 +1,21 @@
 # DRP
-Declarative Resource Protocol
+Declarative Resource Protocol - a stateful, JSON based protocol for declaring and consuming resources.
 
 # Overview
-This goal of this project is to provide a vendor and language agnostic protocol for declaring and consuming infrastructure related data sources.
+In legacy applications, resource dependencies are often statically defined.  When a new service component is
+introduced, DNS, load balancer entries, firewall rules, monitoring, etc must be provisioned.  DRP can reduce
+complexity by providing a mechanism for allowing service providers to self-register and dynamically routing
+resource requests.
 
-<div class="mermaid" style="height: 50em;">
-sequenceDiagram
-    participant Provider
-    participant Registry
-    participant Broker
-    Note left of Provider: Startup
-    Provider-->Registry: ws://&lt;regsvc&gt;/broker
-    Broker->Registry: {cmd:"getDeclarations",replytoken:1}
-    Note right of Registry: * Gather Declarations &lt;payload&gt;
-    Registry->Broker: {token:1, data: {streams:["hostReport"]}}}
-    Note left of Consumer: Startup
-    Consumer-->Broker: ws://&lt;regsvc&gt;/consumer
-    Consumer->Broker: {cmd:"observe", data:"hostReport", replytoken:1}
-    Note right of Broker: * Register observation\n* Determine list of providers
-    Broker-->Provider: ws://&lt;providersvc&gt;/broker
-    Broker->Provider: {cmd:"subscribe", data:"hostReport", replytoken:123}
-    Note right of Provider: Stream Data &lt;payload&gt;
-    Provider->Broker: {token:123, data: &lt;payload&gt;}
-    Note right of Broker: Relay to\nConsumers
-    Broker->Consumer: {token:1,  data: &lt;payload&gt;}
-</div>
+# Goals
+Reduce barriers between resources and consumers
+Minimize infrastructure component requirements
+Reduce complexity involved in implementing HA
+
+# Components
+Registries - Track and distribute state of providers and their resources
+Providers - Declare services, objects and streams available for consumption
+Brokers - Process resource requests and track declarations from consumers
+Consumers - Client facing applications, monitoring and analytics
+
+![Stream diagram](./img/sequence-stream.png)
