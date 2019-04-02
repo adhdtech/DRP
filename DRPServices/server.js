@@ -34,7 +34,7 @@ let myRegistry = new drpService.Registry(myServerConfig["RegistryName"], myServe
 
 // Create Provider
 console.log(`Loading Provider [${myServerConfig["ProviderName"]}]`);
-let myProvider = new drpService.Provider(myServerConfig["ProviderName"], myServer.expressApp, myServerConfig["RegistryURL"], myServerConfig["ProviderURL"]);
+let myProvider = new drpService.Provider(myServerConfig["ProviderName"], myServer.expressApp, myServerConfig["ProviderURL"]);
 
 // Declare dummy stream
 myProvider.ProviderDeclaration.Streams = {
@@ -54,7 +54,7 @@ myProvider.AddService("TestService", {
 });
 
 // Connect Provider to Registry
-myProvider.ConnectToRegistry();
+myProvider.ConnectToRegistry(myServerConfig["RegistryURL"]);
 
 
 
