@@ -1,9 +1,9 @@
 class CortexServer {
-    constructor(drpBroker, postHiveLoad) {
+    constructor(drpService, postHiveLoad) {
         var thisCortex = this;
 
         // Set DRP Broker client
-        this.DRPBroker = drpBroker;
+        this.drpService = drpService;
 
         // Initialize Managed Object Types Hash
         this.ObjectTypes = {};
@@ -1538,8 +1538,12 @@ class Hive {
         this.collectorsProcessed = 0;
         this.classLoader = new HiveClassLoader();
 
-        // Need to implement this...
-        let classDefs = await this.Cortex.DRPBroker.GetClassDefinitions();
+        // Wait until DRPService is connected... (static 5 seconds for now)
+        await new Promise(resolve => {
+            setTimeout(resolve, 5000)
+        })
+
+        let classDefs = await this.Cortex.drpService.GetClassDefinitions();
         //let response = await registryClient.SendCmd(registryClient.wsConn, "getClassDefinitions", null, true, null);
 
         this.classLoader.LoadClasses(classDefs);
@@ -1547,7 +1551,7 @@ class Hive {
         thisHive.HiveClasses = thisHive.classLoader.HiveClasses;
         thisHive.HiveIndexes = thisHive.classLoader.GenerateIndexes();
         console.log("Loaded class definitions");
-        await thisHive.LoadCollectorInstances(this.Cortex.DRPBroker);
+        await thisHive.LoadCollectorInstances(this.Cortex.drpService);
         console.log("Loaded collector data");
         callback();
     }
@@ -1620,11 +1624,11 @@ class Hive {
         }
     }
 
-    async LoadCollectorInstances(drpBroker) {
+    async LoadCollectorInstances(drpService) {
         var thisHive = this;
 
         // We need to get a list of all distinct class INSTANCES along with the best source for each
-        let classInstances = drpBroker.ListClassInstances();
+        let classInstances = drpService.ListClassInstances();
 
         // Loop over classes
         let classNames = Object.keys(classInstances);
@@ -1680,7 +1684,10 @@ class Hive {
                 let thisClassObj = thisSourceInstanceObj[thisClassName];
 
                 let recordPath = ["Providers", thisClassObj.ProviderName].concat(thisClassObj.RecordPath);
-                let returnData = await drpBroker.GetObjFromPath({ method: "cliGetPath", pathList: recordPath, listOnly: false });
+
+                // Find a suitable Broker - maybe add "Brokers" to Registry?
+                // Send cmd to broker for info
+                let returnData = await drpService.sendBrokerRequest("pathCmd", { method: "cliGetPath", pathList: recordPath, listOnly: false }, "wss://rsage.autozone.com/broker");
                 let classInstanceRecords = returnData.pathItem;
 
                 // Add data to Hive
