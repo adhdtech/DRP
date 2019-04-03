@@ -253,6 +253,8 @@ class DRP_Service {
         this.serviceID = serviceID;
         this.expressApp = expressApp;
         this.serviceType = null;
+        this.ProviderDeclarations = {};
+        this.ProviderConnections = {};
     }
     log(message) {
         let paddedName = this.serviceType.padEnd(8, ' ');
@@ -273,6 +275,443 @@ class DRP_Service {
         let day = date.getDate();
         day = (day < 10 ? "0" : "") + day;
         return year + "" + month + "" + day + "" + hour + "" + min + "" + sec;
+    }
+    GetClassDefinitions() {
+        //console.log("getting class definitions...");
+        let results = {};
+        let providerNames = Object.keys(this.ProviderDeclarations);
+        //console.log("got provider names, looping...");
+        for (let i = 0; i < providerNames.length; i++) {
+            let providerName = providerNames[i];
+            //console.log("Looping over providerName: " + providerName);
+            let providerDeclaration = this.ProviderDeclarations[providerName];
+            // Loop over Instances
+            let instanceList = Object.keys(providerDeclaration.SourceInstances);
+            for (let j = 0; j < instanceList.length; j++) {
+                let sourceInstanceID = instanceList[j];
+                //console.log("Looping over instanceID: " + instanceID);
+                let sourceInstanceObj = providerDeclaration.SourceInstances[sourceInstanceID];
+                // Loop over Classes
+                let classNames = Object.keys(sourceInstanceObj);
+                for (let k = 0; k < classNames.length; k++) {
+                    let className = classNames[k];
+                    if (!results[className]) {
+                        results[className] = providerDeclaration.SourceInstances[sourceInstanceID][className].Definition;
+                    }
+                }
+            }
+        }
+        //console.dir(results);
+        return results;
+    }
+
+    ListClassInstances(params) {
+        let results = {};
+        let findClassName = params;
+        let providerNames = Object.keys(this.ProviderDeclarations);
+        for (let i = 0; i < providerNames.length; i++) {
+            let providerName = providerNames[i];
+            //console.log("Looping over providerName: " + providerName);
+            let providerDeclaration = this.ProviderDeclarations[providerName];
+            // Loop over Sources
+            let sourceInstanceList = Object.keys(providerDeclaration.SourceInstances);
+            for (let j = 0; j < sourceInstanceList.length; j++) {
+                let sourceInstanceID = sourceInstanceList[j];
+                //console.log("Looping over sourceID: " + sourceID);
+                let sourceInstanceObj = providerDeclaration.SourceInstances[sourceInstanceID];
+                // Loop over Classes
+                let classNames = Object.keys(sourceInstanceObj);
+                for (let k = 0; k < classNames.length; k++) {
+                    let className = classNames[k];
+                    if (!findClassName || findClassName == className) {
+                        if (!results[className]) {
+                            results[className] = {};
+                        }
+                        if (!results[className][sourceInstanceID]) {
+                            results[className][sourceInstanceID] = { providers: {} };
+                        }
+                        results[className][sourceInstanceID].providers[providerName] = Object.assign({}, providerDeclaration.SourceInstances[sourceInstanceID][className]);
+                        delete results[className][sourceInstanceID].providers[providerName].Definition;
+                    }
+                }
+            }
+        }
+        return results;
+    }
+
+    GetBaseObj_Provider() {
+        return {
+            Structure: this.Structure,
+            Streams: this.TopicManager.Topics,
+            Services: this.Services
+        }
+    }
+
+    GetBaseObj_Broker() {
+        let myService = this;
+        let myRegistry = this.ProviderDeclarations;
+        return {
+            "Registry": myService.ProviderDeclarations,
+            "Providers": async function (params) {
+                let remainingChildPath = params.pathList;
+                let oReturnObject = null;
+                if (remainingChildPath && remainingChildPath.length > 0) {
+
+                    let providerID = remainingChildPath.shift();
+
+                    // Need to send command to provider with remaining tree data
+                    //let oResults = await oCurrentObject[aChildPathArray[i]](aChildPathArray.splice(i + 1));
+                    //if (typeof oResults == 'object') {
+                    //    oReturnObject = oResults;
+                    //}
+                    params.pathList = remainingChildPath;
+                    let thisProviderClient = await myService.VerifyProviderConnection(providerID);
+
+                    // Await for command from provider
+                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, params.method, params, true, null);
+                    if (results && results.payload && results.payload) {
+                        oReturnObject = results.payload;
+                    }
+
+                } else {
+                    // Return list of providers
+                    oReturnObject = {};
+                    let aProviderKeys = Object.keys(myRegistry);
+                    for (let i = 0; i < aProviderKeys.length; i++) {
+                        oReturnObject[aProviderKeys[i]] = {
+                            "ProviderType": "SomeType1",
+                            "Status": "Unknown"
+                        };
+                    }
+                }
+                return oReturnObject;
+            },
+            "Services": async function (params) {
+                //console.log("Checking Services...");
+                let remainingChildPath = params.pathList;
+                let oReturnObject = {};
+                if (remainingChildPath && remainingChildPath.length > 0) {
+
+                    //console.log(" -> Have remaining child path...");
+
+                    let serviceInstanceID = remainingChildPath.shift();
+
+                    params.pathList = remainingChildPath;
+
+                    let providerNames = Object.keys(myService.ProviderDeclarations);
+                    for (let i = 0; i < providerNames.length; i++) {
+                        let providerName = providerNames[i];
+                        //console.log("Looping over providerName: " + providerName);
+                        let providerDeclaration = myService.ProviderDeclarations[providerName];
+                        // Loop over Services
+                        if (!providerDeclaration.Services) continue;
+                        let serviceInstanceList = Object.keys(providerDeclaration.Services);
+                        for (let j = 0; j < serviceInstanceList.length; j++) {
+                            if (serviceInstanceID == serviceInstanceList[j]) {
+                                if (!oReturnObject["Providers"]) {
+                                    oReturnObject = {
+                                        "Providers": [],
+                                        "Commands": providerDeclaration.Services[serviceInstanceID]
+                                    };
+                                }
+                                oReturnObject["Providers"].push(providerName);
+                            }
+                            //console.log("added sourceID: " + serviceInstanceID);
+                        }
+                    }
+
+                    if (oReturnObject["Providers"]) {
+                        oReturnObject["Providers"] = oReturnObject["Providers"].join(",");
+                    }
+
+                    if (oReturnObject["Commands"]) {
+                        oReturnObject["Commands"] = oReturnObject["Commands"].join(",");
+                    }
+                    /*
+                    let thisProviderClient = await myBroker.VerifyProviderConnection(providerID);
+
+                    // Await for command from provider
+                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, params.method, params, true, null);
+                    if (results && results.payload && results.payload) {
+                        oReturnObject = results.payload;
+                    }
+                    */
+                } else {
+                    // Return list of services
+                    //console.log(" -> No remaining child path...");
+                    let providerNames = Object.keys(myService.ProviderDeclarations);
+                    //console.log(` -> Checking keys[${providerNames.length}]...`);
+                    for (let i = 0; i < providerNames.length; i++) {
+                        let providerName = providerNames[i];
+                        //console.log("Looping over providerName: " + providerName);
+                        let providerDeclaration = myService.ProviderDeclarations[providerName];
+                        // Loop over Services
+                        if (!providerDeclaration.Services) continue;
+                        let serviceInstanceList = Object.keys(providerDeclaration.Services);
+                        for (let j = 0; j < serviceInstanceList.length; j++) {
+                            let serviceInstanceID = serviceInstanceList[j];
+                            //console.log("Looping over sourceID: " + serviceInstanceID);
+                            //let serviceInstanceObj = providerDeclaration.Services[serviceInstanceID];
+                            if (!oReturnObject[serviceInstanceID]) oReturnObject[serviceInstanceID] = {
+                                "ServiceName": serviceInstanceID,
+                                "Providers": [],
+                                "Commands": providerDeclaration.Services[serviceInstanceID]
+                            };
+
+                            oReturnObject[serviceInstanceID].Providers.push(providerName);
+                            //console.log("added sourceID: " + serviceInstanceID);
+                        }
+                    }
+                }
+                //console.dir(oReturnObject);
+                return oReturnObject;
+            }, "Streams": async function (params) {
+                //console.log("Checking Streams...");
+                let remainingChildPath = params.pathList;
+                let oReturnObject = {};
+                if (remainingChildPath && remainingChildPath.length > 0) {
+
+                    //console.log(" -> Have remaining child path...");
+
+                    let streamInstanceID = remainingChildPath.shift();
+
+                    params.pathList = remainingChildPath;
+
+                    let providerNames = Object.keys(myService.ProviderDeclarations);
+                    for (let i = 0; i < providerNames.length; i++) {
+                        let providerName = providerNames[i];
+                        //console.log("Looping over providerName: " + providerName);
+                        let providerDeclaration = myService.ProviderDeclarations[providerName];
+                        // Loop over Streams
+                        if (!providerDeclaration.Streams) continue;
+                        let streamInstanceList = Object.keys(providerDeclaration.Streams);
+                        for (let j = 0; j < streamInstanceList.length; j++) {
+                            if (streamInstanceID == streamInstanceList[j]) {
+                                if (!oReturnObject["Providers"]) {
+                                    oReturnObject = {
+                                        "Providers": [],
+                                    };
+                                }
+                                oReturnObject["Providers"].push(providerName);
+                            }
+                            //console.log("added sourceID: " + streamInstanceID);
+                        }
+                    }
+
+                    if (oReturnObject["Providers"]) {
+                        oReturnObject["Providers"] = oReturnObject["Providers"].join(",");
+                    }
+
+                    if (oReturnObject["Commands"]) {
+                        oReturnObject["Commands"] = oReturnObject["Commands"].join(",");
+                    }
+                    /*
+                    let thisProviderClient = await myBroker.VerifyProviderConnection(providerID);
+
+                    // Await for command from provider
+                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, params.method, params, true, null);
+                    if (results && results.payload && results.payload) {
+                        oReturnObject = results.payload;
+                    }
+                    */
+                } else {
+                    // Return list of Streams
+                    //console.log(" -> No remaining child path...");
+                    let providerNames = Object.keys(myService.ProviderDeclarations);
+                    //console.log(` -> Checking keys[${providerNames.length}]...`);
+                    for (let i = 0; i < providerNames.length; i++) {
+                        let providerName = providerNames[i];
+                        //console.log("Looping over providerName: " + providerName);
+                        let providerDeclaration = myService.ProviderDeclarations[providerName];
+                        // Loop over Streams
+                        if (!providerDeclaration.Streams) continue;
+                        let streamInstanceList = Object.keys(providerDeclaration.Streams);
+                        for (let j = 0; j < streamInstanceList.length; j++) {
+                            let streamInstanceID = streamInstanceList[j];
+                            //console.log("Looping over sourceID: " + streamInstanceID);
+                            //let streamInstanceObj = providerDeclaration.Streams[streamInstanceID];
+                            if (!oReturnObject[streamInstanceID]) oReturnObject[streamInstanceID] = {
+                                "StreamName": streamInstanceID,
+                                "Providers": [],
+                            };
+
+                            oReturnObject[streamInstanceID].Providers.push(providerName);
+                            //console.log("added sourceID: " + streamInstanceID);
+                        }
+                    }
+                }
+                //console.dir(oReturnObject);
+                return oReturnObject;
+            }
+        }
+    }
+
+    /**
+   * @param {Array.<string>} aChildPathArray Remaining path
+   * @param {Boolean} bReturnChildList Flag to return list of children
+   */
+    async GetObjFromPath(params, baseObj) {
+
+        let aChildPathArray = params.pathList;
+
+        // Initial object
+        let oCurrentObject = baseObj;
+
+        // Return object
+        let oReturnObject = null;
+
+        // Do we have a path array?
+        if (aChildPathArray.length == 0) {
+            // No - act on parent object
+            oReturnObject = oCurrentObject;
+        } else {
+            // Yes - get child
+            PathLoop:
+            for (let i = 0; i < aChildPathArray.length; i++) {
+
+                // Does the child exist?
+                if (oCurrentObject.hasOwnProperty(aChildPathArray[i])) {
+
+                    // See what we're dealing with
+                    let objectType = typeof oCurrentObject[aChildPathArray[i]];
+                    switch (typeof oCurrentObject[aChildPathArray[i]]) {
+                        case 'object':
+                            // Set current object
+                            oCurrentObject = oCurrentObject[aChildPathArray[i]];
+                            if (i + 1 == aChildPathArray.length) {
+                                // Last one - make this the return object
+                                oReturnObject = oCurrentObject;
+                            }
+                            break;
+                        case 'function':
+                            // Send the rest of the path to a function
+                            let remainingPath = aChildPathArray.splice(i + 1);
+                            params.pathList = remainingPath;
+                            let oResults = await oCurrentObject[aChildPathArray[i]](params);
+                            if (typeof oResults == 'object') {
+                                oReturnObject = oResults;
+                            }
+                            break PathLoop;
+                        default:
+                            break PathLoop;
+                    }
+
+                } else {
+                    // Child doesn't exist
+                    break PathLoop;
+                }
+            }
+        }
+
+        // If we have a return object and want only a list of children, do that now
+        if (params.listOnly) {
+            if (!oReturnObject.pathItemList) {
+                // Return only child keys and data types
+                oReturnObject = { pathItemList: this.ListObjChildren(oReturnObject) };
+            }
+        } else if (oReturnObject) {
+            if (!oReturnObject.pathItem) {
+                // Return object as item
+                oReturnObject = { pathItem: oReturnObject };
+            }
+        }
+
+        return oReturnObject;
+    }
+
+    async VerifyProviderConnection(providerID) {
+
+        let thisService = this;
+
+        let thisProviderDeclaration = this.ProviderDeclarations[providerID];
+        if (!thisProviderDeclaration) return null;
+
+        let thisProviderClient = this.ProviderConnections[providerID];
+
+        // Establish a wsConn client if not already established
+        if (!thisProviderClient || thisProviderClient.wsConn.readyState != 1) {
+
+            let targetURL = thisProviderDeclaration.ProviderURL;
+            if (!targetURL) {
+                targetURL = null;
+            }
+
+            this.log(`Connecting to provider [${providerID}] @ '${targetURL}'`);
+            thisProviderClient = new DRP_Broker_ProviderClient(this, targetURL);
+            this.ProviderConnections[providerID] = thisProviderClient;
+
+            // If we have a valid target URL, wait a few seconds for connection to initiate
+            if (targetURL) {
+                for (let i = 0; i < 50; i++) {
+
+                    // Are we still trying?
+                    if (!thisProviderClient.wsConn.readyState) {
+                        // Yes - wait
+                        await sleep(100);
+                    } else {
+                        // No - break the for loop
+                        break;
+                    }
+                }
+            }
+
+            // If no good connection, return false
+            if (thisProviderClient.wsConn.readyState != 1) {
+                this.log("Sending back request...");
+                // Let's try having the Provider call us; send command through Registry
+                try {
+                    // Get registry connection
+                    if (!thisService.RegistryClient) {
+                        // This may be a provider; can have multiple registries.  Pick the first one.
+                        let registryList = Object.keys(thisService.RegistryClients);
+                        thisService.RegistryClient = thisService.RegistryClients[registryList[0]];
+                    }
+                    thisService.RegistryClient.SendCmd(thisService.RegistryClient.wsConn, "brokerToProviderCmd", { "providerID": providerID, "brokerID": thisService.brokerID, "token": "123", "wsTarget": thisService.brokerURL }, false, null);
+                } catch (err) {
+                    this.log(`ERR!!!! [${err}]`);
+                }
+
+                this.log("Starting wait...");
+                // Wait a few seconds
+                for (let i = 0; i < 50; i++) {
+
+                    // Are we still trying?
+                    if (!thisService.ProviderConnections[providerID] || !thisService.ProviderConnections[providerID].readyState) {
+                        // Yes - wait
+                        await sleep(100);
+                    } else {
+                        // No - break the for loop
+                        thisProviderClient.wsConn = thisService.ProviderConnections[providerID];
+                        thisService.ProviderConnections[providerID] = thisProviderClient;
+                        this.log("Received back connection from provider!");
+                    }
+                }
+
+                // If still not successful, return ProviderClient
+                if (thisProviderClient.wsConn.readyState != 1) {
+                    this.log(`Not successful... readyState[${thisProviderClient.wsConn.readyState}]`);
+                    thisProviderClient = null;
+                    delete this.ProviderConnections[providerID];
+                    throw new Error(`Could not get connection to Provider ${providerID}`);
+                }
+            }
+        }
+
+        return thisProviderClient;
+    }
+
+    async sendBrokerRequest(method, params, brokerURL) {
+        //{ method: "cliGetPath", pathList: recordPath, listOnly: false }, "ws://pr-galaxie-dl16.corp.azo.autozone.com:8080/broker");
+        let myClient = null;
+        await new Promise(resolve => {
+            myClient = new DRP_Consumer_BrokerClient(brokerURL, resolve);
+        })
+
+        let response = await myClient.SendCmd(myClient.wsConn, method, params, true);
+        return response.payload;
+        //response = await myClient.SendCmd(this.wsConn, "serviceCommand", { "serviceName": "JSONDocMgr", "method": "loadFile", "fileName": "newFile.json" }, true, null);
+
+        //DRPConsumer_BrokerClient
     }
 }
 
@@ -436,10 +875,16 @@ class DRP_Provider extends DRP_Service {
         this.TopicManager = new DRP_TopicManager(this.RouteHandler);
     }
 
-    AddService(serviceName, serviceObject) {
+    async AddService(serviceName, serviceObject) {
         if (serviceName && serviceObject && serviceObject.ClientCmds) {
             this.Services[serviceName] = serviceObject;
             this.ProviderDeclaration.Services[serviceName] = Object.keys(serviceObject.ClientCmds);
+        }
+
+        let registryList = Object.keys(this.RegistryClients);
+        for (let i = 0; i < registryList.length; i++) {
+            let thisRegistryClient = this.RegistryClients[registryList[i]];
+            await thisRegistryClient.SendCmd(thisRegistryClient.wsConn, "registerProvider", this.ProviderDeclaration, true, null);
         }
     }
 
@@ -463,14 +908,6 @@ class DRP_Provider extends DRP_Service {
 
     Unsubscribe(params, wsConn, token) {
         this.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, params.streamToken, params.filter);
-    }
-
-    GetBaseObj() {
-        return {
-            Structure: this.Structure,
-            Streams: this.TopicManager.Topics,
-            Services: this.Services
-        }
     }
 
     ListObjChildren(oTargetObject) {
@@ -505,67 +942,6 @@ class DRP_Provider extends DRP_Service {
             }
         }
         return pathObjList;
-    }
-
-    /**
-    * @param {Array.<string>} aChildPathArray Remaining path
-    * @param {Object} oBaseObject Starting object
-    */
-    async GetObjFromPath(aChildPathArray, oBaseObject) {
-
-        // Initial object
-        let oCurrentObject = oBaseObject;
-
-        // Return object
-        let oReturnObject = null;
-
-        // Do we have a path array?
-        if (aChildPathArray.length == 0) {
-            // No - act on parent object
-            oReturnObject = oCurrentObject;
-        } else {
-            // Yes - get child
-            PathLoop:
-            for (let i = 0; i < aChildPathArray.length; i++) {
-
-                // Does the child exist?
-                if (oCurrentObject.hasOwnProperty(aChildPathArray[i])) {
-
-                    // See what we're dealing with
-                    switch (typeof oCurrentObject[aChildPathArray[i]]) {
-                        case 'object':
-                            // Set current object
-                            oCurrentObject = oCurrentObject[aChildPathArray[i]];
-                            if (i + 1 == aChildPathArray.length) {
-                                // Last one - make this the return object
-                                oReturnObject = oCurrentObject;
-                            }
-                            break;
-                        case 'function':
-                            // Send the rest of the path to a function
-                            let oResults = await oCurrentObject[aChildPathArray[i]](aChildPathArray.splice(i + 1));
-                            oReturnObject = oResults;
-                            /*
-                            if (typeof oResults == 'object') {
-                                oReturnObject = oResults;
-                            } else {
-                                console.log("Umm...");
-                                console.dir(oResults);
-                            }
-                            */
-                            break PathLoop;
-                        default:
-                            break PathLoop;
-                    }
-
-                } else {
-                    // Child doesn't exist
-                    break PathLoop;
-                }
-            }
-        }
-
-        return oReturnObject;
     }
 
     async ServiceCommand(params, wsConn, token) {
@@ -616,7 +992,7 @@ class DRP_Provider_Route extends DRP_ServerRoute {
             return await provider.ServiceCommand(...args);
         });
         this.RegisterCmd("cliGetPath", async function (params, wsConn, token) {
-            let oReturnObject = await thisProviderRoute.service.GetObjFromPath(params.pathList, thisProviderRoute.service.GetBaseObj());
+            let oReturnObject = await thisProviderRoute.service.GetObjFromPath(params, thisProviderRoute.service.GetBaseObj_Provider());
             //console.log("OUTPUT FROM cliGetPath...");
             //console.dir(oReturnObject);
 
@@ -703,6 +1079,10 @@ class DRP_Provider_RegistryClient extends drpEndpoint.Client {
 
         let response = await this.SendCmd(this.wsConn, "registerProvider", this.service.ProviderDeclaration, true, null);
 
+        response = await this.SendCmd(this.wsConn, "getDeclarations", null, true, null);
+
+        this.service.ProviderDeclarations = response.payload;
+
         //console.log("Register response...");
         //console.dir(response, { depth: 10 });
     }
@@ -775,7 +1155,6 @@ class DRP_Broker extends DRP_Service {
         /**
          * @type {{string: ProviderDeclaration}} ProviderDeclarations
          * */
-        this.ProviderDeclarations = {};
 
         this.ProviderConnections = {};
         this.RegistryConnections = {};
@@ -797,279 +1176,6 @@ class DRP_Broker extends DRP_Service {
     }
 
     RegisterConsumer(params, wsConn, token) {
-    }
-
-    async VerifyProviderConnection(providerID) {
-
-        let thisBroker = this;
-
-        let thisProviderDeclaration = this.ProviderDeclarations[providerID];
-        if (!thisProviderDeclaration) return null;
-
-        let thisProviderClient = this.ProviderConnections[providerID];
-
-        // Establish a wsConn client if not already established
-        if (!thisProviderClient || thisProviderClient.wsConn.readyState != 1) {
-
-            let targetURL = thisProviderDeclaration.ProviderURL;
-            if (!targetURL) {
-                targetURL = null;
-            }
-
-            this.log(`Connecting to provider [${providerID}] @ '${targetURL}'`);
-            thisProviderClient = new DRP_Broker_ProviderClient(this, targetURL);
-            this.ProviderConnections[providerID] = thisProviderClient;
-
-            // If we have a valid target URL, wait a few seconds for connection to initiate
-            if (targetURL) {
-                for (let i = 0; i < 50; i++) {
-
-                    // Are we still trying?
-                    if (!thisProviderClient.wsConn.readyState) {
-                        // Yes - wait
-                        await sleep(100);
-                    } else {
-                        // No - break the for loop
-                        break;
-                    }
-                }
-            }
-
-            // If no good connection, return false
-            if (thisProviderClient.wsConn.readyState != 1) {
-                this.log("Sending back request...");
-                // Let's try having the Provider call us; send command through Registry
-                try {
-                    thisBroker.RegistryClient.SendCmd(thisBroker.RegistryClient.wsConn, "brokerToProviderCmd", { "providerID": providerID, "brokerID": thisBroker.brokerID, "token": "123", "wsTarget": thisBroker.brokerURL }, false, null);
-                } catch (err) {
-                    this.log(`ERR!!!! [${err}]`);
-                }
-
-                this.log("Starting wait...");
-                // Wait a few seconds
-                for (let i = 0; i < 50; i++) {
-
-                    // Are we still trying?
-                    if (!thisBroker.ProviderConnections[providerID] || !thisBroker.ProviderConnections[providerID].readyState) {
-                        // Yes - wait
-                        await sleep(100);
-                    } else {
-                        // No - break the for loop
-                        thisProviderClient.wsConn = thisBroker.ProviderConnections[providerID];
-                        thisBroker.ProviderConnections[providerID] = thisProviderClient;
-                        this.log("Received back connection from provider!");
-                    }
-                }
-
-                // If still not successful, return ProviderClient
-                if (thisProviderClient.wsConn.readyState != 1) {
-                    this.log(`Not successful... readyState[${thisProviderClient.wsConn.readyState}]`);
-                    thisProviderClient = null;
-                    delete this.ProviderConnections[providerID];
-                }
-            }
-        }
-
-        return thisProviderClient;
-    }
-
-    GetBaseObj() {
-        let myBroker = this;
-        let myRegistry = this.ProviderDeclarations;
-        return {
-            "Registry": myBroker.ProviderDeclarations,
-            "Providers": async function (params) {
-                let remainingChildPath = params.pathList;
-                let oReturnObject = null;
-                if (remainingChildPath && remainingChildPath.length > 0) {
-
-                    let providerID = remainingChildPath.shift();
-
-                    // Need to send command to provider with remaining tree data
-                    //let oResults = await oCurrentObject[aChildPathArray[i]](aChildPathArray.splice(i + 1));
-                    //if (typeof oResults == 'object') {
-                    //    oReturnObject = oResults;
-                    //}
-                    params.pathList = remainingChildPath;
-                    let thisProviderClient = await myBroker.VerifyProviderConnection(providerID);
-
-                    // Await for command from provider
-                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, params.method, params, true, null);
-                    if (results && results.payload && results.payload) {
-                        oReturnObject = results.payload;
-                    }
-
-                } else {
-                    // Return list of providers
-                    oReturnObject = {};
-                    let aProviderKeys = Object.keys(myRegistry);
-                    for (let i = 0; i < aProviderKeys.length; i++) {
-                        oReturnObject[aProviderKeys[i]] = {
-                            "ProviderType": "SomeType1",
-                            "Status": "Unknown"
-                        };
-                    }
-                }
-                return oReturnObject;
-            },
-            "Services": async function (params) {
-                //console.log("Checking Services...");
-                let remainingChildPath = params.pathList;
-                let oReturnObject = {};
-                if (remainingChildPath && remainingChildPath.length > 0) {
-
-                    //console.log(" -> Have remaining child path...");
-
-                    let serviceInstanceID = remainingChildPath.shift();
-
-                    params.pathList = remainingChildPath;
-
-                    let providerNames = Object.keys(myBroker.ProviderDeclarations);
-                    for (let i = 0; i < providerNames.length; i++) {
-                        let providerName = providerNames[i];
-                        //console.log("Looping over providerName: " + providerName);
-                        let providerDeclaration = myBroker.ProviderDeclarations[providerName];
-                        // Loop over Services
-                        if (!providerDeclaration.Services) continue;
-                        let serviceInstanceList = Object.keys(providerDeclaration.Services);
-                        for (let j = 0; j < serviceInstanceList.length; j++) {
-                            if (serviceInstanceID == serviceInstanceList[j]) {
-                                if (!oReturnObject["Providers"]) {
-                                    oReturnObject = {
-                                        "Providers": [],
-                                        "Commands": providerDeclaration.Services[serviceInstanceID]
-                                    };
-                                }
-                                oReturnObject["Providers"].push(providerName);
-                            }
-                            //console.log("added sourceID: " + serviceInstanceID);
-                        }
-                    }
-
-                    if (oReturnObject["Providers"]) {
-                        oReturnObject["Providers"] = oReturnObject["Providers"].join(",");
-                    }
-
-                    if (oReturnObject["Commands"]) {
-                        oReturnObject["Commands"] = oReturnObject["Commands"].join(",");
-                    }
-                    /*
-                    let thisProviderClient = await myBroker.VerifyProviderConnection(providerID);
-
-                    // Await for command from provider
-                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, params.method, params, true, null);
-                    if (results && results.payload && results.payload) {
-                        oReturnObject = results.payload;
-                    }
-                    */
-                } else {
-                    // Return list of services
-                    //console.log(" -> No remaining child path...");
-                    let providerNames = Object.keys(myBroker.ProviderDeclarations);
-                    //console.log(` -> Checking keys[${providerNames.length}]...`);
-                    for (let i = 0; i < providerNames.length; i++) {
-                        let providerName = providerNames[i];
-                        //console.log("Looping over providerName: " + providerName);
-                        let providerDeclaration = myBroker.ProviderDeclarations[providerName];
-                        // Loop over Services
-                        if (!providerDeclaration.Services) continue;
-                        let serviceInstanceList = Object.keys(providerDeclaration.Services);
-                        for (let j = 0; j < serviceInstanceList.length; j++) {
-                            let serviceInstanceID = serviceInstanceList[j];
-                            //console.log("Looping over sourceID: " + serviceInstanceID);
-                            //let serviceInstanceObj = providerDeclaration.Services[serviceInstanceID];
-                            if (!oReturnObject[serviceInstanceID]) oReturnObject[serviceInstanceID] = {
-                                "ServiceName": serviceInstanceID,
-                                "Providers": [],
-                                "Commands": providerDeclaration.Services[serviceInstanceID]
-                            };
-
-                            oReturnObject[serviceInstanceID].Providers.push(providerName);
-                            //console.log("added sourceID: " + serviceInstanceID);
-                        }
-                    }
-                }
-                //console.dir(oReturnObject);
-                return oReturnObject;
-            }, "Streams": async function (params) {
-                //console.log("Checking Streams...");
-                let remainingChildPath = params.pathList;
-                let oReturnObject = {};
-                if (remainingChildPath && remainingChildPath.length > 0) {
-
-                    //console.log(" -> Have remaining child path...");
-
-                    let streamInstanceID = remainingChildPath.shift();
-
-                    params.pathList = remainingChildPath;
-
-                    let providerNames = Object.keys(myBroker.ProviderDeclarations);
-                    for (let i = 0; i < providerNames.length; i++) {
-                        let providerName = providerNames[i];
-                        //console.log("Looping over providerName: " + providerName);
-                        let providerDeclaration = myBroker.ProviderDeclarations[providerName];
-                        // Loop over Streams
-                        if (!providerDeclaration.Streams) continue;
-                        let streamInstanceList = Object.keys(providerDeclaration.Streams);
-                        for (let j = 0; j < streamInstanceList.length; j++) {
-                            if (streamInstanceID == streamInstanceList[j]) {
-                                if (!oReturnObject["Providers"]) {
-                                    oReturnObject = {
-                                        "Providers": [],
-                                    };
-                                }
-                                oReturnObject["Providers"].push(providerName);
-                            }
-                            //console.log("added sourceID: " + streamInstanceID);
-                        }
-                    }
-
-                    if (oReturnObject["Providers"]) {
-                        oReturnObject["Providers"] = oReturnObject["Providers"].join(",");
-                    }
-
-                    if (oReturnObject["Commands"]) {
-                        oReturnObject["Commands"] = oReturnObject["Commands"].join(",");
-                    }
-                    /*
-                    let thisProviderClient = await myBroker.VerifyProviderConnection(providerID);
-
-                    // Await for command from provider
-                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, params.method, params, true, null);
-                    if (results && results.payload && results.payload) {
-                        oReturnObject = results.payload;
-                    }
-                    */
-                } else {
-                    // Return list of Streams
-                    //console.log(" -> No remaining child path...");
-                    let providerNames = Object.keys(myBroker.ProviderDeclarations);
-                    //console.log(` -> Checking keys[${providerNames.length}]...`);
-                    for (let i = 0; i < providerNames.length; i++) {
-                        let providerName = providerNames[i];
-                        //console.log("Looping over providerName: " + providerName);
-                        let providerDeclaration = myBroker.ProviderDeclarations[providerName];
-                        // Loop over Streams
-                        if (!providerDeclaration.Streams) continue;
-                        let streamInstanceList = Object.keys(providerDeclaration.Streams);
-                        for (let j = 0; j < streamInstanceList.length; j++) {
-                            let streamInstanceID = streamInstanceList[j];
-                            //console.log("Looping over sourceID: " + streamInstanceID);
-                            //let streamInstanceObj = providerDeclaration.Streams[streamInstanceID];
-                            if (!oReturnObject[streamInstanceID]) oReturnObject[streamInstanceID] = {
-                                "StreamName": streamInstanceID,
-                                "Providers": [],
-                            };
-
-                            oReturnObject[streamInstanceID].Providers.push(providerName);
-                            //console.log("added sourceID: " + streamInstanceID);
-                        }
-                    }
-                }
-                //console.dir(oReturnObject);
-                return oReturnObject;
-            }
-        }
     }
 
     ListObjChildren(oTargetObject) {
@@ -1114,7 +1220,7 @@ class DRP_Broker extends DRP_Service {
     async PathCmd(pathCmd, wsConn, replytoken) {
         // We either need to find the object locally and execute or dispatch
         // Initial object
-        let oCurrentObject = this.GetBaseObj();
+        let oCurrentObject = this.GetBaseObj_Broker();
 
         // Return object
         let oReturnObject = null;
@@ -1168,79 +1274,6 @@ class DRP_Broker extends DRP_Service {
             if (!oReturnObject.pathItems) {
                 // Return only child keys and data types
                 oReturnObject = this.ListObjChildren(oReturnObject);
-            }
-        }
-
-        return oReturnObject;
-    }
-
-    /**
-    * @param {Array.<string>} aChildPathArray Remaining path
-    * @param {Boolean} bReturnChildList Flag to return list of children
-    */
-    async GetObjFromPath(params) {
-
-        let aChildPathArray = params.pathList;
-
-        // Initial object
-        let oCurrentObject = this.GetBaseObj();
-
-        // Return object
-        let oReturnObject = null;
-
-        // Do we have a path array?
-        if (aChildPathArray.length == 0) {
-            // No - act on parent object
-            oReturnObject = oCurrentObject;
-        } else {
-            // Yes - get child
-            PathLoop:
-            for (let i = 0; i < aChildPathArray.length; i++) {
-
-                // Does the child exist?
-                if (oCurrentObject.hasOwnProperty(aChildPathArray[i])) {
-
-                    // See what we're dealing with
-                    let objectType = typeof oCurrentObject[aChildPathArray[i]];
-                    switch (typeof oCurrentObject[aChildPathArray[i]]) {
-                        case 'object':
-                            // Set current object
-                            oCurrentObject = oCurrentObject[aChildPathArray[i]];
-                            if (i + 1 == aChildPathArray.length) {
-                                // Last one - make this the return object
-                                oReturnObject = oCurrentObject;
-                            }
-                            break;
-                        case 'function':
-                            // Send the rest of the path to a function
-                            let remainingPath = aChildPathArray.splice(i + 1);
-                            params.pathList = remainingPath;
-                            let oResults = await oCurrentObject[aChildPathArray[i]](params);
-                            if (typeof oResults == 'object') {
-                                oReturnObject = oResults;
-                            }
-                            break PathLoop;
-                        default:
-                            break PathLoop;
-                    }
-
-                } else {
-                    // Child doesn't exist
-                    break PathLoop;
-                }
-            }
-        }
-
-        // If we have a return object and want only a list of children, do that now
-        if (params.listOnly) {
-            if (!oReturnObject.pathItemList) {
-                // Return only child keys and data types
-                oReturnObject = { pathItemList: this.ListObjChildren(oReturnObject) };
-            }
-        } else if (oReturnObject) {
-            if (!oReturnObject.pathItem) {
-                // Return object as item
-                oReturnObject = { pathItem: oReturnObject };
             }
         }
 
@@ -1318,35 +1351,6 @@ class DRP_Broker extends DRP_Service {
         return { "item": currentPathObj };
     }
 
-    GetClassDefinitions() {
-        //console.log("getting class definitions...");
-        let results = {};
-        let providerNames = Object.keys(this.ProviderDeclarations);
-        //console.log("got provider names, looping...");
-        for (let i = 0; i < providerNames.length; i++) {
-            let providerName = providerNames[i];
-            //console.log("Looping over providerName: " + providerName);
-            let providerDeclaration = this.ProviderDeclarations[providerName];
-            // Loop over Instances
-            let instanceList = Object.keys(providerDeclaration.SourceInstances);
-            for (let j = 0; j < instanceList.length; j++) {
-                let sourceInstanceID = instanceList[j];
-                //console.log("Looping over instanceID: " + instanceID);
-                let sourceInstanceObj = providerDeclaration.SourceInstances[sourceInstanceID];
-                // Loop over Classes
-                let classNames = Object.keys(sourceInstanceObj);
-                for (let k = 0; k < classNames.length; k++) {
-                    let className = classNames[k];
-                    if (!results[className]) {
-                        results[className] = providerDeclaration.SourceInstances[sourceInstanceID][className].Definition;
-                    }
-                }
-            }
-        }
-        //console.dir(results);
-        return results;
-    }
-
     async GetClassRecords(params) {
         let thisBroker = this;
 
@@ -1385,42 +1389,8 @@ class DRP_Broker extends DRP_Service {
 
             // We have the best provider for this class instance
             let recordPath = ["Providers", bestProviderName].concat(bestProviderObj.RecordPath);
-            let returnData = await thisBroker.GetObjFromPath({ method: "cliGetPath", pathList: recordPath, listOnly: false });
+            let returnData = await thisBroker.GetObjFromPath({ method: "cliGetPath", pathList: recordPath, listOnly: false }, thisBroker.GetBaseObj_Broker());
             results[thisSourceInstanceName] = returnData.pathItem;
-        }
-        return results;
-    }
-
-    ListClassInstances(params) {
-        let results = {};
-        let findClassName = params;
-        let providerNames = Object.keys(this.ProviderDeclarations);
-        for (let i = 0; i < providerNames.length; i++) {
-            let providerName = providerNames[i];
-            //console.log("Looping over providerName: " + providerName);
-            let providerDeclaration = this.ProviderDeclarations[providerName];
-            // Loop over Sources
-            let sourceInstanceList = Object.keys(providerDeclaration.SourceInstances);
-            for (let j = 0; j < sourceInstanceList.length; j++) {
-                let sourceInstanceID = sourceInstanceList[j];
-                //console.log("Looping over sourceID: " + sourceID);
-                let sourceInstanceObj = providerDeclaration.SourceInstances[sourceInstanceID];
-                // Loop over Classes
-                let classNames = Object.keys(sourceInstanceObj);
-                for (let k = 0; k < classNames.length; k++) {
-                    let className = classNames[k];
-                    if (!findClassName || findClassName == className) {
-                        if (!results[className]) {
-                            results[className] = {};
-                        }
-                        if (!results[className][sourceInstanceID]) {
-                            results[className][sourceInstanceID] = { providers: {} };
-                        }
-                        results[className][sourceInstanceID].providers[providerName] = Object.assign({}, providerDeclaration.SourceInstances[sourceInstanceID][className]);
-                        delete results[className][sourceInstanceID].providers[providerName].Definition;
-                    }
-                }
-            }
         }
         return results;
     }
@@ -1746,7 +1716,7 @@ class DRP_Broker_Route extends DRP_ServerRoute {
         // First we should find where the item lives.  If remote, relay params and return results.
         switch (params.method) {
             case 'cliGetPath':
-                return await this.service.GetObjFromPath(params);
+                return await this.service.GetObjFromPath(params, this.service.GetBaseObj_Broker());
                 break;
             case 'cliGetItem':
                 break;
@@ -1909,6 +1879,46 @@ class DRP_Broker_ProviderClient extends drpEndpoint.Client {
 
     async ErrorHandler(wsConn, error) {
         this.service.log("Broker to Provider client encountered error [" + error + "]");
+    }
+}
+
+class DRP_Consumer_BrokerClient extends drpEndpoint.Client {
+    constructor(wsTarget, callback) {
+        super(wsTarget);
+        this.postOpenCallback = callback;
+    }
+
+    async OpenHandler(wsConn, req) {
+        let thisBrokerClient = this;
+
+        thisBrokerClient.postOpenCallback();
+    }
+
+    async CloseHandler(wsConn, closeCode) {
+        console.log("Consumer to Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
+    }
+
+    async ErrorHandler(wsConn, error) {
+        console.log("Consumer to Broker client encountered error [" + error + "]");
+    }
+
+    // Watch a stream
+    async WatchStream(streamName, callback) {
+        let thisBrokerClient = this;
+        let streamToken = thisBrokerClient.AddStreamHandler(thisBrokerClient.wsConn, function (message) {
+            if (message && message.payload) {
+                callback(message.payload);
+            }
+        });
+
+        let response = await thisBrokerClient.SendCmd(thisBrokerClient.wsConn, "subscribe", { "topicName": streamName, "streamToken": streamToken }, true, null);
+
+        if (response.status === 0) {
+            this.DeleteCmdHandler(this.wsConn, streamToken);
+            console.log("Subscribe failed, deleted handler");
+        } else {
+            console.log("Subscribe succeeded");
+        }
     }
 }
 

@@ -29,7 +29,7 @@ myServer.start();
 
 // Load Provider
 console.log(`Loading Provider [${myServerConfig["Name"]}]`);
-let myProvider = new drpService.Provider(myServerConfig["Name"], myServer.expressApp, myServerConfig["RegistryURL"], myServerConfig["ProviderURL"]);
+let myProvider = new drpService.Provider(myServerConfig["Name"], myServer.expressApp, myServerConfig["ProviderURL"]);
 myProvider.ProviderDeclaration.Streams = {
     "dummy": { Class: "FakeData" }
 };
@@ -44,5 +44,5 @@ setInterval(function () {
 }, 3000);
 
 // Connect to Registry
-myProvider.ConnectToRegistry();
+myProvider.ConnectToRegistry(myServerConfig["RegistryURL"]);
 

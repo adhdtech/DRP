@@ -2,8 +2,21 @@
 var drpService = require('drp-service');
 var fs = require('fs');
 
-// Create a JSONDocMgr service to expose
-class JSONDocMgr {
+process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
+
+var providerID = process.argv[2];
+if (!providerID) {
+    console.error("No provider ID specified!\n\n> node " + process.argv[1] + " <providerID> <registryURL>");
+    process.exit(0);
+}
+
+var registryURL = process.argv[3];
+if (!registryURL) {
+    console.error("No registry URL specified!\n\n> node " + process.argv[1] + " <providerID> <registryURL>");
+    process.exit(0);
+}
+
+class JSONDocManager {
     constructor(basePath) {
         var thisDocMgr = this;
         this.Name = "JSONDocMgr";
@@ -11,31 +24,24 @@ class JSONDocMgr {
 
         this.ClientCmds = {
             listFiles: async function (appData) {
-                console.log("Listing directory - '" + thisDocMgr.basePath + "'");
+                //console.log("Listing directory - '" + thisDocMgr.basePath + "'");
                 let fileList = await thisDocMgr.ListFiles(thisDocMgr.basePath);
-                console.log("Listed directory - '" + thisDocMgr.basePath + "'");
+                //console.log("Listed directory - '" + thisDocMgr.basePath + "'");
                 return fileList;
             },
             loadFile: async function (appData) {
-                let fileName = null;
-                if (appData.constructor === Array) {
-                    fileName = appData[0];
-                } else if (appData && appData["fileName"]) {
-                    fileName = appData["fileName"];
-                } else return null;
-
-                console.log("Loading JSON File - '" + fileName + "'");
-                let fileData = await thisDocMgr.LoadFile(thisDocMgr.basePath + fileName);
-                console.log("Loaded JSON File - '" + fileName + "'");
+                //console.log("Loading JSON File - '" + appData.fileName + "'");
+                let fileData = await thisDocMgr.LoadFile(thisDocMgr.basePath + appData.fileName);
+                //console.log("Loaded JSON File - '" + appData.fileName + "'");
                 return fileData;
             },
             saveFile: async function (appData) {
-                console.log("Saving JSON File - '" + appData.fileName + "'");
+                //console.log("Saving JSON File - '" + appData.fileName + "'");
                 await thisDocMgr.SaveFile(thisDocMgr.basePath + appData.fileName, appData.fileData);
-                console.log("Saved JSON File - '" + appData.fileName + "'");
+                //console.log("Saved JSON File - '" + appData.fileName + "'");
                 return "Saved";
             }
-        };
+        }
     }
 
     ListFiles(basePath) {
@@ -50,7 +56,7 @@ class JSONDocMgr {
                     for (var i = 0; i < data.length; i++) {
                         let fileName = data[i];
 
-                        // Make sure this is a file
+                        // Make sure this is a JSON file
                         if (!fs.statSync(basePath + fileName).isDirectory()) {
                             returnData[fileName] = fs.statSync(basePath + fileName);
                         }
@@ -85,41 +91,7 @@ class JSONDocMgr {
         });
     }
 }
-
-// Set Name
-let myProviderName = "testJSONDocMgr1";
-
-// Set Registry URL
-let myRegistryURL = "ws://localhost:8080/registry";
-let myProviderURL = null;
-let myServer = null;
-let myProxy = null;
-let expressApp = null;
-
-
-// This section exposes a web service for Brokers.  If the Provider
-// passes through a proxy to hit the Broker and the Broker cannot
-// directly reach this service, comment this section out.  The
-// provider will attempt to call the Broker when needed
-myServer = new drpService.Server({
-    "Port": "8081",
-    "SSLEnabled": false,
-    "SSLKeyFile": "ssl/mydomain.key",
-    "SSLCrtFile": "ssl/mydomain.crt",
-    "SSLCrtFilePwd": "mycertpw"});
-myServer.start();
-expressApp = myServer.expressApp;
-myProviderURL = "ws://localhost:8081/provider";
-
-// Necessary if your proxy does SSL interception and the certs aren't loaded
-//process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-
-// Load Provider
-console.log(`Loading Provider [${myProviderName}]`);
-let myProvider = new drpService.Provider(myProviderName, expressApp, myRegistryURL, myProviderURL, myProxy);
-
-// Add JSONDocMgr Service
-myProvider.AddService("JSONDocMgr", new JSONDocMgr("jsondocs\\"));
-
-// Connect to Registry
-myProvider.ConnectToRegistry();
+	
+let myProvider = new drpService.Provider(providerID);
+myProvider.AddService("JSONDocMgr", new JSONDocManager("jsondocs\\"));
+myProvider.ConnectToRegistry(registryURL);
