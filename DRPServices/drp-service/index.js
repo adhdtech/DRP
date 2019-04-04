@@ -700,18 +700,17 @@ class DRP_Service {
         return thisProviderClient;
     }
 
-    async sendBrokerRequest(method, params, brokerURL) {
-        //{ method: "cliGetPath", pathList: recordPath, listOnly: false }, "ws://pr-galaxie-dl16.corp.azo.autozone.com:8080/broker");
+    async sendBrokerRequest(method, params) {
+        let thisService = this;
         let myClient = null;
+        // NEED TO UPDATE - if there is no proxyBrokerURL, interrogate the registry to find a broker
+        let brokerURL = thisService.proxyBrokerURL;
         await new Promise(resolve => {
             myClient = new DRP_Consumer_BrokerClient(brokerURL, resolve);
         })
 
         let response = await myClient.SendCmd(myClient.wsConn, method, params, true);
         return response.payload;
-        //response = await myClient.SendCmd(this.wsConn, "serviceCommand", { "serviceName": "JSONDocMgr", "method": "loadFile", "fileName": "newFile.json" }, true, null);
-
-        //DRPConsumer_BrokerClient
     }
 }
 
