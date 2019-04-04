@@ -1096,23 +1096,23 @@ class Hive {
                     return returnObj;
                 }
             },
-            getUKMKFKObj: function (conn, appIndex, appData) {
+            getUKMKFKObj: function (params) {
                 //var thisHive = this;
                 var returnObj = {
-                    objName: appData,
+                    objName: params,
                     records: {}
                 };
-                var checkKey = appData['Key'];
+                var checkKey = params['Key'];
                 if (typeof checkKey === "string") {
                     var tmpString = checkKey.toLowerCase();
                     checkKey = tmpString;
                 }
                 //console.log("Getting UKMKFK " + appData['StereoType'] + "[" + checkKey + "]");
-                if (typeof thisHive.HiveIndexes[appData['StereoType']] === "undefined" || typeof thisHive.HiveIndexes[appData['StereoType']].IndexRecords[checkKey] === "undefined") {
+                if (typeof thisHive.HiveIndexes[params['StereoType']] === "undefined" || typeof thisHive.HiveIndexes[params['StereoType']].IndexRecords[checkKey] === "undefined") {
                     //console.log("    ...no index for item");
                 } else {
                     //console.log("    ...found index");
-                    var assocRoot = thisHive.HiveIndexes[appData['StereoType']].IndexRecords[checkKey];
+                    var assocRoot = thisHive.HiveIndexes[params['StereoType']].IndexRecords[checkKey];
                     returnObj.records = {
                         UK: [],
                         MK: "",
@@ -1133,28 +1133,29 @@ class Hive {
                         returnObj.records.FK.push(assocRoot.FK[fkKey].data);
                     });
 
-                    returnObj.records['Key'] = appData['Key'];
-                    returnObj.records['StereoType'] = appData['StereoType'];
-                    thisHive.vdmServer.AppSendCmd(conn, appIndex, 'UKMKFKObj', returnObj);
+                    returnObj.records['Key'] = params['Key'];
+                    returnObj.records['StereoType'] = params['StereoType'];
                 }
+                return returnObj;
             },
-            getUKMKFKGCObj: function (conn, appIndex, appData) {
+            getUKMKFKGCObj: function (params) {
                 //var thisHive = this;
                 var returnObj = {
-                    objName: appData,
+                    StereoType: params["StereoType"],
+                    Key: params['Key'],
                     records: {}
                 };
-                var checkKey = appData['Key'];
+                var checkKey = params['Key'];
                 if (typeof checkKey === "string") {
                     var tmpString = checkKey.toLowerCase();
                     checkKey = tmpString;
                 }
                 //console.log("Getting UKMKFKGC " + appData['StereoType'] + "[" + checkKey + "]");
-                if (typeof thisHive.HiveIndexes[appData['StereoType']] === "undefined" || typeof thisHive.HiveIndexes[appData['StereoType']].IndexRecords[checkKey] === "undefined") {
+                if (typeof thisHive.HiveIndexes[params['StereoType']] === "undefined" || typeof thisHive.HiveIndexes[params['StereoType']].IndexRecords[checkKey] === "undefined") {
                     //console.log("    ...no index for item");
                 } else {
                     //console.log("    ...found index");
-                    var assocRoot = thisHive.HiveIndexes[appData['StereoType']].IndexRecords[checkKey];
+                    var assocRoot = thisHive.HiveIndexes[params['StereoType']].IndexRecords[checkKey];
                     returnObj.records = {
                         UK: [],
                         MK: "",
@@ -1184,21 +1185,21 @@ class Hive {
                         }
                     });
 
-                    returnObj.records['Key'] = appData['Key'];
-                    returnObj.records['StereoType'] = appData['StereoType'];
-                    return returnObj;
-                    //thisHive.vdmServer.AppSendCmd(conn, appIndex, 'UKMKFKGCObj', returnObj);
+                    returnObj.records['Key'] = params['Key'];
+                    returnObj.records['StereoType'] = params['StereoType'];
                 }
+                return returnObj;
             },
-            searchStereotypeKeys: function (conn, appIndex, appData, token) {
+            searchStereotypeKeys: function (params) {
                 //var thisHive = this;
                 var returnObj = {
-                    objName: appData,
+                    StereoType: params["StereoType"],
+                    Key: params['Key'],
                     records: []
                 };
 
-                var checkKey = appData['Key'];
-                var sTypeKey = appData['Stereotype'];
+                var checkKey = params['Key'];
+                var sTypeKey = params['Stereotype'];
                 if (typeof checkKey === "string") {
                     var tmpString = checkKey.toLowerCase();
                     checkKey = tmpString;
@@ -1246,28 +1247,25 @@ class Hive {
                             }
                         });
 
-                        matchObj['Key'] = appData['Key'];
+                        matchObj['Key'] = params['Key'];
                         matchObj['StereoType'] = sTypeKey;
 
                         returnObj.records.push(matchObj);
                     }
                 }
 
-                if (token) {
-                    return returnObj;
-                } else {
-                    thisHive.vdmServer.AppSendCmd(conn, appIndex, 'stereotypeSearchResults', returnObj);
-                }
+                return returnObj;
             },
-            searchStereotypeKeysNested: function (appData) {
+            searchStereotypeKeysNested: function (params) {
                 //var thisHive = this;
                 var returnObj = {
-                    objName: appData,
+                    StereoType: params["StereoType"],
+                    Key: params['Key'],
                     records: []
                 };
 
-                var checkKey = appData['Key'];
-                var sTypeKey = appData['Stereotype'];
+                var checkKey = params['Key'];
+                var sTypeKey = params['Stereotype'];
                 if (typeof checkKey === "string") {
                     var tmpString = checkKey.toLowerCase();
                     checkKey = tmpString;
@@ -1342,7 +1340,7 @@ class Hive {
                             rootObj.children.push(fkObj);
                         });
 
-                        rootObj['Key'] = appData['Key'];
+                        rootObj['Key'] = params['Key'];
                         rootObj['StereoType'] = sTypeKey;
 
                         returnObj.records.push(rootObj);
@@ -1350,15 +1348,16 @@ class Hive {
                 }
                 return returnObj;
             },
-            searchStereotypeKeysChildren: function (appData) {
+            searchStereotypeKeysChildren: function (params) {
                 //var thisHive = this;
                 var returnObj = {
-                    objName: appData,
+                    StereoType: params["StereoType"],
+                    Key: params['Key'],
                     records: []
                 };
 
-                var checkKey = appData['Key'];
-                var sTypeKey = appData['Stereotype'];
+                var checkKey = params['Key'];
+                var sTypeKey = params['Stereotype'];
                 if (typeof checkKey === "string") {
                     var tmpString = checkKey.toLowerCase();
                     checkKey = tmpString;
@@ -1421,7 +1420,7 @@ class Hive {
                             rootObj.children.push(fkObj);
                         });
 
-                        rootObj['Key'] = appData['Key'];
+                        rootObj['Key'] = params['Key'];
                         rootObj['StereoType'] = sTypeKey;
 
                         returnObj.records.push(rootObj);
@@ -1429,7 +1428,7 @@ class Hive {
                 }
                 return returnObj;
             },
-            listClassDataTypes: function (conn, appIndex, appData) {
+            listClassDataTypes: function (params) {
                 //var thisHive = this;
                 var returnObj = {};
                 Object.keys(thisHive.HiveData).forEach(function (dataClass) {
@@ -1444,81 +1443,87 @@ class Hive {
                 });
                 return returnObj;
             },
-            listClassDataKeys: function (conn, appIndex, appData) {
+            listClassDataKeys: function (params) {
                 //var thisHive = this;
                 var returnObj = {
-                    objName: appData,
-                    records: {}
+                    ClassType: params['ClassType'],
+                    records: []
                 };
-                Object.keys(thisHive.HiveData[appData['ClassType']]).forEach(function (key) {
-                    returnObj.records[key] = 1;
-                });
-                thisHive.vdmServer.AppSendCmd(conn, appIndex, 'classDataKeys', returnObj);
+                if (thisHive.HiveData[params['ClassType']]) {
+                    returnObj.records = Object.keys(thisHive.HiveData[params['ClassType']]);
+                }
+                
                 //console.log("Sent keys for class '" + appData['ClassType'] + "'");
+                return returnObj;
             },
-            listClassDataObj: function (appData) {
+            listClassDataObj: function (params) {
                 //var thisHive = this;
                 var returnObj = {
-                    objName: appData['ClassType'],
+                    ClassType: params['ClassType'],
                     records: {}
                 };
-                if (typeof thisHive.HiveData[appData['ClassType']] === "undefined") {
+                if (typeof thisHive.HiveData[params['ClassType']] === "undefined") {
                     //console.log("No data list for class '" + appData['ClassType'] + "'");
                 } else {
-                    Object.keys(thisHive.HiveData[appData['ClassType']]).forEach(function (collectorKey) {
-                        Object.keys(thisHive.HiveData[appData['ClassType']][collectorKey].records).forEach(function (recordKey) {
-                            returnObj.records[recordKey] = thisHive.HiveData[appData['ClassType']][collectorKey].records[recordKey].data;
+                    Object.keys(thisHive.HiveData[params['ClassType']]).forEach(function (collectorKey) {
+                        Object.keys(thisHive.HiveData[params['ClassType']][collectorKey].records).forEach(function (recordKey) {
+                            returnObj.records[recordKey] = thisHive.HiveData[params['ClassType']][collectorKey].records[recordKey].data;
                         });
                     });
-                    //thisHive.vdmServer.AppSendCmd(conn, appIndex, 'classDataList', returnObj);
-                    //console.log("Sent data list for class '" + appData['ClassType'] + "'");
                 }
 
                 return returnObj;
             },
-            getClassDataObj: function (conn, appIndex, appData) {
+            getClassDataObj: function (params) {
                 //var thisHive = this;
                 var returnObj = {
-                    objName: appData,
-                    records: {}
+                    StereoType: params["ClassType"],
+                    Key: params['Key'],
+                    records: []
                 };
-                returnObj.records = thisHive.HiveData[appData['ClassType']][appData['Key']];
-                thisHive.vdmServer.AppSendCmd(conn, appIndex, 'classDataObj', returnObj);
+                // Is this a valid ClassType?
+                if (thisHive.HiveData[params['ClassType']]) {
+                    // Loop over instances
+                    Object.keys(thisHive.HiveData[params['ClassType']]).forEach(function (collectorKey) {
+                        // Does this record exist?
+                        if (thisHive.HiveData[params['ClassType']][collectorKey].records[params['Key']]) {
+                            returnObj.records.push(thisHive.HiveData[params['ClassType']][collectorKey].records[params['Key']].data);
+                        }
+                    });
+                }
+                return returnObj;
             },
-            getClassDataInstObj: function (conn, appIndex, appData) {
+            getClassDataInstObj: function (params) {
                 //var thisHive = this;
                 var returnObj = {
-                    objName: appData,
+                    objName: params['ClassType'],
+                    instance: params['ClassInst'],
                     records: {}
                 };
-                returnObj.records = thisHive.HiveData[appData['ClassType']][appData['ClassInst']].records[appData['Key']];
-                thisHive.vdmServer.AppSendCmd(conn, appIndex, 'classDataInstObj', returnObj);
+                returnObj.records = thisHive.HiveData[params['ClassType']][params['ClassInst']].records[params['Key']];
+                return returnObj;
             },
-            listClassTypes: function (conn, appIndex, appData) {
+            getClassDefinitions: function (params) {
                 //var thisHive = this;
                 return thisHive.HiveClasses;
             },
-            runHiveQuery: function (conn, appIndex, appData, token) {
+            runHiveQuery: function (params) {
                 //var thisHive = this;
                 var returnObj = {
-                    objName: appData,
+                    query: params["query"],
                     records: []
                 };
                 //var icrQuery = new thisSvr.ICRQuery("LIST STEREOTYPE['ipAddress'] WHERE FK['SW.Nodes']['DeviceName'] = 'MEM0BIZDC04'");
-                var icrQuery = new ICRQuery(appData.query, thisHive);
+                var icrQuery = new ICRQuery(params.query, thisHive);
                 icrQuery.Run();
                 if (icrQuery.errorStatus) {
                     //console.log("ICRQuery Error: [" + icrQuery.errorStatus + "]");
-                    thisHive.vdmServer.LogHiveEvent("WS - [" + conn.clientObj["userName"] + "] key {" + conn.clientObj["sessionID"] + "} ICRQuery Error: [" + icrQuery.errorStatus + "] --> " + appData.query);
+                    thisHive.vdmServer.LogHiveEvent("ICRQuery Error: [" + icrQuery.errorStatus + "] --> " + params.query);
                 } else {
                     returnObj.icrQuery = icrQuery.returnObj.icrQuery;
                     returnObj.records = icrQuery.returnObj.results;
                 }
-                if (token) {
-                    return returnObj;
-                } else {
-                    thisHive.vdmServer.AppSendCmd(conn, appIndex, 'hiveQuery', returnObj);
-                }
+                return returnObj;
             }
         }
     }
@@ -1629,7 +1634,6 @@ class Hive {
 
         // We need to get a list of all distinct class INSTANCES along with the best source for each
         let classInstances = drpService.ListClassInstances();
-
         // Loop over classes
         let classNames = Object.keys(classInstances);
         for (let i = 0; i < classNames.length; i++) {
@@ -1687,7 +1691,7 @@ class Hive {
 
                 // Find a suitable Broker - maybe add "Brokers" to Registry?
                 // Send cmd to broker for info
-                let returnData = await drpService.sendBrokerRequest("pathCmd", { method: "cliGetPath", pathList: recordPath, listOnly: false }, "wss://rsage.autozone.com/broker");
+                let returnData = await drpService.sendBrokerRequest("pathCmd", { method: "cliGetPath", pathList: recordPath, listOnly: false });
                 let classInstanceRecords = returnData.pathItem;
 
                 // Add data to Hive
