@@ -5,11 +5,7 @@
 
         this.menu = {
             "File": {
-                "List Classes": async function () {
-                    let response = await myApp.sendCmd("HiveAccess", "listClassTypes", null, true);
-                    let displayText = JSON.stringify(response, null, 2);
-                    //displayText = displayText.replace(/ /g, "&nbsp;");
-                    myApp.windowParts.data.innerHTML = displayText;
+                "Do Nothing": async function () {
                 }
             }
         }
@@ -41,12 +37,7 @@ AppData: <input class="appData" type="text"/><br>
         let cmdSend = $(myApp.appVars.topPane).find('.cmdSend')[0];
 
         let cmdHash = await myApp.sendCmd("VDMAccess", "getCommands", null, true);
-        /*
-        let cmdHash = {
-            "HiveAccess": ['getCommands'],
-            "CortexAccess": ['getCommands']
-        };
-        */
+
         let cmdHashKeys = Object.keys(cmdHash).sort();
         for (let i = 0; i < cmdHashKeys.length; i++) {
             var newOption = document.createElement("option");

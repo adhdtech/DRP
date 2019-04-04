@@ -245,6 +245,35 @@ class DRP_Client extends DRP_Endpoint {
 
         wsConn.on("error", function (error) { thisClient.ErrorHandler(wsConn, error); });
     }
+
+    async RetryConnection() {
+        let thisClient = this;
+        let wsConn = null;
+        if (thisClient.proxy) {
+            let opts = url.parse(thisClient.proxy);
+            let agent = new HttpsProxyAgent(opts);
+            wsConn = new WebSocket(thisClient.wsTarget, { agent: agent });
+        } else {
+            wsConn = new WebSocket(thisClient.wsTarget);
+        }
+        this.wsConn = wsConn;
+
+        wsConn.on('open', function () {
+            setInterval(function ping() {
+                wsConn.ping(function () { });
+            }, 30000);
+            thisClient.OpenHandler(wsConn);
+        });
+
+        wsConn.on("message", function (message) {
+            // Process command
+            thisClient.ReceiveMessage(wsConn, message);
+        });
+
+        wsConn.on("close", function (closeCode) { thisClient.CloseHandler(wsConn, closeCode); });
+
+        wsConn.on("error", function (error) { thisClient.ErrorHandler(wsConn, error); });
+    }
 }
 
 class DRP_Cmd {

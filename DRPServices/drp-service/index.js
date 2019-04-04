@@ -1087,7 +1087,15 @@ class DRP_Provider_RegistryClient extends drpEndpoint.Client {
     }
 
     async CloseHandler(wsConn, closeCode) {
-        this.service.log("Provider to Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
+        let remoteAddress = null;
+        let remotePort = null;
+        if (wsConn._socket) {
+            remoteAddress = wsConn._socket.remoteAddress;
+            remotePort = wsConn._socket.remotePort;
+        }
+        this.service.log("Provider to Registry client [" + remoteAddress + ":" + remotePort + "] closed with code [" + closeCode + "]");
+        await sleep(5000);
+        this.RetryConnection();
     }
 
     async ErrorHandler(wsConn, error) {
@@ -1767,7 +1775,15 @@ class DRP_Broker_RegistryClient extends drpEndpoint.Client {
     }
 
     async CloseHandler(wsConn, closeCode) {
-        //console.log("Broker to Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
+        let remoteAddress = null;
+        let remotePort = null;
+        if (wsConn._socket) {
+            remoteAddress = wsConn._socket.remoteAddress;
+            remotePort = wsConn._socket.remotePort;
+        }
+        this.service.log("Broker to Registry client [" + remoteAddress + ":" + remotePort + "] closed with code [" + closeCode + "]");
+        await sleep(5000);
+        this.RetryConnection();
     }
 
     async ErrorHandler(wsConn, error) {
