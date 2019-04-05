@@ -1,17 +1,20 @@
 'use strict';
 var drpService = require('drp-service');
 var vdmServer = require('rsage-vdm');
+var os = require("os");
 
 var port = process.env.PORT || 8080;
+
+var hostname = os.hostname();
 
 // Set config
 let myServerConfig = {
     "RegistryName": "testRegistry1",
     "ProviderName": "testProvider1",
     "BrokerName": "testBrokerVDM1",
-    "RegistryURL": `ws://localhost:${port}/registry`,
-    "ProviderURL": `ws://localhost:${port}/provider`,
-    "BrokerURL": `ws://localhost:${port}/broker`,
+    "RegistryURL": `ws://${hostname}:${port}/registry`,
+    "ProviderURL": `ws://${hostname}:${port}/provider`,
+    "BrokerURL": `ws://${hostname}:${port}/broker`,
     "Port": port,
     "SSLEnabled": false,
     "SSLKeyFile": "ssl/mydomain.key",
