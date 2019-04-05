@@ -30,10 +30,7 @@ async function startBrokerVDMServer(serverConfig) {
     let myBroker = new drpService.Broker(serverConfig["BrokerName"], myServer.expressApp, serverConfig["RegistryURL"], serverConfig["BrokerURL"], () => {
 
         // Add DRP commands from Broker to VDM
-        myBroker.AddService({
-            "Name": "VDM",
-            "ClientCmds": myVDMServer.EndpointCmds
-        });
+        myBroker.AddService("VDM", myVDMServer);
     });
 }
 

@@ -47,7 +47,7 @@ setInterval(function () {
 
 // Add a test service
 myProvider.AddService("TestService", {
-    ClientCmds : {
+    ClientCmds: {
         sayHi: async function () { return { pathItem: "Hello!" } },
         sayBye: async function () { return { pathItem: "Goodbye..." } }
     }
@@ -64,10 +64,8 @@ myProvider.ConnectToRegistry(myServerConfig["RegistryURL"]);
 let myVDMServer = new vdmServer(myServer.expressApp, myServerConfig["WebRoot"]);
 
 // Create Broker on expressApp
-let myBroker = new drpService.Broker(myServerConfig["BrokerName"], myServer.expressApp, myServerConfig["RegistryURL"], myServerConfig["BrokerURL"], null);
+let myBroker = new drpService.Broker(myServerConfig["BrokerName"], myServer.expressApp, myServerConfig["RegistryURL"], myServerConfig["BrokerURL"], () => {
 
-// Add DRP commands from Broker to VDM
-myVDMServer.AddServerApp({
-    "Name": "DRPAccess",
-    "ClientCmds": myBroker.ConsumerRouteHandler.EndpointCmds
+    // Add DRP commands from Broker to VDM
+    myBroker.AddService("VDM", myVDMServer);
 });
