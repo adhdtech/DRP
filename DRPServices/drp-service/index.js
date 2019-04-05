@@ -255,6 +255,8 @@ class DRP_Service {
         this.serviceType = null;
         this.ProviderDeclarations = {};
         this.ProviderConnections = {};
+        this.RegistryClients = {};
+        this.Services = {};
     }
     log(message) {
         let paddedName = this.serviceType.padEnd(8, ' ');
@@ -351,6 +353,7 @@ class DRP_Service {
         let myService = this;
         let myRegistry = this.ProviderDeclarations;
         return {
+            "Broker": myService,
             "Registry": myService.ProviderDeclarations,
             "Providers": async function (params) {
                 let remainingChildPath = params.pathList;
@@ -587,10 +590,7 @@ class DRP_Service {
                             // Send the rest of the path to a function
                             let remainingPath = aChildPathArray.splice(i + 1);
                             params.pathList = remainingPath;
-                            let oResults = await oCurrentObject[aChildPathArray[i]](params);
-                            if (typeof oResults == 'object') {
-                                oReturnObject = oResults;
-                            }
+                            oReturnObject = await oCurrentObject[aChildPathArray[i]](params);
                             break PathLoop;
                         default:
                             break PathLoop;
@@ -605,12 +605,16 @@ class DRP_Service {
 
         // If we have a return object and want only a list of children, do that now
         if (params.listOnly) {
-            if (!oReturnObject.pathItemList) {
-                // Return only child keys and data types
-                oReturnObject = { pathItemList: this.ListObjChildren(oReturnObject) };
+            if (typeof oReturnObject == 'object') {
+                if (!oReturnObject.pathItemList) {
+                    // Return only child keys and data types
+                    oReturnObject = { pathItemList: this.ListObjChildren(oReturnObject) };
+                }
+            } else {
+                oReturnObject = null;
             }
         } else if (oReturnObject) {
-            if (!oReturnObject.pathItem) {
+            if (!(typeof oReturnObject == 'object') || !(oReturnObject["pathItem"])) {
                 // Return object as item
                 oReturnObject = { pathItem: oReturnObject };
             }
@@ -660,13 +664,12 @@ class DRP_Service {
                 this.log("Sending back request...");
                 // Let's try having the Provider call us; send command through Registry
                 try {
-                    // Get registry connection
-                    if (!thisService.RegistryClient) {
-                        // This may be a provider; can have multiple registries.  Pick the first one.
-                        let registryList = Object.keys(thisService.RegistryClients);
-                        thisService.RegistryClient = thisService.RegistryClients[registryList[0]];
+                    // Get registry connection, can have multiple registries.  Pick the first one.
+                    let registryList = Object.keys(thisService.RegistryClients);
+                    if (registryList.length > 0) {
+                        let registryClient = thisService.RegistryClients[registryList[0]];
+                        registryClient.SendCmd(registryClient.wsConn, "brokerToProviderCmd", { "providerID": providerID, "brokerID": thisService.brokerID, "token": "123", "wsTarget": thisService.brokerURL }, false, null);
                     }
-                    thisService.RegistryClient.SendCmd(thisService.RegistryClient.wsConn, "brokerToProviderCmd", { "providerID": providerID, "brokerID": thisService.brokerID, "token": "123", "wsTarget": thisService.brokerURL }, false, null);
                 } catch (err) {
                     this.log(`ERR!!!! [${err}]`);
                 }
@@ -711,6 +714,54 @@ class DRP_Service {
 
         let response = await myClient.SendCmd(myClient.wsConn, method, params, true);
         return response.payload;
+    }
+
+    async AddService(serviceName, serviceObject) {
+        if (serviceName && serviceObject && serviceObject.ClientCmds) {
+            this.Services[serviceName] = serviceObject;
+            if (this.ProviderDeclaration) {
+                this.ProviderDeclaration.Services[serviceName] = Object.keys(serviceObject.ClientCmds);
+            }
+        }
+
+        let registryList = Object.keys(this.RegistryClients);
+        for (let i = 0; i < registryList.length; i++) {
+            let thisRegistryClient = this.RegistryClients[registryList[i]];
+            if (thisRegistryClient.wsConn.readyState == 1) {
+                await thisRegistryClient.SendCmd(thisRegistryClient.wsConn, "registerProvider", this.ProviderDeclaration, true, null);
+            }
+        }
+    }
+
+    AddStream(streamName, streamDescription) {
+        if (streamName && streamDescription) {
+            this.ProviderDeclaration.Streams[streamName] = streamDescription;
+        }
+    }
+
+    async ServiceCommand(cmdObj, wsConn, token) {
+        let baseMsg = "ERR executing ServiceCommand:";
+        if (!cmdObj) {
+            this.Registry.log(`${baseMsg} params not supplied`);
+            return null;
+        }
+        if (!cmdObj.serviceName) {
+            this.Registry.log(`${baseMsg} params.serviceName not supplied`);
+            return null;
+        }
+        if (!cmdObj.cmd) {
+            this.Registry.log(`${baseMsg} params.method not supplied`);
+            return null;
+        }
+        if (!this.Services[cmdObj.serviceName]) {
+            this.Registry.log(`${baseMsg} service ${cmdObj.serviceName} does not exist`);
+            return null;
+        }
+        if (!this.Services[cmdObj.serviceName].ClientCmds[cmdObj.cmd]) {
+            this.Registry.log(`${baseMsg} service ${cmdObj.serviceName} does not have method ${cmdObj.cmd}`);
+            return null;
+        }
+        return await this.Services[cmdObj.serviceName].ClientCmds[cmdObj.cmd](cmdObj.params, wsConn);
     }
 }
 
@@ -862,8 +913,6 @@ class DRP_Provider extends DRP_Service {
 
         this.Services = {};
 
-        this.RegistryClients = {};
-
         //this.RegistryConnections = {};
         this.BrokerConnections = {};
 
@@ -872,25 +921,6 @@ class DRP_Provider extends DRP_Service {
 
         // Create topic manager, assign to BrokerRoute
         this.TopicManager = new DRP_TopicManager(this.RouteHandler);
-    }
-
-    async AddService(serviceName, serviceObject) {
-        if (serviceName && serviceObject && serviceObject.ClientCmds) {
-            this.Services[serviceName] = serviceObject;
-            this.ProviderDeclaration.Services[serviceName] = Object.keys(serviceObject.ClientCmds);
-        }
-
-        let registryList = Object.keys(this.RegistryClients);
-        for (let i = 0; i < registryList.length; i++) {
-            let thisRegistryClient = this.RegistryClients[registryList[i]];
-            await thisRegistryClient.SendCmd(thisRegistryClient.wsConn, "registerProvider", this.ProviderDeclaration, true, null);
-        }
-    }
-
-    AddStream(streamName, streamDescription) {
-        if (streamName && streamDescription) {
-            this.ProviderDeclaration.Streams[streamName] = streamDescription;
-        }
     }
 
     ConnectToRegistry(registryURL, proxy) {
@@ -941,31 +971,6 @@ class DRP_Provider extends DRP_Service {
             }
         }
         return pathObjList;
-    }
-
-    async ServiceCommand(params, wsConn, token) {
-        let baseMsg = "ERR executing ServiceCommand:";
-        if (!params) {
-            this.Registry.log(`${baseMsg} params not supplied`);
-            return null;
-        }
-        if (!params.serviceName) {
-            this.Registry.log(`${baseMsg} params.serviceName not supplied`);
-            return null;
-        }
-        if (!params.method) {
-            this.Registry.log(`${baseMsg} params.method not supplied`);
-            return null;
-        }
-        if (!this.Services[params.serviceName]) {
-            this.Registry.log(`${baseMsg} service ${params.serviceName} does not exist`);
-            return null;
-        }
-        if (!this.Services[params.serviceName].ClientCmds[params.method]) {
-            this.Registry.log(`${baseMsg} service ${params.serviceName} does not have method ${params.method}`);
-            return null;
-        }
-        return await this.Services[params.serviceName].ClientCmds[params.method](params);
     }
 
 }
@@ -1179,7 +1184,7 @@ class DRP_Broker extends DRP_Service {
         this.TopicManager = new DRP_TopicManager(this.ConsumerRouteHandler);
 
         // Initiate Registry Connection
-        this.RegistryClient = new DRP_Broker_RegistryClient(this, this.registryURL);
+        this.RegistryClients[this.registryURL] = new DRP_Broker_RegistryClient(this, this.registryURL);
     }
 
     RegisterConsumer(params, wsConn, token) {
@@ -1428,46 +1433,55 @@ class DRP_Broker extends DRP_Service {
         return results;
     }
 
-    async ServiceCommand(params) {
+    async ServiceCommand(cmdObj, wsConn) {
+        let thisBroker = this;
+
         let baseMsg = "ERR executing ServiceCommand:";
-        if (!params) {
-            this.log(`${baseMsg} params not supplied`);
+        if (!cmdObj) {
+            this.log(`${baseMsg} cmdObj not supplied`);
             return null;
         }
-        if (!params.serviceName) {
-            this.log(`${baseMsg} params.serviceName not supplied`);
+        if (!cmdObj.serviceName) {
+            this.log(`${baseMsg} cmdObj.serviceName not supplied`);
             return null;
         }
-        if (!params.method) {
-            this.log(`${baseMsg} params.method not supplied`);
+        if (!cmdObj.cmd) {
+            this.log(`${baseMsg} cmdObj.cmd not supplied`);
             return null;
         }
 
-        // Find provider that has service
-        let providerNames = Object.keys(this.ProviderDeclarations);
-        let targetServiceName = null;
-        for (let i = 0; i < providerNames.length; i++) {
-            let thisProviderName = providerNames[i];
-            if (this.ProviderDeclarations[thisProviderName].Services && this.ProviderDeclarations[thisProviderName].Services[params.serviceName]) {
-                let checkService = this.ProviderDeclarations[thisProviderName].Services[params.serviceName];
-                if (checkService.includes(params.method)) {
-                    // Let's execute it
-                    let thisProviderClient = await this.VerifyProviderConnection(thisProviderName);
+        // Do we offer this service?
+        if (thisBroker.Services[cmdObj.serviceName]) {
+            let results = await super.ServiceCommand(cmdObj, wsConn);
+            return results;
+        } else {
 
-                    // Await for command from provider
-                    let returnObj = null;
-                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "serviceCommand", params, true, null);
-                    if (results && results.payload && results.payload) {
-                        returnObj = results.payload;
+            // Find provider that has service
+            let providerNames = Object.keys(this.ProviderDeclarations);
+            let targetServiceName = null;
+            for (let i = 0; i < providerNames.length; i++) {
+                let thisProviderName = providerNames[i];
+                if (this.ProviderDeclarations[thisProviderName].Services && this.ProviderDeclarations[thisProviderName].Services[cmdObj.serviceName]) {
+                    let checkService = this.ProviderDeclarations[thisProviderName].Services[cmdObj.serviceName];
+                    if (checkService.includes(cmdObj.cmd)) {
+                        // Let's execute it
+                        let thisProviderClient = await this.VerifyProviderConnection(thisProviderName);
+
+                        // Await for command from provider
+                        let returnObj = null;
+                        let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "serviceCommand", cmdObj, true, null);
+                        if (results && results.payload && results.payload) {
+                            returnObj = results.payload;
+                        }
+                        return returnObj;
+                    } else {
+                        this.log(`${baseMsg} service ${cmdObj.serviceName} does not have method ${cmdObj.cmd}`);
                     }
-                    return returnObj;
-                } else {
-                    this.log(`${baseMsg} service ${params.serviceName} does not have method ${params.method}`);
                 }
             }
+            this.log(`${baseMsg} service ${cmdObj.serviceName} does not exist`);
+            return null;
         }
-        this.log(`${baseMsg} service ${params.serviceName} does not exist`);
-        return null;
     }
     /*
     GetSourceInstances() {
@@ -1523,11 +1537,11 @@ class DRP_Broker_Route extends DRP_ServerRoute {
         this.RegisterCmd("unsubscribe", "Unsubscribe");
 
         this.RegisterCmd("pathCmd", "PathCmd");
-
+        /*
         this.RegisterCmd("serviceCommand", async function (...args) {
             return await thisBrokerRoute.service.ServiceCommand(...args);
         });
-
+        */
         this.RegisterCmd("getRegistry", function () {
             return thisBrokerRoute.service.ProviderDeclarations;
         });
@@ -1629,6 +1643,45 @@ class DRP_Broker_Route extends DRP_ServerRoute {
             }
         }, 3000);
         */
+    }
+
+    // We need to override the default ProcessCmd; we may be receiving a "service" attribute
+    async ProcessCmd(wsConn, message) {
+        let thisEndpoint = this;
+
+        var cmdResults = {
+            status: 0,
+            output: null
+        };
+
+        if (!message.serviceName || message.serviceName === "DRP") {
+            if (typeof thisEndpoint.EndpointCmds[message.cmd] === 'function') {
+                // Execute method
+                try {
+                    cmdResults.output = await thisEndpoint.EndpointCmds[message.cmd](message.params, wsConn, message.replytoken);
+                    cmdResults.status = 1;
+                } catch (err) {
+                    cmdResults.output = err.message;
+                }
+            } else {
+                cmdResults.output = "Endpoint does not have method";
+                thisEndpoint.service.log("Remote endpoint tried to execute invalid method '" + message.cmd + "'...");
+                console.dir(message);
+                //console.dir(thisEndpoint.EndpointCmds);
+            }
+        } else {
+            try {
+                cmdResults.output = await thisEndpoint.service.ServiceCommand(message, wsConn);
+                cmdResults.status = 1;
+            } catch (err) {
+                cmdResults.output = err.message;
+            }
+        }
+
+        // Reply with results
+        if (typeof message.replytoken !== "undefined" && message.replytoken !== null) {
+            thisEndpoint.SendReply(wsConn, message.replytoken, cmdResults.status, cmdResults.output);
+        }
     }
 
     // Define Handlers
@@ -1826,7 +1879,7 @@ class DRP_Broker_RegistryClient extends drpEndpoint.Client {
 
                         // Subscribe on behalf of the Consumer
                         //let streamToken = thisConsumerRoute.GetToken(thisProviderClient.wsConn);
-                        //console.log(`Subscribing to stream [${params.topicName}] for client from provider [${providerID}] using streamToken [${subscriberStreamToken}]`);
+                        //console.log(`Subscribing to stream [${subscribedTopicName}] for client from provider [${providerID}] using streamToken [${subscriberStreamToken}]`);
                         let providerStreamToken = thisService.ConsumerRouteHandler.AddStreamHandler(thisProviderClient.wsConn, async function (response) {
                             //console.log(`... stream data ... streamToken[${subscriberStreamToken}]`);
                             //console.dir(response);

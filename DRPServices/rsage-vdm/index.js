@@ -33,7 +33,7 @@ class VDMServer_UserAppInstance {
         publisherObj['subscribers'].splice(publisherObj['subscribers'].indexOf(userAppObj), 1);
         userAppObj['subscriptions'].splice(userAppObj['subscriptions'].indexOf(publisherObj), 1);
     }
-
+    /*
     SendCmd(appCmd, appData) {
         var userAppObj = this;
         if (userAppObj.conn.readyState === WebSocket.OPEN) {
@@ -49,7 +49,7 @@ class VDMServer_UserAppInstance {
             this.vdmServer.LogWSClientEvent(userAppObj.conn, "Tried sending packet to closed WS client");
         }
     }
-
+    */
     ToObject() {
         // Return this
         var returnObj = {};
@@ -73,32 +73,32 @@ class VDMServer extends drpService.ServerRoute {
         this.RegisterCmd("register", function (params, wsConn, token) {
             return broker.RegisterConsumer(params, wsConn, token);
         });
-        //this.RegisterCmd("subscribe", "Subscribe");
 
-        this.RegisterCmd("userLoginRequest", "UserLoginRequest");
-
-        this.RegisterCmd("appCmdWithToken", "AppCmdWithToken");
-
-        //this.RegisterCmd("getCmds", "GetCmds");
-
-        var thisVDMServer = this;
+        let thisVDMServer = this;
 
         this.expressApp = expressApp;
         this.wsClients = [];
         this.clientSessions = {};
         this.wsServer = null;
 
-        this.AppServerProfiles = {
-        }
-        
         this.ClientCmds = {
             "listClientSessions": function () {
                 let returnObj = {};
-                for (var i = 0; i < thisVDMServer.wsClients.length; i++) {
-                    let thisClientObj = thisVDMServer.wsClients[i].clientObj;
+                let clientSessionIDList = Object.keys(thisVDMServer.clientSessions);
+                for (let i = 0; i < clientSessionIDList.length; i++) {
+                    let thisClientSessionID = clientSessionIDList[i];
+                    let thisClientObj = thisVDMServer.clientSessions[thisClientSessionID];
+
                     if (thisClientObj) {
-                        returnObj[i] = {
-                            remoteAddress: thisVDMServer.wsClients[i]._socket.remoteAddress,
+                        let remoteAddress = null;
+                        let readyState = null;
+                        if (thisClientObj.wsConn && thisClientObj.wsConn._socket) {
+                            remoteAddress = thisClientObj.wsConn._socket.remoteAddress + ":" + thisClientObj.wsConn._socket.remotePort;
+                            readyState = thisClientObj.wsConn._socket.readyState;
+                        }
+                        returnObj[thisClientSessionID] = {
+                            remoteAddress: remoteAddress,
+                            readyState: readyState,
                             sessionID: thisClientObj['sessionID'],
                             userName: thisClientObj['userName'],
                             openApps: {}
@@ -106,11 +106,11 @@ class VDMServer extends drpService.ServerRoute {
                         let appKeys = Object.keys(thisClientObj.openApps);
                         for (let j = 0; j < appKeys.length; j++) {
                             let appObj = thisClientObj.openApps[appKeys[j]].ToObject();
-                            returnObj[i].openApps[appObj.appletIndex] = appObj;
+                            returnObj[thisClientSessionID].openApps[appObj.appletIndex] = appObj;
                         }
                     } else {
-                        returnObj[i] = {
-                            remoteAddress: thisVDMServer.wsClients[i]._socket.remoteAddress,
+                        returnObj[thisClientSessionID] = {
+                            remoteAddress: null, //thisVDMServer.wsClients[i]._socket.remoteAddress,
                             sessionID: null,
                             userName: null,
                             openApps: {}
@@ -120,25 +120,14 @@ class VDMServer extends drpService.ServerRoute {
 
                 return returnObj;
             },
-            "getCommands": function () {
-                let returnHash = {};
-                let serverAppList = Object.keys(thisVDMServer.AppServerProfiles);
-                for (let i = 0; i < serverAppList.length; i++) {
-                    let serverAppName = serverAppList[i];
-                    returnHash[serverAppName] = Object.keys(thisVDMServer.AppServerProfiles[serverAppName].ClientCmds);
-                }
-                return returnHash;
-            },
-            "openUserApp": function (conn, appletIndex, appData) { thisVDMServer.OpenUserApp(appData, conn, null) },
-            "closeUserApp": function (conn, appletIndex, appData) { thisVDMServer.CloseUserApp(appData, conn, null) }
+            "openUserApp": function (params, wsConn) { thisVDMServer.OpenUserApp(params, wsConn) },
+            "closeUserApp": function (params, wsConn) { thisVDMServer.CloseUserApp(params, wsConn) },
+            "userLoginRequest": function (params, wsConn) {
+                return thisVDMServer.UserLoginRequest(params, wsConn)
+            }
 
         }
 
-        this.AddServerApp({
-            "Name": "VDMAccess",
-            "ClientCmds": this.ClientCmds
-        });
-        
         // Setup ID Generator
         var FlakeIdGen = require('flake-idgen');
         thisVDMServer.intformat = require('biguint-format');
@@ -158,7 +147,7 @@ class VDMServer extends drpService.ServerRoute {
                 'userGroups': [],
                 'openApps': {}
             });
-            console.log("EXPRESS - Authenticated user [" + userName + "] from ip (" + ip + "), key {" + sessionID + "}");
+            thisVDMServer.LogExpressEvent(`Authenticated user [${userName}] from ip (${ip}), key {${sessionID}}`);
             res.cookie('sessionID', sessionID);
             res.redirect('/client.html');
         });
@@ -200,6 +189,7 @@ class VDMServer extends drpService.ServerRoute {
         if (params.sessionID in thisVDMServer.clientSessions) {
             var thisClientObj = thisVDMServer.clientSessions[params.sessionID];
             wsConn.clientObj = thisClientObj;
+            wsConn.clientObj.wsConn = wsConn;
             // Need to tag conn with ClientObjectID
             replyChunk.loginSuccessful = true;
             replyChunk.userName = thisClientObj["userName"];
@@ -220,86 +210,14 @@ class VDMServer extends drpService.ServerRoute {
         thisVDMServer.clientSessions[params.sessionID] = params;
     }
 
-    async AppCmdWithToken(params, wsConn, streamToken) {
-        let thisVDMServer = this;
-        let replyChunk = {};
-
-        var tgtApp = thisVDMServer.AppServerProfiles[params.appName];
-        if (tgtApp && tgtApp.ClientCmds && tgtApp.ClientCmds[params.appCmd]) {
-            replyChunk = await tgtApp.ClientCmds[params.appCmd](params.appData, wsConn, streamToken);
-        } else {
-            thisVDMServer.LogWSClientEvent(wsConn, "sent unrecognized command: '" + params.appName + "' -> '" + params.appCmd + "'");
-        }
-
-        return replyChunk;
-    }
-
-    async GetCmds(params, wsConn, streamToken) {
-        let thisVDMServer = this;
-        let replyChunk = {};
-
-        let serverAppList = Object.keys(thisVDMServer.AppServerProfiles);
-        for (let i = 0; i < serverAppList.length; i++) {
-            let serverAppName = serverAppList[i];
-            replyChunk[serverAppName] = Object.keys(thisVDMServer.AppServerProfiles[serverAppName].ClientCmds);
-        }
-
-        return replyChunk;
-    }
-
-    /*
-    AppSendCmd(conn, appIndex, appCmd, appData) {
-        let thisVDMServer = this;
-        var sendChunk = new VDMServer_JSONCmd();
-        sendChunk.cmd = 'appCmd';
-        sendChunk.data.appIndex = appIndex;
-        sendChunk.data.appCmd = appCmd;
-        sendChunk.data.appData = appData;
-        sendChunk.token = null;
-        conn.send(JSON.stringify(sendChunk));
-    }
-
-    AppSendCmdWithToken(conn, appData, token, stream) {
-        let thisVDMServer = this;
-        var sendChunk = new VDMServer_JSONCmd();
-        sendChunk.data = appData;
-        sendChunk.token = token;
-        sendChunk.stream = stream;
-        conn.send(JSON.stringify(sendChunk));
-    }
-    */
-    Broadcast(sendCmd, sendData) {
-        let thisVDMServer = this;
-        for (var i = 0; i < thisVDMServer.wsClients.length; i++) {
-            var thisClient = thisVDMServer.wsClients[i];
-            if (thisClient.clientObj) {
-                thisClient.send(JSON.stringify({ cmd: sendCmd, data: sendData }));
-            }
-        }
-    }
-
-    AddServerApp(appDefinition) {
-        let thisVDMServer = this;
-        // Check to see if we have a name and the necessary attributes
-        if (!appDefinition) {
-            console.log("Cannot add app - No definition");
-        } else if (!appDefinition.Name) {
-            console.log("Cannot add app - Name not defined");
-        } else if (!appDefinition.ClientCmds) {
-            console.log("Cannot add app '" + appDefinition.Name + "' - App definition does not contain 'ClientCmds' parameter");
-        } else {
-            thisVDMServer.AppServerProfiles[appDefinition.Name] = appDefinition;
-        }
-    }
-
-    OpenUserApp(params, wsConn, streamToken) {
+    OpenUserApp(params, wsConn) {
         let thisVDMServer = this;
         thisVDMServer.LogWSClientEvent(wsConn, "opened app '" + params["appletName"] + "' [" + params["appletIndex"] + "]");
         // Create object to represent open app under client connection['openApps'] object
         wsConn.clientObj.openApps[params["appletIndex"]] = new VDMServer_UserAppInstance(wsConn, params["appletIndex"], params["appletName"], thisVDMServer);
     }
 
-    CloseUserApp(params, wsConn, streamToken) {
+    CloseUserApp(params, wsConn) {
         let thisVDMServer = this;
         thisVDMServer.LogWSClientEvent(wsConn, "closed app '" + params["appletName"] + "' [" + params["appletIndex"] + "]");
         // Remove Subscriptions
@@ -318,109 +236,40 @@ class VDMServer extends drpService.ServerRoute {
             delete clientObj.openApps[appletIndex];
         })
     }
-    /*
-    async ParseJSONCmd(conn, jsonMessage) {
-        let thisVDMServer = this;
-        var message;
-        try {
-            message = JSON.parse(jsonMessage);
-        } catch (e) {
-            console.log("Received non-JSON message, disconnecting client... %s", conn._socket.remoteAddress);
-            conn.close();
-            return;
-        }
-        // Add logic to see if conn has been authorized
-        if (message.cmd) {
-            try {
-                if (conn.clientObj) {
-                    switch (message.cmd) {
-                        case 'userLoginRequest':
-                            // Already authenticated, shouldn't reach this
-                            thisVDMServer.LogWSClientEvent(conn, "tried to re-authenticate");
-                            break;
-                        case 'appCmd':
-                            var tgtApp = thisVDMServer.AppServerProfiles[message.data.appName];
-                            if (tgtApp && tgtApp.ClientCmds && tgtApp.ClientCmds[message.data.appCmd]) {
-                                tgtApp.ClientCmds[message.data.appCmd](conn, message.data.appIndex, message.data.appData);
-                            } else {
-                                thisVDMServer.LogWSClientEvent(conn, "sent unrecognized command: '" + message.data.appName + "' -> '" + message.data.appCmd + "'");
-                            }
-                            break;
-                        case 'appCmdWithToken':
-                            var tgtApp = thisVDMServer.AppServerProfiles[message.data.appName];
-                            if (tgtApp && tgtApp.ClientCmds && tgtApp.ClientCmds[message.data.appCmd]) {
-                                let responseData = await tgtApp.ClientCmds[message.data.appCmd](conn, message.data.appIndex, message.data.appData, message.token);
-                                if (responseData) {
-                                    thisVDMServer.AppSendCmdWithToken(conn, responseData, message.token)
-                                }
-                            } else {
-                                thisVDMServer.LogWSClientEvent(conn, "sent unrecognized command: '" + message.data.appName + "' -> '" + message.data.appCmd + "'");
-                            }
-                            break;
-                        case 'openApp':
-                            thisVDMServer.OpenUserApp(conn, message.data);
-                            break;
-                        case 'closeApp':
-                            thisVDMServer.CloseUserApp(conn, message.data);
-                            break;
-                        default:
-                            thisVDMServer.LogSysEvent("Unknown command.  Here's the JSON data..." + jsonMessage);
-                            //console.log("Unknown command.  Here's the JSON data..." + jsonMessage);
-                            conn.send("Unknown command.  Here's the JSON data..." + jsonMessage);
-                            break;
-                    }
-                } else {
-                    switch (message.cmd) {
-                        case 'userLoginRequest':
-                            let replyChunk = thisVDMServer.UserLoginAttempt(conn, message.params);
-                            conn.send(JSON.stringify(replyChunk));
-                            break;
-                        case 'appCmdWithToken':
-                            var tgtApp = thisVDMServer.AppServerProfiles[message.data.appName];
-                            if (tgtApp && tgtApp.ClientCmds && tgtApp.ClientCmds[message.data.appCmd]) {
-                                let responseData = await tgtApp.ClientCmds[message.data.appCmd](conn, message.data.appIndex, message.data.appData, message.token);
-                                if (responseData) {
-                                    thisVDMServer.AppSendCmdWithToken(conn, responseData, message.token)
-                                }
-                            } else {
-                                thisVDMServer.LogWSClientEvent(conn, "sent unrecognized command: '" + message.data.appName + "' -> '" + message.data.appCmd + "'");
-                            }
-                            break;
-                        default:
-                            var replyChunk = new VDMServer_JSONCmd();
-                            replyChunk.cmd = 'disconnect';
-                            replyChunk.data.reason = 'Must authenticate before sending command';
-                            thisVDMServer.LogSysEvent("WS - failed to auth before sending command from ip (" + conn._socket.remoteAddress + "), key {" + message.data.sessionID + "}");
-                            //console.log("WS - failed to auth before sending command from ip (" + conn._socket.remoteAddress + "), key {" + data.sessionID + "}");
-                            conn.send(JSON.stringify(replyChunk));
-                            conn.close();
-                            break;
-                    }
-                }
-            } catch (e) {
-                console.log("Error processing command.  Here's the JSON data..." + jsonMessage);
-                thisVDMServer.DumpError(e);
-            }
-        } else {
-            console.log("Bad command.  Here's the JSON data..." + jsonMessage);
-            conn.send("Bad command.  Here's the JSON data..." + jsonMessage);
-        }
-    }
-    */
+
     LogWSClientEvent(conn, logMsg) {
         var thisVDMServer = this;
         var dateTimeStamp = thisVDMServer.GetTimestamp();
+
+        let paddedName = "VDM".padEnd(8, ' ');
+        let paddedServiceID = "WS".padEnd(14, ' ');
+        let message = "";
         if (conn.clientObj) {
-            console.log(dateTimeStamp + " WS - [" + conn.clientObj["userName"] + "] key {" + conn.clientObj["sessionID"] + "} " + logMsg);
+            message = "[" + conn.clientObj["userName"] + "] key {" + conn.clientObj["sessionID"] + "} " + logMsg;
         } else {
-            console.log(dateTimeStamp + " WS - [---] key {---} " + logMsg);
+            message = "[---] key {---} " + logMsg;
         }
+        console.log(`${dateTimeStamp} ${paddedName} [${paddedServiceID}] -> ${message}`);
     }
 
     LogSysEvent(logMsg) {
         var thisVDMServer = this;
         var dateTimeStamp = thisVDMServer.GetTimestamp();
-        console.log(dateTimeStamp + " SYS - " + logMsg);
+
+        let paddedName = "VDM".padEnd(8, ' ');
+        let paddedServiceID = "SYS".padEnd(14, ' ');
+        let message = logMsg;
+        console.log(`${dateTimeStamp} ${paddedName} [${paddedServiceID}] -> ${message}`);
+    }
+
+    LogExpressEvent(logMsg) {
+        var thisVDMServer = this;
+        var dateTimeStamp = thisVDMServer.GetTimestamp();
+
+        let paddedName = "VDM".padEnd(8, ' ');
+        let paddedServiceID = "EXPRESS".padEnd(14, ' ');
+        let message = logMsg;
+        console.log(`${dateTimeStamp} ${paddedName} [${paddedServiceID}] -> ${message}`);
     }
 
     GetTimestamp() {

@@ -15,8 +15,8 @@ window.onload = function () {
 	if (vdmPort) {
 		vdmPortString = ":" + vdmPort;
 	}
-	var vdmSvrRoute = 'vdm'
-		var vdmSvrWSTarget = vdmSvrProt + "//" + vdmSvrHost + vdmPortString + "/" + vdmSvrRoute;
+	var vdmSvrRoute = 'broker'
+    var vdmSvrWSTarget = vdmSvrProt + "//" + vdmSvrHost + vdmPortString + "/" + vdmSvrRoute;
 
 	// Set applets path
 	var vdmAppletsPath = "vdmapplets";
@@ -36,6 +36,20 @@ window.onload = function () {
 		showInMenu : true,
 		appletPath : vdmAppletsPath,
         appletScript: 'vdm-app-CommandTesting.js',
+        vdmClient: vdmClient
+	});
+	
+	myVDMDesktop.addAppletProfile({
+        appletName: 'HiveBrowser',
+        window: {
+            title: 'Hive Browser',
+            sizeX: 800,
+            sizeY: 400
+        },
+        appletIcon : 'fa-book',
+        showInMenu : true,
+		appletPath : vdmAppletsPath,
+        appletScript : 'vdm-app-HiveBrowser.js',
         vdmClient: vdmClient
 	});
 

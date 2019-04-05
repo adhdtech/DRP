@@ -128,7 +128,7 @@ class DRP_Endpoint {
             }
         } else {
             cmdResults.output = "Endpoint does not have method";
-            console.log("Remote endpoint tried to execute invalid method '" + message.cmd + "'...");
+            thisEndpoint.service.log("Remote endpoint tried to execute invalid method '" + message.cmd + "'...");
             console.dir(message);
             //console.dir(thisEndpoint.EndpointCmds);
         }

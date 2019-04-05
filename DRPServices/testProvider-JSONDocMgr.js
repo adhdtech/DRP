@@ -23,21 +23,29 @@ class JSONDocManager {
         this.basePath = basePath;
 
         this.ClientCmds = {
-            listFiles: async function (appData) {
+            listFiles: async function (cmdObj) {
                 //console.log("Listing directory - '" + thisDocMgr.basePath + "'");
                 let fileList = await thisDocMgr.ListFiles(thisDocMgr.basePath);
                 //console.log("Listed directory - '" + thisDocMgr.basePath + "'");
                 return fileList;
             },
-            loadFile: async function (appData) {
+            loadFile: async function (cmdObj) {
                 //console.log("Loading JSON File - '" + appData.fileName + "'");
-                let fileData = await thisDocMgr.LoadFile(thisDocMgr.basePath + appData.fileName);
+                let fileName = null;
+                if (cmdObj.fileName) {
+                    fileName = cmdObj.fileName;
+                } else if (cmdObj.pathList && cmdObj.pathList.length > 0) {
+                    fileName = cmdObj.pathList[0];
+                } else {
+                    return null;
+                }
+                let fileData = await thisDocMgr.LoadFile(thisDocMgr.basePath + fileName);
                 //console.log("Loaded JSON File - '" + appData.fileName + "'");
                 return fileData;
             },
-            saveFile: async function (appData) {
+            saveFile: async function (cmdObj) {
                 //console.log("Saving JSON File - '" + appData.fileName + "'");
-                await thisDocMgr.SaveFile(thisDocMgr.basePath + appData.fileName, appData.fileData);
+                await thisDocMgr.SaveFile(thisDocMgr.basePath + cmdObj.fileName, cmdObj.fileData);
                 //console.log("Saved JSON File - '" + appData.fileName + "'");
                 return "Saved";
             }

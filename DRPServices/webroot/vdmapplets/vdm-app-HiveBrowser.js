@@ -79,7 +79,7 @@
                     if (searchPacket) {
                         myApp.appVars.lastSearch = searchPacket;
                         console.log("Search history entries: " + myApp.appVars.searchHistory.length);
-                        let recvData = await myApp.sendCmd("DRPAccess", "serviceCommand", { "serviceName": "Hive", "method": "searchStereotypeKeysNested", "Key": searchPacket["Key"], "Stereotype": searchPacket["Stereotype"] }, true);
+                        let recvData = await myApp.sendCmd("Hive", "searchStereotypeKeysNested", {"Key": searchPacket["Key"], "Stereotype": searchPacket["Stereotype"] }, true);
                         myApp.appFuncs.changeDataScreen('ObjDisplay');
                         myApp.appFuncs.displayObjectArrayNested(recvData.records, myApp.appVars.rightPaneScreens['ObjDisplay'].screenDiv);
                     }
@@ -90,7 +90,7 @@
                 myApp.appVars.lastSearch = searchPacket;
                 myApp.appVars.searchHistory.push(searchPacket);
                 console.log("Search history entries: " + myApp.appVars.searchHistory.length);
-                let recvData = await myApp.sendCmd("DRPAccess", "serviceCommand", { "serviceName": "Hive", "method": "searchStereotypeKeysChildren", "Key": keyVal, "Stereotype": sTypeName  }, true);
+                let recvData = await myApp.sendCmd("Hive", "searchStereotypeKeysChildren", {"Key": keyVal, "Stereotype": sTypeName  }, true);
                 myApp.appFuncs.changeDataScreen('ObjDisplay');
                 myApp.appFuncs.displayObjectArrayNested(recvData.records, myApp.appVars.rightPaneScreens['ObjDisplay'].screenDiv);
             },
@@ -99,7 +99,7 @@
                 myApp.appVars.lastSearch = searchPacket;
                 myApp.appVars.searchHistory.push(searchPacket);
                 console.log("Search history entries: " + myApp.appVars.searchHistory.length);
-                let recvData = await myApp.sendCmd("DRPAccess", "serviceCommand", { "serviceName": "Hive", "method": "searchStereotypeKeysNested", "Key": keyVal, "Stereotype": sTypeName }, true);
+                let recvData = await myApp.sendCmd("Hive", "searchStereotypeKeysNested", {"Key": keyVal, "Stereotype": sTypeName }, true);
                 myApp.appFuncs.changeDataScreen('ObjDisplay');
                 myApp.appFuncs.displayObjectArrayNested(recvData.records, myApp.appVars.rightPaneScreens['ObjDisplay'].screenDiv);
             },
@@ -526,9 +526,9 @@
             }
         });
 
-        myApp.appVars.dataStructs['StereoTypes'] = await myApp.sendCmd("DRPAccess", "serviceCommand", { "serviceName": "Hive", "method": "listStereoTypes" }, true);
-        myApp.appVars.dataStructs['ClassTypes'] = await myApp.sendCmd("DRPAccess", "serviceCommand", { "serviceName": "Hive", "method": "getClassDefinitions" }, true);
-        let classDataTypes = await myApp.sendCmd("DRPAccess", "serviceCommand", { "serviceName": "Hive", "method": "listClassDataTypes" }, true);
+        myApp.appVars.dataStructs['StereoTypes'] = await myApp.sendCmd("Hive", "listStereoTypes", null, true);
+        myApp.appVars.dataStructs['ClassTypes'] = await myApp.sendCmd("Hive", "getClassDefinitions", null, true);
+        let classDataTypes = await myApp.sendCmd("Hive", "listClassDataTypes", null, true);
         let classDataTypeKeys = Object.keys(classDataTypes);
         for (let i = 0; i < classDataTypeKeys.length; i++) {
             let recKey = classDataTypeKeys[i];
@@ -556,7 +556,7 @@
                     var queryText = $(myApp.menuQuery.queryField).val().replace(/(\r\n|\n|\r)/gm, "");
                     //var queryText = $(myApp.menuQuery.queryField).val().trim();
                     $(myApp.menuQuery.queryField).val(queryText);
-					let recvData = await myApp.sendCmd("DRPAccess", "serviceCommand", { "serviceName": "Hive", "method": "runHiveQuery", "query": queryText }, true);
+                    let recvData = await myApp.sendCmd("Hive", "runHiveQuery", {"query": queryText }, true);
                     myApp.appFuncs.changeDataScreen('ObjDisplay');
                     myApp.appFuncs.displayHiveQuery(recvData, myApp.appVars.rightPaneScreens['ObjDisplay'].screenDiv);
                 }
