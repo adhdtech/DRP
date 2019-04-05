@@ -59,7 +59,7 @@ class DRP_Endpoint {
         }
     }
 
-    SendCmd(wsConn, cmd, params, promisify, callback) {
+    SendCmd(wsConn, serviceName, cmd, params, promisify, callback) {
         let thisEndpoint = this;
         let returnVal = null;
         let replyToken = null;
@@ -80,32 +80,32 @@ class DRP_Endpoint {
             // We don't expect a response; leave replyToken null
         }
 
-        let sendCmd = new DRP_Cmd(cmd, params, replyToken);
+        let sendCmd = new DRP_Cmd(serviceName, cmd, params, replyToken);
         wsConn.send(JSON.stringify(sendCmd));
         //console.log("SEND -> " + JSON.stringify(sendCmd));
         return returnVal;
     }
 
-    SendCmd_StreamHandler(wsConn, cmd, params, callback, sourceApplet) {
+    SendCmd_StreamHandler(wsConn, serviceName, cmd, params, callback, sourceApplet) {
         let thisEndpoint = this;
         let returnVal = null;
         let replyToken = null;
 
-        if (!params.appData) params.appData = {};
-        params.appData.streamToken = thisEndpoint.AddStreamHandler(wsConn, callback);
+        if (!params) params = {};
+        params.streamToken = thisEndpoint.AddStreamHandler(wsConn, callback);
 
         if (sourceApplet) {
-            sourceApplet.streamHandlerTokens.push(params.appData.streamToken);
+            sourceApplet.streamHandlerTokens.push(params.streamToken);
         }
-        
+
         returnVal = new Promise(function (resolve, reject) {
             replyToken = thisEndpoint.AddReplyHandler(wsConn, function (message) {
                 //console.dir(message);
                 resolve(message);
             });
         });
-        
-        let sendCmd = new DRP_Cmd(cmd, params, replyToken);
+
+        let sendCmd = new DRP_Cmd(serviceName, cmd, params, replyToken);
         wsConn.send(JSON.stringify(sendCmd));
         //console.log("SEND -> " + JSON.stringify(sendCmd));
 
@@ -200,7 +200,7 @@ class DRP_Endpoint {
 
         } else {
             // We do not have the token - tell the sender we do not honor this token
-            let unsubResults = await thisEndpoint.SendCmd(wsConn, "appCmdWithToken", { appName: "DRPAccess", appCmd: "unsubscribe", appData: { "streamToken": message.token } }, true, null);
+            let unsubResults = await thisEndpoint.SendCmd(wsConn, "DRP", "unsubscribe", { "streamToken": message.token }, true, null);
             //console.log("Send close request for unknown stream");
         }
     }
@@ -268,10 +268,11 @@ class DRP_Client extends DRP_Endpoint {
 }
 
 class DRP_Cmd {
-    constructor(cmd, params, replytoken) {
+    constructor(serviceName, cmd, params, replytoken) {
         this.type = "cmd";
         this.cmd = cmd;
         this.params = params;
+        this.serviceName = serviceName;
         this.replytoken = replytoken;
     }
 }
@@ -327,6 +328,7 @@ class VDMClient {
         let thisVDMClient = this;
         if (!reconnect) {
             thisVDMClient.vdmDesktop.loadDesktop();
+            thisVDMClient.vdmDesktop.changeLEDColor('green');
         }
         return false;
     }
@@ -339,7 +341,7 @@ class VDMClient {
             window.location.href = "/";
         }, 500);
     }
-	
+
     createCookie(name, value, days) {
         if (days) {
             var date = new Date();
@@ -389,10 +391,13 @@ class rSageApplet extends VDMApplet {
 
         // Send applet close notification to VDM Server after open
         this.postOpenHandler = function () {
-            thisApplet.sendCmd("VDMAccess", "openUserApp", {
-                appletName: thisApplet.appletName,
-                appletIndex: thisApplet.appletIndex
-            }, false);
+            thisApplet.sendCmd("VDM", "openUserApp",
+                {
+                    appletName: thisApplet.appletName,
+                    appletIndex: thisApplet.appletIndex
+                },
+                false
+            );
         }
 
         // Send applet close notification to VDM Server after closure
@@ -402,31 +407,34 @@ class rSageApplet extends VDMApplet {
                 //console.dir(thisApplet.vdmClient.vdmServerAgent.wsConn);
                 thisApplet.vdmClient.vdmServerAgent.DeleteStreamHandler(thisApplet.vdmClient.vdmServerAgent.wsConn, thisApplet.streamHandlerTokens[i]);
             }
-            thisApplet.sendCmd("VDMAccess", "closeUserApp", {
-                appletName: thisApplet.appletName,
-                appletIndex: thisApplet.appletIndex
-            }, false);
+            thisApplet.sendCmd("VDM", "closeUserApp",
+                {
+                    appletName: thisApplet.appletName,
+                    appletIndex: thisApplet.appletIndex
+                },
+                false
+            );
         }
 
     }
 
-    async sendCmd(svrAppName, cmdName, cmdData, awaitResponse) {
+    async sendCmd(serviceName, cmdName, cmdData, awaitResponse) {
         let thisApplet = this;
         let returnData = null;
         let wsConn = thisApplet.vdmClient.vdmServerAgent.wsConn;
 
-        let response = await thisApplet.vdmClient.vdmServerAgent.SendCmd(wsConn, "appCmdWithToken", { appName: svrAppName, appCmd: cmdName, appData: cmdData }, awaitResponse, null);
+        let response = await thisApplet.vdmClient.vdmServerAgent.SendCmd(wsConn, serviceName, cmdName, cmdData, awaitResponse, null);
         if (response) returnData = response.payload;
 
         return returnData;
     }
 
-    async sendCmd_StreamHandler(svrAppName, cmdName, cmdData, callback) {
+    async sendCmd_StreamHandler(serviceName, cmdName, cmdData, callback) {
         let thisApplet = this;
         let returnData = null;
         let wsConn = thisApplet.vdmClient.vdmServerAgent.wsConn;
 
-        let response = await thisApplet.vdmClient.vdmServerAgent.SendCmd_StreamHandler(wsConn, "appCmdWithToken", { appName: svrAppName, appCmd: cmdName, appData: cmdData }, callback, thisApplet);
+        let response = await thisApplet.vdmClient.vdmServerAgent.SendCmd_StreamHandler(wsConn, serviceName, cmdName, cmdData, callback, thisApplet);
         if (response) returnData = response.payload;
         //console.log("Received response from stream subscription...");
         //console.dir(response);
@@ -453,10 +461,11 @@ class VDMServerAgent extends DRP_Client {
         let thisVDMServerAgent = this;
         console.log("VDM Client to server [" + thisVDMServerAgent.wsTarget + "] opened");
 
-        let response = await thisVDMServerAgent.SendCmd(thisVDMServerAgent.wsConn, "userLoginRequest", { 'sessionID': thisVDMServerAgent.sessionID }, true, null);
+        let response = await thisVDMServerAgent.SendCmd(thisVDMServerAgent.wsConn, "VDM", "userLoginRequest", { "sessionID": thisVDMServerAgent.sessionID }, true, null);
 
         thisVDMServerAgent.vdmClient.processLoginStatus(response.payload, thisVDMServerAgent.reconnect);
-        thisVDMServerAgent.vdmClient.vdmDesktop.changeLEDColor('green');
+        //thisVDMServerAgent.vdmClient.vdmDesktop.loadDesktop();
+        //thisVDMServerAgent.vdmClient.vdmDesktop.changeLEDColor('green');
     }
 
     async CloseHandler(wsConn, closeCode) {
