@@ -1,5 +1,8 @@
 'use strict';
 var drpEndpoint = require('drp-endpoint');
+var os = require("os");
+
+var hostname = os.hostname();
 
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
@@ -50,35 +53,12 @@ class DRPConsumer_BrokerClient extends drpEndpoint.Client {
         if (response && response.payload) {
             callback(response.payload);
         }
-
-        //console.log("Records...");
-        /*
-        if (!response.payload) return;
-
-        // Loop over providers offering class data
-        let providerList = Object.keys(response.payload);
-        for (let i = 0; i < providerList.length; i++) {
-            let thisProviderObj = response.payload[providerList[i]];
-
-            // Loop over records in class
-            let objectKeyList = Object.keys(thisProviderObj);
-            for (let k = 0; k < objectKeyList.length; k++) {
-                let thisRecord = thisProviderObj[objectKeyList[k]];
-
-                // Output object details
-                //console.log(`${thisRecord.employeeNumber}\t${thisRecord.sn}\t${thisRecord.givenName}\t${thisRecord.azNickName || ""}\t${thisRecord.title}\t${thisRecord.azLocCode}\t${thisRecord.azLocPhysAddress || ""}`);
-                console.log(objectKeyList[k]);
-            }
-        }
-        */
-        //console.log("Done.");
     }
 }
 
 console.log("Starting Test Client...");
 
-//let myClient = new DRPConsumer_BrokerClient("wss://rsage.autozone.com/broker", async function () {
-let myClient = new DRPConsumer_BrokerClient("ws://localhost:8080/broker", async function () {
+let myClient = new DRPConsumer_BrokerClient(`ws://${hostname}:8080/broker`, async function () {
     // Connection established - let's do stuff
     let response = null;
 
@@ -88,15 +68,13 @@ let myClient = new DRPConsumer_BrokerClient("ws://localhost:8080/broker", async 
     //myClient.SendCmd(this.wsConn, "getCmds", null, false, (response) => { console.dir(response) });
 
     // Execute a pathCmd
-    //myClient.SendCmd(this.wsConn, "pathCmd", { "method": "cliGetPath", "pathList": ["Providers", "rSageCortex1", "Services", "Hive", "HiveData", "LDAP.Person", "AZPEOPLE_LDAP", "records", "10707972", "data"], "params": {}, "listOnly": true }, false, (payload) => { console.dir(payload, { "depth": 10 }) });
-    //myClient.SendCmd(this.wsConn, "pathCmd", { "method": "cliGetPath", "pathList": ["Providers", "rSageCollector1", "Structure", "Collectors", "AZPEOPLE_LDAP", "CollectorData", "LDAP.Person", "records", "10707972"], "params": {}, "listOnly": true }, false, (payload) => { console.dir(payload, { "depth": 10 }) });
+    //myClient.SendCmd(this.wsConn, "pathCmd", { "method": "cliGetPath", "pathList": ["Providers", "JSONDocMgr1", "Services", "JSONDocMgr", "ClientCmds", "listFiles"], "params": {}, "listOnly": true }, false, (payload) => { console.dir(payload, { "depth": 10 }) });
     
     // Get data for a class
-    //myClient.GetClassRecords("IP.BalancerProfile", (payload) => console.dir(payload) );
+    //myClient.GetClassRecords("SomeDataClass", (payload) => console.dir(payload) );
 
     // Subscribe to a stream
     myClient.WatchStream("dummy", (payload) => console.log(" STREAM -> " + payload));
-    //myClient.WatchStream("CCAuthLogs", (payload) => console.log(`<CCAUTHLOG> -> [${payload}]`));
 
     // Execute a service command
     //myClient.SendCmd(this.wsConn, "serviceCommand", { "serviceName": "Hive", "method": "listStereoTypes" }, false, (payload) => { console.dir(payload) });
