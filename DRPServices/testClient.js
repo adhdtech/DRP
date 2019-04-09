@@ -35,7 +35,7 @@ class DRPConsumer_BrokerClient extends drpEndpoint.Client {
             }
         });
         
-        let response = await thisBrokerClient.SendCmd(thisBrokerClient.wsConn, "subscribe", { "topicName": streamName, "streamToken": streamToken }, true, null);
+        let response = await thisBrokerClient.SendCmd(thisBrokerClient.wsConn, "DRP", "subscribe", { "topicName": streamName, "streamToken": streamToken }, true, null);
 
         if (response.status === 0) {
             this.DeleteCmdHandler(this.wsConn, streamToken);
@@ -48,7 +48,7 @@ class DRPConsumer_BrokerClient extends drpEndpoint.Client {
     // Get Class records
     async GetClassRecords(className, callback) {
         //response = await this.SendCmd(this.wsConn, "getClassRecords", { "className": "LDAP.Person" }, true, null);
-        let response = await this.SendCmd(this.wsConn, "getClassRecords", { "className": className }, true, null);
+        let response = await this.SendCmd(this.wsConn, "DRP", "getClassRecords", { "className": className }, true, null);
 
         if (response && response.payload) {
             callback(response.payload);
@@ -58,35 +58,37 @@ class DRPConsumer_BrokerClient extends drpEndpoint.Client {
 
 console.log("Starting Test Client...");
 
-let myClient = new DRPConsumer_BrokerClient(`ws://${hostname}:8080/broker`, async function () {
+let brokerURL = `ws://${hostname}:8080/broker`;
+
+let myClient = new DRPConsumer_BrokerClient(brokerURL, async function () {
     // Connection established - let's do stuff
     let response = null;
 
     // See what commands are available;
-    //response = await myClient.SendCmd(this.wsConn, "getCmds", null, true, null);
+    //response = await myClient.SendCmd(this.wsConn, "DRP", "getCmds", null, true, null);
     //console.dir(response, { "depth": 10 });
-    //myClient.SendCmd(this.wsConn, "getCmds", null, false, (response) => { console.dir(response) });
+    //myClient.SendCmd(this.wsConn, "DRP", "getCmds", null, false, (response) => { console.dir(response) });
 
     // Execute a pathCmd
-    //myClient.SendCmd(this.wsConn, "pathCmd", { "method": "cliGetPath", "pathList": ["Providers", "JSONDocMgr1", "Services", "JSONDocMgr", "ClientCmds", "listFiles"], "params": {}, "listOnly": true }, false, (payload) => { console.dir(payload, { "depth": 10 }) });
+    //myClient.SendCmd(this.wsConn, "DRP", "pathCmd", { "method": "cliGetPath", "pathList": ["Providers", "JSONDocMgr1", "Services", "JSONDocMgr", "ClientCmds", "listFiles"], "params": {}, "listOnly": true }, false, (payload) => { console.dir(payload, { "depth": 10 }) });
     
     // Get data for a class
     //myClient.GetClassRecords("SomeDataClass", (payload) => console.dir(payload) );
 
     // Subscribe to a stream
-    myClient.WatchStream("dummy", (payload) => console.log(" STREAM -> " + payload));
+    //myClient.WatchStream("dummy", (payload) => console.log(" STREAM -> " + payload));
 
     // Execute a service command
-    //myClient.SendCmd(this.wsConn, "serviceCommand", { "serviceName": "Hive", "method": "listStereoTypes" }, false, (payload) => { console.dir(payload) });
+    //myClient.SendCmd(this.wsConn, "DRP", "serviceCommand", { "serviceName": "Hive", "method": "listStereoTypes" }, false, (payload) => { console.dir(payload) });
 
     // List Files
     //myClient.SendCmd(this.wsConn, "serviceCommand", { "serviceName": "JSONDocMgr", "method": "listFiles" }, false, (payload) => { console.dir(payload) });
 
     // Load a file
-    //response = await myClient.SendCmd(this.wsConn, "serviceCommand", { "serviceName": "JSONDocMgr", "method": "loadFile", "fileName": "newFile.json" }, true, null);
+    response = await myClient.SendCmd(this.wsConn, "JSONDocMgr", "loadFile", {"fileName": "testdoc1.json" }, true, null);
 
     // Save a file
-    //response = await myClient.SendCmd(this.wsConn, "serviceCommand", { "serviceName": "JSONDocMgr", "method": "saveFile", "fileName": "newFile.json", "fileData": JSON.stringify({"someKey":"someVal"}) }, true, null);
+    //response = await myClient.SendCmd(this.wsConn, "DRP", "saveFile", {"fileName": "newFile.json", "fileData": JSON.stringify({"someKey":"someVal"}) }, true, null);
 
-    //console.dir(response, { "depth": 10 });
+    console.dir(response, { "depth": 10 });
 });

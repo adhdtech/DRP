@@ -61,7 +61,7 @@ class DRP_Endpoint {
         }
     }
 
-    SendCmd(wsConn, cmd, params, promisify, callback) {
+    SendCmd(wsConn, serviceName, cmd, params, promisify, callback) {
         let thisEndpoint = this;
         let returnVal = null;
         let replyToken = null;
@@ -82,7 +82,7 @@ class DRP_Endpoint {
             // We don't expect a response; leave replyToken null
         }
 
-        let sendCmd = new DRP_Cmd(cmd, params, replyToken);
+        let sendCmd = new DRP_Cmd(serviceName, cmd, params, replyToken);
         wsConn.send(JSON.stringify(sendCmd));
         //console.log("SEND -> " + JSON.stringify(sendCmd));
         return returnVal;
@@ -282,10 +282,11 @@ class DRP_Client extends DRP_Endpoint {
 }
 
 class DRP_Cmd {
-    constructor(cmd, params, replytoken) {
+    constructor(serviceName, cmd, params, replytoken) {
         this.type = "cmd";
         this.cmd = cmd;
         this.params = params;
+        this.serviceName = serviceName;
         this.replytoken = replytoken;
     }
 }

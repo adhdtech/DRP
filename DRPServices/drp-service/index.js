@@ -371,7 +371,7 @@ class DRP_Service {
                     let thisProviderClient = await myService.VerifyProviderConnection(providerID);
 
                     // Await for command from provider
-                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, params.method, params, true, null);
+                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "DRP", params.method, params, true, null);
                     if (results && results.payload && results.payload) {
                         oReturnObject = results.payload;
                     }
@@ -434,7 +434,7 @@ class DRP_Service {
                     let thisProviderClient = await myBroker.VerifyProviderConnection(providerID);
 
                     // Await for command from provider
-                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, params.method, params, true, null);
+                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "DRP", params.method, params, true, null);
                     if (results && results.payload && results.payload) {
                         oReturnObject = results.payload;
                     }
@@ -512,7 +512,7 @@ class DRP_Service {
                     let thisProviderClient = await myBroker.VerifyProviderConnection(providerID);
 
                     // Await for command from provider
-                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, params.method, params, true, null);
+                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "DRP", params.method, params, true, null);
                     if (results && results.payload && results.payload) {
                         oReturnObject = results.payload;
                     }
@@ -668,7 +668,7 @@ class DRP_Service {
                     let registryList = Object.keys(thisService.RegistryClients);
                     if (registryList.length > 0) {
                         let registryClient = thisService.RegistryClients[registryList[0]];
-                        registryClient.SendCmd(registryClient.wsConn, "brokerToProviderCmd", { "providerID": providerID, "brokerID": thisService.brokerID, "token": "123", "wsTarget": thisService.brokerURL }, false, null);
+                        registryClient.SendCmd(registryClient.wsConn, "DRP", "brokerToProviderCmd", { "providerID": providerID, "brokerID": thisService.brokerID, "token": "123", "wsTarget": thisService.brokerURL }, false, null);
                     }
                 } catch (err) {
                     this.log(`ERR!!!! [${err}]`);
@@ -712,7 +712,7 @@ class DRP_Service {
             myClient = new DRP_Consumer_BrokerClient(brokerURL, resolve);
         })
 
-        let response = await myClient.SendCmd(myClient.wsConn, method, params, true);
+        let response = await myClient.SendCmd(myClient.wsConn, "DRP", method, params, true);
         return response.payload;
     }
 
@@ -728,7 +728,7 @@ class DRP_Service {
         for (let i = 0; i < registryList.length; i++) {
             let thisRegistryClient = this.RegistryClients[registryList[i]];
             if (thisRegistryClient.wsConn.readyState == 1) {
-                await thisRegistryClient.SendCmd(thisRegistryClient.wsConn, "registerProvider", this.ProviderDeclaration, true, null);
+                await thisRegistryClient.SendCmd(thisRegistryClient.wsConn, "DRP", "registerProvider", this.ProviderDeclaration, true, null);
             }
         }
     }
@@ -806,7 +806,7 @@ class DRP_Registry extends DRP_Service {
         //console.dir(this.BrokerConnections);
         let brokerIDList = Object.keys(this.BrokerConnections);
         for (let i = 0; i < brokerIDList.length; i++) {
-            this.RouteHandler.SendCmd(this.BrokerConnections[brokerIDList[i]], cmd, params, false, null);
+            this.RouteHandler.SendCmd(this.BrokerConnections[brokerIDList[i]], "DRP", cmd, params, false, null);
             this.log(`Relayed to broker: ${brokerIDList[i]}`);
         }
     }
@@ -887,7 +887,7 @@ class DRP_Registry_Route extends DRP_ServerRoute {
         // Find Provider connection, relay this packet
         this.service.log(`Relaying to Provider [${params.providerID}]...`);
         //console.dir(params);
-        this.service.RouteHandler.SendCmd(this.service.ProviderConnections[params.providerID], "brokerToProviderCmd", params, false, null);
+        this.service.RouteHandler.SendCmd(this.service.ProviderConnections[params.providerID], "DRP", "brokerToProviderCmd", params, false, null);
         return null;
     }
 }
@@ -1078,12 +1078,12 @@ class DRP_Provider_RegistryClient extends drpEndpoint.Client {
     async OpenHandler(wsConn, req) {
         this.service.log("Provider to Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
 
-        //let response = await this.SendCmd(this.wsConn, "getCmds", null, true, null);
+        //let response = await this.SendCmd(this.wsConn, "DRP", "getCmds", null, true, null);
         //console.dir(response, { "depth": 10 });
 
-        let response = await this.SendCmd(this.wsConn, "registerProvider", this.service.ProviderDeclaration, true, null);
+        let response = await this.SendCmd(this.wsConn, "DRP", "registerProvider", this.service.ProviderDeclaration, true, null);
 
-        response = await this.SendCmd(this.wsConn, "getDeclarations", null, true, null);
+        response = await this.SendCmd(this.wsConn, "DRP", "getDeclarations", null, true, null);
 
         this.service.ProviderDeclarations = response.payload;
 
@@ -1125,7 +1125,7 @@ class DRP_Provider_RegistryClient extends drpEndpoint.Client {
         wsConnBroker.on('open', function () {
             thisRegistryClient.service.log("Connected to broker...");
             thisRegistryClient.service.RouteHandler.OpenHandler(wsConnBroker);
-            thisRegistryClient.service.RouteHandler.SendCmd(wsConnBroker, "providerConnection", { token: params.token, providerID: thisRegistryClient.service.ProviderDeclaration.ProviderID });
+            thisRegistryClient.service.RouteHandler.SendCmd(wsConnBroker, "DRP", "providerConnection", { token: params.token, providerID: thisRegistryClient.service.ProviderDeclaration.ProviderID });
         });
 
         wsConnBroker.on("message", function (message) {
@@ -1469,7 +1469,7 @@ class DRP_Broker extends DRP_Service {
 
                         // Await for command from provider
                         let returnObj = null;
-                        let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "serviceCommand", cmdObj, true, null);
+                        let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "DRP", "serviceCommand", cmdObj, true, null);
                         if (results && results.payload && results.payload) {
                             returnObj = results.payload;
                         }
@@ -1563,13 +1563,13 @@ class DRP_Broker_Route extends DRP_ServerRoute {
         });
         /*
         this.RegisterCmd("brokerToProviderCmd", function () {
-            thisBrokerRoute.service.RegistryClient.SendCmd(thisBrokerRoute.service.RegistryClient.wsConn, "brokerToProviderCmd", { "providerID": "docmgr1", "brokerID": thisBrokerRoute.service.brokerID, "token": "123", "wsTarget": thisBrokerRoute.service.consumerURL }, false, null);
+            thisBrokerRoute.service.RegistryClient.SendCmd(thisBrokerRoute.service.RegistryClient.wsConn, "DRP", "brokerToProviderCmd", { "providerID": "docmgr1", "brokerID": thisBrokerRoute.service.brokerID, "token": "123", "wsTarget": thisBrokerRoute.service.consumerURL }, false, null);
         });
         */
         this.RegisterCmd("providerConnection", function (params, wsConn, token) {
             thisBrokerRoute.service.ProviderConnections[params.providerID] = wsConn;
-            //let response = await this.SendCmd(this.wsConn, "register", this.service.brokerID, true, null);
-            //thisBrokerRoute.SendCmd(this.wsConn, "register", thisBrokerRoute.service.brokerID, true, null);
+            //let response = await this.SendCmd(this.wsConn, "DRP", "register", this.service.brokerID, true, null);
+            //thisBrokerRoute.SendCmd(this.wsConn, "DRP", "register", thisBrokerRoute.service.brokerID, true, null);
             /*
             wsConn.on("close", function (closeCode) { thisRegistryClient.Provider.BrokerRouteHandler.CloseHandler(wsConn, closeCode) });
 
@@ -1745,14 +1745,14 @@ class DRP_Broker_Route extends DRP_ServerRoute {
                             thisProviderClient.DeleteStreamHandler(thisProviderClient.wsConn, response.token);
                             //console.log("Stream handler removed forcefully");
                         }
-                        let unsubResults = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "unsubscribe", { "topicName": params.topicName, "streamToken": response.token }, true, null);
+                        let unsubResults = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "DRP", "unsubscribe", { "topicName": params.topicName, "streamToken": response.token }, true, null);
                         //console.log("Unsubscribe from orphaned stream");
                         //console.dir(unsubResults);
                     }
                 });
 
                 // Await for command from provider
-                results[providerID] = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "subscribe", { "topicName": params.topicName, "streamToken": providerStreamToken }, true, null);
+                results[providerID] = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "DRP", "subscribe", { "topicName": params.topicName, "streamToken": providerStreamToken }, true, null);
             }
         }
 
@@ -1807,13 +1807,13 @@ class DRP_Broker_RegistryClient extends drpEndpoint.Client {
     async OpenHandler(wsConn, req) {
         this.service.log("Broker to Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
 
-        let response = await this.SendCmd(this.wsConn, "getCmds", null, true, null);
+        let response = await this.SendCmd(this.wsConn, "DRP", "getCmds", null, true, null);
         //console.dir(response, { "depth": 10 });
         //console.log("Registering this broker...");
         //console.dir(this.Broker);
-        response = await this.SendCmd(this.wsConn, "registerBroker", this.service.brokerID, true, null);
+        response = await this.SendCmd(this.wsConn, "DRP", "registerBroker", this.service.brokerID, true, null);
         //console.log("Getting declarations broker...");
-        response = await this.SendCmd(this.wsConn, "getDeclarations", null, true, null);
+        response = await this.SendCmd(this.wsConn, "DRP", "getDeclarations", null, true, null);
 
         this.service.ProviderDeclarations = response.payload;
         this.service.TopicManager.SendToTopic("RegistryUpdate", { "action": "initialread", "declarations": this.service.ProviderDeclarations });
@@ -1896,14 +1896,14 @@ class DRP_Broker_RegistryClient extends drpEndpoint.Client {
                                     thisProviderClient.DeleteStreamHandler(thisProviderClient.wsConn, response.token);
                                     //console.log("Stream handler removed forcefully");
                                 }
-                                let unsubResults = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "unsubscribe", { "topicName": subscribedTopicName, "streamToken": response.token }, true, null);
+                                let unsubResults = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "DRP", "unsubscribe", { "topicName": subscribedTopicName, "streamToken": response.token }, true, null);
                                 //console.log("Unsubscribe from orphaned stream");
                                 //console.dir(unsubResults);
                             }
                         });
 
                         // Await for command from provider
-                        results[providerID] = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "subscribe", { "topicName": subscribedTopicName, "streamToken": providerStreamToken }, true, null);
+                        results[providerID] = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "DRP", "subscribe", { "topicName": subscribedTopicName, "streamToken": providerStreamToken }, true, null);
                     }
                 }
             }
@@ -1934,10 +1934,10 @@ class DRP_Broker_ProviderClient extends drpEndpoint.Client {
     async OpenHandler(wsConn, req) {
         this.service.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
 
-        //let response = await this.SendCmd(this.wsConn, "getCmds", null, true, null);
+        //let response = await this.SendCmd(this.wsConn, "DRP", "getCmds", null, true, null);
         //console.dir(response, { "depth": 10 });
 
-        let response = await this.SendCmd(this.wsConn, "registerBroker", this.service.brokerID, true, null);
+        let response = await this.SendCmd(this.wsConn, "DRP", "registerBroker", this.service.brokerID, true, null);
 
     }
 
@@ -1979,7 +1979,7 @@ class DRP_Consumer_BrokerClient extends drpEndpoint.Client {
             }
         });
 
-        let response = await thisBrokerClient.SendCmd(thisBrokerClient.wsConn, "subscribe", { "topicName": streamName, "streamToken": streamToken }, true, null);
+        let response = await thisBrokerClient.SendCmd(thisBrokerClient.wsConn, "DRP", "subscribe", { "topicName": streamName, "streamToken": streamToken }, true, null);
 
         if (response.status === 0) {
             this.DeleteCmdHandler(this.wsConn, streamToken);
