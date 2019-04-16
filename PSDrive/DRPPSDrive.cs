@@ -9,6 +9,7 @@ using System.Management.Automation;
 using System.Management.Automation.Provider;
 using System.Management.Automation.Runspaces;
 using Newtonsoft.Json.Linq;
+using System.IO;
 
 namespace ADHDTech.DRP
 {
@@ -153,19 +154,22 @@ namespace ADHDTech.DRP
 
                 if (returnedData != null && returnedData["pathItem"] != null)
                 {
-                    object returnObj;
+                    object returnObj = null;
+                    string returnJSONString = null;
                     string itemType = returnedData["pathItem"].GetType().ToString();
                     if (itemType.Equals("Newtonsoft.Json.Linq.JValue"))
                     {
                         returnObj = returnedData["pathItem"].Value<string>();
+                        returnJSONString = returnedData["pathItem"].Value<string>();
                     }
                     else
                     {
                         returnObj = returnedData["pathItem"];
+                        returnJSONString = returnedData["pathItem"].ToString();
                     }
                     if (returnObj != null)
                     {
-                        WriteItemObject(returnObj, this.ProviderInfo + "::" + path, false);
+                        WriteItemObject(returnJSONString, this.ProviderInfo + "::" + path, false);
                     }
                     else
                     {
@@ -318,6 +322,77 @@ namespace ADHDTech.DRP
         protected override string NormalizeRelativePath(string path, string basePath)
         {
             return base.NormalizeRelativePath(path, basePath);
+        }
+
+        protected override void CopyItem(string path, string copyPath, bool recurse)
+        {
+            try
+            {
+                string sourceJSONString = GetItemReturnJSONString(path);
+                byte[] sourceJSONBytes = new UTF8Encoding(true).GetBytes(sourceJSONString);
+                // Create a FileStream that will write data to file.
+                FileStream writerFileStream =
+                    new FileStream(copyPath, FileMode.Create, FileAccess.Write);
+
+                writerFileStream.Write(sourceJSONBytes, 0, sourceJSONBytes.Length);
+
+                // Close the writerFileStream when we are done.
+                writerFileStream.Close();
+                //base.CopyItem(dataFileName, copyPath, recurse);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Unable to save object from DRPDrive: " + ex.Message);
+            }
+        }
+
+        private string GetItemReturnJSONString(string path)
+        {
+            string returnJSONString = null;
+            string[] pathArray = ChunkPath(path);
+            if (pathArray.Length == 0)
+            {
+                // Do nothing
+            }
+            else
+            {
+                string drpURL = pathArray[0];
+                string[] remainingPath = pathArray.Skip(1).ToArray();
+
+                DRPClient myDRPClient = new DRPClient(drpURLHash[drpURL]);
+                //rSageHiveClient myHiveClient = new rSageHiveClient(@"wss://rsage.autozone.com/vdm");
+                while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
+                {
+                    System.Threading.Thread.Sleep(100);
+                }
+
+                //Console.WriteLine("Connected to DRP Broker!");
+                JObject returnedData = myDRPClient.SendDRPCmd("pathCmd", new Dictionary<string, object>() { { "method", "cliGetPath" }, { "pathList", remainingPath }, { "listOnly", false } });
+
+                if (returnedData != null && returnedData["pathItem"] != null)
+                {
+                    //string itemType = returnedData["pathItem"].GetType().ToString();
+                    returnJSONString = returnedData["pathItem"].ToString();
+                    /*
+                    switch (itemType) {
+                        case "Newtonsoft.Json.Linq.JObject":
+                            returnJSONString = 
+                            break;
+                        case "Newtonsoft.Json.Linq.JArray":
+                            break;
+                        case "Newtonsoft.Json.Linq.JValue":
+                            break;
+                        default:
+                            break;
+                    }
+                    */
+                }
+
+                //WriteItemObject(returnedData, this.ProviderInfo + "::" + path, true);
+
+                myDRPClient.CloseSession();
+            }
+            return returnJSONString;
         }
 
         private string NormalizePath(string path)

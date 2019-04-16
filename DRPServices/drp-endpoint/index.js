@@ -17,7 +17,7 @@ class DRP_Endpoint {
         }
         let replyToken = wsConn.TokenNum;
         wsConn.TokenNum++;
-        return replyToken;
+        return replyToken.toString();
     }
 
     AddReplyHandler(wsConn, callback) {
