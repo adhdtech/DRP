@@ -56,9 +56,13 @@ class DRPConsumer_BrokerClient extends drpEndpoint.Client {
     }
 }
 
-console.log("Starting Test Client...");
-
 let brokerURL = `ws://${hostname}:8080/broker`;
+var paramBrokerURL = process.argv[2];
+if (paramBrokerURL) {
+    brokerURL = paramBrokerURL;
+}
+
+console.log(`Starting Test Client, connecting to Broker @ ${brokerURL}`);
 
 let myClient = new DRPConsumer_BrokerClient(brokerURL, async function () {
     // Connection established - let's do stuff
@@ -76,7 +80,7 @@ let myClient = new DRPConsumer_BrokerClient(brokerURL, async function () {
     //myClient.GetClassRecords("SomeDataClass", (payload) => console.dir(payload) );
 
     // Subscribe to a stream
-    //myClient.WatchStream("dummy", (payload) => console.log(" STREAM -> " + payload));
+    myClient.WatchStream("dummy", (payload) => console.log(" STREAM -> " + payload));
 
     // Execute a service command
     //myClient.SendCmd(this.wsConn, "DRP", "serviceCommand", { "serviceName": "Hive", "method": "listStereoTypes" }, false, (payload) => { console.dir(payload) });
@@ -85,10 +89,13 @@ let myClient = new DRPConsumer_BrokerClient(brokerURL, async function () {
     //myClient.SendCmd(this.wsConn, "serviceCommand", { "serviceName": "JSONDocMgr", "method": "listFiles" }, false, (payload) => { console.dir(payload) });
 
     // Load a file
-    response = await myClient.SendCmd(this.wsConn, "JSONDocMgr", "loadFile", {"fileName": "testdoc1.json" }, true, null);
+    //response = await myClient.SendCmd(this.wsConn, "JSONDocMgr", "loadFile", {"fileName": "testdoc1.json" }, true, null);
 
     // Save a file
     //response = await myClient.SendCmd(this.wsConn, "DRP", "saveFile", {"fileName": "newFile.json", "fileData": JSON.stringify({"someKey":"someVal"}) }, true, null);
 
-    console.dir(response, { "depth": 10 });
+    // Get params from Greeter
+    //response = (await myClient.SendCmd(this.wsConn, "Greeter", "showParams", {"pathList":["asdf","ijkl"]}, true, null)).payload.pathItem;
+
+    //console.dir(response, { "depth": 10 });
 });

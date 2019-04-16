@@ -897,11 +897,15 @@ class DRP_Provider extends DRP_Service {
 	* @param {string} providerID Globally unique ID for Provider
     * @param {express} expressApp WS enabled ExpressApp
 	* @param {string} providerURL Broker to Provider URL
+    * @param {string} providerRoute Route for WS endpoints to access this instance
     */
-    constructor(providerID, expressApp, providerURL) {
+    constructor(providerID, expressApp, providerURL, providerRoute) {
 
         super(providerID, expressApp);
         this.serviceType = "Provider";
+
+        this.providerRoute = providerRoute;
+        if (!providerRoute) this.providerRoute = "/provider";
 
         let thisDRPProvider = this;
 
@@ -917,7 +921,7 @@ class DRP_Provider extends DRP_Service {
         this.BrokerConnections = {};
 
         // Create RouteHandler
-        this.RouteHandler = new DRP_Provider_Route(this, '/provider');
+        this.RouteHandler = new DRP_Provider_Route(this, this.providerRoute);
 
         // Create topic manager, assign to BrokerRoute
         this.TopicManager = new DRP_TopicManager(this.RouteHandler);
@@ -1480,6 +1484,7 @@ class DRP_Broker extends DRP_Service {
                 }
             }
             this.log(`${baseMsg} service ${cmdObj.serviceName} does not exist`);
+            console.dir(cmdObj)
             return null;
         }
     }
