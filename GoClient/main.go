@@ -6,6 +6,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+func SayHi(params drp.DRPCmdParams, wsConn *websocket.Conn, replyToken *string) interface{} {
+	return "Hello there!"
+}
+
 func main() {
 	myClient := &drp.Client{}
 
@@ -14,7 +18,7 @@ func main() {
 	fmt.Println("Connected to Provider")
 	
 	// Register test command
-	myClient.RegisterCmd("sayHi", func(drp.DRPCmdParams, *websocket.Conn, *string) interface{} { return "Hello there!" })
+	myClient.RegisterCmd("sayHi", SayHi)
 
 	// If we get a signal on the DoneChan, we need to exit
 	done := <-myClient.DoneChan
