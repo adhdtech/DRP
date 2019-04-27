@@ -560,33 +560,19 @@ class VDMDesktop {
     closeWindow(closeWindow) {
         let thisVDMDesktop = this;
 
-        let handlerObj = {};
-        handlerObj.preCloseHandler = function() {
-            return true;
+        // Run Pre Close Handler if it exists
+        if (typeof closeWindow.preCloseHandler !== "undefined" && typeof closeWindow.preCloseHandler === 'function') {
+            closeWindow.preCloseHandler();
         }
-        handlerObj.postCloseHandler = function() {
-            return true;
-        }
-
-        // Set Pre Close Handler if it exists
-        if (typeof closeWindow.preCloseHandler !== "undefined") {
-            handlerObj.preCloseHandler = closeWindow.preCloseHandler;
-        }
-
-        // Set Post Close Handler if it exists
-        if (typeof closeWindow.postCloseHandler !== "undefined") {
-            handlerObj.postCloseHandler = closeWindow.postCloseHandler;
-        }
-
-        // Run Pre Close
-        handlerObj.preCloseHandler();
 
         // Delete Window Element
         let element = document.getElementById(closeWindow.windowID);
         element.parentNode.removeChild(element);
 
         // Run Post Close
-        handlerObj.postCloseHandler();
+        if (typeof closeWindow.postCloseHandler !== "undefined" && typeof closeWindow.postCloseHandler === 'function') {
+            closeWindow.postCloseHandler();
+        }
 
         // Set Windows array instance to null
         let windowIndex = thisVDMDesktop.vdmWindows.indexOf(closeWindow);

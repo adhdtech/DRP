@@ -64,6 +64,17 @@
     <Compile Include="testClient.js" />
     <Compile Include="testProvider.js" />
     <Compile Include="testRegistry.js" />
+    <Compile Include="webroot\assets\bootstrap\js\bootstrap.min.js" />
+    <Compile Include="webroot\assets\jquery\js\jquery-3.3.1.min.js" />
+    <Compile Include="webroot\assets\jquery\js\jquery-ui.min.js" />
+    <Compile Include="webroot\assets\moment\js\moment.min.js" />
+    <Compile Include="webroot\assets\rsage-vdm\js\vdmClient.js" />
+    <Compile Include="webroot\assets\rsage-vdm\js\vdmCore.js" />
+    <Compile Include="webroot\vdmapp.js" />
+    <Compile Include="webroot\vdmapplets\vdm-app-Blank.js" />
+    <Compile Include="webroot\vdmapplets\vdm-app-CommandTesting.js" />
+    <Compile Include="webroot\vdmapplets\vdm-app-HiveBrowser.js" />
+    <Compile Include="webroot\vdmapplets\vdm-app-RickRoll.js" />
     <Content Include="drp-endpoint\package.json" />
     <Content Include="drp-service\node_modules\express-ws\.babelrc" />
     <Content Include="drp-service\node_modules\express-ws\.editorconfig" />
@@ -79,6 +90,39 @@
     <Content Include="README.md" />
     <Content Include="rsage-cortex\package.json" />
     <Content Include="rsage-vdm\package.json" />
+    <Content Include="webroot\assets\bootstrap\css\bootstrap.min.css" />
+    <Content Include="webroot\assets\bootstrap\img\glyphicons-halflings-white.png" />
+    <Content Include="webroot\assets\bootstrap\img\glyphicons-halflings.png" />
+    <Content Include="webroot\assets\font-awesome\css\font-awesome.min.css" />
+    <Content Include="webroot\assets\font-awesome\fonts\fontawesome-webfont.eot" />
+    <Content Include="webroot\assets\font-awesome\fonts\fontawesome-webfont.svg" />
+    <Content Include="webroot\assets\font-awesome\fonts\fontawesome-webfont.ttf" />
+    <Content Include="webroot\assets\font-awesome\fonts\fontawesome-webfont.woff" />
+    <Content Include="webroot\assets\font-awesome\fonts\fontawesome-webfont.woff2" />
+    <Content Include="webroot\assets\font-awesome\fonts\FontAwesome.otf" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-brands-400.eot" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-brands-400.svg" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-brands-400.ttf" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-brands-400.woff" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-brands-400.woff2" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-regular-400.eot" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-regular-400.svg" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-regular-400.ttf" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-regular-400.woff" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-regular-400.woff2" />
+    <Content Include="webroot\assets\glyphicons\fonts\glyphicons-halflings-regular.eot" />
+    <Content Include="webroot\assets\glyphicons\fonts\glyphicons-halflings-regular.svg" />
+    <Content Include="webroot\assets\glyphicons\fonts\glyphicons-halflings-regular.ttf" />
+    <Content Include="webroot\assets\glyphicons\fonts\glyphicons-halflings-regular.woff" />
+    <Content Include="webroot\assets\glyphicons\fonts\glyphicons-halflings-regular.woff2" />
+    <Content Include="webroot\assets\rsage-vdm\css\vdm.css" />
+    <Content Include="webroot\assets\rsage-vdm\img\collapse-small-blue.png" />
+    <Content Include="webroot\assets\rsage-vdm\img\expand-small-blue.png" />
+    <Content Include="webroot\assets\rsage-vdm\img\pattern12.png" />
+    <Content Include="webroot\client.html" />
+    <Content Include="webroot\client.md" />
+    <Content Include="webroot\favicon.ico" />
+    <Content Include="webroot\vdmapplets\vdm-app-HiveBrowser.css" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="drp-endpoint\" />
@@ -91,6 +135,27 @@
     <Folder Include="drp-service\node_modules\ws\lib\" />
     <Folder Include="rsage-cortex\" />
     <Folder Include="rsage-vdm\" />
+    <Folder Include="webroot\" />
+    <Folder Include="webroot\assets\" />
+    <Folder Include="webroot\assets\bootstrap\" />
+    <Folder Include="webroot\assets\bootstrap\css\" />
+    <Folder Include="webroot\assets\bootstrap\img\" />
+    <Folder Include="webroot\assets\bootstrap\js\" />
+    <Folder Include="webroot\assets\font-awesome\" />
+    <Folder Include="webroot\assets\font-awesome\css\" />
+    <Folder Include="webroot\assets\font-awesome\fonts\" />
+    <Folder Include="webroot\assets\font-awesome\webfonts\" />
+    <Folder Include="webroot\assets\glyphicons\" />
+    <Folder Include="webroot\assets\glyphicons\fonts\" />
+    <Folder Include="webroot\assets\jquery\" />
+    <Folder Include="webroot\assets\jquery\js\" />
+    <Folder Include="webroot\assets\moment\" />
+    <Folder Include="webroot\assets\moment\js\" />
+    <Folder Include="webroot\assets\rsage-vdm\" />
+    <Folder Include="webroot\assets\rsage-vdm\css\" />
+    <Folder Include="webroot\assets\rsage-vdm\img\" />
+    <Folder Include="webroot\assets\rsage-vdm\js\" />
+    <Folder Include="webroot\vdmapplets\" />
   </ItemGroup>
   <!-- Do not delete the following Import Project.  While this appears to do nothing it is a marker for setting TypeScript properties before our import that depends on them. -->
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\TypeScript\Microsoft.TypeScript.targets" Condition="False" />
