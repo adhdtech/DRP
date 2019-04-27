@@ -389,33 +389,35 @@ class rSageApplet extends VDMApplet {
         // To track stream handlers for when window closes
         this.streamHandlerTokens = [];
 
-        // Send applet close notification to VDM Server after open
-        this.postOpenHandler = function () {
-            thisApplet.sendCmd("VDM", "openUserApp",
-                {
-                    appletName: thisApplet.appletName,
-                    appletIndex: thisApplet.appletIndex
-                },
-                false
-            );
-        }
+    }
 
-        // Send applet close notification to VDM Server after closure
-        this.postCloseHandler = function () {
-            // Delete stream handlers
-            for (let i = 0; i < thisApplet.streamHandlerTokens.length; i++) {
-                //console.dir(thisApplet.vdmClient.vdmServerAgent.wsConn);
-                thisApplet.vdmClient.vdmServerAgent.DeleteStreamHandler(thisApplet.vdmClient.vdmServerAgent.wsConn, thisApplet.streamHandlerTokens[i]);
-            }
-            thisApplet.sendCmd("VDM", "closeUserApp",
-                {
-                    appletName: thisApplet.appletName,
-                    appletIndex: thisApplet.appletIndex
-                },
-                false
-            );
-        }
+    // Send applet close notification to VDM Server after open
+    postOpenHandler() {
+        let thisApplet = this;
+        thisApplet.sendCmd("VDM", "openUserApp",
+            {
+                appletName: thisApplet.appletName,
+                appletIndex: thisApplet.appletIndex
+            },
+            false
+        );
+    }
 
+    // Send applet close notification to VDM Server after closure
+    postCloseHandler() {
+        let thisApplet = this;
+        // Delete stream handlers
+        for (let i = 0; i < thisApplet.streamHandlerTokens.length; i++) {
+            //console.dir(thisApplet.vdmClient.vdmServerAgent.wsConn);
+            thisApplet.vdmClient.vdmServerAgent.DeleteStreamHandler(thisApplet.vdmClient.vdmServerAgent.wsConn, thisApplet.streamHandlerTokens[i]);
+        }
+        thisApplet.sendCmd("VDM", "closeUserApp",
+            {
+                appletName: thisApplet.appletName,
+                appletIndex: thisApplet.appletIndex
+            },
+            false
+        );
     }
 
     async sendCmd(serviceName, cmdName, cmdData, awaitResponse) {
