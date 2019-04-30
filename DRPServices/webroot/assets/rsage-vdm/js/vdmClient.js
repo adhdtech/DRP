@@ -254,7 +254,7 @@ class DRP_Client extends DRP_Endpoint {
         thisClient.wsTarget = wsTarget;
 
         // Create wsConn
-        let wsConn = new WebSocket(wsTarget);
+        let wsConn = new WebSocket(wsTarget, "drp");
         this.wsConn = wsConn;
 
         wsConn.onopen = function () { thisClient.OpenHandler(wsConn) };

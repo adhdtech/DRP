@@ -1122,9 +1122,9 @@ class DRP_Provider_RegistryClient extends drpEndpoint.Client {
         if (thisRegistryClient.proxy) {
             let opts = url.parse(thisRegistryClient.proxy);
             let agent = new HttpsProxyAgent(opts);
-            wsConnBroker = new WebSocket(params.wsTarget, { agent: agent });
+            wsConnBroker = new WebSocket(params.wsTarget, "drp", { agent: agent });
         } else {
-            wsConnBroker = new WebSocket(params.wsTarget);
+            wsConnBroker = new WebSocket(params.wsTarget, "drp");
         }
         wsConnBroker.on('open', function () {
             thisRegistryClient.service.log("Connected to broker...");

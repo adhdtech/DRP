@@ -17,7 +17,7 @@ namespace ADHDTech.DRP
         public DRPClient(BrokerProfile brokerProfile)
         {
             // Connect to WS
-            ClientWSConn = new WebSocketSharp.WebSocket(brokerProfile.URL);
+            ClientWSConn = new WebSocketSharp.WebSocket(brokerProfile.URL, new string[]{"drp"});
             if (brokerProfile.ProxyAddress != "") {
                 ClientWSConn.SetProxy(brokerProfile.ProxyAddress, brokerProfile.ProxyUser, brokerProfile.ProxyPass);
             }
