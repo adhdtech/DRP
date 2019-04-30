@@ -228,9 +228,9 @@ class DRP_Client extends DRP_Endpoint {
         if (thisClient.proxy) {
             let opts = url.parse(thisClient.proxy);
             let agent = new HttpsProxyAgent(opts);
-            wsConn = new WebSocket(thisClient.wsTarget, { agent: agent });
+            wsConn = new WebSocket(thisClient.wsTarget, "drp", { agent: agent });
         } else {
-            wsConn = new WebSocket(thisClient.wsTarget);
+            wsConn = new WebSocket(thisClient.wsTarget, "drp");
         }
         this.wsConn = wsConn;
 
@@ -257,9 +257,9 @@ class DRP_Client extends DRP_Endpoint {
         if (thisClient.proxy) {
             let opts = url.parse(thisClient.proxy);
             let agent = new HttpsProxyAgent(opts);
-            wsConn = new WebSocket(thisClient.wsTarget, { agent: agent });
+            wsConn = new WebSocket(thisClient.wsTarget, "drp", { agent: agent });
         } else {
-            wsConn = new WebSocket(thisClient.wsTarget);
+            wsConn = new WebSocket(thisClient.wsTarget, "drp");
         }
         this.wsConn = wsConn;
 
