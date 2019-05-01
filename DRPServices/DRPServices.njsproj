@@ -5,9 +5,10 @@
     <Name>DRPServices</Name>
     <RootNamespace>DRPServices</RootNamespace>
     <LastActiveSolutionConfig>Debug|Any CPU</LastActiveSolutionConfig>
-    <ScriptArguments>
-    </ScriptArguments>
+    <ScriptArguments>TestCortex1 ws://localhost:8080/registry ws://localhost:8080/broker</ScriptArguments>
     <NodeExePath>C:\Program Files\nodejs\node.exe</NodeExePath>
+    <NodeExeArguments>
+    </NodeExeArguments>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -62,6 +63,8 @@
     <Compile Include="testBroker.js" />
     <Compile Include="testBrokerVDM.js" />
     <Compile Include="testClient.js" />
+    <Compile Include="testProvider-JSONDocMgr.js" />
+    <Compile Include="testProvider-NoListener.js" />
     <Compile Include="testProvider.js" />
     <Compile Include="testRegistry.js" />
     <Compile Include="webroot\assets\bootstrap\js\bootstrap.min.js" />
@@ -148,6 +151,7 @@
     <Folder Include="webroot\assets\glyphicons\" />
     <Folder Include="webroot\assets\glyphicons\fonts\" />
     <Folder Include="webroot\assets\jquery\" />
+    <Folder Include="webroot\assets\jquery\css\" />
     <Folder Include="webroot\assets\jquery\js\" />
     <Folder Include="webroot\assets\moment\" />
     <Folder Include="webroot\assets\moment\js\" />
