@@ -1,5 +1,5 @@
 ## DRP
-Declarative Resource Protocol - a stateful, JSON based protocol for declaring and consuming resources.
+Declarative Resource Protocol - a JSON based Websocket subprotocol for declaring and consuming resources.
 
 ## Overview
 In legacy applications, resource dependencies are often statically defined.  When a new service component is
@@ -11,6 +11,7 @@ resource requests.
 * Reduce barriers between resources and consumers
 * Minimize infrastructure component requirements
 * Reduce complexity involved in implementing HA
+* Provide mechanism for resource discovery and structure traversal
 
 ## Components
 **Registries** - Track and distribute state of providers and their resources<br>
