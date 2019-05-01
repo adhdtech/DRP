@@ -143,7 +143,6 @@ namespace ADHDTech.DRP
                 string[] remainingPath = pathArray.Skip(1).ToArray();
 
                 DRPClient myDRPClient = new DRPClient(drpURLHash[drpURL]);
-                //rSageHiveClient myHiveClient = new rSageHiveClient(@"wss://rsage.autozone.com/vdm");
                 while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
                 {
                     System.Threading.Thread.Sleep(100);
@@ -197,7 +196,6 @@ namespace ADHDTech.DRP
                 string[] remainingPath = pathArray.Skip(1).ToArray();
 
                 DRPClient myDRPClient = new DRPClient(drpURLHash[drpAlias]);
-                //rSageHiveClient myHiveClient = new rSageHiveClient(@"wss://rsage.autozone.com/vdm");
                 while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
                 {
                     System.Threading.Thread.Sleep(100);
@@ -360,7 +358,6 @@ namespace ADHDTech.DRP
                 string[] remainingPath = pathArray.Skip(1).ToArray();
 
                 DRPClient myDRPClient = new DRPClient(drpURLHash[drpURL]);
-                //rSageHiveClient myHiveClient = new rSageHiveClient(@"wss://rsage.autozone.com/vdm");
                 while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
                 {
                     System.Threading.Thread.Sleep(100);
