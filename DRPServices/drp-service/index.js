@@ -306,7 +306,38 @@ class DRP_Service {
         //console.dir(results);
         return results;
     }
-
+    ListClassInstanceDefinitions() {
+        let results = {};
+        // Loop over Provider Declarations
+        //console.log("Looping over broker.ProviderDeclarations: " + broker.ProviderDeclarations);
+        let providerNames = Object.keys(this.ProviderDeclarations);
+        for (let i = 0; i < providerNames.length; i++) {
+            let providerName = providerNames[i];
+            //console.log("Looping over providerName: " + providerName);
+            let providerDeclaration = broker.ProviderDeclarations[providerName];
+            // Loop over Sources
+            let sourceInstanceList = Object.keys(providerDeclaration.SourceInstances);
+            for (let j = 0; j < sourceInstanceList.length; j++) {
+                let sourceInstanceID = sourceInstanceList[j];
+                //console.log("Looping over sourceID: " + sourceID);
+                let sourceInstanceObj = providerDeclaration.SourceInstances[sourceInstanceID];
+                // Loop over Classes
+                let classNames = Object.keys(sourceInstanceObj);
+                for (let k = 0; k < classNames.length; k++) {
+                    let className = classNames[k];
+                    //console.log("Looping over className: " + className);
+                    if (!results[className]) {
+                        results[className] = {};
+                    }
+                    if (!results[className][sourceInstanceID]) {
+                        results[className][sourceInstanceID] = {};
+                    }
+                    results[className][sourceInstanceID][providerName] = providerDeclaration.SourceInstances[sourceInstanceID][className];
+                }
+            }
+        }
+        return results;
+    }
     ListClassInstances(params) {
         let results = {};
         let findClassName = params;
@@ -1542,11 +1573,7 @@ class DRP_Broker_Route extends DRP_ServerRoute {
         this.RegisterCmd("unsubscribe", "Unsubscribe");
 
         this.RegisterCmd("pathCmd", "PathCmd");
-        /*
-        this.RegisterCmd("serviceCommand", async function (...args) {
-            return await thisBrokerRoute.service.ServiceCommand(...args);
-        });
-        */
+
         this.RegisterCmd("getRegistry", function () {
             return thisBrokerRoute.service.ProviderDeclarations;
         });
@@ -1566,60 +1593,13 @@ class DRP_Broker_Route extends DRP_ServerRoute {
         this.RegisterCmd("getClassDefinitions", function () {
             return thisBrokerRoute.service.GetClassDefinitions();
         });
-        /*
-        this.RegisterCmd("brokerToProviderCmd", function () {
-            thisBrokerRoute.service.RegistryClient.SendCmd(thisBrokerRoute.service.RegistryClient.wsConn, "DRP", "brokerToProviderCmd", { "providerID": "docmgr1", "brokerID": thisBrokerRoute.service.brokerID, "token": "123", "wsTarget": thisBrokerRoute.service.consumerURL }, false, null);
+
+        this.RegisterCmd("listClassInstanceDefinitions", async function (...args) {
+            return await thisBrokerRoute.service.ListClassInstanceDefinitions(...args);
         });
-        */
+
         this.RegisterCmd("providerConnection", function (params, wsConn, token) {
             thisBrokerRoute.service.ProviderConnections[params.providerID] = wsConn;
-            //let response = await this.SendCmd(this.wsConn, "DRP", "register", this.service.brokerID, true, null);
-            //thisBrokerRoute.SendCmd(this.wsConn, "DRP", "register", thisBrokerRoute.service.brokerID, true, null);
-            /*
-            wsConn.on("close", function (closeCode) { thisRegistryClient.Provider.BrokerRouteHandler.CloseHandler(wsConn, closeCode) });
-
-            wsConn.on("error", function (error) { thisRegistryClient.Provider.BrokerRouteHandler.ErrorHandler(wsConn, error) });
-            */
-
-            /*
-            if (params.token && thisBrokerRoute.service.ProviderCallbacks[params.token]) {
-                thisBrokerRoute.service.ProviderCallbacks[params.token]();
-                delete thisBrokerRoute.service.ProviderCallbacks[params.token];
-            }
-            */
-        });
-
-        this.RegisterCmd("listClassDefinitions", async function (params, wsConn, token) {
-            let results = {};
-            // Loop over Provider Declarations
-            //console.log("Looping over broker.ProviderDeclarations: " + broker.ProviderDeclarations);
-            let providerNames = Object.keys(broker.ProviderDeclarations);
-            for (let i = 0; i < providerNames.length; i++) {
-                let providerName = providerNames[i];
-                //console.log("Looping over providerName: " + providerName);
-                let providerDeclaration = broker.ProviderDeclarations[providerName];
-                // Loop over Sources
-                let sourceInstanceList = Object.keys(providerDeclaration.SourceInstances);
-                for (let j = 0; j < sourceInstanceList.length; j++) {
-                    let sourceInstanceID = sourceInstanceList[j];
-                    //console.log("Looping over sourceID: " + sourceID);
-                    let sourceInstanceObj = providerDeclaration.SourceInstances[sourceInstanceID];
-                    // Loop over Classes
-                    let classNames = Object.keys(sourceInstanceObj);
-                    for (let k = 0; k < classNames.length; k++) {
-                        let className = classNames[k];
-                        //console.log("Looping over className: " + className);
-                        if (!results[className]) {
-                            results[className] = {};
-                        }
-                        if (!results[className][sourceInstanceID]) {
-                            results[className][sourceInstanceID] = {};
-                        }
-                        results[className][sourceInstanceID][providerName] = providerDeclaration.SourceInstances[sourceInstanceID][className];
-                    }
-                }
-            }
-            return results;
         });
 
         /*
@@ -1629,24 +1609,6 @@ class DRP_Broker_Route extends DRP_ServerRoute {
         this.RegisterCmd("cliSetItem", function (params, wsConn, token) {
             return broker.SetItem(params.pathList, params.objData, wsConn, token);
         });
-        */
-
-        //this.Consumers = [];
-        //this.DummyCounter = 0;
-
-        /*
-        setInterval(function () {
-            thisBrokerRoute.DummyCounter++;
-            let i = thisBrokerRoute.Consumers.length;
-            while (i--) {
-                let thisSubscriber = thisBrokerRoute.Consumers[i];
-                let sendFailed = thisBrokerRoute.SendStream(thisSubscriber.wsConn, thisSubscriber.token, 2, "DummyCounter=" + thisBrokerRoute.DummyCounter);
-                if (sendFailed) {
-                    thisBrokerRoute.Consumers.splice(i, 1);
-                    console.log("Broadcast client[" + i + "] removed");
-                }
-            }
-        }, 3000);
         */
     }
 
