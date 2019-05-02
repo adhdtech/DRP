@@ -309,12 +309,12 @@ class DRP_Service {
     ListClassInstanceDefinitions() {
         let results = {};
         // Loop over Provider Declarations
-        //console.log("Looping over broker.ProviderDeclarations: " + broker.ProviderDeclarations);
+        //console.log("Looping over this.ProviderDeclarations: " + this.ProviderDeclarations);
         let providerNames = Object.keys(this.ProviderDeclarations);
         for (let i = 0; i < providerNames.length; i++) {
             let providerName = providerNames[i];
             //console.log("Looping over providerName: " + providerName);
-            let providerDeclaration = broker.ProviderDeclarations[providerName];
+            let providerDeclaration = this.ProviderDeclarations[providerName];
             // Loop over Sources
             let sourceInstanceList = Object.keys(providerDeclaration.SourceInstances);
             for (let j = 0; j < sourceInstanceList.length; j++) {
