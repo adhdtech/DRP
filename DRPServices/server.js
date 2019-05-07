@@ -21,7 +21,7 @@ let myServerConfig = {
     "SSLCrtFile": "ssl/mydomain.crt",
     "SSLCrtFilePwd": "mycertpw",
     "WebRoot": "webroot"
-}
+};
 
 // Create expressApp
 let myServer = new drpService.Server(myServerConfig);
@@ -42,7 +42,7 @@ let myProvider = new drpService.Provider(myServerConfig["ProviderName"], myServe
 // Declare dummy stream
 myProvider.ProviderDeclaration.Streams = {
     "dummy": { Class: "FakeData" }
-}
+};
 setInterval(function () {
     let timeStamp = new Date().getTime();
     myProvider.TopicManager.SendToTopic("dummy", timeStamp + " Dummy message from Provider[" + myServerConfig["ProviderName"] + "]");
@@ -51,8 +51,8 @@ setInterval(function () {
 // Add a test service
 myProvider.AddService("TestService", {
     ClientCmds: {
-        sayHi: async function () { return { pathItem: "Hello!" } },
-        sayBye: async function () { return { pathItem: "Goodbye..." } }
+        sayHi: async function () { return { pathItem: "Hello!" }; },
+        sayBye: async function () { return { pathItem: "Goodbye..." }; }
     }
 });
 
