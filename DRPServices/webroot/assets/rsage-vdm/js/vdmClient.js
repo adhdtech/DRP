@@ -236,6 +236,126 @@ class DRP_Endpoint {
         return Object.keys(this.EndpointCmds);
     }
 
+    ListObjChildren(oTargetObject) {
+        // Return only child keys and data types
+        let pathObjList = [];
+        if (oTargetObject && typeof oTargetObject == 'object') {
+            let objKey;
+            for (objKey in oTargetObject) {
+                //let objKeys = Object.keys(oTargetObject);
+                //for (let i = 0; i < objKeys.length; i++) {
+                let returnVal;
+                let attrType = null;
+                //let attrType = typeof currentPathObj[objKeys[i]];
+                let childAttrObj = oTargetObject[objKey];
+                if (childAttrObj) {
+                    attrType = Object.prototype.toString.call(childAttrObj).match(/^\[object (.*)\]$/)[1];
+
+                    switch (attrType) {
+                        case "String":
+                            returnVal = childAttrObj;
+                            break;
+                        case "Number":
+                            returnVal = childAttrObj;
+                            break;
+                        case "Array":
+                            returnVal = childAttrObj.length;
+                            break;
+                        case "Function":
+                            returnVal = null;
+                            break;
+                        case "Undefined":
+                            returnVal = null;
+                            break;
+                        default:
+                            returnVal = Object.keys(childAttrObj).length;
+                    }
+                } else returnVal = childAttrObj;
+                pathObjList.push({
+                    "Name": objKey,
+                    "Type": attrType,
+                    "Value": returnVal
+                });
+
+            }
+        }
+        return pathObjList;
+    }
+
+    async GetObjFromPath(params, baseObj) {
+
+        let aChildPathArray = params.pathList;
+
+        // Initial object
+        let oCurrentObject = baseObj;
+
+        // Return object
+        let oReturnObject = null;
+
+        // Do we have a path array?
+        if (aChildPathArray.length == 0) {
+            // No - act on parent object
+            oReturnObject = oCurrentObject;
+        } else {
+            // Yes - get child
+            PathLoop:
+            for (let i = 0; i < aChildPathArray.length; i++) {
+
+                // Does the child exist?
+                //if (oCurrentObject.hasOwnProperty(aChildPathArray[i])) {
+                if (oCurrentObject[aChildPathArray[i]]) {
+
+                    // See what we're dealing with
+                    let objectType = typeof oCurrentObject[aChildPathArray[i]];
+                    switch (typeof oCurrentObject[aChildPathArray[i]]) {
+                        case 'object':
+                            // Set current object
+                            oCurrentObject = oCurrentObject[aChildPathArray[i]];
+                            if (i + 1 == aChildPathArray.length) {
+                                // Last one - make this the return object
+                                oReturnObject = oCurrentObject;
+                            }
+                            break;
+                        case 'function':
+                            // Send the rest of the path to a function
+                            let remainingPath = aChildPathArray.splice(i + 1);
+                            params.pathList = remainingPath;
+                            oReturnObject = await oCurrentObject[aChildPathArray[i]](params);
+                            break PathLoop;
+                        default:
+                            if (i + 1 == aChildPathArray.length) {
+                                oReturnObject = oCurrentObject[aChildPathArray[i]];
+                            }
+                            break PathLoop;
+                    }
+
+                } else {
+                    // Child doesn't exist
+                    break PathLoop;
+                }
+            }
+        }
+
+        // If we have a return object and want only a list of children, do that now
+        if (params.listOnly) {
+            if (typeof oReturnObject == 'object') {
+                if (!oReturnObject.pathItemList) {
+                    // Return only child keys and data types
+                    oReturnObject = { pathItemList: this.ListObjChildren(oReturnObject) };
+                }
+            } else {
+                oReturnObject = { pathItemList: [] };
+            }
+        } else if (oReturnObject) {
+            if (!(typeof oReturnObject == 'object') || !(oReturnObject["pathItem"])) {
+                // Return object as item
+                oReturnObject = { pathItem: oReturnObject };
+            }
+        }
+
+        return oReturnObject;
+    }
+
     async OpenHandler() { }
 
     async CloseHandler() { }
@@ -264,6 +384,24 @@ class DRP_Client extends DRP_Endpoint {
         wsConn.onclose = function (closeCode) { thisClient.CloseHandler(wsConn, closeCode) };
 
         wsConn.onerror = function (error) { thisClient.ErrorHandler(wsConn, error) };
+
+        this.RegisterCmd("cliGetPath", async function (params, wsConn, token) {
+            let oReturnObject = await thisClient.GetObjFromPath(params, thisClient);
+
+            // If we have a return object and want only a list of children, do that now
+            if (params.listOnly) {
+                if (!oReturnObject.pathItemList) {
+                    // Return only child keys and data types
+                    oReturnObject = { pathItemList: thisClient.ListObjChildren(oReturnObject) };
+                }
+            } else if (oReturnObject) {
+                if (!oReturnObject.pathItem) {
+                    // Return object as item
+                    oReturnObject = { pathItem: oReturnObject };
+                }
+            }
+            return oReturnObject;
+        });
     }
 }
 
@@ -304,8 +442,6 @@ class VDMClient {
         this.vdmServerAgent = null;
 
         this.vdmDesktop = vdmDesktop;
-
-        this.returnCmdQueue = {};
     }
 
     startSession(wsTarget) {
@@ -457,6 +593,7 @@ class VDMServerAgent extends DRP_Client {
         this.wsConn = '';
         this.sessionID = vdmClient.getLastSessionID();
         this.vdmClient = vdmClient;
+        this.HTMLDocument = vdmClient.vdmDesktop.vdmDiv.ownerDocument;
     }
 
     async OpenHandler(wsConn, req) {
