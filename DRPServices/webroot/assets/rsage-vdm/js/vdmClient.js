@@ -594,6 +594,9 @@ class VDMServerAgent extends DRP_Client {
         this.sessionID = vdmClient.getLastSessionID();
         this.vdmClient = vdmClient;
         this.HTMLDocument = vdmClient.vdmDesktop.vdmDiv.ownerDocument;
+        this.RickRoll = function () {
+            vdmClient.vdmDesktop.openApp("Awesomeness", null);
+        }
     }
 
     async OpenHandler(wsConn, req) {
