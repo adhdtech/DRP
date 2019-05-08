@@ -420,6 +420,36 @@ class DRP_Service {
                 }
                 return oReturnObject;
             },
+            "Consumers": async function (params) {
+                let remainingChildPath = params.pathList;
+                let oReturnObject = null;
+                if (remainingChildPath && remainingChildPath.length > 0) {
+
+                    let agentID = remainingChildPath.shift();
+
+                    // Need to send command to consumer with remaining tree data
+                    params.pathList = remainingChildPath;
+                    let thisConsumer = await myService.VerifyConsumerConnection(agentID);
+
+                    // Await for command from consumer
+                    let results = await myService.ConsumerRouteHandler.SendCmd(thisConsumer.wsConn, "DRP", params.method, params, true, null);
+                    if (results && results.payload && results.payload) {
+                        oReturnObject = results.payload;
+                    }
+
+                } else {
+                    // Return list of consumers
+                    oReturnObject = {};
+                    let aConsumerKeys = Object.keys(myService.ConsumerConnections);
+                    for (let i = 0; i < aConsumerKeys.length; i++) {
+                        oReturnObject[aConsumerKeys[i]] = {
+                            "ConsumerType": "SomeType1",
+                            "Status": "Unknown"
+                        };
+                    }
+                }
+                return oReturnObject;
+            },
             "Services": async function (params) {
                 //console.log("Checking Services...");
                 let remainingChildPath = params.pathList;
@@ -732,6 +762,20 @@ class DRP_Service {
         }
 
         return thisProviderClient;
+    }
+
+    async VerifyConsumerConnection(consumerID) {
+
+        let thisService = this;
+
+        let thisConsumerObj = null;
+
+        let thisConsumerWS = this.ConsumerConnections[consumerID];
+
+        // Establish a wsConn client if not already established
+        if (thisConsumerWS && thisConsumerWS.readyState == 1 && thisConsumerWS.clientObj) thisConsumerObj = thisConsumerWS.clientObj;
+
+        return thisConsumerObj;
     }
 
     async sendBrokerRequest(method, params) {
@@ -1655,12 +1699,16 @@ class DRP_Broker_Route extends DRP_ServerRoute {
     async OpenHandler(wsConn, req) {
         //console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
         //this.service.ConsumerConnections
-        wsConn.id = `${wsConn._socket.remoteAddress}|${wsConn._socket.remotePort}`;
+        if (!this.service.ConsumerConnectionID) this.service.ConsumerConnectionID = 1;
+        //wsConn.id = `${wsConn._socket.remoteAddress}-${wsConn._socket.remotePort}`;
+        wsConn.id = this.service.ConsumerConnectionID;
+        this.service.ConsumerConnectionID++;
         this.service.ConsumerConnections[wsConn.id] = wsConn;
     }
 
     async CloseHandler(wsConn, closeCode) {
-        //console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
+        //this.service.log("Broker client [" + wsConn.id + "] closed with code [" + closeCode + "]");
+        if (wsConn.id) delete this.service.ConsumerConnections[wsConn.id];
     }
 
     async ErrorHandler(wsConn, error) {
