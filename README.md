@@ -60,10 +60,18 @@ Connect-DRP -Alias dev -URL ws://localhost:8080/broker
 dir drp:\dev
 dir drp:\dev\Registry
 dir drp:\dev\Providers
+
+# View last 10 messages in a topic
 dir drp:\dev\Providers\testProvider1\Streams\dummy\LastTen
+
+# Execute a service command
 dir drp:\dev\Providers\testProvider1\Services\TestService\ClientCmds\sayHi
+
+# View list of Consumers
 dir drp:\dev\Consumers
-dir drp:\dev\Consumers\{id}
+
+# Retrieve HTML document from a consumer web session for debugging
+gi drp:\dev\Consumers\{id}\HTMLDocument\children\0\outerHTML
 ```
 
 
