@@ -780,14 +780,14 @@ class DRP_Service {
 
     async sendBrokerRequest(method, params) {
         let thisService = this;
-        let myClient = null;
         // NEED TO UPDATE - if there is no proxyBrokerURL, interrogate the registry to find a broker
-        let brokerURL = thisService.proxyBrokerURL;
-        await new Promise(resolve => {
-            myClient = new DRP_Consumer_BrokerClient(brokerURL, resolve);
-        })
+        if (!thisService.brokerClient) {
+            await new Promise(resolve => {
+                thisService.brokerClient = new DRP_Consumer_BrokerClient(thisService.proxyBrokerURL, resolve);
+            });
+        }
 
-        let response = await myClient.SendCmd(myClient.wsConn, "DRP", method, params, true);
+        let response = await thisService.brokerClient.SendCmd(thisService.brokerClient.wsConn, "DRP", method, params, true);
         return response.payload;
     }
 
@@ -1644,6 +1644,7 @@ class DRP_Broker_Route extends DRP_ServerRoute {
 
         this.RegisterCmd("providerConnection", function (params, wsConn, token) {
             thisBrokerRoute.service.ProviderConnections[params.providerID] = wsConn;
+            if (wsConn.id) delete thisBrokerRoute.service.ConsumerConnections[wsConn.id];
         });
 
         /*
