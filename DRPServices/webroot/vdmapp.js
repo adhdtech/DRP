@@ -54,14 +54,14 @@ window.onload = function () {
 	});
 
 	myVDMDesktop.addAppletProfile({
-		appletName : 'Awesomeness',
+		appletName : 'RickRoll',
 		window : {
-			title : 'Awesomeness',
+			title : 'Rick Roll',
 			sizeX : 620,
 			sizeY : 400
 		},
 		appletIcon : 'fa-list-alt',
-		showInMenu : true,
+		showInMenu : false,
 		appletPath : vdmAppletsPath,
 		appletScript : 'vdm-app-RickRoll.js'
 	});

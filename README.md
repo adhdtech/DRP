@@ -64,13 +64,16 @@ dir drp:\dev\Providers
 dir drp:\dev\Providers\testProvider1\Streams\dummy\LastTen
 
 # Execute a service command
-dir drp:\dev\Providers\testProvider1\Services\TestService\ClientCmds\sayHi
+gi drp:\dev\Providers\testProvider1\Services\TestService\ClientCmds\sayHi
 
 # View list of Consumers
 dir drp:\dev\Consumers
 
 # Retrieve HTML document from a consumer web session for debugging
 gi drp:\dev\Consumers\{id}\HTMLDocument\children\0\outerHTML
+
+# Execute a command on the consumer web session to RickRoll the user
+gi drp:\dev\Consumers\{id}\RickRoll
 ```
 
 
