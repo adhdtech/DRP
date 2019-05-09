@@ -52,7 +52,6 @@ Running server.js will also start the rSage web interface on http://localhost:80
 
 ## PowerShell PSDrive
 Navigate the DRP topology via CLI using the DRPDrive.dll module.  Open a PowerShell session and run the following.
-The last two lines will show you recent entries in a topic as well as execute a function offered by the test service.
 ```
 cd PSDrive\bin\Debug
 Import-Module .\DRPDrive.dll
