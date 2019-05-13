@@ -56,6 +56,7 @@
     <Compile Include="drp-service\node_modules\ws\lib\validation.js" />
     <Compile Include="drp-service\node_modules\ws\lib\websocket-server.js" />
     <Compile Include="drp-service\node_modules\ws\lib\websocket.js" />
+    <Compile Include="drpProvider-CUCM.js" />
     <Compile Include="rsage-cortex\index.js" />
     <Compile Include="rsage-vdm\index.js" />
     <Compile Include="rSageProvider-Cortex.js" />

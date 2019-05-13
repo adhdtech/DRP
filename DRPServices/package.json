@@ -20,6 +20,7 @@
     "drp-service": "./drp-service",
     "https-proxy-agent": "^2.2.1",
     "rsage-cortex": "./rsage-cortex",
-    "rsage-vdm": "./rsage-vdm"
+    "rsage-vdm": "./rsage-vdm",
+    "cucm-sql-async": "./cucm-sql-async"
   }
 }
