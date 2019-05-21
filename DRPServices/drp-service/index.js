@@ -1257,6 +1257,7 @@ class DRP_Broker extends DRP_Service {
 
         if (expressApp) {
             this.ConsumerRouteHandler = new DRP_Broker_Route(this, '/broker');
+            this.routerStack = this.expressApp._router.stack;
         }
 
         // Create topic manager, assign to ConsumerRoute
