@@ -35,5 +35,5 @@ myProvider.AddService("Greeter", {
 // Connect to Registry
 myProvider.ConnectToRegistry(registryURL, proxyURL);
 
-// blah
+
 
