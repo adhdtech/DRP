@@ -5,7 +5,7 @@
     <Name>DRPServices</Name>
     <RootNamespace>DRPServices</RootNamespace>
     <LastActiveSolutionConfig>Debug|Any CPU</LastActiveSolutionConfig>
-    <ScriptArguments>TestCortex1 ws://localhost:8080/registry ws://localhost:8080/broker</ScriptArguments>
+    <ScriptArguments>ws://localhost:8080/registry ws://localhost:8080/broker</ScriptArguments>
     <NodeExePath>C:\Program Files\nodejs\node.exe</NodeExePath>
     <NodeExeArguments>
     </NodeExeArguments>
