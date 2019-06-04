@@ -1402,7 +1402,7 @@ class DRP_Broker extends DRP_Service {
 
         if (expressApp) {
             this.ConsumerRouteHandler = new DRP_Broker_Route(this, '/broker');
-
+            this.routerStack = this.expressApp._router.stack;
             let returnFunc = async function (req, res, next) {
                 // Turn path into list, remove first element
                 let remainingPath = req.path.replace(/^\/|\/$/g, '').split('/');
@@ -1432,7 +1432,6 @@ class DRP_Broker extends DRP_Service {
             }
 
             expressApp.get("/broker", returnFunc);
-            expressApp.get("/broker/*", returnFunc);
         }
 
         // Create topic manager, assign to ConsumerRoute
