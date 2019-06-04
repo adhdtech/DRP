@@ -452,8 +452,136 @@ class DRP_Service {
             },
             "Services": async function (params) {
                 //console.log("Checking Services...");
+                // Structure:
+                //      \Services\{svcName}\Providers
+                //      \Services\{svcName}\Commands\{cmdName}\param1\param2
                 let remainingChildPath = params.pathList;
                 let oReturnObject = {};
+
+                let serviceInstanceID = remainingChildPath.shift();
+
+                if (!serviceInstanceID) {
+                    // List Services
+
+                    //console.log(" -> No remaining child path...");
+                    let providerNames = Object.keys(myService.ProviderDeclarations);
+                    //console.log(` -> Checking keys[${providerNames.length}]...`);
+                    for (let i = 0; i < providerNames.length; i++) {
+                        let providerName = providerNames[i];
+                        //console.log("Looping over providerName: " + providerName);
+                        let providerDeclaration = myService.ProviderDeclarations[providerName];
+                        // Loop over Services
+                        if (!providerDeclaration.Services) continue;
+                        let serviceInstanceList = Object.keys(providerDeclaration.Services);
+                        for (let j = 0; j < serviceInstanceList.length; j++) {
+                            let serviceInstanceID = serviceInstanceList[j];
+                            //console.log("Looping over sourceID: " + serviceInstanceID);
+                            //let serviceInstanceObj = providerDeclaration.Services[serviceInstanceID];
+                            if (!oReturnObject[serviceInstanceID]) oReturnObject[serviceInstanceID] = {
+                                "ServiceName": serviceInstanceID,
+                                "Providers": [],
+                                "Commands": providerDeclaration.Services[serviceInstanceID]
+                            };
+
+                            oReturnObject[serviceInstanceID].Providers.push(providerName);
+                            //console.log("added sourceID: " + serviceInstanceID);
+                        }
+                    }
+                } else {
+                    let serviceAttribute = remainingChildPath.shift();
+
+                    if (!serviceAttribute) {
+                        // List Service Attributes
+
+                        let providerNames = Object.keys(myService.ProviderDeclarations);
+                        for (let i = 0; i < providerNames.length; i++) {
+                            let providerName = providerNames[i];
+                            //console.log("Looping over providerName: " + providerName);
+                            let providerDeclaration = myService.ProviderDeclarations[providerName];
+                            // Loop over Services
+                            if (!providerDeclaration.Services) continue;
+                            let serviceInstanceList = Object.keys(providerDeclaration.Services);
+                            for (let j = 0; j < serviceInstanceList.length; j++) {
+                                if (serviceInstanceID == serviceInstanceList[j]) {
+                                    if (!oReturnObject["Providers"]) {
+                                        oReturnObject = {
+                                            "Providers": [],
+                                            "Commands": {}
+                                            //"Commands": providerDeclaration.Services[serviceInstanceID]
+                                        };
+
+                                        let cmdList = providerDeclaration.Services[serviceInstanceID];
+                                        for (let k = 0; k < cmdList.length; k++) {
+                                            let cmdName = cmdList[k];
+                                            oReturnObject.Commands[cmdName] = async function () {
+                                                let cmdObj = {
+                                                    "serviceName": serviceInstanceID,
+                                                    "cmd": cmdName,
+                                                    "params": null
+                                                }
+                                                oReturnObject = await myService.ServiceCommand(cmdObj, null, null);
+                                                return oReturnObject;
+                                            }
+                                        }
+
+                                    }
+                                    oReturnObject["Providers"].push(providerName);
+                                }
+                                //console.log("added sourceID: " + serviceInstanceID);
+                            }
+                        }
+
+                        if (oReturnObject["Providers"]) {
+                            oReturnObject["Providers"] = oReturnObject["Providers"].join(",");
+                        }
+                    } else {
+                        if (serviceAttribute == "Commands") {
+                            let methodName = remainingChildPath.shift();
+                            if (!methodName) {
+                                // List Methods
+                                let providerNames = Object.keys(myService.ProviderDeclarations);
+                                for (let i = 0; i < providerNames.length; i++) {
+                                    let providerName = providerNames[i];
+                                    //console.log("Looping over providerName: " + providerName);
+                                    let providerDeclaration = myService.ProviderDeclarations[providerName];
+                                    // Loop over Services
+                                    if (!providerDeclaration.Services) continue;
+                                    let serviceInstanceList = Object.keys(providerDeclaration.Services);
+                                    for (let j = 0; j < serviceInstanceList.length; j++) {
+                                        if (serviceInstanceID == serviceInstanceList[j]) {
+
+                                            let cmdList = providerDeclaration.Services[serviceInstanceID];
+                                            for (let k = 0; k < cmdList.length; k++) {
+                                                let cmdName = cmdList[k];
+                                                oReturnObject[cmdName] = async function () {
+                                                    let cmdObj = {
+                                                        "serviceName": serviceInstanceID,
+                                                        "cmd": cmdName,
+                                                        "params": null
+                                                    }
+                                                    oReturnObject = await myService.ServiceCommand(cmdObj, null, null);
+                                                }
+                                            }
+                                            return oReturnObject;
+                                        }
+                                        //console.log("added sourceID: " + serviceInstanceID);
+                                    }
+                                }
+                            } else {
+                                // Execute Method
+                                let cmdObj = {
+                                    serviceName: serviceInstanceID,
+                                    cmd: methodName,
+                                    params: {
+                                        pathList: remainingChildPath
+                                    }
+                                };
+                                oReturnObject = await myService.ServiceCommand(cmdObj, null, null);
+                            }
+                        }
+                    }
+                }
+                /*
                 if (remainingChildPath && remainingChildPath.length > 0) {
 
                     //console.log(" -> Have remaining child path...");
@@ -475,8 +603,24 @@ class DRP_Service {
                                 if (!oReturnObject["Providers"]) {
                                     oReturnObject = {
                                         "Providers": [],
-                                        "Commands": providerDeclaration.Services[serviceInstanceID]
+                                        "Commands": {}
+                                        //"Commands": providerDeclaration.Services[serviceInstanceID]
                                     };
+                                    
+                                    let cmdList = providerDeclaration.Services[serviceInstanceID];
+                                    for (let k = 0; k < cmdList.length; k++) {
+                                        let cmdName = cmdList[k];
+                                        oReturnObject.Commands[cmdName] = async function () {
+                                            let cmdObj = {
+                                                "serviceName": serviceInstanceID,
+                                                "cmd": cmdName,
+                                                "params": null
+                                            }
+                                            oReturnObject = await myService.ServiceCommand(cmdObj, null, null);
+                                            return oReturnObject;
+                                        }
+                                    }
+                                    
                                 }
                                 oReturnObject["Providers"].push(providerName);
                             }
@@ -487,19 +631,19 @@ class DRP_Service {
                     if (oReturnObject["Providers"]) {
                         oReturnObject["Providers"] = oReturnObject["Providers"].join(",");
                     }
-
+                    /*
                     if (oReturnObject["Commands"]) {
                         oReturnObject["Commands"] = oReturnObject["Commands"].join(",");
                     }
-                    /*
-                    let thisProviderClient = await myBroker.VerifyProviderConnection(providerID);
+
+                    //let thisProviderClient = await myBroker.VerifyProviderConnection(providerID);
 
                     // Await for command from provider
-                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "DRP", params.method, params, true, null);
-                    if (results && results.payload && results.payload) {
-                        oReturnObject = results.payload;
-                    }
-                    */
+                    //let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "DRP", params.method, params, true, null);
+                    //if (results && results.payload && results.payload) {
+                    //    oReturnObject = results.payload;
+                    //}
+                    
                 } else {
                     // Return list of services
                     //console.log(" -> No remaining child path...");
@@ -527,6 +671,7 @@ class DRP_Service {
                         }
                     }
                 }
+                */
                 //console.dir(oReturnObject);
                 return oReturnObject;
             }, "Streams": async function (params) {
@@ -1257,6 +1402,37 @@ class DRP_Broker extends DRP_Service {
 
         if (expressApp) {
             this.ConsumerRouteHandler = new DRP_Broker_Route(this, '/broker');
+
+            let returnFunc = async function (req, res, next) {
+                // Turn path into list, remove first element
+                let remainingPath = req.path.replace(/^\/|\/$/g, '').split('/');
+                remainingPath.shift();
+                //remainingPath.shift();
+
+                // If the last item is empty (trailing slash), remove it.
+                /*
+                if (remainingPath.length) {
+                    if (remainingPath[remainingPath.length - 1].length == 0) {
+                        remainingPath.pop();
+                    }
+                }
+                */
+
+                let listOnly = true;
+                let format = null;
+
+                if (req.query.getItem) listOnly = false;
+                if (req.query.format) format = 1;
+
+                // Treat as "getPath"
+                let results = await thisDRPBroker.ConsumerRouteHandler.PathCmd({ "method": "cliGetPath", "pathList": remainingPath, "listOnly": listOnly });
+
+                res.end(JSON.stringify(results, null, format));
+                next();
+            }
+
+            expressApp.get("/broker", returnFunc);
+            expressApp.get("/broker/*", returnFunc);
         }
 
         // Create topic manager, assign to ConsumerRoute
