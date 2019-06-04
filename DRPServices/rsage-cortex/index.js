@@ -1099,20 +1099,36 @@ class Hive {
             getUKMKFKObj: function (params) {
                 //var thisHive = this;
                 var returnObj = {
-                    objName: params,
-                    records: {}
+                    params: params,
+                    records: {},
+                    err: null
                 };
-                var checkKey = params['Key'];
+                let checkKey = null;
+                let stereoType = null;
+
+                if (params['Key'] && params['StereoType']) {
+                    checkKey = params['Key'];
+                    stereoType = params['StereoType'];
+                }
+
+                if (params['pathList'] && params['pathList'].length > 1) {
+                    stereoType = params['pathList'][0];
+                    checkKey = params['pathList'][1];
+                }
+
                 if (typeof checkKey === "string") {
                     var tmpString = checkKey.toLowerCase();
                     checkKey = tmpString;
                 }
+
                 //console.log("Getting UKMKFK " + appData['StereoType'] + "[" + checkKey + "]");
-                if (typeof thisHive.HiveIndexes[params['StereoType']] === "undefined" || typeof thisHive.HiveIndexes[params['StereoType']].IndexRecords[checkKey] === "undefined") {
+
+                if (!checkKey || !stereoType || typeof thisHive.HiveIndexes[stereoType] === "undefined" || typeof thisHive.HiveIndexes[stereoType].IndexRecords[checkKey] === "undefined") {
                     //console.log("    ...no index for item");
+                    returnObj["err"] = `No index for (${stereoType})[${checkKey}]`;
                 } else {
                     //console.log("    ...found index");
-                    var assocRoot = thisHive.HiveIndexes[params['StereoType']].IndexRecords[checkKey];
+                    var assocRoot = thisHive.HiveIndexes[stereoType].IndexRecords[checkKey];
                     returnObj.records = {
                         UK: [],
                         MK: "",
@@ -1133,29 +1149,43 @@ class Hive {
                         returnObj.records.FK.push(assocRoot.FK[fkKey].data);
                     });
 
-                    returnObj.records['Key'] = params['Key'];
-                    returnObj.records['StereoType'] = params['StereoType'];
+                    returnObj.records['Key'] = checkKey;
+                    returnObj.records['StereoType'] = stereoType;
                 }
                 return returnObj;
             },
             getUKMKFKGCObj: function (params) {
                 //var thisHive = this;
                 var returnObj = {
-                    StereoType: params["StereoType"],
-                    Key: params['Key'],
-                    records: {}
+                    params: params,
+                    records: {},
+                    err: null
                 };
-                var checkKey = params['Key'];
+
+                let checkKey = null;
+                let stereoType = null;
+
+                if (params['Key'] && params['StereoType']) {
+                    checkKey = params['Key'];
+                    stereoType = params['StereoType'];
+                }
+
+                if (params['pathList'] && params['pathList'].length > 1) {
+                    stereoType = params['pathList'][0];
+                    checkKey = params['pathList'][1];
+                }
+
                 if (typeof checkKey === "string") {
                     var tmpString = checkKey.toLowerCase();
                     checkKey = tmpString;
                 }
                 //console.log("Getting UKMKFKGC " + appData['StereoType'] + "[" + checkKey + "]");
-                if (typeof thisHive.HiveIndexes[params['StereoType']] === "undefined" || typeof thisHive.HiveIndexes[params['StereoType']].IndexRecords[checkKey] === "undefined") {
+                if (!checkKey || !stereoType || typeof thisHive.HiveIndexes[stereoType] === "undefined" || typeof thisHive.HiveIndexes[stereoType].IndexRecords[checkKey] === "undefined") {
                     //console.log("    ...no index for item");
+                    returnObj["err"] = `No index for (${stereoType})[${checkKey}]`;
                 } else {
                     //console.log("    ...found index");
-                    var assocRoot = thisHive.HiveIndexes[params['StereoType']].IndexRecords[checkKey];
+                    var assocRoot = thisHive.HiveIndexes[stereoType].IndexRecords[checkKey];
                     returnObj.records = {
                         UK: [],
                         MK: "",
@@ -1185,8 +1215,8 @@ class Hive {
                         }
                     });
 
-                    returnObj.records['Key'] = params['Key'];
-                    returnObj.records['StereoType'] = params['StereoType'];
+                    returnObj.records['Key'] = checkKey;
+                    returnObj.records['StereoType'] = stereoType;
                 }
                 return returnObj;
             },

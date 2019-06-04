@@ -480,7 +480,7 @@ class DRP_Service {
                             if (!oReturnObject[serviceInstanceID]) oReturnObject[serviceInstanceID] = {
                                 "ServiceName": serviceInstanceID,
                                 "Providers": [],
-                                "Commands": providerDeclaration.Services[serviceInstanceID]
+                                "ClientCmds": providerDeclaration.Services[serviceInstanceID]
                             };
 
                             oReturnObject[serviceInstanceID].Providers.push(providerName);
@@ -506,14 +506,13 @@ class DRP_Service {
                                     if (!oReturnObject["Providers"]) {
                                         oReturnObject = {
                                             "Providers": [],
-                                            "Commands": {}
-                                            //"Commands": providerDeclaration.Services[serviceInstanceID]
+                                            "ClientCmds": {}
                                         };
 
                                         let cmdList = providerDeclaration.Services[serviceInstanceID];
                                         for (let k = 0; k < cmdList.length; k++) {
                                             let cmdName = cmdList[k];
-                                            oReturnObject.Commands[cmdName] = async function () {
+                                            oReturnObject["ClientCmds"][cmdName] = async function () {
                                                 let cmdObj = {
                                                     "serviceName": serviceInstanceID,
                                                     "cmd": cmdName,
@@ -535,7 +534,7 @@ class DRP_Service {
                             oReturnObject["Providers"] = oReturnObject["Providers"].join(",");
                         }
                     } else {
-                        if (serviceAttribute == "Commands") {
+                        if (serviceAttribute == "ClientCmds") {
                             let methodName = remainingChildPath.shift();
                             if (!methodName) {
                                 // List Methods
@@ -711,8 +710,8 @@ class DRP_Service {
                         oReturnObject["Providers"] = oReturnObject["Providers"].join(",");
                     }
 
-                    if (oReturnObject["Commands"]) {
-                        oReturnObject["Commands"] = oReturnObject["Commands"].join(",");
+                    if (oReturnObject["ClientCmds"]) {
+                        oReturnObject["ClientCmds"] = oReturnObject["ClientCmds"].join(",");
                     }
                     /*
                     let thisProviderClient = await myBroker.VerifyProviderConnection(providerID);
@@ -1432,6 +1431,7 @@ class DRP_Broker extends DRP_Service {
             }
 
             expressApp.get("/broker", returnFunc);
+            expressApp.get("/broker/*", returnFunc);
         }
 
         // Create topic manager, assign to ConsumerRoute
