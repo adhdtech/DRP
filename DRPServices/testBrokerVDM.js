@@ -1,13 +1,18 @@
 'use strict';
 var drpService = require('drp-service');
 var vdmServer = require('rsage-vdm');
-var os = require("os");
+var os = require('os');
+var process = require('process');
 
-var hostname = os.hostname();
+process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
+
+let hostname = os.hostname();
+let pid = process.pid;
+let instanceName = `${hostname}-${pid}`;
 
 // Set config
 let myServerConfig = {
-    "BrokerName": "testBrokerVDM1",
+    "BrokerName": instanceName,
     "RegistryURL": `ws://${hostname}:8080/registry`,
     "BrokerURL": `ws://${hostname}:8082/broker`,
     "Port": "8082",
