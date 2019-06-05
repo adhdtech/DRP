@@ -1436,17 +1436,6 @@ class Hive {
                                 'data': assocRoot.FK[fkKey].data,
                                 'children': []
                             };
-							/*
-							if (assocRoot.FK[fkKey].MK) {
-							Object.keys(assocRoot.FK[fkKey].MK).forEach(function (mkKey) {
-							var assocChildRoot = assocRoot.FK[fkKey].MK[mkKey];
-							Object.keys(assocChildRoot.FK).forEach(function (gcKey) {
-							var gcObj = { 'data': assocChildRoot.FK[gcKey].data, 'children': [], 'parents': [] };
-							fkObj.children.push(gcObj);
-							});
-							});
-							}
-							 */
                             rootObj.children.push(fkObj);
                         });
 
@@ -1579,7 +1568,6 @@ class Hive {
         })
 
         let classDefs = await this.Cortex.drpService.GetClassDefinitions();
-        //let response = await registryClient.SendCmd(registryClient.wsConn, "getClassDefinitions", null, true, null);
 
         this.classLoader.LoadClasses(classDefs);
 
@@ -1589,74 +1577,6 @@ class Hive {
         await thisHive.LoadCollectorInstances(this.Cortex.drpService);
         console.log("Loaded collector data");
         callback();
-    }
-
-    // May need to define a new collectorClient object with a state machine
-    OpenCollectors() {
-        var thisHive = this;
-
-        let collectorNameList = Object.keys(thisHive.collectorProfiles);
-
-        if (collectorNameList.length > 0) {
-
-            // Open connections to collector hosts
-            for (let k = 0; k < collectorNameList.length; k++) {
-                let collectorName = collectorNameList[k];
-
-                // Set thisCollectorProfile (shortcut)
-                var thisCollectorProfile = thisHive.collectorProfiles[collectorName];
-                var thisCollectorServer = thisHive.collectorServers[thisCollectorProfile.server];
-                thisCollectorProfile.runHost = thisCollectorServer.FQDN;
-                thisCollectorProfile.runPort = thisCollectorServer.Port;
-                thisCollectorProfile.StreamHandlers = [];
-
-                // Non-streaming collectors will have 'classes' array; streaming will have single 'class'
-                if (thisCollectorProfile.hasOwnProperty('classes')) {
-                    for (var i = 0; i < thisCollectorProfile['classes'].length; i++) {
-                        var classType = thisCollectorProfile['classes'][i]['name'];
-
-                        if (typeof thisHive.HiveClasses[classType] === "undefined") {
-                            console.log("Class stereotype not defined -> [" + classType + "]...");
-                            console.dir(thisHive.HiveClasses);
-                            console.dir(thisHive.HiveIndexes);
-                            process.exit(1);
-                        }
-                        var sTypeClass = thisHive.HiveClasses[classType];
-                        if (typeof thisHive.HiveData[classType] === "undefined") {
-                            thisHive.HiveData[classType] = {};
-                            console.log("Set: HiveData[", classType, "]");
-                        } else {
-                            //console.log("Already set: HiveData[", classType, "]");
-                        }
-
-                        thisCollectorProfile.queryOpts.GetFields = [];
-                        thisCollectorProfile.queryOpts.GetFields.push('ObjectType');
-                        Object.keys(sTypeClass.Attributes).forEach(function (attrKey) {
-                            thisCollectorProfile.queryOpts.GetFields.push(sTypeClass.Attributes[attrKey].Name);
-                        });
-                    }
-                } else {
-                    console.log("CollectorProfile [", collectorName, "] does not have 'classes' attribute");
-                }
-
-                // Construct wsTarget variable
-                var wsTarget = "ws://" + thisCollectorProfile['runHost'] + ":" + thisCollectorProfile['runPort'] + "/cortex";
-
-                // If we haven't already created a client for this target host, do so
-                if (!(thisHive.CollectorClients[wsTarget])) {
-                    thisHive.CollectorClients[wsTarget] = new CollectorClient(thisCollectorProfile, thisHive);
-                }
-                thisCollectorProfile.collectorClient = thisHive.CollectorClients[wsTarget];
-                var collectorClient = thisHive.CollectorClients[wsTarget];
-                if (!(collectorClient.hasOwnProperty('collectorList'))) {
-                    collectorClient.collectorList = [];
-                }
-                collectorClient.collectorList.push(thisCollectorProfile);
-            }
-        } else {
-            // No collectors defined
-            thisHive.AllCollectorsLoaded();
-        }
     }
 
     async LoadCollectorInstances(drpService) {
@@ -1745,78 +1665,7 @@ class Hive {
                     'classDef': thisHive.HiveClasses[thisClassName]
                 }
                 thisHive.BuildStereotypeIndexes_ClassDataInstance(thisHive.HiveData[thisClassName][thisSourceInstanceName]);
-
-                let bob = 1;
             }
-        }
-    }
-
-    ProcessSnapData(snapData) {
-        var thisHive = this;
-        //console.log("Processing snap data...");
-        if (snapData && snapData['status']) {
-            switch (snapData['status']) {
-                case 'OKAY':
-                    // Successful snap transfer
-                    //console.log("Successful snap transfer!");
-
-                    // Loop over classes in snap
-                    Object.keys(snapData['data']).forEach(function (classType) {
-                        console.log("Retrieved [", classType, "] from ", snapData['source'], ", Length: " + Object.keys(snapData['data'][classType].records).length);
-                        var newRecordHash = {};
-                        var recordsRef = snapData['data'][classType]['records'];
-                        Object.keys(snapData['data'][classType]['records']).forEach(function (objPK) {
-                            newRecordHash[objPK] = {
-                                'classType': classType,
-                                'MK': [],
-                                'FK': [],
-                                'data': recordsRef[objPK]
-                            }
-                            newRecordHash[objPK].data['_collectorID'] = snapData['source'];
-                        });
-                        // Add data to Hive
-                        if (!thisHive.HiveData[classType]) {
-                            thisHive.HiveData[classType] = {};
-                        }
-                        thisHive.HiveData[classType][snapData['source']] = {
-                            'records': newRecordHash,
-                            'classDef': thisHive.HiveClasses[classType]
-                        }
-                        thisHive.BuildStereotypeIndexes_ClassDataInstance(thisHive.HiveData[classType][snapData['source']]);
-                    });
-                    //thisHive.CollectorLoaded();
-                    break;
-                case 'SNAP CURRENTLY RUNNING':
-                    console.log("Snap currently running, will retry shortly...");
-                    // TODO - Add retry logic
-                    break;
-                default:
-                    console.log("Unrecognized snap status: [", snapData['status'], "]");
-                    break;
-            }
-        } else {
-            console.log("Could not process snap data; incorrect object structure");
-        }
-        //console.log("Processed snap data.");
-    }
-
-    CollectorLoaded() {
-
-        var thisHive = this;
-        thisHive.collectorsProcessed++;
-        if (thisHive.collectorsProcessed === Object.keys(thisHive.collectorProfiles).length) {
-            //console.log("Finished loaded collectors.  Let's find data associations based on stereotypes...");
-            //thisHive.BuildStereotypeIndexes();
-            thisHive.AllCollectorsLoaded();
-        }
-    }
-
-    AllCollectorsLoaded() {
-        var thisHive = this;
-        thisHive.IsReady = true;
-        console.log("Finished loading collectors, Hive is ready");
-        if (thisHive.RunAfterHiveLoad) {
-            thisHive.RunAfterHiveLoad();
         }
     }
 
@@ -2057,100 +1906,7 @@ class Hive {
         }
         return returnVal;
     }
-    /*
-    DataArrayToObject(record) {
-        var thisHive = this;
-        sTypeClass = thisHive.HiveClasses[record[0]];
-        var classAttrs = sTypeClass.Attributes;
 
-        Object.keys(sTypeClass.Functions).forEach(function (key) {
-            thisFunc = sTypeClass.Functions[key];
-            switch (key) {
-                case 'getNBLogin':
-                    record[classAttrs[thisFunc.outputAttr].colRef] = record[classAttrs[thisFunc.funcAttrs[0]].colRef] + "\\" + record[classAttrs[thisFunc.funcAttrs[1]].colRef];
-                    break;
-                case 'getSMTPAddrs':
-                    record[classAttrs[thisFunc.outputAttr].colRef] = [];
-                    var tmpArr = record[classAttrs[thisFunc.funcAttrs[0]].colRef].split('|');
-                    for (var i = 0; i < tmpArr.length; i++) {
-                        var matchArray = [];
-                        if (matchArray = tmpArr[i].match(/^smtp:(.*)$/i)) {
-                            record[classAttrs[thisFunc.outputAttr].colRef].push(matchArray[1]);
-                        }
-                    }
-                    break;
-                case 'split':
-                    var tmpVal = record[classAttrs[thisFunc.funcAttrs[0]].colRef];
-                    var splitChar = ',';
-                    if (thisFunc.funcAttrs[1]) {
-                        splitChar = thisFunc.funcAttrs[1];
-                    }
-                    if (tmpVal) {
-                        record[classAttrs[thisFunc.outputAttr].colRef] = tmpVal.split(splitChar);
-                    }
-                    break;
-                case 'trim':
-                    var tmpVal = record[classAttrs[thisFunc.funcAttrs[0]].colRef];
-                    if (tmpVal) {
-                        record[classAttrs[thisFunc.funcAttrs[0]].colRef] = tmpVal.trim();
-                    };
-                    break;
-                case 'splitPBXID':
-                    var tmpVal = record[classAttrs[thisFunc.funcAttrs[0]].colRef];
-                    if (tmpVal) {
-                        var tmpArr = tmpVal.split('^');
-                        var newArr = [];
-                        for (var i = 0; i < tmpArr.length; i += 2) {
-                            newArr[i / 2] = tmpArr[i] + '^' + tmpArr[i + 1];
-                        }
-                        record[classAttrs[thisFunc.outputAttr].colRef] = newArr;
-                    }
-                    break;
-                case 'standardizeMAC':
-                    var tmpVal = record[classAttrs[thisFunc.funcAttrs[0]].colRef];
-                    var results = /^(\w{2})(?:[\:\-])?(\w{2})(?:[\:\-\.])?(\w{2})(?:[\:\-])?(\w{2})(?:[\:\-\.])?(\w{2})(?:[\:\-])?(\w{2})$/.exec(tmpVal);
-                    if (results) {
-                        var correctedMac = results[1] + ':' + results[2] + ':' + results[3] + ':' + results[4] + ':' + results[5] + ':' + results[6];
-                        record[classAttrs[thisFunc.funcAttrs[0]].colRef] = correctedMac.toLowerCase();
-                    }
-                    break;
-                case 'standardizeDID':
-                    var tmpVal = record[classAttrs[thisFunc.funcAttrs[0]].colRef];
-                    var results = /^(?:[\+1\s\(]+)?(\d{3})(?:[\-\.\s\)]+)?(\d{3})(?:[\-\.\s]+)?(\d{4})$/.exec(tmpVal);
-                    if (results) {
-                        var correctedDID = results[1] + '' + results[2] + '' + results[3];
-                        record[classAttrs[thisFunc.funcAttrs[0]].colRef] = correctedDID.toLowerCase();
-                    }
-                    break;
-                case 'parseBranchFromDevice':
-                    var tmpVal = record[classAttrs[thisFunc.funcAttrs[0]].colRef];
-                    var results = /^[A-z](\d{4})\-[A-z]{2,3}\d{1,3}\.net\.svm\.com$/.exec(tmpVal.toLowerCase());
-                    if (results) {
-                        record[classAttrs[thisFunc.outputAttr].colRef] = results[1];
-                    }
-                    break;
-                case 'parseBranchFromSubnetName':
-                    var tmpVal = record[classAttrs[thisFunc.funcAttrs[0]].colRef];
-                    var results = /^[A-z]?(\d{4})[\s\-]/.exec(tmpVal.toLowerCase());
-                    if (results) {
-                        record[classAttrs[thisFunc.outputAttr].colRef] = results[1];
-                    }
-                    break;
-                default:
-                    break;
-            }
-        });
-        var pkFieldName = sTypeClass.PrimaryKey;
-        var pkFieldNum = classAttrs[pkFieldName].colRef;
-        var thisRowPK = record[pkFieldNum];
-        return {
-            MK: [],
-            FK: [],
-            data: record
-        };
-        //return { Key : thisRowPK, Value : { MK: [], FK: [], data: record }};
-    }
-    */
 }
 
 class ICRQuery {
