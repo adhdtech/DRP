@@ -137,7 +137,7 @@ class VDMServer extends drpService.ServerRoute {
             return thisVDMServer.intformat(thisVDMServer.generator.next(), 'dec')
         }
 
-        this.expressApp.get('/login', function (req, res, next) {
+        this.expressApp.get('/login', function vdmLoginHandler(req, res, next) {
             var userName = "testUser";
             var ip = req.connection.remoteAddress;
             var sessionID = thisVDMServer.GenerateID();
@@ -152,13 +152,13 @@ class VDMServer extends drpService.ServerRoute {
             res.redirect('/client.html');
         });
 
-        this.expressApp.use(function (req, res, next) {
+        this.expressApp.use(function vdmServerAttachHandler(req, res, next) {
             req.VDMServer = thisVDMServer;
             next();
         });
 
         // Redirect root requests to /login for authentication
-        this.expressApp.get('/', function (req, res, next) {
+        this.expressApp.get('/', function vdmBaseRedirectHandler(req, res, next) {
             res.redirect('/login');
         });
     }
