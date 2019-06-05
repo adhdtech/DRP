@@ -1710,32 +1710,60 @@ class DRP_Broker extends DRP_Service {
             return results;
         } else {
 
-            // Find provider that has service
-            let providerNames = Object.keys(this.ProviderDeclarations);
-            let targetServiceName = null;
-            for (let i = 0; i < providerNames.length; i++) {
-                let thisProviderName = providerNames[i];
-                if (this.ProviderDeclarations[thisProviderName].Services && this.ProviderDeclarations[thisProviderName].Services[cmdObj.serviceName]) {
-                    let checkService = this.ProviderDeclarations[thisProviderName].Services[cmdObj.serviceName];
-                    if (checkService.includes(cmdObj.cmd)) {
-                        // Let's execute it
-                        let thisProviderClient = await this.VerifyProviderConnection(thisProviderName);
+            let targetProviderName = null;
 
-                        // Await for command from provider
-                        let returnObj = null;
-                        let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "DRP", "serviceCommand", cmdObj, true, null);
-                        if (results && results.payload && results.payload) {
-                            returnObj = results.payload;
-                        }
-                        return returnObj;
-                    } else {
-                        this.log(`${baseMsg} service ${cmdObj.serviceName} does not have method ${cmdObj.cmd}`);
+            // Are we specifying which provider to run this through?
+            if (cmdObj.targetProvider) {
+                targetProviderName = cmdObj.targetProvider;
+                if (!this.ProviderDeclarations[targetProviderName]) {
+                    this.log(`${baseMsg} provider ${targetProviderName} does not exist`);
+                    return null;
+                }
+            } else {
+                // Loop over providers
+                // TODO - implement load balancing, prioritization & zoning mechanism
+                let providerNames = Object.keys(this.ProviderDeclarations);
+                for (let i = 0; i < providerNames.length; i++) {
+                    let thisProviderName = providerNames[i];
+
+                    // Does this provider offer the service we need?
+                    if (this.ProviderDeclarations[thisProviderName].Services && this.ProviderDeclarations[thisProviderName].Services[cmdObj.serviceName]) {
+
+                        // Yes - pick this one
+                        targetProviderName = thisProviderName;
                     }
                 }
+
+                // Did we find a provider with this service?
+                if (!targetProviderName) {
+                    // No suitable provider found
+                    this.log(`${baseMsg} service ${cmdObj.serviceName} does not exist`);
+                    console.dir(cmdObj)
+                    return null;
+                }
             }
-            this.log(`${baseMsg} service ${cmdObj.serviceName} does not exist`);
-            console.dir(cmdObj)
-            return null;
+
+            // Does this provider offer the service we need?
+            if (this.ProviderDeclarations[targetProviderName].Services && this.ProviderDeclarations[targetProviderName].Services[cmdObj.serviceName]) {
+                let checkService = this.ProviderDeclarations[targetProviderName].Services[cmdObj.serviceName];
+
+                // Does the service offer the command we want to execute?
+                if (checkService.includes(cmdObj.cmd)) {
+                    // Let's execute it
+                    let thisProviderClient = await this.VerifyProviderConnection(targetProviderName);
+
+                    // Await for command from provider
+                    let returnObj = null;
+                    let results = await thisProviderClient.SendCmd(thisProviderClient.wsConn, "DRP", "serviceCommand", cmdObj, true, null);
+                    if (results && results.payload && results.payload) {
+                        returnObj = results.payload;
+                    }
+                    return returnObj;
+                } else {
+                    this.log(`${baseMsg} service ${cmdObj.serviceName} does not have method ${cmdObj.cmd}`);
+                    return null;
+                }
+            }
         }
     }
     /*
