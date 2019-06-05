@@ -213,7 +213,7 @@ class DRP_ServerRoute extends drpEndpoint.Endpoint {
             return;
         }
 
-        expressApp.ws(route, async function (wsConn, req) {
+        expressApp.ws(route, async function drpWebsocketHandler(wsConn, req) {
 
             await thisServer.OpenHandler(wsConn, req);
             let remoteAddress = wsConn._socket.remoteAddress;
@@ -1402,7 +1402,7 @@ class DRP_Broker extends DRP_Service {
         if (expressApp) {
             this.ConsumerRouteHandler = new DRP_Broker_Route(this, '/broker');
             this.routerStack = this.expressApp._router.stack;
-            let returnFunc = async function (req, res, next) {
+            let brokerRestHandler = async function (req, res, next) {
                 // Turn path into list, remove first element
                 let remainingPath = req.path.replace(/^\/|\/$/g, '').split('/');
                 remainingPath.shift();
@@ -1430,8 +1430,8 @@ class DRP_Broker extends DRP_Service {
                 next();
             }
 
-            expressApp.get("/broker", returnFunc);
-            expressApp.get("/broker/*", returnFunc);
+            expressApp.get("/broker", brokerRestHandler);
+            expressApp.get("/broker/*", brokerRestHandler);
         }
 
         // Create topic manager, assign to ConsumerRoute
