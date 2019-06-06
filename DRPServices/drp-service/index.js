@@ -132,7 +132,7 @@ class DRP_TopicManager_Topic {
 
         thisTopic.ReceivedMessages++;
 
-        if (thisTopic.LastTen.length == 10) {
+        if (thisTopic.LastTen.length === 10) {
             thisTopic.LastTen.shift();
         }
         thisTopic.LastTen.push(message);
@@ -356,7 +356,7 @@ class DRP_Service {
                 let classNames = Object.keys(sourceInstanceObj);
                 for (let k = 0; k < classNames.length; k++) {
                     let className = classNames[k];
-                    if (!findClassName || findClassName == className) {
+                    if (!findClassName || findClassName === className) {
                         if (!results[className]) {
                             results[className] = {};
                         }
@@ -502,7 +502,7 @@ class DRP_Service {
                             if (!providerDeclaration.Services) continue;
                             let serviceInstanceList = Object.keys(providerDeclaration.Services);
                             for (let j = 0; j < serviceInstanceList.length; j++) {
-                                if (serviceInstanceID == serviceInstanceList[j]) {
+                                if (serviceInstanceID === serviceInstanceList[j]) {
                                     if (!oReturnObject["Providers"]) {
                                         oReturnObject = {
                                             "Providers": [],
@@ -534,7 +534,7 @@ class DRP_Service {
                             oReturnObject["Providers"] = oReturnObject["Providers"].join(",");
                         }
                     } else {
-                        if (serviceAttribute == "ClientCmds") {
+                        if (serviceAttribute === "ClientCmds") {
                             let methodName = remainingChildPath.shift();
                             if (!methodName) {
                                 // List Methods
@@ -547,7 +547,7 @@ class DRP_Service {
                                     if (!providerDeclaration.Services) continue;
                                     let serviceInstanceList = Object.keys(providerDeclaration.Services);
                                     for (let j = 0; j < serviceInstanceList.length; j++) {
-                                        if (serviceInstanceID == serviceInstanceList[j]) {
+                                        if (serviceInstanceID === serviceInstanceList[j]) {
 
                                             let cmdList = providerDeclaration.Services[serviceInstanceID];
                                             for (let k = 0; k < cmdList.length; k++) {
@@ -694,7 +694,7 @@ class DRP_Service {
                         if (!providerDeclaration.Streams) continue;
                         let streamInstanceList = Object.keys(providerDeclaration.Streams);
                         for (let j = 0; j < streamInstanceList.length; j++) {
-                            if (streamInstanceID == streamInstanceList[j]) {
+                            if (streamInstanceID === streamInstanceList[j]) {
                                 if (!oReturnObject["Providers"]) {
                                     oReturnObject = {
                                         "Providers": [],
@@ -755,8 +755,9 @@ class DRP_Service {
     }
 
     /**
-   * @param {Array.<string>} aChildPathArray Remaining path
-   * @param {Boolean} bReturnChildList Flag to return list of children
+   * @param {object} params Remaining path
+   * @param {Boolean} baseObj Flag to return list of children
+   * @returns {object} oReturnObject Return object
    */
     async GetObjFromPath(params, baseObj) {
 
@@ -769,7 +770,7 @@ class DRP_Service {
         let oReturnObject = null;
 
         // Do we have a path array?
-        if (aChildPathArray.length == 0) {
+        if (aChildPathArray.length === 0) {
             // No - act on parent object
             oReturnObject = oCurrentObject;
         } else {
@@ -786,7 +787,7 @@ class DRP_Service {
                         case 'object':
                             // Set current object
                             oCurrentObject = oCurrentObject[aChildPathArray[i]];
-                            if (i + 1 == aChildPathArray.length) {
+                            if (i + 1 === aChildPathArray.length) {
                                 // Last one - make this the return object
                                 oReturnObject = oCurrentObject;
                             }
@@ -810,7 +811,7 @@ class DRP_Service {
 
         // If we have a return object and want only a list of children, do that now
         if (params.listOnly) {
-            if (typeof oReturnObject == 'object') {
+            if (typeof oReturnObject === 'object') {
                 if (!oReturnObject.pathItemList) {
                     // Return only child keys and data types
                     oReturnObject = { pathItemList: this.ListObjChildren(oReturnObject) };
@@ -819,7 +820,7 @@ class DRP_Service {
                 oReturnObject = null;
             }
         } else if (oReturnObject) {
-            if (!(typeof oReturnObject == 'object') || !(oReturnObject["pathItem"])) {
+            if (!(typeof oReturnObject === 'object') || !(oReturnObject["pathItem"])) {
                 // Return object as item
                 oReturnObject = { pathItem: oReturnObject };
             }
@@ -838,7 +839,7 @@ class DRP_Service {
         let thisProviderClient = this.ProviderConnections[providerID];
 
         // Establish a wsConn client if not already established
-        if (!thisProviderClient || thisProviderClient.wsConn.readyState != 1) {
+        if (!thisProviderClient || thisProviderClient.wsConn.readyState !== 1) {
 
             let targetURL = thisProviderDeclaration.ProviderURL;
             if (!targetURL) {
@@ -865,7 +866,7 @@ class DRP_Service {
             }
 
             // If no good connection, return false
-            if (thisProviderClient.wsConn.readyState != 1) {
+            if (thisProviderClient.wsConn.readyState !== 1) {
                 this.log("Sending back request...");
                 // Let's try having the Provider call us; send command through Registry
                 try {
@@ -896,7 +897,7 @@ class DRP_Service {
                 }
 
                 // If still not successful, return ProviderClient
-                if (thisProviderClient.wsConn.readyState != 1) {
+                if (thisProviderClient.wsConn.readyState !== 1) {
                     this.log(`Not successful... readyState[${thisProviderClient.wsConn.readyState}]`);
                     thisProviderClient = null;
                     delete this.ProviderConnections[providerID];
@@ -917,7 +918,7 @@ class DRP_Service {
         let thisConsumerWS = this.ConsumerConnections[consumerID];
 
         // Establish a wsConn client if not already established
-        if (thisConsumerWS && thisConsumerWS.readyState == 1 && thisConsumerWS.clientObj) thisConsumerObj = thisConsumerWS.clientObj;
+        if (thisConsumerWS && thisConsumerWS.readyState === 1 && thisConsumerWS.clientObj) thisConsumerObj = thisConsumerWS.clientObj;
 
         return thisConsumerObj;
     }
@@ -946,7 +947,7 @@ class DRP_Service {
         let registryList = Object.keys(this.RegistryClients);
         for (let i = 0; i < registryList.length; i++) {
             let thisRegistryClient = this.RegistryClients[registryList[i]];
-            if (thisRegistryClient.wsConn.readyState == 1) {
+            if (thisRegistryClient.wsConn.readyState === 1) {
                 await thisRegistryClient.SendCmd(thisRegistryClient.wsConn, "DRP", "registerProvider", this.ProviderDeclaration, true, null);
             }
         }
@@ -1165,7 +1166,7 @@ class DRP_Provider extends DRP_Service {
     ListObjChildren(oTargetObject) {
         // Return only child keys and data types
         let pathObjList = [];
-        if (oTargetObject && typeof oTargetObject == 'object') {
+        if (oTargetObject && typeof oTargetObject === 'object') {
             let objKeys = Object.keys(oTargetObject);
             for (let i = 0; i < objKeys.length; i++) {
                 let returnVal;
@@ -1447,7 +1448,7 @@ class DRP_Broker extends DRP_Service {
     ListObjChildren(oTargetObject) {
         // Return only child keys and data types
         let pathObjList = [];
-        if (oTargetObject && typeof oTargetObject == 'object') {
+        if (oTargetObject && typeof oTargetObject === 'object') {
             let objKeys = Object.keys(oTargetObject);
             for (let i = 0; i < objKeys.length; i++) {
                 let returnVal;
@@ -1482,6 +1483,7 @@ class DRP_Broker extends DRP_Service {
     * @param {DRP_PathCmd} pathCmd Path Command Object
     * @param {object} wsConn Caller's Websocket connection
     * @param {string} replytoken Caller's reply token
+    * @returns {object} oReturnObject Return object
     */
     async PathCmd(pathCmd, wsConn, replytoken) {
         // We either need to find the object locally and execute or dispatch
@@ -1495,7 +1497,7 @@ class DRP_Broker extends DRP_Service {
         let bReturnChildList = pathCmd.listOnly;
 
         // Do we have a path array?
-        if (aChildPathArray.length == 0) {
+        if (aChildPathArray.length === 0) {
             // No - act on parent object
             oReturnObject = oCurrentObject;
         } else {
@@ -1512,7 +1514,7 @@ class DRP_Broker extends DRP_Service {
                         case 'object':
                             // Set current object
                             oCurrentObject = oCurrentObject[aChildPathArray[i]];
-                            if (i + 1 == aChildPathArray.length) {
+                            if (i + 1 === aChildPathArray.length) {
                                 // Last one - make this the return object
                                 oReturnObject = oCurrentObject;
                             }
@@ -1520,7 +1522,7 @@ class DRP_Broker extends DRP_Service {
                         case 'function':
                             // Send the rest of the path to a function
                             let oResults = await oCurrentObject[aChildPathArray[i]](aChildPathArray.splice(i + 1));
-                            if (typeof oResults == 'object') {
+                            if (typeof oResults === 'object') {
                                 oReturnObject = oResults;
                             }
                             break PathLoop;
@@ -1536,7 +1538,7 @@ class DRP_Broker extends DRP_Service {
         }
 
         // If we have a return object and want only a list of children, do that now
-        if (oReturnObject && typeof oReturnObject == 'object' && bReturnChildList) {
+        if (oReturnObject && typeof oReturnObject === 'object' && bReturnChildList) {
             if (!oReturnObject.pathItems) {
                 // Return only child keys and data types
                 oReturnObject = this.ListObjChildren(oReturnObject);
@@ -1952,7 +1954,7 @@ class DRP_Broker_Route extends DRP_ServerRoute {
                     let sendFailed = false;
                     if (!wsConn.Subscriptions[subscriberStreamToken]) {
                         sendFailed = true;
-                    } else if (customRelayHandler && typeof customRelayHandler == 'function') {
+                    } else if (customRelayHandler && typeof customRelayHandler === 'function') {
                         sendFailed = customRelayHandler(wsConn, subscriberStreamToken, 2, response.payload)
                     } else {
                         sendFailed = thisConsumerRoute.SendStream(wsConn, subscriberStreamToken, 2, response.payload);
@@ -1996,7 +1998,6 @@ class DRP_Broker_Route extends DRP_ServerRoute {
         switch (params.method) {
             case 'cliGetPath':
                 return await this.service.GetObjFromPath(params, this.service.GetBaseObj_Broker());
-                break;
             case 'cliGetItem':
                 break;
             case 'cliSetItem':
@@ -2072,7 +2073,7 @@ class DRP_Broker_RegistryClient extends drpEndpoint.Client {
         this.service.TopicManager.SendToTopic("RegistryUpdate", { "action": "register", "providerID": providerID, "declaration": declaration });
 
         // This needs to be moved elsewhere; loop over broker clients to see if this provider has any streams someone has subscribed to
-        if (!declaration.Streams || Object.keys(declaration.Streams).length == 0) return;
+        if (!declaration.Streams || Object.keys(declaration.Streams).length === 0) return;
 
         // Loop over streams
         let providerStreamNames = Object.keys(declaration.Streams);
@@ -2081,13 +2082,13 @@ class DRP_Broker_RegistryClient extends drpEndpoint.Client {
             let consumerConnList = Object.keys(this.service.ConsumerConnections);
             for (let j = 0; j < consumerConnList.length; j++) {
                 let consumerWSConn = this.service.ConsumerConnections[consumerConnList[j]];
-                if (!consumerWSConn.Subscriptions || Object.keys(consumerWSConn.Subscriptions).length == 0) continue;
+                if (!consumerWSConn.Subscriptions || Object.keys(consumerWSConn.Subscriptions).length === 0) continue;
                 // Loop over client subscriptions
                 let subscriptionTokens = Object.keys(consumerWSConn.Subscriptions);
                 for (let k = 0; k < subscriptionTokens.length; k++) {
                     let subscriberStreamToken = subscriptionTokens[k];
                     let subscribedTopicName = consumerWSConn.Subscriptions[subscriberStreamToken];
-                    if (providerStreamNames[i] == subscribedTopicName) {
+                    if (providerStreamNames[i] === subscribedTopicName) {
                         // We have a match; need to subscribe
                         // This provider offers the desired stream
                         /**
