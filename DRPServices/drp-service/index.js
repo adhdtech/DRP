@@ -1426,8 +1426,11 @@ class DRP_Broker extends DRP_Service {
 
                 // Treat as "getPath"
                 let results = await thisDRPBroker.ConsumerRouteHandler.PathCmd({ "method": "cliGetPath", "pathList": remainingPath, "listOnly": listOnly });
-
-                res.end(JSON.stringify(results, null, format));
+                try {
+                    res.end(JSON.stringify(results, null, format));
+                } catch(e) {
+                    res.end(`Failed to stringify response: ${e}`);
+                }
                 next();
             }
 
