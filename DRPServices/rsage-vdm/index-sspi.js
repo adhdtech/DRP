@@ -33,23 +33,7 @@ class VDMServer_UserAppInstance {
         publisherObj['subscribers'].splice(publisherObj['subscribers'].indexOf(userAppObj), 1);
         userAppObj['subscriptions'].splice(userAppObj['subscriptions'].indexOf(publisherObj), 1);
     }
-    /*
-    SendCmd(appCmd, appData) {
-        var userAppObj = this;
-        if (userAppObj.conn.readyState === WebSocket.OPEN) {
-            userAppObj.conn.send(JSON.stringify({
-                'cmd': 'appCmd',
-                'data': {
-                    'appletIndex': userAppObj['appletIndex'],
-                    'appCmd': appCmd,
-                    'appData': appData
-                }
-            }));
-        } else {
-            this.vdmServer.LogWSClientEvent(userAppObj.conn, "Tried sending packet to closed WS client");
-        }
-    }
-    */
+
     ToObject() {
         // Return this
         var returnObj = {};
@@ -199,22 +183,7 @@ class VDMServer extends drpService.ServerRoute {
                 res.redirect('/client.html');
             });
         }
-		/*
-        this.expressApp.get('/login', function (req, res, next) {
-            var userName = "testUser";
-            var ip = req.connection.remoteAddress;
-            var sessionID = thisVDMServer.GenerateID();
-            thisVDMServer.AddClientSession({
-                'sessionID': sessionID,
-                'userName': userName,
-                'userGroups': [],
-                'openApps': {}
-            });
-            thisVDMServer.LogExpressEvent(`Authenticated user [${userName}] from ip (${ip}), key {${sessionID}}`);
-            res.cookie('sessionID', sessionID);
-            res.redirect('/client.html');
-        });
-		*/
+		
         this.expressApp.use(function (req, res, next) {
             req.VDMServer = thisVDMServer;
             next();
@@ -235,7 +204,7 @@ class VDMServer extends drpService.ServerRoute {
     async CloseHandler(wsConn, closeCode) {
         let thisVDMServer = this;
         for (var i = 0; i < thisVDMServer.wsClients.length; i++) {
-            if (thisVDMServer.wsClients[i] == wsConn) {
+            if (thisVDMServer.wsClients[i] === wsConn) {
                 if (wsConn.clientObj) {
                     thisVDMServer.CloseAllUserApps(wsConn.clientObj);
                     thisVDMServer.LogWSClientEvent(wsConn, "disconnected");

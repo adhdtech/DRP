@@ -91,8 +91,14 @@ class DRP_Endpoint {
     SendReply(wsConn, token, status, payload) {
         if (wsConn.readyState === WebSocket.OPEN) {
             let replyCmd = new DRP_Reply(token, status, payload);
-            wsConn.send(JSON.stringify(replyCmd));
-            //console.log("SEND -> " + JSON.stringify(replyCmd));
+            let replyString = null;
+            try {
+                replyString = JSON.stringify(replyCmd);
+            } catch (e) {
+                replyString = JSON.stringify(new DRP_Reply(token, 2, `Failed to stringify response: ${e}`));
+            }
+            wsConn.send(replyString);
+            //console.log("SEND -> " + replyString);
             return 0;
         } else {
             return 1;
