@@ -255,6 +255,22 @@ class DRP_Service {
         this.serviceType = null;
         this.ProviderDeclarations = {};
         this.ProviderConnections = {};
+        this.ServiceCommandTracking = {
+            /*
+             * ServiceName: {
+             *    Providers: {
+             *      myhost-port: {
+             *          Weight,
+             *          OutstandingCmds,
+             *          AvgResponseTime,
+             *          Reliability,
+             *          ConnectionOpenTimestamp,
+             *          ReconnectCount
+             *      }
+             *    }
+             * }
+             */
+        };
         this.RegistryClients = {};
         this.Services = {};
     }
@@ -480,7 +496,7 @@ class DRP_Service {
                             if (!oReturnObject[serviceInstanceID]) oReturnObject[serviceInstanceID] = {
                                 "ServiceName": serviceInstanceID,
                                 "Providers": [],
-                                "ClientCmds": providerDeclaration.Services[serviceInstanceID]
+                                "ClientCmds": providerDeclaration.Services[serviceInstanceID].ClientCmds
                             };
 
                             oReturnObject[serviceInstanceID].Providers.push(providerName);
@@ -509,7 +525,7 @@ class DRP_Service {
                                             "ClientCmds": {}
                                         };
 
-                                        let cmdList = providerDeclaration.Services[serviceInstanceID];
+                                        let cmdList = providerDeclaration.Services[serviceInstanceID].ClientCmds;
                                         for (let k = 0; k < cmdList.length; k++) {
                                             let cmdName = cmdList[k];
                                             oReturnObject["ClientCmds"][cmdName] = async function () {
@@ -549,7 +565,7 @@ class DRP_Service {
                                     for (let j = 0; j < serviceInstanceList.length; j++) {
                                         if (serviceInstanceID === serviceInstanceList[j]) {
 
-                                            let cmdList = providerDeclaration.Services[serviceInstanceID];
+                                            let cmdList = providerDeclaration.Services[serviceInstanceID]["ClientCmds"];
                                             for (let k = 0; k < cmdList.length; k++) {
                                                 let cmdName = cmdList[k];
                                                 oReturnObject[cmdName] = async function () {
@@ -940,7 +956,13 @@ class DRP_Service {
         if (serviceName && serviceObject && serviceObject.ClientCmds) {
             this.Services[serviceName] = serviceObject;
             if (this.ProviderDeclaration) {
-                this.ProviderDeclaration.Services[serviceName] = Object.keys(serviceObject.ClientCmds);
+                //this.ProviderDeclaration.Services[serviceName] = Object.keys(serviceObject.ClientCmds);
+                this.ProviderDeclaration.Services[serviceName] = {
+                    "ClientCmds": Object.keys(serviceObject.ClientCmds),
+                    "Persistence": serviceObject.Persistence || false,
+                    "Weight": serviceObject.Weight || 0,
+                    "Zone": serviceObject.Zone || null
+                };
             }
         }
 
@@ -1753,7 +1775,7 @@ class DRP_Broker extends DRP_Service {
                 let checkService = this.ProviderDeclarations[targetProviderName].Services[cmdObj.serviceName];
 
                 // Does the service offer the command we want to execute?
-                if (checkService.includes(cmdObj.cmd)) {
+                if (checkService["ClientCmds"].includes(cmdObj.cmd)) {
                     // Let's execute it
                     let thisProviderClient = await this.VerifyProviderConnection(targetProviderName);
 

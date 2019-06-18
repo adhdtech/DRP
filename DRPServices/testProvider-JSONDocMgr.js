@@ -1,20 +1,26 @@
 'use strict';
 var drpService = require('drp-service');
 var fs = require('fs');
+var os = require('os');
+var process = require('process');
 
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
-var providerID = process.argv[2];
-if (!providerID) {
-    console.error("No provider ID specified!\n\n> node " + process.argv[1] + " <providerID> <registryURL>");
+var registryURL = process.argv[2];
+if (!registryURL) {
+    console.error("No registry URL specified!\n\n> node " + process.argv[1] + " <registryURL> <brokerURL>");
     process.exit(0);
 }
 
-var registryURL = process.argv[3];
-if (!registryURL) {
-    console.error("No registry URL specified!\n\n> node " + process.argv[1] + " <providerID> <registryURL>");
+var brokerURL = process.argv[3];
+if (!brokerURL) {
+    console.error("No broker URL specified!\n\n> node " + process.argv[1] + " <registryURL> <brokerURL>");
     process.exit(0);
 }
+
+let hostname = os.hostname();
+let pid = process.pid;
+let providerName = `${hostname}-${pid}`;
 
 class JSONDocManager {
     constructor(basePath) {
@@ -100,6 +106,6 @@ class JSONDocManager {
     }
 }
 	
-let myProvider = new drpService.Provider(providerID);
+let myProvider = new drpService.Provider(providerName);
 myProvider.AddService("JSONDocMgr", new JSONDocManager("jsondocs\\"));
 myProvider.ConnectToRegistry(registryURL);
