@@ -1,30 +1,32 @@
 'use strict';
 var drpService = require('drp-service');
 var cucmsql = require('cucm-sql-async');
+var os = require('os');
+var process = require('process');
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
-var providerID = process.argv[2];
-if (!providerID) {
-    console.error("No provider ID specified!\n\n> node " + process.argv[1] + " <providerID> <registryURL>");
-    process.exit(0);
-}
-
-var registryURL = process.argv[3];
+var registryURL = process.argv[2];
 if (!registryURL) {
-    console.error("No registry URL specified!\n\n> node " + process.argv[1] + " <providerID> <registryURL>");
+    console.error("No registry URL specified!\n\n> node " + process.argv[1] + " <registryURL> <brokerURL>");
     process.exit(0);
 }
 
-var proxyURL = process.argv[4];
+var brokerURL = process.argv[3];
+if (!brokerURL) {
+    console.error("No broker URL specified!\n\n> node " + process.argv[1] + " <registryURL> <brokerURL>");
+    process.exit(0);
+}
 
-//let proxy = null;
+let hostname = os.hostname();
+let pid = process.pid;
+let providerName = `${hostname}-${pid}`;
 
-// Load Provider
-console.log(`Loading Provider [${providerID}]`);
-let myProvider = new drpService.Provider(providerID);
+let myProvider = new drpService.Provider(providerName);
+myProvider.proxyBrokerURL = brokerURL;
 
 myProvider.CUCMProfiles = {
+
 };
 
 // Set CUCM AXL Clients
@@ -42,7 +44,7 @@ myProvider.GetDevices = function (cucmProfile, params) {
         var phoneExtensionLists = {};
         let axlSqlQuery;
         try {
-            axlSqlQuery = "select limit 1000 d.pkid, d.name, d.description, tm.name as model, tdp.name as deviceprotocol, d.fkenduser, d.isactive from device d left outer join typemodel tm on d.tkmodel = tm.enum left outer join typedeviceprotocol  tdp on d.tkdeviceprotocol = tdp.enum";
+            axlSqlQuery = "select limit 10 d.pkid, d.name, d.description, tm.name as model, tdp.name as deviceprotocol, d.fkenduser, d.isactive from device d left outer join typemodel tm on d.tkmodel = tm.enum left outer join typedeviceprotocol  tdp on d.tkdeviceprotocol = tdp.enum";
             if (params.pathList.length) {
                 axlSqlQuery = axlSqlQuery + ` where d.name = '${params.pathList[0]}'`;
                 //console.log(`EXECUTING AXLSQL: '${axlSqlQuery}'`);
@@ -112,7 +114,7 @@ myProvider.GetUsers = function (cucmProfile, params) {
         try {
             //console.log("RUNNING AXL QUERY...");
             // Query users
-            let axlSqlQuery = "select limit 1000 pkid, firstname, lastname, userid, status, islocaluser, enablecups from enduser";
+            let axlSqlQuery = "select limit 10 pkid, firstname, lastname, userid, status, islocaluser, enablecups from enduser";
             if (params.pathList.length) {
                 axlSqlQuery = axlSqlQuery + ` where userid = '${params.pathList[0]}'`;
                 let userList = await cucmProfile.axlClient.queryPromise(axlSqlQuery);
@@ -172,8 +174,21 @@ myProvider.ListProfiles = function (params) {
     return returnObj;
 }
 
+myProvider.ClientCmds = function () {
+}
+
+function sleep(ms) {
+    return new Promise(resolve => {
+        setTimeout(resolve, ms)
+    })
+}
+
+async function startUp() {
+    await sleep(5000);
+    myProvider.AddService("CUCM", myProvider);
+}
+
 // Connect to Registry
-myProvider.ConnectToRegistry(registryURL, proxyURL);
-
-
+myProvider.ConnectToRegistry(registryURL);
+startUp();
 
