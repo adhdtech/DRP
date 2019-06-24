@@ -66,7 +66,7 @@ class CortexServer {
             returnObj[objectTypeList[i]] = {
                 "ManagedBy": objectManager.Name,
                 "Count": Object.keys(objectManager.ManagedObjects[objectType]).length
-            }
+            };
         }
         return returnObj;
     }
@@ -174,14 +174,14 @@ class CortexObject {
     }
 
     HasKeyObj() {
-        return (this.KeyClassName && this[this.KeyClassName] && this[this.KeyClassName].length > 0);
+        return this.KeyClassName && this[this.KeyClassName] && this[this.KeyClassName].length > 0;
     }
 }
 
 Object.defineProperties(CortexObject.prototype, {
-    "KeyStereotype": { get: function () { return null } },
-    "BaseAttributes": { get: function () { return [] } },
-    "HiveObjectMaps": { get: function () { return {} } }
+    "KeyStereotype": { get: function () { return null; } },
+    "BaseAttributes": { get: function () { return []; } },
+    "HiveObjectMaps": { get: function () { return {}; } }
 });
 
 class CortexObjectQuery {
@@ -190,7 +190,7 @@ class CortexObjectQuery {
     constructor(matchType) {
         this.Conditions = [];
         this.MatchType = matchType;
-        if (typeof (this.MatchType) === 'undefined') this.MatchType = 'ALL';
+        if (typeof this.MatchType === 'undefined') this.MatchType = 'ALL';
     }
 
     AddCondition(checkValue1, operator, checkValue2) {
@@ -222,7 +222,7 @@ class CortexObjectQuery {
                     if (this.ConditionEvaluators[thisCondition.Operator](tmpLeftValue, tmpRightValue)) {
                         returnVal = true;
                         break;
-                    };
+                    }
                 }
                 break;
             case 'ALL':
@@ -286,7 +286,7 @@ class CortexObjectQuery {
                     // Remove any enclosing double quotes, return remaining string
                     returnVal = checkValue.replace(/^\"|\"$/g, '');
                 } else {
-                    if (!(isNaN(checkValue))) {
+                    if (!isNaN(checkValue)) {
                         // Return number
                         returnVal = parseInt(checkValue);
                     } else {
@@ -303,11 +303,11 @@ class CortexObjectQuery {
 }
 
 CortexObjectQuery.prototype.ConditionEvaluators = {
-    '==': function (checkValue1, checkValue2) { return (checkValue1 !== null && checkValue1.toLowerCase() === checkValue2.toLowerCase()); },
-    '!=': function (checkValue1, checkValue2) { return (checkValue1 !== checkValue2); },
-    '<': function (checkValue1, checkValue2) { return (checkValue1 < checkValue2); },
-    '>': function (checkValue1, checkValue2) { return (checkValue1 > checkValue2); },
-    'in': function (checkValue1, checkValue2) { return (checkValue2.contains(checkValue1)); },
+    '==': function (checkValue1, checkValue2) { return checkValue1 !== null && checkValue1.toLowerCase() === checkValue2.toLowerCase(); },
+    '!=': function (checkValue1, checkValue2) { return checkValue1 !== checkValue2; },
+    '<': function (checkValue1, checkValue2) { return checkValue1 < checkValue2; },
+    '>': function (checkValue1, checkValue2) { return checkValue1 > checkValue2; },
+    'in': function (checkValue1, checkValue2) { return checkValue2.contains(checkValue1); },
     'REGEX': function (checkValue1, checkValue2) {
         return checkValue1 !== null && checkValue1.match(checkValue2);
     }
@@ -619,7 +619,7 @@ class CortexObjectManager {
 
             // Register Object Type Association
             thisObjMgr.CortexServer.ObjectTypes[objectType] = thisObjMgr;
-        };
+        }
     }
 
     PopulateObjects(objectType, objectClass) {
@@ -637,7 +637,7 @@ class CortexObjectManager {
             if (newObject.key) {
                 thisObjMgr.ManagedObjects[objectType][key] = newObject;
             }
-        };
+        }
         console.log("Populating Objects - " + objectType + " [" + keyList.length + "]");
     }
 }
@@ -1253,7 +1253,7 @@ class Hive {
                 if (thisHive.HiveData[params['ClassType']]) {
                     returnObj.records = Object.keys(thisHive.HiveData[params['ClassType']]);
                 }
-                
+
                 //console.log("Sent keys for class '" + appData['ClassType'] + "'");
                 return returnObj;
             },
@@ -1326,7 +1326,7 @@ class Hive {
                 }
                 return returnObj;
             }
-        }
+        };
     }
 
     async Start(cfgOpts, callback) {
@@ -1346,8 +1346,8 @@ class Hive {
 
         // Wait until DRPService is connected... (static 5 seconds for now)
         await new Promise(resolve => {
-            setTimeout(resolve, 5000)
-        })
+            setTimeout(resolve, 5000);
+        });
 
         let classDefs = await this.Cortex.drpService.GetClassDefinitions();
 
@@ -1393,13 +1393,13 @@ class Hive {
 
                 // We have the best provider for this class instance
                 if (!thisHive.CollectorInstances[thisSourceInstanceName]) {
-                    thisHive.CollectorInstances[thisSourceInstanceName] = {}
+                    thisHive.CollectorInstances[thisSourceInstanceName] = {};
                 }
                 thisHive.CollectorInstances[thisSourceInstanceName][thisClassName] = {
                     ProviderName: bestProviderName,
                     RecordPath: bestProviderObj.RecordPath,
                     Loaded: false
-                }
+                };
             }
 
 
@@ -1435,7 +1435,7 @@ class Hive {
                         'MK': [],
                         'FK': [],
                         'data': classInstanceRecords[objPK]
-                    }
+                    };
                     newRecordHash[objPK].data['_collectorID'] = thisSourceInstanceName;
                 });
                 // Add data to Hive
@@ -1445,7 +1445,7 @@ class Hive {
                 thisHive.HiveData[thisClassName][thisSourceInstanceName] = {
                     'records': newRecordHash,
                     'classDef': thisHive.HiveClasses[thisClassName]
-                }
+                };
                 thisHive.BuildStereotypeIndexes_ClassDataInstance(thisHive.HiveData[thisClassName][thisSourceInstanceName]);
             }
         }
@@ -1481,12 +1481,12 @@ class Hive {
         let className = thisRecord.data["_objClass"];
 
         // Initialize HiveData[className] if it doesn't exist
-        if (typeof (thisHive.HiveData[className]) === "undefined") {
+        if (typeof thisHive.HiveData[className] === "undefined") {
             thisHive.HiveData[className] = {};
         }
 
         // Initialize HiveData[className][collectorName] if it doesn't exist
-        if (typeof (thisHive.HiveData[className][collectorName]) === "undefined") {
+        if (typeof thisHive.HiveData[className][collectorName] === "undefined") {
             thisHive.HiveData[className][collectorName] = {
                 'records': {},
                 'classDef': thisHive.HiveClasses[className]
@@ -1644,7 +1644,7 @@ class Hive {
                 sType: sTypeOfField,
                 MK: '',
                 FK: []
-            }
+            };
         }
 
         switch (keyType) {
@@ -1727,8 +1727,8 @@ class ICRQuery {
             };
 
             if (this.cmdParts.compVal) {
-                this.cmdParts.compVal = this.cmdParts.compVal.replace(/^['"]/g, "")
-                this.cmdParts.compVal = this.cmdParts.compVal.replace(/['"]$/g, "")
+                this.cmdParts.compVal = this.cmdParts.compVal.replace(/^['"]/g, "");
+                this.cmdParts.compVal = this.cmdParts.compVal.replace(/['"]$/g, "");
             }
 
             // Check Verb
@@ -1775,7 +1775,7 @@ class ICRQuery {
         } else {
             this.errorStatus = 1;
         }
-    };
+    }
 
     MatchGetParts(thisDataKey, thisDataObj, evalVar, doEval) {
         let thisQueryObj = this;
@@ -1863,7 +1863,7 @@ class ICRQuery {
             case '=':
                 if (thisQueryObj.cmdParts.compVal === 'null') {
                     if (!value) {
-                        returnVal = true
+                        returnVal = true;
                     }
                 } else {
                     if (typeof compVal === "string" && typeof value === "string") {
@@ -1955,7 +1955,7 @@ ICRQuery.prototype.ObjectTypes = {
                 tmpList.push(itemKey);
             });
             return tmpList;
-        }
+        };
         this.ListObjectsInScope = function () {
             let tmpList = [];
             let objBase = this.objRoot[this.rootSType][this.objRecs];
@@ -1980,7 +1980,7 @@ ICRQuery.prototype.ObjectTypes = {
                 });
             }
             return tmpList;
-        }
+        };
     },
     CLASSDATA: function () {
         let thisQueryObj = this;
@@ -1995,7 +1995,7 @@ ICRQuery.prototype.ObjectTypes = {
                 tmpList.push(itemKey);
             });
             return tmpList;
-        }
+        };
         this.ListObjectsInScope = function () {
             let tmpList = [];
             // Loop over Collectors
@@ -2025,9 +2025,9 @@ ICRQuery.prototype.ObjectTypes = {
                 }
             });
             return tmpList;
-        }
+        };
     }
-}
+};
 
 ICRQuery.prototype.Verbs = {
     LIST: function () {
@@ -2167,7 +2167,7 @@ ICRQuery.prototype.Verbs = {
             'results': returnList
         };
     }
-}
+};
 
 module.exports = {
     CortexServer: CortexServer,
@@ -2175,4 +2175,4 @@ module.exports = {
     CortexObject: CortexObject,
     CortexObjectQuery: CortexObjectQuery,
     HiveMapQuery: HiveMapQuery
-}
+};
