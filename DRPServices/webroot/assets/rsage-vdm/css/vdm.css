@@ -867,7 +867,6 @@ ul.vdm-CollapseTree li ul li:before {
 }
 
 .vdmTopBar .led {
-    margin: 10px 10% 10px auto;
     width: 12px;
     height: 12px;
     border-radius: 50%;
