@@ -4,9 +4,71 @@
         let myApp = this;
 
         this.menu = {
-            "File": {
-                "Do Nothing": async function () {
+            "Tools": {
+                "Refresh": async function () {
+                    myApp.appFuncs.refreshServices();
                 }
+            }
+        }
+
+        this.appFuncs = {
+            "refreshServices": async function () {
+
+                // Clear items
+                myApp.appVars.drpServiceSelect.innerHTML = "";
+                myApp.appVars.drpMethodSelect.innerHTML = "";
+                myApp.appVars.cmdParamsInput.innerHTML = "";
+
+                // Add DRP as default
+                var newOption = document.createElement("option");
+                newOption.value = "DRP";
+                newOption.text = "DRP";
+                myApp.appVars.drpServiceSelect.appendChild(newOption);
+
+                myApp.appVars.svcDictionary = {};
+
+                let svcListResponse = await myApp.sendCmd("DRP", "pathCmd", { "method": "cliGetPath", "pathList": ["Services"], "params": {}, "listOnly": false }, true);
+                if (svcListResponse.pathItem) {
+                    myApp.appVars.svcDictionary = svcListResponse.pathItem;
+
+                    // Populate Service list
+                    let serviceNameList = Object.keys(myApp.appVars.svcDictionary);
+                    for (let i = 0; i < serviceNameList.length; i++) {
+                        let svcName = serviceNameList[i];
+                        let newOption = document.createElement("option");
+                        newOption.value = svcName;
+                        newOption.text = svcName;
+                        myApp.appVars.drpServiceSelect.appendChild(newOption);
+                    }
+                    //console.log(JSON.stringify(myApp.appVars.svcDictionary));
+                }
+
+                // Get DRP methods (not included in primary list of Services)
+                let drpCmdList = await myApp.sendCmd("DRP", "getCmds", null, true);
+                myApp.appVars.svcDictionary["DRP"] = {
+                    "ClientCmds": drpCmdList
+                };
+
+                // Set initial Method list to DRP
+                let cmdList = myApp.appVars.svcDictionary["DRP"]["ClientCmds"];
+                for (let i = 0; i < cmdList.length; i++) {
+                    let newOption = document.createElement("option");
+                    newOption.value = cmdList[i];
+                    newOption.text = cmdList[i];
+                    myApp.appVars.drpMethodSelect.appendChild(newOption);
+                }
+
+            },
+            "displayResponse": function (displayData) {
+                let appDataObj = null;
+                try {
+                    appDataObj = JSON.parse(displayData);
+                }
+                catch (ex) {
+                    appDataObj = displayData;
+                }
+                let displayText = JSON.stringify(appDataObj, null, 2);
+                myApp.appVars.bottomPane.innerHTML = "<pre style='font-size: 12px;line-height: 12px;color: #DDD;height: 100%;'>" + displayText + "</pre>";
             }
         }
     }
@@ -31,102 +93,58 @@ Params: <input class="cmdParams" type="text"/><br>
 <button class="cmdSend">Send</button>
 `;
 
-        let drpServiceSelect = $(myApp.appVars.topPane).find('.drpService')[0];
-        let drpMethodSelect = $(myApp.appVars.topPane).find('.drpServiceMethod')[0];
-        let cmdParamsInput = $(myApp.appVars.topPane).find('.cmdParams')[0];
-        let cmdSend = $(myApp.appVars.topPane).find('.cmdSend')[0];
+        // Assign appVars
+        myApp.appVars.drpServiceSelect = $(myApp.appVars.topPane).find('.drpService')[0];
+        myApp.appVars.drpMethodSelect = $(myApp.appVars.topPane).find('.drpServiceMethod')[0];
+        myApp.appVars.cmdParamsInput = $(myApp.appVars.topPane).find('.cmdParams')[0];
+        myApp.appVars.cmdSend = $(myApp.appVars.topPane).find('.cmdSend')[0];
 
-        // Add DRP as default
-        var newOption = document.createElement("option");
-        newOption.value = "DRP";
-        newOption.text = "DRP";
-        drpServiceSelect.appendChild(newOption);
+        // Action when selected service changes
+        $(myApp.appVars.drpServiceSelect).on('change', function () {
 
-        let svcDictionary = {};
-
-        let svcListResponse = await myApp.sendCmd("DRP", "pathCmd", { "method": "cliGetPath", "pathList": ["Services"], "params": {}, "listOnly": false }, true);
-        if (svcListResponse.pathItem) {
-            svcDictionary = svcListResponse.pathItem;
-            let serviceNameList = Object.keys(svcDictionary);
-            for (let i = 0; i < serviceNameList.length; i++) {
-                let svcName = serviceNameList[i];
-                let newOption = document.createElement("option");
-                newOption.value = svcName;
-                newOption.text = svcName;
-                drpServiceSelect.appendChild(newOption);
-            }
-            console.log(JSON.stringify(svcDictionary));
-        }
-
-        let drpCmdList = await myApp.sendCmd("DRP", "getCmds", null, true);
-        svcDictionary["DRP"] = {
-            "ClientCmds": drpCmdList
-        };
-
-        let cmdList = svcDictionary["DRP"]["ClientCmds"];
-        for (let i = 0; i < cmdList.length; i++) {
-            let newOption = document.createElement("option");
-            newOption.value = cmdList[i];
-            newOption.text = cmdList[i];
-            drpMethodSelect.appendChild(newOption);
-        }
-
-        $(drpServiceSelect).on('change', function () {
-            drpMethodSelect.innerHTML = "";
-            let svcName = drpServiceSelect.value;
-            let cmdList = svcDictionary[svcName]["ClientCmds"];
+            // Populate method list
+            myApp.appVars.drpMethodSelect.innerHTML = "";
+            let svcName = myApp.appVars.drpServiceSelect.value;
+            let cmdList = myApp.appVars.svcDictionary[svcName]["ClientCmds"];
             for (let i = 0; i < cmdList.length; i++) {
                 let cmdName = cmdList[i];
                 let newOption = document.createElement("option");
                 newOption.value = cmdName;
                 newOption.text = cmdName;
-                drpMethodSelect.appendChild(newOption);
+                myApp.appVars.drpMethodSelect.appendChild(newOption);
             }
         })
-        
-        $(cmdSend).on('click', async function () {
-            //let response = await myApp.SendCmd(tgtApp.value, appCmd.value, appData.value, true);
-            //let displayText = JSON.stringify(response, null, 2);
-            //myApp.appVars.bottomPane.innerHTML = "<pre style='font-size: 12px;line-height: 12px;color: #DDD;height: 100%;'>" + displayText + "</pre>";
 
+        $(myApp.appVars.cmdSend).on('click', async function () {
+
+            // Get service name
+            let drpService = myApp.appVars.drpServiceSelect.value
+
+            // Get method name
+            let drpMethod = myApp.appVars.drpMethodSelect.value;
+
+            // Try to parse command data to JSON object
             let appDataObj = null;
             try {
-                appDataObj = JSON.parse(cmdParamsInput.value);
+                appDataObj = JSON.parse(myApp.appVars.cmdParamsInput.value);
             }
             catch (ex) {
-                appDataObj = cmdParamsInput.value;
+                appDataObj = myApp.appVars.cmdParamsInput.value;
             }
 
-            let drpCmd = drpMethodSelect.value;
-
-            //let response = await myApp.SendCmd(tgtApp.value, appCmd.value, appDataObj, true);
-            //let displayText = JSON.stringify(response, null, 2);
-            //myApp.appVars.bottomPane.innerHTML = "<pre style='font-size: 12px;line-height: 12px;color: #DDD;height: 100%;'>" + displayText + "</pre>";
-
-            let response = await myApp.sendCmd_StreamHandler(drpServiceSelect.value, drpCmd, appDataObj, function (response) {
-                let appDataObj = null;
-                try {
-                    appDataObj = JSON.parse(response);
-                }
-                catch (ex) {
-                    appDataObj = response;
-                }
-                let displayText = JSON.stringify(appDataObj, null, 2);
-                myApp.appVars.bottomPane.innerHTML = "<pre style='font-size: 12px;line-height: 12px;color: #DDD;height: 100%;'>" + displayText + "</pre>";
+            // Send DRP command
+            let response = await myApp.sendCmd_StreamHandler(drpService, drpMethod, appDataObj, function (streamData) {
+                // Stream handler - persistent
+                myApp.appFuncs.displayResponse(streamData);
             });
 
             if (response) {
-                let appDataObj = null;
-                try {
-                    appDataObj = JSON.parse(response);
-                }
-                catch (ex) {
-                    appDataObj = response;
-                }
-                let displayText = JSON.stringify(appDataObj, null, 2);
-                myApp.appVars.bottomPane.innerHTML = "<pre style='font-size: 12px;line-height: 12px;color: #DDD;height: 100%;'>" + displayText + "</pre>";
+                // Response to immediate command
+                myApp.appFuncs.displayResponse(response);
             }
         });
+
+        myApp.appFuncs.refreshServices();
 
     }
 })
