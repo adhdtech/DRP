@@ -98,13 +98,12 @@ Params: <input class="cmdParams" type="text"/><br>
             }
 
             let drpCmd = drpMethodSelect.value;
-            let params = {};
 
             //let response = await myApp.SendCmd(tgtApp.value, appCmd.value, appDataObj, true);
             //let displayText = JSON.stringify(response, null, 2);
             //myApp.appVars.bottomPane.innerHTML = "<pre style='font-size: 12px;line-height: 12px;color: #DDD;height: 100%;'>" + displayText + "</pre>";
 
-            let response = await myApp.sendCmd_StreamHandler(drpServiceSelect.value, drpCmd, params, null, function (response) {
+            let response = await myApp.sendCmd_StreamHandler(drpServiceSelect.value, drpCmd, appDataObj, function (response) {
                 let appDataObj = null;
                 try {
                     appDataObj = JSON.parse(response);
