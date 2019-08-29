@@ -53,22 +53,6 @@
                     myApp.appVars.selectedScreen = newSelectedScreen;
                 }
             },
-            "recordToObj": function (dataObj) {
-                var newObj = {};
-                var thisClassRef = myApp.appVars.dataStructs['ClassTypes'][dataObj.valueList[0]];
-                Object.keys(thisClassRef.colsRef).forEach(function (fieldName) {
-                    newObj[fieldName] = dataObj.valueList[thisClassRef.colsRef[fieldName]];
-                });
-                return newObj;
-            },
-            "rawRecordToObj": function (valueList) {
-                var newObj = {};
-                var thisClassRef = myApp.appVars.dataStructs['ClassTypes'][valueList[0]];
-                Object.keys(thisClassRef.colsRef).forEach(function (fieldName) {
-                    newObj[fieldName] = valueList[thisClassRef.colsRef[fieldName]];
-                });
-                return newObj;
-            },
             "goBack": async function () {
                 if (myApp.appVars.searchHistory.length) {
                     var searchPacket = myApp.appVars.searchHistory.pop();
@@ -532,8 +516,6 @@
         let classDataTypeKeys = Object.keys(classDataTypes);
         for (let i = 0; i < classDataTypeKeys.length; i++) {
             let recKey = classDataTypeKeys[i];
-            myApp.appVars.dataStructs['ClassTypes'][recKey].colsRef = classDataTypes[recKey].colsRef;
-            myApp.appVars.dataStructs['ClassTypes'][recKey].colsArr = classDataTypes[recKey].colsArr;
             myApp.appVars.dataStructs['ClassTypes'][recKey].recCount = classDataTypes[recKey].recCount;
         }
 
