@@ -660,19 +660,6 @@ function hiveClass(umlClassObj) {
         this.Stereotype = umlClassObj.Stereotypes[0];
     }
 
-    this.colsRef = {
-        "ObjectType": 0
-    };
-
-    this.colsArr = ["ObjectType"];
-
-    for (let i = 0; i < umlClassObj.Attributes.length; i++) {
-        thisAttr = umlClassObj.Attributes[i];
-        this.Attributes[thisAttr.Name] = new hiveClass_Attribute(thisAttr, i + 1, umlClassObj);
-        this.colsRef[thisAttr.Name] = this.Attributes[thisAttr.Name].colRef;
-        this.colsArr.push(thisAttr.Name);
-    }
-
     this.Functions = umlClassObj.Functions;
 }
 
@@ -1234,8 +1221,6 @@ class Hive {
                 let returnObj = {};
                 Object.keys(thisHive.HiveData).forEach(function (dataClass) {
                     returnObj[dataClass] = {
-                        //colsRef: thisHive.HiveClasses[dataClass].colsRef,
-                        //colsArr: thisHive.HiveClasses[dataClass].colsArr,
                         recCount: 0
                     };
                     Object.keys(thisHive.HiveData[dataClass]).forEach(function (collectorName) {

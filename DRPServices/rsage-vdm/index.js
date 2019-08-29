@@ -54,9 +54,11 @@ class VDMServer extends drpService.ServerRoute {
 
         // Register Endpoint commands
         // (methods should return output and optionally accept [params, wsConn, token] for streaming)
+        /*
         this.RegisterCmd("register", function (params, wsConn, token) {
             return broker.RegisterConsumer(params, wsConn, token);
         });
+        */
 
         let thisVDMServer = this;
 
@@ -108,6 +110,15 @@ class VDMServer extends drpService.ServerRoute {
             "closeUserApp": function (params, wsConn) { thisVDMServer.CloseUserApp(params, wsConn) },
             "userLoginRequest": function (params, wsConn) {
                 return thisVDMServer.UserLoginRequest(params, wsConn)
+            },
+            // TEMP COMMAND FOR TESTING; SHOULD BE MOVED TO DRP MODULE
+            "removeService": function (params, wsConn) {
+                if (params && params["serviceName"] && thisVDMServer.broker.ProviderDeclaration.Services[params["serviceName"]]) {
+                    delete thisVDMServer.broker.ProviderDeclaration.Services[params["serviceName"]];
+                    return "OKAY";
+                } else {
+                    return "FAILED";
+                }
             }
 
         }
