@@ -180,6 +180,7 @@ namespace ADHDTech.DRP
         {
             // Connect to WS
             wsConn = new DRP_WebsocketConn(brokerProfile.URL, new string[] { "drp" });
+            wsConn.SslConfiguration.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
             if (brokerProfile.ProxyAddress != "")
             {
                 wsConn.SetProxy(brokerProfile.ProxyAddress, brokerProfile.ProxyUser, brokerProfile.ProxyPass);
