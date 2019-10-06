@@ -78,51 +78,7 @@ gi drp:\dev\Consumers\{id}\RickRoll
 
 
 ## Stream Subscription
-```mermaid
-sequenceDiagram
-    participant Provider
-    participant Registry
-    participant Broker
-    Note left of Provider: Startup
-    Provider-->>Registry: ws://<regsvc>/registry
-    Broker-->>Registry: ws://<regsvc>/registry
-    Broker->>Registry: {cmd:"getDeclarations",replytoken:1}
-    Note right of Registry: *Gather Declarations <payload>
-    Registry->>Broker: {token:1, payload: {streams:["hostReport"]}}}
-    Note left of Consumer: Startup
-    Consumer-->>Broker: ws://<regsvc>/broker
-    Consumer->>Broker: {"type":"cmd","cmd":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
-    Note right of Broker: *Register subscription<br>*Determine list of providers
-    Broker-->>Provider: ws://<providersvc>/provider
-    Broker->>Provider: {"type":"cmd","cmd":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
-    Note right of Provider: Stream Data <payload>
-    Provider->>Broker: {"type":"stream", token:123, status, payload: <payload>}
-    Note right of Broker: Relay to<br>Consumers
-    Broker->>Consumer: {"type":"stream", token:123, status, payload: <payload>}
-```
+![alt text](img/streamsub1.svg)
 
 ## Stream Subscription (Provider behind firewall or not listening)
-```mermaid
-sequenceDiagram
-    participant Provider
-    participant Registry
-    participant Broker
-    Note left of Provider: Startup
-    Provider-->>Registry: ws://<regsvc>/registry
-    Broker-->>Registry: ws://<regsvc>/registry
-    Broker->>Registry: {cmd:"getDeclarations",replytoken:1}
-    Note right of Registry: *Gather Declarations <payload>
-    Registry->>Broker: {token:1, payload: {streams:["hostReport"]}}}
-    Note left of Consumer: Startup
-    Consumer-->>Broker: ws://<regsvc>/broker
-    Consumer->>Broker: {"type":"cmd","cmd":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
-    Note right of Broker: *Register subscription<br>*Determine list of providers
-    Broker->>Registry: {"type":"cmd","cmd":"brokerToProvider","params":{"brokerID":<brokerID>,"brokerURL":"ws://<brokersvc>/broker"}}
-    Registry->>Provider: {"type":"cmd","cmd":"brokerToProvider","params":{"brokerID":<brokerID>,"brokerURL":"ws://<brokersvc>/broker"}}
-    Provider-->>Broker: ws://<brokersvc>/broker
-    Broker->>Provider: {"type":"cmd","cmd":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
-    Note right of Provider: Stream Data <payload>
-    Provider->>Broker: {"type":"stream", token:123, status, payload: <payload>}
-    Note right of Broker: Relay to<br>Consumers
-    Broker->>Consumer: {"type":"stream", token:123, status, payload: <payload>}
-```
+![alt text](img/streamsub2.svg)
