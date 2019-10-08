@@ -61,6 +61,13 @@ class VDMServer extends drpService.Service {
         this.clientStaticDir = clientDirectory;
         expressApp.use(express.static(clientDirectory));
 
+        expressApp.route('/')
+            .get((req, res) => {
+                res.sendFile("client.html", { "root": clientDirectory});
+                //res.redirect('client.html');
+                return;
+            });
+
         // Register Endpoint commands
         // (methods should return output and optionally accept [params, wsConn, token] for streaming)
 
