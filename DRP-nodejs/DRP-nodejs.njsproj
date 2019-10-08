@@ -1,0 +1,123 @@
+﻿<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">14.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+    <Name>DRP-nodejs</Name>
+    <RootNamespace>DRP-nodejs</RootNamespace>
+    <SaveNodeJsSettingsInProjectFile>True</SaveNodeJsSettingsInProjectFile>
+    <ScriptArguments>ws://localhost:8082/registry ws://localhost:8080/broker</ScriptArguments>
+    <NodeExeArguments>--max-old-space-size=4096</NodeExeArguments>
+    <Environment>
+    </Environment>
+  </PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>ba4b474a-fa17-4e27-bcda-500a68bbbb3a</ProjectGuid>
+    <ProjectHome>.</ProjectHome>
+    <StartupFile>demoServer.js</StartupFile>
+    <StartWebBrowser>False</StartWebBrowser>
+    <SearchPath>
+    </SearchPath>
+    <WorkingDirectory>.</WorkingDirectory>
+    <OutputPath>.</OutputPath>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <ProjectTypeGuids>{3AF33F2E-1136-4D97-BBB7-1795711AC8B8};{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}</ProjectTypeGuids>
+    <StartWebBrowser>False</StartWebBrowser>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="testBroker.js" />
+    <Content Include="demoServer.js" />
+    <Content Include="drp-endpoint\index.js" />
+    <Content Include="drp-endpoint\package.json" />
+    <Content Include="drp-service\index.js" />
+    <Content Include="drp-service\package.json" />
+    <Content Include="package.json" />
+    <Content Include="rsage-cortex\index.js" />
+    <Content Include="rsage-cortex\package.json" />
+    <Content Include="rsage-vdm\index.js" />
+    <Content Include="rsage-vdm\package.json" />
+    <Content Include="testClient.js" />
+    <Content Include="testProvider-NoListener.js" />
+    <Content Include="testProvider.js" />
+    <Content Include="testRegistry.js" />
+    <Content Include="webroot\assets\bootstrap\css\bootstrap.min.css" />
+    <Content Include="webroot\assets\bootstrap\img\glyphicons-halflings-white.png" />
+    <Content Include="webroot\assets\bootstrap\img\glyphicons-halflings.png" />
+    <Content Include="webroot\assets\bootstrap\js\bootstrap.min.js" />
+    <Content Include="webroot\assets\font-awesome\css\font-awesome.min.css" />
+    <Content Include="webroot\assets\font-awesome\fonts\fontawesome-webfont.eot" />
+    <Content Include="webroot\assets\font-awesome\fonts\fontawesome-webfont.svg" />
+    <Content Include="webroot\assets\font-awesome\fonts\fontawesome-webfont.ttf" />
+    <Content Include="webroot\assets\font-awesome\fonts\fontawesome-webfont.woff" />
+    <Content Include="webroot\assets\font-awesome\fonts\fontawesome-webfont.woff2" />
+    <Content Include="webroot\assets\font-awesome\fonts\FontAwesome.otf" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-brands-400.eot" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-brands-400.svg" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-brands-400.ttf" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-brands-400.woff" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-brands-400.woff2" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-regular-400.eot" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-regular-400.svg" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-regular-400.ttf" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-regular-400.woff" />
+    <Content Include="webroot\assets\font-awesome\webfonts\fa-regular-400.woff2" />
+    <Content Include="webroot\assets\glyphicons\fonts\glyphicons-halflings-regular.eot" />
+    <Content Include="webroot\assets\glyphicons\fonts\glyphicons-halflings-regular.svg" />
+    <Content Include="webroot\assets\glyphicons\fonts\glyphicons-halflings-regular.ttf" />
+    <Content Include="webroot\assets\glyphicons\fonts\glyphicons-halflings-regular.woff" />
+    <Content Include="webroot\assets\glyphicons\fonts\glyphicons-halflings-regular.woff2" />
+    <Content Include="webroot\assets\jquery\js\jquery-3.3.1.min.js" />
+    <Content Include="webroot\assets\jquery\js\jquery-ui.min.js" />
+    <Content Include="webroot\assets\moment\js\moment.min.js" />
+    <Content Include="webroot\assets\rsage-vdm\css\vdm.css" />
+    <Content Include="webroot\assets\rsage-vdm\img\collapse-small-blue.png" />
+    <Content Include="webroot\assets\rsage-vdm\img\expand-small-blue.png" />
+    <Content Include="webroot\assets\rsage-vdm\img\pattern12.png" />
+    <Content Include="webroot\assets\rsage-vdm\js\vdmClient.js" />
+    <Content Include="webroot\assets\rsage-vdm\js\vdmCore.js" />
+    <Content Include="webroot\client.html" />
+    <Content Include="webroot\client.md" />
+    <Content Include="webroot\favicon.ico" />
+    <Content Include="webroot\vdmapp.js" />
+    <Content Include="webroot\vdmapplets\vdm-app-Blank.js" />
+    <Content Include="webroot\vdmapplets\vdm-app-CommandTesting.js" />
+    <Content Include="webroot\vdmapplets\vdm-app-RickRoll.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="drp-endpoint\" />
+    <Folder Include="drp-service\" />
+    <Folder Include="rsage-cortex\" />
+    <Folder Include="rsage-vdm\" />
+    <Folder Include="webroot\" />
+    <Folder Include="webroot\assets\" />
+    <Folder Include="webroot\assets\bootstrap\" />
+    <Folder Include="webroot\assets\bootstrap\css\" />
+    <Folder Include="webroot\assets\bootstrap\img\" />
+    <Folder Include="webroot\assets\bootstrap\js\" />
+    <Folder Include="webroot\assets\font-awesome\" />
+    <Folder Include="webroot\assets\font-awesome\css\" />
+    <Folder Include="webroot\assets\font-awesome\fonts\" />
+    <Folder Include="webroot\assets\font-awesome\webfonts\" />
+    <Folder Include="webroot\assets\glyphicons\" />
+    <Folder Include="webroot\assets\glyphicons\fonts\" />
+    <Folder Include="webroot\assets\jquery\" />
+    <Folder Include="webroot\assets\jquery\css\" />
+    <Folder Include="webroot\assets\jquery\js\" />
+    <Folder Include="webroot\assets\moment\" />
+    <Folder Include="webroot\assets\moment\js\" />
+    <Folder Include="webroot\assets\rsage-vdm\" />
+    <Folder Include="webroot\assets\rsage-vdm\css\" />
+    <Folder Include="webroot\assets\rsage-vdm\img\" />
+    <Folder Include="webroot\assets\rsage-vdm\js\" />
+    <Folder Include="webroot\vdmapplets\" />
+  </ItemGroup>
+  <Import Project="$(VSToolsPath)\Node.js Tools\Microsoft.NodejsToolsV2.targets" />
+</Project>
