@@ -22,8 +22,9 @@ resource requests.
 ## Demo
 Checkout repo, change to directory.  Execute the following to start a demo service which provides the Registry, Provider and Broker routes on ws://localhost:8080
 ```
+cd DRP-nodejs
 npm install
-node server.js
+node demoServer.js
 ```
 
 ## Sample Provider
