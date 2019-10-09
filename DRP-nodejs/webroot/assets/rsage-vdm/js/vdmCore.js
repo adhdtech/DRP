@@ -197,24 +197,27 @@ class VDMDesktop {
 
     async loadDesktop() {
         let thisVDMDesktop = this;
-        await thisVDMDesktop.loadAppletScripts();
-        let profileKeys = Object.keys(thisVDMDesktop.appletProfiles);
-        for (let i = 0; i < profileKeys.length; i++) {
-            let appKeyName = profileKeys[i];
-            let appletDefinition = thisVDMDesktop.appletProfiles[appKeyName];
-            if (appletDefinition.showInMenu) {
-                thisVDMDesktop.addDropDownMenuItem(function() {
-                    thisVDMDesktop.openApp(appKeyName, null);
-                }, appletDefinition.appletIcon, appletDefinition.window.title);
-            }
-            var tmpApp = new appletDefinition.appletClass(appletDefinition);
+        if (!thisVDMDesktop.loaded) {
+            await thisVDMDesktop.loadAppletScripts();
+            let profileKeys = Object.keys(thisVDMDesktop.appletProfiles);
+            for (let i = 0; i < profileKeys.length; i++) {
+                let appKeyName = profileKeys[i];
+                let appletDefinition = thisVDMDesktop.appletProfiles[appKeyName];
+                if (appletDefinition.showInMenu) {
+                    thisVDMDesktop.addDropDownMenuItem(function () {
+                        thisVDMDesktop.openApp(appKeyName, null);
+                    }, appletDefinition.appletIcon, appletDefinition.window.title);
+                }
+                var tmpApp = new appletDefinition.appletClass(appletDefinition);
 
-            if (typeof tmpApp.preLoadRun !== "undefined") {
-                tmpApp.preLoadRun();
+                if (typeof tmpApp.preLoadRun !== "undefined") {
+                    tmpApp.preLoadRun();
+                }
+                if (typeof tmpApp.preReqs !== "undefined" && tmpApp.preReqs.length > 0) {
+                    await thisVDMDesktop.loadAppletResources(appKeyName, tmpApp, 0);
+                }
             }
-            if (typeof tmpApp.preReqs !== "undefined" && tmpApp.preReqs.length > 0) {
-                await thisVDMDesktop.loadAppletResources(appKeyName, tmpApp, 0);
-            }
+            thisVDMDesktop.loaded = true;
         }
     }
 
