@@ -24,7 +24,7 @@ Checkout repo, change to directory.  Execute the following to start a demo servi
 ```
 cd DRP-nodejs
 npm install
-node demoServer.js
+node server.js
 ```
 
 ## Sample Provider

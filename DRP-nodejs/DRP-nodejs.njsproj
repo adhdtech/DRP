@@ -16,7 +16,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>ba4b474a-fa17-4e27-bcda-500a68bbbb3a</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>demoServer.js</StartupFile>
+    <StartupFile>server.js</StartupFile>
     <StartWebBrowser>False</StartWebBrowser>
     <SearchPath>
     </SearchPath>
@@ -34,7 +34,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Content Include="testBroker.js" />
-    <Content Include="demoServer.js" />
+    <Content Include="server.js" />
     <Content Include="drp-endpoint\index.js" />
     <Content Include="drp-endpoint\package.json" />
     <Content Include="drp-service\index.js" />
