@@ -1051,7 +1051,7 @@ class DRP_Node {
         let thisNode = this;
         thisNode.log("Unregistering provider [" + nodeID + "]");
         delete thisNode.NodeConnections[nodeID];
-        delete thisnode.NodeDeclarations[nodeID];
+        delete thisNode.NodeDeclarations[nodeID];
         thisNode.TopicManager.SendToTopic("RegistryUpdate", { "action": "unregister", "nodeID": nodeID });
     }
 
