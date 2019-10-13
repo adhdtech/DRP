@@ -10,13 +10,6 @@ if (process.env.SSL_ENABLED) {
 var port = process.env.PORT || 8080;
 var hostname = process.env.HOSTNAME || os.hostname();
 
-/*
-	This script will start a demo server:
-		* Registry
-		* Provider
-		* Broker
-*/
-
 let drpWSRoute = "";
 
 // Set config
@@ -30,11 +23,12 @@ let myServerConfig = {
     "WebRoot": process.env.WEBROOT || "webroot"
 };
 
+// Create expressApp
 let myServer = new drpService.Server(myServerConfig);
 myServer.start();
 
 // Create VDM Server on expressApp
-let myVDMServer = new vdmServer("VDM", myServer.expressApp, myServerConfig["WebRoot"]);
+let myVDMServer = new vdmServer("VDM", myServer.expressApp, myServerConfig.WebRoot);
 
 // Create Broker on expressApp
 console.log(`Starting DRP Node`);
