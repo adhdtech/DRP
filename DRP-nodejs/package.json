@@ -18,7 +18,6 @@
   "dependencies": {
     "drp-endpoint": "./drp-endpoint",
     "drp-service": "./drp-service",
-    "rsage-cortex": "./rsage-cortex",
     "rsage-vdm": "./rsage-vdm",
     "express": "*",
     "express-ws": "*"
