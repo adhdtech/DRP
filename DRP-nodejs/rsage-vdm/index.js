@@ -1,5 +1,6 @@
 ﻿var drpService = require('drp-service');
 var express = require('express');
+var basicAuth = require('express-basic-auth');
 
 // Create ID Generator
 /*
@@ -40,7 +41,7 @@ class VDMServer_UserAppInstance {
         publisherObj['subscribers'].splice(publisherObj['subscribers'].indexOf(userAppObj), 1);
         userAppObj['subscriptions'].splice(userAppObj['subscriptions'].indexOf(publisherObj), 1);
     }
-	
+
     ToObject() {
         // Return this
         var returnObj = {};
@@ -53,7 +54,14 @@ class VDMServer_UserAppInstance {
 }
 
 class VDMServer extends drpService.Service {
-    constructor(serviceID, expressApp, clientDirectory) {
+    /**
+     * 
+     * @param {string} serviceID Service Instance ID
+     * @param {object} expressApp Express app
+     * @param {string} clientDirectory Client directory
+     * @param {object} asyncAuthorizer Async Authorizer
+     */
+    constructor(serviceID, expressApp, clientDirectory, asyncAuthorizer) {
         super(serviceID);
 
         this.expressApp = expressApp;
@@ -61,12 +69,25 @@ class VDMServer extends drpService.Service {
         this.clientStaticDir = clientDirectory;
         expressApp.use(express.static(clientDirectory));
 
-        expressApp.route('/')
-            .get((req, res) => {
-                res.sendFile("client.html", { "root": clientDirectory});
+        if (asyncAuthorizer) {
+            expressApp.get('/', basicAuth({
+                challenge: true,
+                authorizer: asyncAuthorizer,
+                authorizeAsync: true
+            }), (req, res) => {
+                res.sendFile("client.html", { "root": clientDirectory });
                 //res.redirect('client.html');
                 return;
             });
+        }
+        else {
+            expressApp.route('/')
+                .get((req, res) => {
+                    res.sendFile("client.html", { "root": clientDirectory });
+                    //res.redirect('client.html');
+                    return;
+                });
+        }
 
         // Register Endpoint commands
         // (methods should return output and optionally accept [params, wsConn, token] for streaming)

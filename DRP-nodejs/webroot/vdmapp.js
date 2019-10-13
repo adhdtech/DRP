@@ -5,20 +5,20 @@ $.ajaxSetup({
 window.onload = function () {
     // Get target DIV
     var mainPage = document.getElementById('vdmDesktop');
-	
-	// Get protocol
-    var vdmSvrProt = location.protocol.replace("http","ws");
+
+    // Get protocol
+    var vdmSvrProt = location.protocol.replace("http", "ws");
     var vdmSvrHost = location.host.split(":")[0];
     let vdmPortString = "";
     let vdmPort = location.host.split(":")[1];
     if (vdmPort) {
         vdmPortString = ":" + vdmPort;
     }
-    var vdmSvrRoute = 'broker';
+    var vdmSvrRoute = 'drpnode';
     var vdmSvrWSTarget = vdmSvrProt + "//" + vdmSvrHost + vdmPortString + "/" + vdmSvrRoute;
-	
-	// Set applets path
-	var vdmAppletsPath = "vdmapplets";
+
+    // Set applets path
+    var vdmAppletsPath = "vdmapplets";
 
     var myVDMDesktop = new VDMDesktop(mainPage, "rSage Desktop", {});
 
@@ -37,7 +37,7 @@ window.onload = function () {
         appletScript: 'vdm-app-CommandTesting.js',
         vdmClient: vdmClient
     });
-	
+
     myVDMDesktop.addAppletProfile({
         appletName: 'RickRoll',
         window: {
@@ -51,7 +51,7 @@ window.onload = function () {
         appletScript: 'vdm-app-RickRoll.js',
         vdmClient: vdmClient
     });
-	
+
 	/*
     myVDMDesktop.addAppletProfile({
         appletName: 'Blank',
@@ -68,7 +68,7 @@ window.onload = function () {
     });
 	*/
     vdmClient.startSession(vdmSvrWSTarget);
-}
+};
 
 $(document).ready(function () {
 });

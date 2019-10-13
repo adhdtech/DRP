@@ -5,10 +5,11 @@
     <Name>DRP-nodejs</Name>
     <RootNamespace>DRP-nodejs</RootNamespace>
     <SaveNodeJsSettingsInProjectFile>True</SaveNodeJsSettingsInProjectFile>
-    <ScriptArguments>ws://localhost:8082/registry ws://localhost:8080/broker</ScriptArguments>
+    <ScriptArguments>ws://localhost:8082/drpnode ws://localhost:8080/broker</ScriptArguments>
     <NodeExeArguments>--max-old-space-size=4096</NodeExeArguments>
     <Environment>
     </Environment>
+    <NodejsPort>8080</NodejsPort>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -16,7 +17,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>ba4b474a-fa17-4e27-bcda-500a68bbbb3a</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>server.js</StartupFile>
+    <StartupFile>testRegistry.js</StartupFile>
     <StartWebBrowser>False</StartWebBrowser>
     <SearchPath>
     </SearchPath>
@@ -33,6 +34,7 @@
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="serverAuth.js" />
     <Content Include="testBroker.js" />
     <Content Include="server.js" />
     <Content Include="drp-endpoint\index.js" />
