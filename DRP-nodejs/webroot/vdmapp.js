@@ -14,8 +14,9 @@ window.onload = function () {
     if (vdmPort) {
         vdmPortString = ":" + vdmPort;
     }
-    var vdmSvrRoute = 'drpnode';
-    var vdmSvrWSTarget = vdmSvrProt + "//" + vdmSvrHost + vdmPortString + "/" + vdmSvrRoute;
+    //var vdmSvrRoute = 'drpnode';
+    //var vdmSvrWSTarget = vdmSvrProt + "//" + vdmSvrHost + vdmPortString + "/" + vdmSvrRoute;
+    var vdmSvrWSTarget = vdmSvrProt + "//" + vdmSvrHost + vdmPortString;
 
     // Set applets path
     var vdmAppletsPath = "vdmapplets";

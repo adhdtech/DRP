@@ -43,17 +43,10 @@ myServer.start();
 let myVDMServer = new vdmServer("VDM", myServer.expressApp, myServerConfig["WebRoot"]);
 
 // Create Broker on expressApp
-/*
-let myBroker = new drpService.Broker(myServer.expressApp, brokerURL, () => {
+console.log(`Starting DRP Node`);
+console.log(`DRP Endpoint: ${nodeURL}`);
 
-    // Add DRP commands from Broker to VDM
-    myBroker.AddService("VDM", myVDMServer);
-});
-
-myBroker.ConnectToRegistry(registryURL);
-*/
-
-let myBroker = new drpService.Node(["Broker"], myServer.expressApp, drpWSRoute, nodeURL);
+let myBroker = new drpService.Node(["Broker","Registry"], myServer.expressApp, drpWSRoute, nodeURL);
 myBroker.AddService("VDM", myVDMServer);
 
-myBroker.ConnectToRegistry(registryURL);
+//myBroker.ConnectToRegistry(registryURL);

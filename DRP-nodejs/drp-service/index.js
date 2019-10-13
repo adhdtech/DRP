@@ -254,7 +254,7 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
 
         this.RegisterCmd("registerNode", "RegisterNode");
         this.RegisterCmd("getDeclarations", "GetDeclarations");
-        this.RegisterCmd("nodeToNodeCmd", "NodeToNodeCmd");
+        //this.RegisterCmd("nodeToNodeCmd", "NodeToNodeCmd");
         this.RegisterCmd("subscribe", "Subscribe");
         this.RegisterCmd("unsubscribe", "Unsubscribe");
         this.RegisterCmd("pathCmd", async function (params, wsConn, token) {
@@ -303,7 +303,7 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
         };
 
         // Does the message need to be relayed to another node?
-        if (message.targetNodeID && message.targetNodeID !== thisEndpoint.node.nodeID) {
+        if (message.params && message.params.targetNodeID && message.params.targetNodeID !== thisEndpoint.node.nodeID) {
             // Relay to another host and get response
         }
         // Is the message meant for the default DRP service?
@@ -1298,7 +1298,7 @@ class DRP_Node {
                     let registryList = Object.keys(thisNode.RegistryClients);
                     if (registryList.length > 0) {
                         let registryClient = thisNode.RegistryClients[registryList[0]];
-                        registryClient.SendCmd(registryClient.wsConn, "DRP", "nodeToNodeCmd", { "targetNodeID": remoteNodeID, "sourceNodeID": thisNode.nodeID, "token": "123", "wsTarget": thisNode.brokerURL }, false, null);
+                        registryClient.SendCmd(registryClient.wsConn, "DRP", "connectToNode", { "targetNodeID": remoteNodeID, "sourceNodeID": thisNode.nodeID, "token": "123", "wsTarget": thisNode.brokerURL }, false, null);
                     }
                 } catch (err) {
                     this.log(`ERR!!!! [${err}]`);
@@ -1675,7 +1675,7 @@ class DRP_Node {
         }
         return pathObjList;
     }
-
+    /*
     async NodeToNodeCmd(params, wsConn, token) {
         let thisNode = this;
         // Find Provider connection, relay this packet
@@ -1727,6 +1727,7 @@ class DRP_Node {
         }
         return null;
     }
+    */
 
     IsRegistry() {
         let thisNode = this;
@@ -1747,7 +1748,7 @@ class DRP_Node_RegistryClient extends drpEndpoint.Client {
 
         this.RegisterCmd("registerNode", "RegisterNode");
         this.RegisterCmd("unregisterNode", "UnregisterNode");
-        this.RegisterCmd("nodeToNodeCmd", "NodeToNodeCmd");
+        //this.RegisterCmd("nodeToNodeCmd", "NodeToNodeCmd");
     }
 
     // Define handlers
@@ -1796,6 +1797,7 @@ class DRP_Node_RegistryClient extends drpEndpoint.Client {
         return await this.node.UnregisterNode(params, wsConn, token);
     }
 
+    /*
     async NodeToNodeCmd(params, wsConn, token) {
         let thisRegistryClient = this;
         // We've received a message from a Broker through the Registry; should be a connection request
@@ -1834,6 +1836,7 @@ class DRP_Node_RegistryClient extends drpEndpoint.Client {
 
         thisRegistryClient.node.NodeConnections[params.sourceNodeID] = wsConnBroker;
     }
+    */
 }
 
 class DRP_Service {
@@ -1901,7 +1904,7 @@ class DRP_Registry_Route extends DRP_Node_ServerRoute {
         // (methods should return output and optionally accept [params, wsConn, token] for streaming)
         this.RegisterCmd("registerNode", "RegisterNode");
         this.RegisterCmd("getDeclarations", "GetDeclarations");
-        this.RegisterCmd("nodeToNodeCmd", "NodeToNodeCmd");
+        //this.RegisterCmd("nodeToNodeCmd", "NodeToNodeCmd");
     }
 
     // Define Handlers
@@ -1932,6 +1935,7 @@ class DRP_Registry_Route extends DRP_Node_ServerRoute {
         return this.node.NodeDeclarations;
     }
 
+    /*
     async NodeToNodeCmd(params, wsConn, token) {
         // Find Provider connection, relay this packet
         this.node.log(`Relaying to Node [${params.targetNodeID}]...`);
@@ -1939,6 +1943,7 @@ class DRP_Registry_Route extends DRP_Node_ServerRoute {
         this.node.RouteHandler.SendCmd(this.node.NodeConnections[params.targetNodeID], "DRP", "nodeToNodeCmd", params, false, null);
         return null;
     }
+    */
 }
 
 class DRP_Provider extends DRP_Node {
