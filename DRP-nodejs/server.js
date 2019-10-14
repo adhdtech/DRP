@@ -38,9 +38,8 @@ let myNode = new drpService.Node(["Broker", "Registry"], myServer.expressApp, dr
 myNode.AddService("VDM", myVDMServer);
 
 // Declare dummy stream
-myNode.NodeDeclaration.Streams = {
-    "dummy": { Class: "FakeData" }
-};
+myNode.AddStream("dummy", "Some dummy data");
+
 setInterval(function () {
     let timeStamp = new Date().getTime();
     myNode.TopicManager.SendToTopic("dummy", timeStamp + " Dummy message from Provider[" + myNode.nodeID + "]");

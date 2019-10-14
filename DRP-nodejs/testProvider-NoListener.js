@@ -1,47 +1,50 @@
 'use strict';
 var drpService = require('drp-service');
+var vdmServer = require('rsage-vdm');
+var os = require("os");
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-
-var registryURL = process.argv[2];
-if (!registryURL) {
-    console.error("No registry URL specified!\n\n> node " + process.argv[1] + " <registryURL>");
-    process.exit(0);
+var protocol = "ws";
+if (process.env.SSL_ENABLED) {
+    protocol = "wss";
 }
+var port = process.env.PORT || 8080;
+var hostname = process.env.HOSTNAME || os.hostname();
+var registryurl = process.env.REGISTRYURL || "ws://localhost:8080";
 
-var port = 8081;
+let drpWSRoute = "";
 
 // Set config
 let myServerConfig = {
+    "NodeURL": `${protocol}://${hostname}:${port}${drpWSRoute}`,
     "Port": port,
-    "SSLEnabled": false,
-    "SSLKeyFile": "ssl/mydomain.key",
-    "SSLCrtFile": "ssl/mydomain.crt",
-    "SSLCrtFilePwd": "mycertpw",
-    "WebRoot": "webroot"
+    "SSLEnabled": process.env.SSL_ENABLED || false,
+    "SSLKeyFile": process.env.SSL_KEYFILE || "",
+    "SSLCrtFile": process.env.SSL_CRTFILE || "",
+    "SSLCrtFilePwd": process.env.SSL_CRTFILEPWD || "",
+    "WebRoot": process.env.WEBROOT || "webroot"
 };
 
-// Load Provider
-console.log(`Loading Provider`);
-let myProvider = new drpService.Provider();
+// Create Broker on expressApp
+console.log(`Starting DRP Node`);
+console.log(`DRP Endpoint: ${myServerConfig.NodeURL}`);
+
+let myNode = new drpService.Node(["Provider"]);
 
 // Declare dummy stream
-myProvider.NodeDeclaration.Streams = {
-    "dummy": { Class: "FakeData" }
-};
+myNode.AddStream("dummy", "Some dummy data");
+
 setInterval(function () {
     let timeStamp = new Date().getTime();
-    myProvider.TopicManager.SendToTopic("dummy", timeStamp + " Dummy message from Provider[" + myProvider.nodeID + "]");
+    myNode.TopicManager.SendToTopic("dummy", timeStamp + " Dummy message from Provider[" + myNode.nodeID + "]");
 }, 3000);
 
 // Add a test service
-myProvider.AddService("Greeter", {
-    ClientCmds : {
+myNode.AddService("Greeter2", {
+    ClientCmds: {
         sayHi: async function () { return { pathItem: "Hello!" }; },
         sayBye: async function () { return { pathItem: "Goodbye..." }; },
         showParams: async function (params) { return { pathItem: params }; }
     }
 });
 
-// Connect to Registry
-myProvider.ConnectToRegistry(registryURL);
+myNode.ConnectToRegistry(registryurl);
