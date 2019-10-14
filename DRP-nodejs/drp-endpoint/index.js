@@ -3,13 +3,15 @@ var HttpsProxyAgent = require('https-proxy-agent');
 var url = require('url');
 
 class DRP_Endpoint {
-    constructor() {
+    constructor(wsConn) {
+        this.wsConn = wsConn || null;
         let thisEndpoint = this;
         this.EndpointCmds = {};
         this.RegisterCmd("getCmds", "GetCmds");
     }
 
-    GetToken(wsConn) {
+    GetToken(wsConnParam) {
+        let wsConn = wsConnParam || this.wsConn;
         if (! wsConn.TokenNum) {
             wsConn.ReplyHandlerQueue = {};
             wsConn.StreamHandlerQueue = {};
@@ -20,24 +22,28 @@ class DRP_Endpoint {
         return replyToken.toString();
     }
 
-    AddReplyHandler(wsConn, callback) {
+    AddReplyHandler(wsConnParam, callback) {
+        let wsConn = wsConnParam || this.wsConn;
         let token = this.GetToken(wsConn);
         wsConn.ReplyHandlerQueue[token] = callback;
         return token;
     }
 
-    DeleteReplyHandler(wsConn, token) {
+    DeleteReplyHandler(wsConnParam, token) {
+        let wsConn = wsConnParam || this.wsConn;
         delete wsConn.ReplyHandlerQueue[token];
     }
 
-    AddStreamHandler(wsConn, callback) {
+    AddStreamHandler(wsConnParam, callback) {
+        let wsConn = wsConnParam || this.wsConn;
         let streamToken = this.GetToken(wsConn);
         wsConn.StreamHandlerQueue[streamToken] = callback;
         //console.dir(wsConn.StreamHandlerQueue);
         return streamToken;
     }
 
-    DeleteStreamHandler(wsConn, streamToken) {
+    DeleteStreamHandler(wsConnParam, streamToken) {
+        let wsConn = wsConnParam || this.wsConn;
         if (wsConn && wsConn.StreamHandlerQueue) {
             delete wsConn.StreamHandlerQueue[streamToken];
             //console.log("Deleted stream handler!");
@@ -61,10 +67,11 @@ class DRP_Endpoint {
         }
     }
 
-    SendCmd(wsConn, serviceName, cmd, params, promisify, callback) {
+    SendCmd(wsConnParam, serviceName, cmd, params, promisify, callback) {
         let thisEndpoint = this;
         let returnVal = null;
         let replyToken = null;
+        let wsConn = wsConnParam || this.wsConn;
 
         if (promisify) {
             // We expect a response, using await; add 'resolve' to queue
@@ -88,7 +95,8 @@ class DRP_Endpoint {
         return returnVal;
     }
 
-    SendReply(wsConn, token, status, payload) {
+    SendReply(wsConnParam, token, status, payload) {
+        let wsConn = wsConnParam || this.wsConn;
         if (wsConn.readyState === WebSocket.OPEN) {
             let replyCmd = new DRP_Reply(token, status, payload);
             let replyString = null;
@@ -105,7 +113,8 @@ class DRP_Endpoint {
         }
     }
 
-    SendStream(wsConn, token, status, payload) {
+    SendStream(wsConnParam, token, status, payload) {
+        let wsConn = wsConnParam || this.wsConn;
         if (wsConn.readyState === WebSocket.OPEN) {
             let streamCmd = new DRP_Stream(token, status, payload);
             wsConn.send(JSON.stringify(streamCmd));
@@ -116,7 +125,8 @@ class DRP_Endpoint {
         }
     }
 
-    async ProcessCmd(wsConn, message) {
+    async ProcessCmd(wsConnParam, message) {
+        let wsConn = wsConnParam || this.wsConn;
         let thisEndpoint = this;
 
         var cmdResults = {
@@ -150,7 +160,8 @@ class DRP_Endpoint {
         }
     }
 
-    async ProcessReply(wsConn, message) {
+    async ProcessReply(wsConnParam, message) {
+        let wsConn = wsConnParam || this.wsConn;
         let thisEndpoint = this;
 
         //console.dir(message, {"depth": 10})
@@ -168,7 +179,8 @@ class DRP_Endpoint {
         }
     }
 
-    async ProcessStream(wsConn, message) {
+    async ProcessStream(wsConnParam, message) {
+        let wsConn = wsConnParam || this.wsConn;
         let thisEndpoint = this;
 
         //console.dir(message, {"depth": 10})
@@ -184,7 +196,8 @@ class DRP_Endpoint {
         }
     }
     
-    async ReceiveMessage(wsConn, rawMessage) {
+    async ReceiveMessage(wsConnParam, rawMessage) {
+        let wsConn = wsConnParam || this.wsConn;
         let thisEndpoint = this;
         let message;
         try {
