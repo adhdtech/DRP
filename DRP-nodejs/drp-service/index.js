@@ -894,9 +894,21 @@ class DRP_Node {
                         } else if (serviceAttribute === "Provider") {
                             // Route the rest of the request to the first provider
                             let serviceInstanceProviders = thisNode.FindProvidersForService(serviceInstanceID);
-                            let recordPath = ['Providers', serviceInstanceProviders[0], 'Services', serviceInstanceID].concat(remainingChildPath);
-                            params.pathList = recordPath;
-                            oReturnObject = await thisNode.GetObjFromPath(params, thisNode.GetBaseObj_Broker());
+                            let targetNodeID = serviceInstanceProviders[0];
+                            params.pathList = remainingChildPath;
+
+                            if (targetNodeID === thisNode.nodeID) {
+                                // The target NodeID is local
+                                oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
+                            } else {
+                                // The target NodeID is remote
+                                let targetProviderObj = await thisNode.VerifyNodeConnection(targetNodeID);
+                                let cmdResponse = await targetProviderObj.SendCmd(null, "DRP", "pathCmd", params, true, null);
+                                if (cmdResponse.payload) {
+                                    oReturnObject = cmdResponse.payload;
+                                }
+                            }
+                            //oReturnObject = await thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
                         } else {
                             thisNode.log("UNKNOWN");
                         }
@@ -1582,6 +1594,11 @@ class DRP_Node {
             }
             thisNode.RelayNodeChange("registerNode", declaration);
         }
+
+        // TODO: This needs to be updated to check whether or not the consumerWSConn.Subscriptions is global or local!
+        // consumerWSConn.Subscriptions[subscriberStreamToken] = subscribedTopicName
+        // Needs to be change to an object...
+        // consumerWSConn.Subscriptions[subscriberStreamToken] = {"topicName":subscribedTopicName,"scope":"{local|global}"
 
         // This needs to be moved elsewhere; loop over broker clients to see if this provider has any streams someone has subscribed to
         if (thisNode.ConsumerConnections && declaration.Streams && Object.keys(declaration.Streams).length > 0) {
@@ -2484,6 +2501,7 @@ class DRP_NodeClient extends drpEndpoint.Client {
     /**
     * @param {DRP_Node} drpNode Local Node
     * @param {string} wsTarget Remote Node WS target
+    * @param {function} openCallback Execute after connection is established
     */
     constructor(drpNode, wsTarget, openCallback) {
         super(wsTarget);
@@ -2497,6 +2515,9 @@ class DRP_NodeClient extends drpEndpoint.Client {
         this.RegisterCmd("unsubscribe", "Unsubscribe");
         this.RegisterCmd("registerNode", "RegisterNode");
         this.RegisterCmd("getNodeDeclaration", "GetNodeDeclaration");
+        this.RegisterCmd("pathCmd", async function (params, wsConn, token) {
+            return await drpNode.GetObjFromPath(params, drpNode.GetBaseObj());
+        });
     }
 
     // Define Handlers
