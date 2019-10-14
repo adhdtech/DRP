@@ -1,6 +1,8 @@
+/*
 $.ajaxSetup({
     cache: false
 });
+*/
 
 window.onload = function () {
     // Get target DIV
@@ -36,6 +38,20 @@ window.onload = function () {
         showInMenu: true,
         appletPath: vdmAppletsPath,
         appletScript: 'vdm-app-CommandTesting.js',
+        vdmClient: vdmClient
+    });
+
+    myVDMDesktop.addAppletProfile({
+        appletName: 'DRPTopology',
+        window: {
+            title: 'DRP Topology',
+            sizeX: 620,
+            sizeY: 400
+        },
+        appletIcon: 'fa-list-alt',
+        showInMenu: true,
+        appletPath: vdmAppletsPath,
+        appletScript: 'vdm-app-DRPTopology.js',
         vdmClient: vdmClient
     });
 
