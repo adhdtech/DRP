@@ -261,26 +261,29 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
         this.RegisterCmd("pathCmd", async function (params, wsConn, token) {
             return await thisServer.node.GetObjFromPath(params, thisServer.node.GetBaseObj());
         });
-        /*
-        this.RegisterCmd("cliGetPath", async function (params, wsConn, token) {
-            let oReturnObject = await thisServer.node.GetObjFromPath(params, thisServer.node.GetBaseObj());
-
-            // If we have a return object and want only a list of children, do that now
-            if (params.listOnly) {
-                if (!oReturnObject.pathItemList) {
-                    // Return only child keys and data types
-                    oReturnObject = { pathItemList: thisServer.node.ListObjChildren(oReturnObject) };
-                }
-            } else if (oReturnObject) {
-                if (!oReturnObject.pathItem) {
-                    // Return object as item
-                    oReturnObject = { pathItem: oReturnObject };
-                }
-            }
-
-            return oReturnObject;
+        this.RegisterCmd("getRegistry", function () {
+            return thisServer.node.NodeDeclarations;
         });
-        */
+
+        this.RegisterCmd("getClassRecords", async function (...args) {
+            return await thisServer.node.GetClassRecords(...args);
+        });
+
+        this.RegisterCmd("listClassInstances", function () {
+            return thisServer.node.ListClassInstances();
+        });
+
+        this.RegisterCmd("listServiceInstances", function () {
+            return thisServer.node.ListServiceInstances();
+        });
+
+        this.RegisterCmd("getClassDefinitions", function () {
+            return thisServer.node.GetClassDefinitions();
+        });
+
+        this.RegisterCmd("listClassInstanceDefinitions", async function (...args) {
+            return await thisServer.node.ListClassInstanceDefinitions(...args);
+        });
     }
 
     async RegisterNode(params, wsConn, token) {
@@ -568,6 +571,49 @@ class DRP_Node {
         day = (day < 10 ? "0" : "") + day;
         return year + "" + month + "" + day + "" + hour + "" + min + "" + sec;
     }
+    /**
+     * 
+     * @param {string} restRoute Route to listen for Node REST requests
+     * @returns {number} Failure code
+     */
+    EnableREST(restRoute) {
+        let thisNode = this;
+
+        if (!thisNode.expressApp) return 1;
+
+        //this.routerStack = this.expressApp._router.stack;
+        let nodeRestHandler = async function (req, res, next) {
+            // Get Auth Key
+            let authKey = null;
+            if (req.headers && req.headers['authorization']) {
+                authKey = req.headers['authorization'];
+            }
+
+            // Turn path into list, remove first element
+            let remainingPath = req.path.replace(/^\/|\/$/g, '').split('/');
+            remainingPath.shift();
+
+            let listOnly = false;
+            let format = null;
+
+            if (req.query.listOnly) listOnly = true;
+            if (req.query.format) format = 1;
+
+            // Treat as "getPath"
+            let results = await thisNode.GetObjFromPath({ "method": "cliGetPath", "pathList": remainingPath, "listOnly": listOnly, "authKey": authKey }, thisNode.GetBaseObj());
+            try {
+                res.end(JSON.stringify(results, null, format));
+            } catch (e) {
+                res.end(`Failed to stringify response: ${e}`);
+            }
+            next();
+        };
+
+        thisNode.expressApp.get(`${restRoute}`, nodeRestHandler);
+        thisNode.expressApp.get(`${restRoute}/*`, nodeRestHandler);
+
+        return 0;
+    }
     GetClassDefinitions() {
         //console.log("getting class definitions...");
         let results = {};
@@ -658,6 +704,76 @@ class DRP_Node {
                     }
                 }
             }
+        }
+        return results;
+    }
+
+    ListServiceInstances(params) {
+        let results = {};
+        let findServiceName = params;
+        let providerNames = Object.keys(this.NodeDeclarations);
+        for (let i = 0; i < providerNames.length; i++) {
+            let providerName = providerNames[i];
+            //console.log("Looping over providerName: " + providerName);
+            let thisNodeDeclaration = this.NodeDeclarations[providerName];
+            // Loop over Services
+            if (!thisNodeDeclaration.Services) continue;
+            let serviceInstanceList = Object.keys(thisNodeDeclaration.Services);
+            for (let j = 0; j < serviceInstanceList.length; j++) {
+                let serviceInstanceID = serviceInstanceList[j];
+                //console.log("Looping over sourceID: " + sourceID);
+                let serviceInstanceObj = thisNodeDeclaration.Services[serviceInstanceID];
+                if (!results[serviceInstanceID]) results[serviceInstanceID] = {
+                    providers: [],
+                    methods: serviceInstanceObj
+                };
+
+                results[serviceInstanceID].providers.push(providerName);
+            }
+        }
+        return results;
+    }
+
+    async GetClassRecords(params) {
+        let thisBroker = this;
+
+        let results = {};
+
+        // If user didn't supply the className, return null
+        if (!params || !params.className) return null;
+        let thisClassName = params.className;
+
+        // We need to get a list of all distinct INSTANCES for this class along with the best source for each
+        let classInstances = thisBroker.ListClassInstances();
+
+        // If we don't have data for this class, return null
+        if (!classInstances[thisClassName]) return null;
+
+        let thisClassObj = classInstances[thisClassName];
+
+        // Loop over sourceInstances
+        let sourceInstanceNames = Object.keys(thisClassObj);
+        for (let j = 0; j < sourceInstanceNames.length; j++) {
+            let thisSourceInstanceName = sourceInstanceNames[j];
+            let thisSourceInstanceObj = thisClassObj[thisSourceInstanceName];
+
+            // Loop over providers; get the best precedence (lower is better)
+            let bestProviderObj = null;
+            let bestProviderName = null;
+            let providerNames = Object.keys(thisSourceInstanceObj.providers);
+            for (let k = 0; k < providerNames.length; k++) {
+                let thisProviderName = providerNames[k];
+                let thisProviderObj = thisSourceInstanceObj.providers[thisProviderName];
+                if (!bestProviderObj || thisProviderObj.Precedence < bestProviderObj.Precedence) {
+                    bestProviderObj = thisProviderObj;
+                    bestProviderName = thisProviderName;
+                }
+            }
+
+            // We have the best provider for this class instance
+            let recordPath = ["Providers", bestProviderName].concat(bestProviderObj.RecordPath);
+            let returnData = await thisBroker.GetObjFromPath({ method: "cliGetPath", pathList: recordPath, listOnly: false, authKey: params.authKey }, thisBroker.GetBaseObj());
+            results[thisSourceInstanceName] = returnData.pathItem;
         }
         return results;
     }
@@ -931,263 +1047,6 @@ class DRP_Node {
         };
     }
 
-    GetBaseObj_Broker() {
-        let thisNode = this;
-        let myRegistry = this.NodeDeclarations;
-        return {
-            "Broker": thisNode,
-            "Registry": thisNode.NodeDeclarations,
-            "Providers": async function (params) {
-                let remainingChildPath = params.pathList;
-                let oReturnObject = null;
-                if (remainingChildPath && remainingChildPath.length > 0) {
-
-                    let nodeID = remainingChildPath.shift();
-
-                    // Need to send command to provider with remaining tree data
-                    //let oResults = await oCurrentObject[aChildPathArray[i]](aChildPathArray.splice(i + 1));
-                    //if (typeof oResults == 'object') {
-                    //    oReturnObject = oResults;
-                    //}
-                    params.pathList = remainingChildPath;
-                    let thisNodeClient = await thisNode.VerifyNodeConnection(nodeID);
-
-                    // Await for command from provider
-                    let results = await thisNodeClient.SendCmd(thisNodeClient.wsConn, "DRP", params.method, params, true, null);
-                    if (results && results.payload && results.payload) {
-                        oReturnObject = results.payload;
-                    }
-
-                } else {
-                    // Return list of providers
-                    oReturnObject = {};
-                    let aProviderKeys = Object.keys(myRegistry);
-                    for (let i = 0; i < aProviderKeys.length; i++) {
-                        oReturnObject[aProviderKeys[i]] = {
-                            "ProviderType": "SomeType1",
-                            "Status": "Unknown"
-                        };
-                    }
-                }
-                return oReturnObject;
-            },
-            "Consumers": async function (params) {
-                let remainingChildPath = params.pathList;
-                let oReturnObject = null;
-                if (remainingChildPath && remainingChildPath.length > 0) {
-
-                    let agentID = remainingChildPath.shift();
-
-                    // Need to send command to consumer with remaining tree data
-                    params.pathList = remainingChildPath;
-                    let thisConsumerConn = await thisNode.VerifyConsumerConnection(agentID);
-
-                    if (thisConsumerConn) {
-                        // Await for command from consumer
-                        let results = await thisNode.ConsumerRouteHandler.SendCmd(thisConsumerConn, "DRP", params.method, params, true, null);
-                        if (results && results.payload && results.payload) {
-                            oReturnObject = results.payload;
-                        }
-                    } else {
-                        thisNode.log(`Could not verify consumer connection for [${agentID}]`);
-                    }
-
-                } else {
-                    // Return list of consumers
-                    oReturnObject = {};
-                    let aConsumerKeys = Object.keys(thisNode.ConsumerConnections);
-                    for (let i = 0; i < aConsumerKeys.length; i++) {
-                        oReturnObject[aConsumerKeys[i]] = {
-                            "ConsumerType": "SomeType1",
-                            "Status": "Unknown"
-                        };
-                    }
-                }
-                return oReturnObject;
-            },
-            "Services": async function (params) {
-                //console.log("Checking Services...");
-                // Structure:
-                //      \Services\{svcName}\Providers
-                //      \Services\{svcName}\Commands\{cmdName}\param1\param2
-                let remainingChildPath = params.pathList;
-                let oReturnObject = {};
-
-                let serviceInstanceID = remainingChildPath.shift();
-
-                if (!serviceInstanceID) {
-                    // List Services
-
-                    //console.log(" -> No remaining child path...");
-                    let providerNames = Object.keys(thisNode.NodeDeclarations);
-                    //console.log(` -> Checking keys[${providerNames.length}]...`);
-                    for (let i = 0; i < providerNames.length; i++) {
-                        let providerName = providerNames[i];
-                        //console.log("Looping over providerName: " + providerName);
-                        let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
-                        // Loop over Services
-                        if (!thisNodeDeclaration.Services) continue;
-                        let serviceInstanceList = Object.keys(thisNodeDeclaration.Services);
-                        for (let j = 0; j < serviceInstanceList.length; j++) {
-                            let serviceInstanceID = serviceInstanceList[j];
-                            //console.log("Looping over sourceID: " + serviceInstanceID);
-                            //let serviceInstanceObj = thisNodeDeclaration.Services[serviceInstanceID];
-                            if (!oReturnObject[serviceInstanceID]) oReturnObject[serviceInstanceID] = {
-                                "ServiceName": serviceInstanceID,
-                                "ProviderList": [],
-                                "ClientCmds": thisNodeDeclaration.Services[serviceInstanceID].ClientCmds
-                            };
-
-                            oReturnObject[serviceInstanceID].ProviderList.push(providerName);
-                            //console.log("added sourceID: " + serviceInstanceID);
-                        }
-                    }
-                } else {
-
-                    // A service ID has been specified; retrieve Provider instances
-                    let serviceInstanceProviders = thisNode.FindProvidersForService(serviceInstanceID);
-
-                    // If service doesn't exist, return nothing
-                    if (!serviceInstanceProviders.length) return {};
-
-                    // See if an attribute has been specified
-                    let serviceAttribute = remainingChildPath.shift();
-
-                    // No attribute provided
-                    if (!serviceAttribute) {
-
-                        // Return hash of Providers, ClientCmds, etc
-                        let myRegistry = thisNode.NodeDeclarations;
-
-                        oReturnObject = {
-                            "ProviderList": serviceInstanceProviders.join(","),
-                            "ClientCmds": myRegistry[serviceInstanceProviders[0]]['Services'][serviceInstanceID]['ClientCmds'],
-                            "Provider": () => { }
-                        };
-
-                    } else {
-
-                        // An attribute has been specified - which one?
-                        if (serviceAttribute === "ClientCmds") {
-
-                            // Was a method specified?
-                            let methodName = remainingChildPath.shift();
-                            if (!methodName) {
-
-                                // No - List Methods
-                                let cmdList = myRegistry[serviceInstanceProviders[0]]['Services'][serviceInstanceID]['ClientCmds'];
-                                for (let k = 0; k < cmdList.length; k++) {
-                                    let cmdName = cmdList[k];
-                                    oReturnObject[cmdName] = async function () {
-                                        let cmdObj = {
-                                            "serviceName": serviceInstanceID,
-                                            "cmd": cmdName,
-                                            "params": null
-                                        };
-                                        oReturnObject = await thisNode.ServiceCommand(cmdObj, null, null);
-                                    };
-                                }
-                                return oReturnObject;
-
-                            } else {
-                                // Yes - Execute Method
-                                let cmdObj = {
-                                    serviceName: serviceInstanceID,
-                                    cmd: methodName,
-                                    params: {
-                                        pathList: remainingChildPath,
-                                        authKey: params.authKey,
-                                        payload: params.payload
-                                    }
-                                };
-                                oReturnObject = await thisNode.ServiceCommand(cmdObj, null, null);
-                            }
-                        } else if (serviceAttribute === "Provider") {
-                            // Route the rest of the request to the first provider
-                            let serviceInstanceProviders = thisNode.FindProvidersForService(serviceInstanceID);
-                            let recordPath = ['Providers', serviceInstanceProviders[0], 'Services', serviceInstanceID].concat(remainingChildPath);
-                            params.pathList = recordPath;
-                            oReturnObject = await thisNode.GetObjFromPath(params, thisNode.GetBaseObj_Broker());
-                        } else {
-                            thisNode.log("UNKNOWN");
-                        }
-                    }
-                }
-                //console.dir(oReturnObject);
-                return oReturnObject;
-            }, "Streams": async function (params) {
-                //console.log("Checking Streams...");
-                let remainingChildPath = params.pathList;
-                let oReturnObject = {};
-                if (remainingChildPath && remainingChildPath.length > 0) {
-
-                    //console.log(" -> Have remaining child path...");
-
-                    let streamInstanceID = remainingChildPath.shift();
-
-                    params.pathList = remainingChildPath;
-
-                    let providerNames = Object.keys(thisNode.NodeDeclarations);
-                    for (let i = 0; i < providerNames.length; i++) {
-                        let providerName = providerNames[i];
-                        //console.log("Looping over providerName: " + providerName);
-                        let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
-                        // Loop over Streams
-                        if (!thisNodeDeclaration.Streams) continue;
-                        let streamInstanceList = Object.keys(thisNodeDeclaration.Streams);
-                        for (let j = 0; j < streamInstanceList.length; j++) {
-                            if (streamInstanceID === streamInstanceList[j]) {
-                                if (!oReturnObject["Providers"]) {
-                                    oReturnObject = {
-                                        "Providers": []
-                                    };
-                                }
-                                oReturnObject["Providers"].push(providerName);
-                            }
-                            //console.log("added sourceID: " + streamInstanceID);
-                        }
-                    }
-
-                    if (oReturnObject["Providers"]) {
-                        oReturnObject["Providers"] = oReturnObject["Providers"].join(",");
-                    }
-
-                    if (oReturnObject["ClientCmds"]) {
-                        oReturnObject["ClientCmds"] = oReturnObject["ClientCmds"].join(",");
-                    }
-
-                } else {
-                    // Return list of Streams
-                    //console.log(" -> No remaining child path...");
-                    let providerNames = Object.keys(thisNode.NodeDeclarations);
-                    //console.log(` -> Checking keys[${providerNames.length}]...`);
-                    for (let i = 0; i < providerNames.length; i++) {
-                        let providerName = providerNames[i];
-                        //console.log("Looping over providerName: " + providerName);
-                        let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
-                        // Loop over Streams
-                        if (!thisNodeDeclaration.Streams) continue;
-                        let streamInstanceList = Object.keys(thisNodeDeclaration.Streams);
-                        for (let j = 0; j < streamInstanceList.length; j++) {
-                            let streamInstanceID = streamInstanceList[j];
-                            //console.log("Looping over sourceID: " + streamInstanceID);
-                            //let streamInstanceObj = thisNodeDeclaration.Streams[streamInstanceID];
-                            if (!oReturnObject[streamInstanceID]) oReturnObject[streamInstanceID] = {
-                                "StreamName": streamInstanceID,
-                                "Providers": []
-                            };
-
-                            oReturnObject[streamInstanceID].Providers.push(providerName);
-                            //console.log("added sourceID: " + streamInstanceID);
-                        }
-                    }
-                }
-                //console.dir(oReturnObject);
-                return oReturnObject;
-            }
-        };
-    }
-
     /**
      * Find Providers for a given Service Instance
      * @param {string} serviceInstanceID Service Instance to find
@@ -1301,6 +1160,10 @@ class DRP_Node {
         }
 
         return oReturnObject;
+    }
+
+    GetBrokerNode() {
+        return null;
     }
 
     GetRegistryNodeIDs() {
@@ -1428,14 +1291,22 @@ class DRP_Node {
     async sendBrokerRequest(method, params) {
         let thisNode = this;
         // NEED TO UPDATE - if there is no proxyBrokerURL, interrogate the registry to find a broker
+        /*
         if (!thisNode.brokerClient) {
             await new Promise(resolve => {
                 thisNode.brokerClient = new DRP_Consumer_BrokerClient(thisNode.proxyBrokerURL, resolve);
             });
         }
+        */
 
-        let response = await thisNode.brokerClient.SendCmd(thisNode.brokerClient.wsConn, "DRP", method, params, true);
-        return response.payload;
+        // Add logic to find a Broker and send a command through it
+        let brokerNode = thisNode.GetBrokerNode();
+        if (brokerNode) {
+            let response = await brokerNode.SendCmd(null, "DRP", method, params, true);
+            return response.payload;
+        } else {
+            return null;
+        }
     }
 
     async AddService(serviceName, serviceObject) {
@@ -1817,187 +1688,11 @@ class DRP_Node {
         let isRegistry = thisNode.nodeRoles.indexOf("Registry") >= 0;
         return isRegistry;
     }
-}
 
-class DRP_Node_RegistryClient extends drpEndpoint.Client {
-    /**
-    * @param {DRP_Node} node DRP Node
-    * @param {string} wsTarget WS target
-    * @param {string} proxy Web proxy
-    */
-    constructor(node, wsTarget, proxy) {
-        super(wsTarget, proxy);
-        this.node = node;
-
-        this.RegisterCmd("registerNode", "RegisterNode");
-        this.RegisterCmd("unregisterNode", "UnregisterNode");
-        //this.RegisterCmd("nodeToNodeCmd", "NodeToNodeCmd");
-        this.RegisterCmd("subscribe", "Subscribe");
-        this.RegisterCmd("unsubscribe", "Unsubscribe");
-    }
-
-    // Define handlers
-    async OpenHandler(wsConn, req) {
-
-        this.node.log("Node to Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
-
-        let response = await this.SendCmd(this.wsConn, "DRP", "registerNode", this.node.NodeDeclaration, true, null);
-
-        //console.log("Getting declarations broker...");
-        response = await this.SendCmd(this.wsConn, "DRP", "getDeclarations", null, true, null);
-
-        this.node.NodeDeclarations = response.payload;
-        this.node.TopicManager.SendToTopic("RegistryUpdate", { "action": "initialread", "declarations": this.node.NodeDeclarations });
-        //console.dir(response, { depth: 10 });
-
-        // TODO - Iterate over provider declarations and build tree for data lookups
-        // OR - Do it on the fly
-
-        if (this.node.RegistryOpenedHandler && typeof this.node.RegistryOpenedHandler === 'function') {
-            this.node.RegistryOpenedHandler();
-        }
-    }
-
-    async CloseHandler(wsConn, closeCode) {
-        let remoteAddress = null;
-        let remotePort = null;
-        if (wsConn._socket) {
-            remoteAddress = wsConn._socket.remoteAddress;
-            remotePort = wsConn._socket.remotePort;
-        }
-        this.node.log("Node to Registry client [" + remoteAddress + ":" + remotePort + "] closed with code [" + closeCode + "]");
-        await sleep(5000);
-        this.RetryConnection();
-    }
-
-    async ErrorHandler(wsConn, error) {
-        this.node.log("Provider to Registry client encountered error [" + error + "]");
-    }
-
-    async RegisterNode(params, wsConn, token) {
-        return await this.node.RegisterNode(params, wsConn, token);
-    }
-
-    async UnregisterNode(params, wsConn, token) {
-        return await this.node.UnregisterNode(params, wsConn, token);
-    }
-
-    /*
-    async NodeToNodeCmd(params, wsConn, token) {
-        let thisRegistryClient = this;
-        // We've received a message from a Broker through the Registry; should be a connection request
-        this.node.log("We've received a Node to Node message through the Registry...");
-        //console.dir(params);
-
-        this.node.log(`Connecting to broker [${params.sourceNodeID}] @ '${params.wsTarget}'`);
-        let wsConnBroker = null;
-        if (thisRegistryClient.proxy) {
-            let opts = url.parse(thisRegistryClient.proxy);
-            let agent = new HttpsProxyAgent(opts);
-            wsConnBroker = new WebSocket(params.wsTarget, "drp", { agent: agent });
-        } else {
-            wsConnBroker = new WebSocket(params.wsTarget, "drp");
-        }
-        wsConnBroker.on('open', function () {
-            thisRegistryClient.node.log("Connected to broker...");
-            thisRegistryClient.node.RouteHandler.OpenHandler(wsConnBroker);
-            thisRegistryClient.node.RouteHandler.SendCmd(wsConnBroker, "DRP", "nodeConnection", { token: params.token, nodeID: thisRegistryClient.node.NodeDeclaration.NodeID });
-        });
-
-        wsConnBroker.on("message", function (message) {
-            // Process command
-            thisRegistryClient.node.RouteHandler.ReceiveMessage(wsConnBroker, message);
-        });
-
-        wsConnBroker.on("close", function (closeCode) {
-            thisRegistryClient.node.log(`Closed conn to broker: [${closeCode}]`);
-            thisRegistryClient.node.RouteHandler.CloseHandler(wsConnBroker, closeCode);
-        });
-
-        wsConnBroker.on("error", function (error) {
-            thisRegistryClient.node.log(`Errored conn to broker: [${error}]`);
-            thisRegistryClient.node.RouteHandler.ErrorHandler(wsConnBroker, error);
-        });
-
-        thisRegistryClient.node.NodeConnections[params.sourceNodeID] = wsConnBroker;
-    }
-    */
-
-    // Define Endpoints commands
-    async Subscribe(params, wsConn, token, customRelayHandler) {
-        let thisNodeClient = this;
-        let results = {};
-        // Register the declaration for future reference
-        //console.log("Stream handler reply token: " + token);
-        //console.dir(params);
-        let subscriberStreamToken = params.streamToken;
-        if (!wsConn.Subscriptions) wsConn.Subscriptions = {};
-        wsConn.Subscriptions[subscriberStreamToken] = params.topicName;
-        // Find anyone who provides this data and subscribe on the consumer's behalf
-        let sourceNodeIDList = Object.keys(thisNodeClient.node.NodeDeclarations);
-        for (let i = 0; i < sourceNodeIDList.length; i++) {
-            let sourceNodeID = sourceNodeIDList[i];
-            //console.log(`Checking for stream [${params.topicName}] for client on node [${sourceNodeID}]`);
-            let thisNodeDeclaration = thisNodeClient.node.NodeDeclarations[sourceNodeID];
-            if (thisNodeDeclaration.Streams && thisNodeDeclaration.Streams[params.topicName]) {
-                // This source node offers the desired stream
-
-                // Is it this node?
-                if (sourceNodeID === thisNodeClient.node.nodeID) {
-                    results[sourceNodeID] = thisNodeClient.node.TopicManager.SubscribeToTopic(params.topicName, wsConn, params.streamToken, params.filter);
-                } else {
-                    /**
-                    * @type {DRP_NodeClient} DRP Node Client
-                    */
-
-                    let thisNodeEndpoint = await thisNodeClient.node.VerifyNodeConnection(sourceNodeID);
-
-                    // Subscribe on behalf of the Consumer
-                    //console.log(`Subscribing to stream [${params.topicName}] for client from node [${sourceNodeID}] using streamToken [${subscriberStreamToken}]`);
-                    let sourceStreamToken = thisNodeClient.AddStreamHandler(thisNodeEndpoint.wsConn, async function (response) {
-                        //console.log(`... stream data ... streamToken[${subscriberStreamToken}]`);
-                        //console.dir(response);
-                        let sendFailed = false;
-                        if (!wsConn.Subscriptions[subscriberStreamToken]) {
-                            sendFailed = true;
-                        } else if (customRelayHandler && typeof customRelayHandler === 'function') {
-                            sendFailed = customRelayHandler(wsConn, subscriberStreamToken, 2, response.payload);
-                        } else {
-                            sendFailed = thisNodeClient.SendStream(wsConn, subscriberStreamToken, 2, response.payload);
-                            //console.log(`Stream to consumer token[${subscriberStreamToken}]`);
-                        }
-                        if (sendFailed) {
-                            // Client disconnected
-                            if (thisNodeEndpoint.wsConn.StreamHandlerQueue[response.token]) {
-                                thisNodeEndpoint.DeleteStreamHandler(thisNodeEndpoint.wsConn, response.token);
-                                //console.log("Stream handler removed forcefully");
-                            }
-                            let unsubResults = await thisNodeEndpoint.SendCmd(thisNodeEndpoint.wsConn, "DRP", "unsubscribe", { "topicName": params.topicName, "streamToken": response.token }, true, null);
-                            //console.log("Unsubscribe from orphaned stream");
-                            //console.dir(unsubResults);
-                        }
-                    });
-
-                    // Await for command from source node
-                    results[sourceNodeID] = await thisNodeEndpoint.SendCmd(thisNodeEndpoint.wsConn, "DRP", "subscribe", { "topicName": params.topicName, "streamToken": sourceStreamToken }, true, null);
-                }
-            }
-        }
-
-        return results;
-    }
-
-    async Unsubscribe(params, wsConn, token) {
-        let thisRouteServer = this;
-        let subscriberStreamToken = params.streamToken;
-        //console.dir(wsConn.OutboundStreams);
-        if (wsConn.Subscriptions && wsConn.Subscriptions[subscriberStreamToken]) {
-            delete wsConn.Subscriptions[subscriberStreamToken];
-
-            // Dirty workaround - try removing locally on each call
-            thisRouteServer.node.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, params.streamToken, params.filter);
-        }
-        return null;
+    IsBroker() {
+        let thisNode = this;
+        let isBroker = thisNode.nodeRoles.indexOf("Broker") >= 0;
+        return isBroker;
     }
 }
 
@@ -2005,526 +1700,6 @@ class DRP_Service {
     constructor(serviceID) {
         this.serviceID = serviceID;
     }
-}
-
-class DRP_Registry extends DRP_Node {
-    constructor(expressApp) {
-
-        super(["Registry"], expressApp);
-
-        let thisDRPRegistry = this;
-
-        this.RouteHandler = new DRP_Registry_Route(this, '/registry');
-    }
-
-    RegisterNode(declaration, wsConn, token) {
-        if (typeof declaration !== "undefined" && typeof declaration.NodeID !== "undefined" && declaration.NodeID !== null && declaration.NodeID !== "") {
-            // Add provider and relay to Brokers
-            this.log(`Registering node [${declaration.NodeID}]`);
-            wsConn.NodeID = declaration.NodeID;
-            this.NodeEndpoints[declaration.NodeID] = wsConn;
-            this.NodeDeclarations[declaration.NodeID] = declaration;
-            this.RelayNodeChange("registerNode", declaration);
-            //console.log("Provider registered...");
-            //console.dir(declaration, {depth: 10});
-            return "OKAY";
-        } else return "NO PROVIDER ID";
-    }
-
-    UnregisterNode(nodeID) {
-        // Delete provider and relay to Brokers
-        this.log(`Unregistering provider [${nodeID}]`);
-        delete this.NodeEndpoints[nodeID];
-        delete this.NodeDeclarations[nodeID];
-        this.RelayNodeChange("unregisterNode", nodeID);
-    }
-
-    RelayNodeChange(cmd, params) {
-        // Relay to Brokers
-        //console.dir(this.BrokerConnections);
-        let nodeIDList = Object.keys(this.NodeEndpoints);
-        for (let i = 0; i < nodeIDList.length; i++) {
-            this.RouteHandler.SendCmd(this.NodeEndpoints[nodeIDList[i]], "DRP", cmd, params, false, null);
-            this.log(`Relayed to node: [${nodeIDList[i]}]`);
-        }
-    }
-}
-
-class DRP_Registry_Route extends DRP_Node_ServerRoute {
-    /**
-    * @param {DRP_Registry} registry DRP Registry
-    * @param {string} route WS route
-    */
-    constructor(registry, route) {
-
-        // Initialize server
-        super(registry, route);
-
-        let thisRegistryRoute = this;
-
-        // Register Endpoint commands
-        // (methods should return output and optionally accept [params, wsConn, token] for streaming)
-        this.RegisterCmd("registerNode", "RegisterNode");
-        this.RegisterCmd("getDeclarations", "GetDeclarations");
-        //this.RegisterCmd("nodeToNodeCmd", "NodeToNodeCmd");
-    }
-
-    // Define Handlers
-    async OpenHandler(wsConn, req) {
-        //console.log("Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
-    }
-
-    async CloseHandler(wsConn, closeCode) {
-        //console.log("Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
-
-        if (wsConn.NodeID) {
-            this.node.UnregisterNode(wsConn.NodeID);
-        }
-    }
-
-    async ErrorHandler(wsConn, error) {
-        this.node.log("Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
-    }
-
-    async RegisterNode(params, wsConn, token) {
-        return this.node.RegisterNode(params, wsConn, token);
-    }
-
-    /**
-    * @returns {{string:DRP_NodeDeclaration}} Node Declarations
-    */
-    async GetDeclarations() {
-        return this.node.NodeDeclarations;
-    }
-
-    /*
-    async NodeToNodeCmd(params, wsConn, token) {
-        // Find Provider connection, relay this packet
-        this.node.log(`Relaying to Node [${params.targetNodeID}]...`);
-        //console.dir(params);
-        this.node.RouteHandler.SendCmd(this.node.NodeConnections[params.targetNodeID], "DRP", "nodeToNodeCmd", params, false, null);
-        return null;
-    }
-    */
-}
-
-class DRP_Provider extends DRP_Node {
-    /**
-    * @param {express} expressApp WS enabled ExpressApp
-	* @param {string} providerURL Broker to Provider URL
-    * @param {string} providerRoute Route for WS endpoints to access this instance
-    */
-    constructor(expressApp, providerURL, providerRoute) {
-
-        super(["Provider"], expressApp, providerURL);
-
-        this.providerRoute = providerRoute;
-        if (!providerRoute) this.providerRoute = "/provider";
-
-        let thisDRPProvider = this;
-
-        this.expressApp = expressApp;
-
-        this.Structure = {};
-
-        this.Services = {};
-
-        // Create RouteHandler
-        this.RouteHandler = new DRP_Provider_Route(this, this.providerRoute);
-
-        // Create topic manager
-        this.TopicManager = new DRP_TopicManager(this);
-    }
-
-    Subscribe(params, wsConn, token) {
-        this.TopicManager.SubscribeToTopic(params.topicName, wsConn, params.streamToken, params.filter);
-    }
-
-    Unsubscribe(params, wsConn, token) {
-        this.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, params.streamToken, params.filter);
-    }
-
-}
-
-class DRP_Provider_Route extends DRP_Node_ServerRoute {
-    /**
-    * @param {DRP_Provider} provider DRP Provider
-    * @param {string} route WS route
-    */
-    constructor(provider, route) {
-
-        // Initialize server
-        super(provider, route);
-
-        let thisProviderRoute = this;
-
-        // Register Endpoint commands
-        // (methods should return output and optionally accept [params, wsConn, token] for streaming)
-        this.RegisterCmd("registerNode", "RegisterNode");
-        this.RegisterCmd("subscribe", "Subscribe");
-        this.RegisterCmd("unsubscribe", "Unsubscribe");
-        this.RegisterCmd("serviceCommand", async function (...args) {
-            return await provider.ServiceCommand(...args);
-        });
-        this.RegisterCmd("cliGetPath", async function (params, wsConn, token) {
-            let oReturnObject = await thisProviderRoute.node.GetObjFromPath(params, thisProviderRoute.node.GetBaseObj());
-
-            // If we have a return object and want only a list of children, do that now
-            if (params.listOnly) {
-                if (!oReturnObject.pathItemList) {
-                    // Return only child keys and data types
-                    oReturnObject = { pathItemList: thisProviderRoute.node.ListObjChildren(oReturnObject) };
-                }
-            } else if (oReturnObject) {
-                if (!oReturnObject.pathItem) {
-                    // Return object as item
-                    oReturnObject = { pathItem: oReturnObject };
-                }
-            }
-
-            return oReturnObject;
-        });
-    }
-
-    // Define handlers
-    async OpenHandler(wsConn, req) {
-        this.node.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
-        setInterval(function ping() {
-            wsConn.ping(function () { });
-        }, 30000);
-    }
-
-    async CloseHandler(wsConn, closeCode) {
-        this.node.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
-    }
-
-    async ErrorHandler(wsConn, error) {
-        this.node.log("Provider client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
-    }
-
-    // Define Endpoints commands
-    async RegisterNode(params, wsConn, token) {
-        return this.node.RegisterNode(params, wsConn, token);
-    }
-
-    // Subscribe to data stream
-    async Subscribe(params, wsConn, token) {
-        return this.node.Subscribe(params, wsConn, token);
-    }
-
-    // Unsubscribe from data stream
-    async Unsubscribe(params, wsConn, token) {
-        return this.node.Unsubscribe(params, wsConn, token);
-    }
-}
-
-class DRP_Broker extends DRP_Node {
-    constructor(expressApp, brokerURL, registryOpenedHandler) {
-
-        super(["Broker"], expressApp);
-
-        let thisDRPBroker = this;
-
-        this.expressApp = expressApp;
-
-        this.brokerURL = brokerURL;
-
-        this.ConsumerConnections = {};
-
-        this.RegistryOpenedHandler = registryOpenedHandler;
-
-        this.ConsumerRouteHandler = new DRP_Broker_Route(this, '/broker');
-        this.routerStack = this.expressApp._router.stack;
-        let brokerRestHandler = async function (req, res, next) {
-            // Get Auth Key
-            let authKey = null;
-            if (req.headers && req.headers['authorization']) {
-                authKey = req.headers['authorization'];
-            }
-
-            // Turn path into list, remove first element
-            let remainingPath = req.path.replace(/^\/|\/$/g, '').split('/');
-            remainingPath.shift();
-
-            let listOnly = false;
-            let format = null;
-
-            if (req.query.listOnly) listOnly = true;
-            if (req.query.format) format = 1;
-
-            // Treat as "getPath"
-            let results = await thisDRPBroker.ConsumerRouteHandler.PathCmd({ "method": "cliGetPath", "pathList": remainingPath, "listOnly": listOnly, "authKey": authKey });
-            try {
-                res.end(JSON.stringify(results, null, format));
-            } catch (e) {
-                res.end(`Failed to stringify response: ${e}`);
-            }
-            next();
-        };
-
-        expressApp.get("/broker", brokerRestHandler);
-        expressApp.get("/broker/*", brokerRestHandler);
-    }
-
-    RegisterConsumer(params, wsConn, token) {
-    }
-
-    async GetClassRecords(params) {
-        let thisBroker = this;
-
-        let results = {};
-
-        // If user didn't supply the className, return null
-        if (!params || !params.className) return null;
-        let thisClassName = params.className;
-
-        // We need to get a list of all distinct INSTANCES for this class along with the best source for each
-        let classInstances = thisBroker.ListClassInstances();
-
-        // If we don't have data for this class, return null
-        if (!classInstances[thisClassName]) return null;
-
-        let thisClassObj = classInstances[thisClassName];
-
-        // Loop over sourceInstances
-        let sourceInstanceNames = Object.keys(thisClassObj);
-        for (let j = 0; j < sourceInstanceNames.length; j++) {
-            let thisSourceInstanceName = sourceInstanceNames[j];
-            let thisSourceInstanceObj = thisClassObj[thisSourceInstanceName];
-
-            // Loop over providers; get the best precedence (lower is better)
-            let bestProviderObj = null;
-            let bestProviderName = null;
-            let providerNames = Object.keys(thisSourceInstanceObj.providers);
-            for (let k = 0; k < providerNames.length; k++) {
-                let thisProviderName = providerNames[k];
-                let thisProviderObj = thisSourceInstanceObj.providers[thisProviderName];
-                if (!bestProviderObj || thisProviderObj.Precedence < bestProviderObj.Precedence) {
-                    bestProviderObj = thisProviderObj;
-                    bestProviderName = thisProviderName;
-                }
-            }
-
-            // We have the best provider for this class instance
-            let recordPath = ["Providers", bestProviderName].concat(bestProviderObj.RecordPath);
-            let returnData = await thisBroker.GetObjFromPath({ method: "cliGetPath", pathList: recordPath, listOnly: false, authKey: params.authKey }, thisBroker.GetBaseObj_Broker());
-            results[thisSourceInstanceName] = returnData.pathItem;
-        }
-        return results;
-    }
-
-    ListServiceInstances(params) {
-        let results = {};
-        let findServiceName = params;
-        let providerNames = Object.keys(this.NodeDeclarations);
-        for (let i = 0; i < providerNames.length; i++) {
-            let providerName = providerNames[i];
-            //console.log("Looping over providerName: " + providerName);
-            let thisNodeDeclaration = this.NodeDeclarations[providerName];
-            // Loop over Services
-            if (!thisNodeDeclaration.Services) continue;
-            let serviceInstanceList = Object.keys(thisNodeDeclaration.Services);
-            for (let j = 0; j < serviceInstanceList.length; j++) {
-                let serviceInstanceID = serviceInstanceList[j];
-                //console.log("Looping over sourceID: " + sourceID);
-                let serviceInstanceObj = thisNodeDeclaration.Services[serviceInstanceID];
-                if (!results[serviceInstanceID]) results[serviceInstanceID] = {
-                    providers: [],
-                    methods: serviceInstanceObj
-                };
-
-                results[serviceInstanceID].providers.push(providerName);
-            }
-        }
-        return results;
-    }
-}
-
-class DRP_Broker_Route extends DRP_Node_ServerRoute {
-    /**
-    * @param {DRP_Broker} broker DRP Broker
-    * @param {string} route WS route
-    */
-    constructor(broker, route) {
-
-        // Initialize server
-        super(broker, route);
-
-        let thisBrokerRoute = this;
-
-        // Register Endpoint commands
-        // (methods should return output and optionally accept [params, wsConn, token] for streaming)
-        this.RegisterCmd("register", function (params, wsConn, token) {
-            return broker.RegisterConsumer(params, wsConn, token);
-        });
-        this.RegisterCmd("subscribe", "Subscribe");
-        this.RegisterCmd("unsubscribe", "Unsubscribe");
-
-        this.RegisterCmd("pathCmd", "PathCmd");
-
-        this.RegisterCmd("getRegistry", function () {
-            return thisBrokerRoute.node.NodeDeclarations;
-        });
-
-        this.RegisterCmd("getClassRecords", async function (...args) {
-            return await thisBrokerRoute.node.GetClassRecords(...args);
-        });
-
-        this.RegisterCmd("listClassInstances", function () {
-            return thisBrokerRoute.node.ListClassInstances();
-        });
-
-        this.RegisterCmd("listServiceInstances", function () {
-            return thisBrokerRoute.node.ListServiceInstances();
-        });
-
-        this.RegisterCmd("getClassDefinitions", function () {
-            return thisBrokerRoute.node.GetClassDefinitions();
-        });
-
-        this.RegisterCmd("listClassInstanceDefinitions", async function (...args) {
-            return await thisBrokerRoute.node.ListClassInstanceDefinitions(...args);
-        });
-
-        this.RegisterCmd("nodeConnection", function (params, wsConn, token) {
-            thisBrokerRoute.node.NodeEndpoints[params.nodeID] = wsConn;
-            if (wsConn.id) delete thisBrokerRoute.node.ConsumerConnections[wsConn.id];
-        });
-    }
-
-    // We need to override the default ProcessCmd; we may be receiving a "service" attribute
-    async ProcessCmd(wsConn, message) {
-        let thisEndpoint = this;
-
-        var cmdResults = {
-            status: 0,
-            output: null
-        };
-
-        if (!message.serviceName || message.serviceName === "DRP") {
-            if (typeof thisEndpoint.EndpointCmds[message.cmd] === 'function') {
-                // Execute method
-                try {
-                    cmdResults.output = await thisEndpoint.EndpointCmds[message.cmd](message.params, wsConn, message.replytoken);
-                    cmdResults.status = 1;
-                } catch (err) {
-                    cmdResults.output = err.message;
-                }
-            } else {
-                cmdResults.output = "Endpoint does not have method";
-                thisEndpoint.node.log("Remote endpoint tried to execute invalid method '" + message.cmd + "'...");
-                console.dir(message);
-                //console.dir(thisEndpoint.EndpointCmds);
-            }
-        } else {
-            try {
-                cmdResults.output = await thisEndpoint.node.ServiceCommand(message, wsConn);
-                cmdResults.status = 1;
-            } catch (err) {
-                cmdResults.output = err.message;
-            }
-        }
-
-        // Reply with results
-        if (typeof message.replytoken !== "undefined" && message.replytoken !== null) {
-            thisEndpoint.SendReply(wsConn, message.replytoken, cmdResults.status, cmdResults.output);
-        }
-    }
-
-    // Define Handlers
-    async OpenHandler(wsConn, req) {
-        //console.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
-        //this.service.ConsumerConnections
-        if (!this.node.ConsumerConnectionID) this.node.ConsumerConnectionID = 1;
-        //wsConn.id = `${wsConn._socket.remoteAddress}-${wsConn._socket.remotePort}`;
-        wsConn.id = this.node.ConsumerConnectionID;
-        this.node.ConsumerConnectionID++;
-        this.node.ConsumerConnections[wsConn.id] = wsConn;
-    }
-
-    async CloseHandler(wsConn, closeCode) {
-        //this.service.log("Broker client [" + wsConn.id + "] closed with code [" + closeCode + "]");
-        if (wsConn.id) delete this.node.ConsumerConnections[wsConn.id];
-    }
-
-    async ErrorHandler(wsConn, error) {
-        this.node.log("Broker client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
-    }
-
-    // Define Endpoints commands
-    async Subscribe(params, wsConn, token, customRelayHandler) {
-        let thisConsumerRoute = this;
-        let results = {};
-        // Register the declaration for future reference
-        //console.log("Stream handler reply token: " + token);
-        //console.dir(params);
-        let subscriberStreamToken = params.streamToken;
-        if (!wsConn.Subscriptions) wsConn.Subscriptions = {};
-        wsConn.Subscriptions[subscriberStreamToken] = params.topicName;
-        // Find anyone who provides this data and subscribe on the consumer's behalf
-        let sourceNodeIDList = Object.keys(this.node.NodeDeclarations);
-        for (let i = 0; i < sourceNodeIDList.length; i++) {
-            let sourceNodeID = sourceNodeIDList[i];
-            //console.log(`Checking for stream [${params.topicName}] for client on node [${sourceNodeID}]`);
-            let thisNodeDeclaration = this.node.NodeDeclarations[sourceNodeID];
-            if (thisNodeDeclaration.Streams && thisNodeDeclaration.Streams[params.topicName]) {
-                // This source node offers the desired stream
-                /**
-                * @type {DRP_NodeClient} DRP Node Client
-                */
-
-                let thisNodeClient = await this.node.VerifyNodeConnection(sourceNodeID);
-
-                // Subscribe on behalf of the Consumer
-                //console.log(`Subscribing to stream [${params.topicName}] for client from node [${sourceNodeID}] using streamToken [${subscriberStreamToken}]`);
-                let sourceStreamToken = thisConsumerRoute.AddStreamHandler(thisNodeClient.wsConn, async function (response) {
-                    //console.log(`... stream data ... streamToken[${subscriberStreamToken}]`);
-                    //console.dir(response);
-                    let sendFailed = false;
-                    if (!wsConn.Subscriptions[subscriberStreamToken]) {
-                        sendFailed = true;
-                    } else if (customRelayHandler && typeof customRelayHandler === 'function') {
-                        sendFailed = customRelayHandler(wsConn, subscriberStreamToken, 2, response.payload);
-                    } else {
-                        sendFailed = thisConsumerRoute.SendStream(wsConn, subscriberStreamToken, 2, response.payload);
-                        //console.log(`Stream to consumer token[${subscriberStreamToken}]`);
-                    }
-                    if (sendFailed) {
-                        // Client disconnected
-                        if (thisNodeClient.wsConn.StreamHandlerQueue[response.token]) {
-                            thisNodeClient.DeleteStreamHandler(thisNodeClient.wsConn, response.token);
-                            //console.log("Stream handler removed forcefully");
-                        }
-                        let unsubResults = await thisNodeClient.SendCmd(thisNodeClient.wsConn, "DRP", "unsubscribe", { "topicName": params.topicName, "streamToken": response.token }, true, null);
-                        //console.log("Unsubscribe from orphaned stream");
-                        //console.dir(unsubResults);
-                    }
-                });
-
-                // Await for command from source node
-                results[sourceNodeID] = await thisNodeClient.SendCmd(thisNodeClient.wsConn, "DRP", "subscribe", { "topicName": params.topicName, "streamToken": sourceStreamToken }, true, null);
-            }
-        }
-
-        return results;
-    }
-
-    async Unsubscribe(params, wsConn, token) {
-        let subscriberStreamToken = params.streamToken;
-        //console.dir(wsConn.OutboundStreams);
-        if (wsConn.Subscriptions && wsConn.Subscriptions[subscriberStreamToken]) {
-            delete wsConn.Subscriptions[subscriberStreamToken];
-            //console.log("Outbound stream removed");
-        }
-        return null;
-    }
-
-    async PathCmd(params, wsConn, token) {
-        // params.method
-        // params.pathList
-        return await this.node.GetObjFromPath(params, this.node.GetBaseObj_Broker());
-    }
-
 }
 
 class DRP_NodeClient extends drpEndpoint.Client {
@@ -2685,7 +1860,7 @@ class DRP_NodeClient extends drpEndpoint.Client {
     }
 }
 
-class DRP_Consumer_BrokerClient extends drpEndpoint.Client {
+class DRP_Consumer_NodeClient extends drpEndpoint.Client {
     constructor(wsTarget, callback) {
         super(wsTarget);
         this.postOpenCallback = callback;
@@ -2706,15 +1881,15 @@ class DRP_Consumer_BrokerClient extends drpEndpoint.Client {
     }
 
     // Watch a stream
-    async WatchStream(streamName, callback) {
-        let thisBrokerClient = this;
-        let streamToken = thisBrokerClient.AddStreamHandler(thisBrokerClient.wsConn, function (message) {
+    async WatchStream(streamName, scope, callback) {
+        let thisNodeClient = this;
+        let streamToken = thisNodeClient.AddStreamHandler(thisNodeClient.wsConn, function (message) {
             if (message && message.payload) {
                 callback(message.payload);
             }
         });
 
-        let response = await thisBrokerClient.SendCmd(thisBrokerClient.wsConn, "DRP", "subscribe", { "topicName": streamName, "streamToken": streamToken }, true, null);
+        let response = await thisNodeClient.SendCmd(thisNodeClient.wsConn, "DRP", "subscribe", { "topicName": streamName, "streamToken": streamToken, "scope": scope }, true, null);
 
         if (response.status === 0) {
             this.DeleteCmdHandler(this.wsConn, streamToken);
@@ -2734,12 +1909,8 @@ function sleep(ms) {
 module.exports = {
     "Node": DRP_Node,
     "Service": DRP_Service,
-    "Registry": DRP_Registry,
-    "Provider": DRP_Provider,
-    "ProviderRoute": DRP_Provider_Route,
-    "Broker": DRP_Broker,
-    "BrokerRoute": DRP_Broker_Route,
     "Server": DRP_Server,
     "ServerRoute": DRP_Node_ServerRoute,
+    "NodeClient": DRP_Consumer_NodeClient,
     "Command": DRP_Command
 };
