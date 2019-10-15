@@ -499,14 +499,16 @@ class DRP_Node {
      * @param {express} expressApp Express server (optional)
      * @param {string} drpRoute DRP WS Route (optional)
      * @param {string} nodeURL Node WS URL (optional)
+     * @param {string} webProxyURL Web Proxy URL (optional)
      */
-    constructor(nodeRoles, expressApp, drpRoute, nodeURL) {
+    constructor(nodeRoles, expressApp, drpRoute, nodeURL, webProxyURL) {
         let thisNode = this;
         this.nodeID = `${os.hostname()}-${process.pid}-${getRandomInt(9999)}`;
         this.expressApp = expressApp || null;
         this.drpRoute = drpRoute || "/";
         this.nodeURL = nodeURL || null;
         this.nodeRoles = nodeRoles || [];
+        this.webProxyURL = webProxyURL || null;
         /** @type {{string:DRP_NodeDeclaration}} */
         this.NodeDeclarations = {};
         /** @type {{string:DRP_NodeClient}} */
@@ -1332,6 +1334,7 @@ class DRP_Node {
 
         let thisNode = this;
 
+        /** @type DRP_NodeDeclaration */
         let thisNodeDeclaration = thisNode.NodeDeclarations[remoteNodeID];
         if (!thisNodeDeclaration) return null;
 
@@ -1344,7 +1347,7 @@ class DRP_Node {
             // If we have a valid target URL, wait a few seconds for connection to initiate
             if (targetNodeURL) {
                 thisNode.log(`Connecting to Node [${remoteNodeID}] @ '${targetNodeURL}'`);
-                thisNodeEndpoint = new DRP_NodeClient(thisNode, targetNodeURL);
+                thisNodeEndpoint = new DRP_NodeClient(thisNode, targetNodeURL, thisNode.webProxyURL);
                 thisNode.NodeEndpoints[remoteNodeID] = thisNodeEndpoint;
 
                 for (let i = 0; i < 50; i++) {
@@ -1709,10 +1712,10 @@ class DRP_Node {
         }
     }
 
-    async ConnectToRegistry(registryURL, proxy) {
+    async ConnectToRegistry(registryURL) {
         let thisNode = this;
         // Initiate Registry Connection
-        let nodeClient = new DRP_NodeClient(thisNode, registryURL, async function (response) {
+        let nodeClient = new DRP_NodeClient(thisNode, registryURL, thisNode.webProxyURL, async function (response) {
             let getDeclarationResponse = await nodeClient.SendCmd(null, "DRP", "getNodeDeclaration", null, true, null);
             if (getDeclarationResponse && getDeclarationResponse.payload && getDeclarationResponse.payload.NodeID) {
                 thisNode.NodeEndpoints[getDeclarationResponse.payload.NodeID] = nodeClient;
@@ -2528,11 +2531,13 @@ class DRP_NodeClient extends drpEndpoint.Client {
     /**
     * @param {DRP_Node} drpNode Local Node
     * @param {string} wsTarget Remote Node WS target
+    * @param {string} proxy Web proxy
     * @param {function} openCallback Execute after connection is established
     */
-    constructor(drpNode, wsTarget, openCallback) {
-        super(wsTarget);
+    constructor(drpNode, wsTarget, proxy, openCallback) {
+        super(wsTarget, proxy);
         this.node = drpNode;
+        this.proxy = proxy;
         this.openCallback = openCallback;
         // Register Endpoint commands
         // (methods should return output and optionally accept [params, wsConn, token] for streaming)
