@@ -1911,6 +1911,6 @@ module.exports = {
     "Service": DRP_Service,
     "Server": DRP_Server,
     "ServerRoute": DRP_Node_ServerRoute,
-    "NodeClient": DRP_Consumer_NodeClient,
+    "ConsumerClient": DRP_Consumer_NodeClient,
     "Command": DRP_Command
 };

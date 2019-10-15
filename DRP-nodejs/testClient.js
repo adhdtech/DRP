@@ -10,7 +10,7 @@ var registryurl = process.env.REGISTRYURL || "ws://localhost:8080";
 
 console.log(`Starting Test Client, connecting to Node @ ${registryurl}`);
 
-let myClient = new drpService.NodeClient(registryurl, async function () {
+let myClient = new drpService.ConsumerClient(registryurl, async function () {
     // Connection established - let's do stuff
     let response = null;
 
