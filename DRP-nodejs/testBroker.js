@@ -7,8 +7,9 @@ var protocol = "ws";
 if (process.env.SSL_ENABLED) {
     protocol = "wss";
 }
-var port = process.env.PORT || 8080;
+var port = process.env.PORT || 8082;
 var hostname = process.env.HOSTNAME || os.hostname();
+var registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
 
 let drpWSRoute = "";
 
@@ -34,7 +35,8 @@ let myVDMServer = new vdmServer("VDM", myServer.expressApp, myServerConfig.WebRo
 console.log(`Starting DRP Node`);
 console.log(`DRP Endpoint: ${myServerConfig.NodeURL}`);
 
-let myNode = new drpService.Node(["Broker", "Registry"], myServer.expressApp, drpWSRoute, myServerConfig.NodeURL);
+let myNode = new drpService.Node(["Broker"], myServer.expressApp, drpWSRoute, myServerConfig.NodeURL);
 myNode.AddService("VDM", myVDMServer);
+myNode.EnableREST("/drpnode");
 
-//myBroker.ConnectToRegistry(registryURL);
+myNode.ConnectToRegistry(registryURL);

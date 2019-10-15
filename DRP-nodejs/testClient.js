@@ -6,11 +6,11 @@ var hostname = os.hostname();
 
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
-var registryurl = process.env.REGISTRYURL || "ws://localhost:8080";
+var registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
 
-console.log(`Starting Test Client, connecting to Node @ ${registryurl}`);
+console.log(`Starting Test Client, connecting to Node @ ${registryURL}`);
 
-let myClient = new drpService.ConsumerClient(registryurl, async function () {
+let myClient = new drpService.ConsumerClient(registryURL, async function () {
     // Connection established - let's do stuff
     let response = null;
 
