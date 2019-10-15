@@ -9,6 +9,7 @@ if (process.env.SSL_ENABLED) {
 }
 var port = process.env.PORT || 8080;
 var hostname = process.env.HOSTNAME || os.hostname();
+var registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
 
 let drpWSRoute = "";
 
