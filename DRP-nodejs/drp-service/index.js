@@ -462,6 +462,16 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
 }
 
 class DRP_NodeDeclaration {
+    /**
+     * 
+     * @param {string} nodeID Node ID
+     * @param {string[]} nodeRoles Functional Roles ['Registry','Broker','Provider']
+     * @param {string} nodeURL Listening URL (optional)
+     * @param {{string:object}} classes Class definitions and instance paths (optional)
+     * @param {object} structure Object structure (optional)
+     * @param {{string:object}} streams Provided Streams
+     * @param {{string:object}} services Provided services
+     */
     constructor(nodeID, nodeRoles, nodeURL, classes, structure, streams, services) {
         this.NodeID = nodeID;
         this.NodeRoles = nodeRoles;
@@ -518,7 +528,6 @@ class DRP_Node {
          * }
          */
         //};
-        this.RegistryClients = {};
         this.Services = {};
 
         this.NodeDeclaration = new DRP_NodeDeclaration(this.nodeID, this.nodeRoles, this.nodeURL);
@@ -1292,6 +1301,33 @@ class DRP_Node {
         return oReturnObject;
     }
 
+    GetRegistryNodeIDs() {
+        let thisNode = this;
+        let registryNodeIDList = [];
+        let nodeIDlist = Object.keys(thisNode.NodeDeclarations);
+        for (let i = 0; i < nodeIDlist.length; i++) {
+            let thisNodeID = nodeIDlist[i];
+            /** @type DRP_NodeDeclaration */
+            let thisNodeDeclaration = thisNode.NodeDeclarations[thisNodeID];
+            if (thisNodeDeclaration.NodeRoles.indexOf("Registry") >= 0) {
+                registryNodeIDList.push(thisNodeID);
+            }
+        }
+        return registryNodeIDList;
+    }
+
+    async SendToRegistries(cmd, params) {
+        let thisNode = this;
+        let registryNodeIDList = thisNode.GetRegistryNodeIDs();
+        for (let i = 0; i < registryNodeIDList.length; i++) {
+            /** @type DRP_NodeClient */
+            let thisRegistryNodeEndpoint = thisNode.NodeEndpoints[registryNodeIDList[i]];
+            if (thisRegistryNodeEndpoint) {
+                thisRegistryNodeEndpoint.SendCmd(null, "DRP", cmd, params, false, null);
+            }
+        }
+    }
+
     async VerifyNodeConnection(remoteNodeID) {
 
         let thisNode = this;
@@ -1332,10 +1368,12 @@ class DRP_Node {
             // Let's try having the Provider call us; send command through Registry
             try {
                 // Get registry connection, can have multiple registries.  Pick the first one.
-                let registryList = Object.keys(thisNode.RegistryClients);
-                if (registryList.length > 0) {
-                    let registryClient = thisNode.RegistryClients[registryList[0]];
-                    registryClient.SendCmd(registryClient.wsConn, "DRP", "connectToNode", { "targetNodeID": remoteNodeID, "sourceNodeID": thisNode.nodeID, "token": "123", "wsTarget": thisNode.nodeURL }, false, null);
+                let registryNodeIDList = thisNode.GetRegistryNodeIDs();
+                for (let i = 0; i < registryNodeIDList.length; i++) {
+                    /** @type DRP_NodeClient */
+                    let registryNodeEndpoint = thisNode.NodeEndpoints[registryNodeIDList[i]];
+                    registryNodeEndpoint.SendCmd(null, "DRP", "connectToNode", { "targetNodeID": remoteNodeID, "sourceNodeID": thisNode.nodeID, "token": "123", "wsTarget": thisNode.nodeURL }, false, null);
+                    break;
                 }
             } catch (err) {
                 this.log(`ERR!!!! [${err}]`);
@@ -1412,13 +1450,7 @@ class DRP_Node {
             }
         }
 
-        let registryList = Object.keys(thisNode.RegistryClients);
-        for (let i = 0; i < registryList.length; i++) {
-            let thisRegistryClient = thisNode.RegistryClients[registryList[i]];
-            if (thisRegistryClient.wsConn.readyState === 1) {
-                await thisRegistryClient.SendCmd(thisRegistryClient.wsConn, "DRP", "registerNode", thisNode.NodeDeclaration, true, null);
-            }
-        }
+        thisNode.SendToRegistries("registerNode", thisNode.NodeDeclaration);
     }
 
     async RemoveService(serviceName) {
@@ -1427,13 +1459,7 @@ class DRP_Node {
             delete this.NodeDeclaration.Services[serviceName];
         }
 
-        let registryList = Object.keys(thisNode.RegistryClients);
-        for (let i = 0; i < registryList.length; i++) {
-            let thisRegistryClient = thisNode.RegistryClients[registryList[i]];
-            if (thisRegistryClient.wsConn.readyState === 1) {
-                await thisRegistryClient.SendCmd(thisRegistryClient.wsConn, "DRP", "registerNode", thisNode.NodeDeclaration, true, null);
-            }
-        }
+        thisNode.SendToRegistries("registerNode", thisNode.NodeDeclaration);
     }
 
     AddStream(streamName, streamDescription) {
@@ -1686,12 +1712,13 @@ class DRP_Node {
     async ConnectToRegistry(registryURL, proxy) {
         let thisNode = this;
         // Initiate Registry Connection
-        //thisNode.RegistryClients[registryURL] = new DRP_Node_RegistryClient(thisNode, registryURL, proxy);
         let nodeClient = new DRP_NodeClient(thisNode, registryURL, async function (response) {
             let getDeclarationResponse = await nodeClient.SendCmd(null, "DRP", "getNodeDeclaration", null, true, null);
             if (getDeclarationResponse && getDeclarationResponse.payload && getDeclarationResponse.payload.NodeID) {
                 thisNode.NodeEndpoints[getDeclarationResponse.payload.NodeID] = nodeClient;
             }
+            let getDeclarationsResponse = await nodeClient.SendCmd(null, "DRP", "getDeclarations", null, true, null);
+            thisNode.NodeDeclarations = getDeclarationsResponse.payload;
         });
     }
 
