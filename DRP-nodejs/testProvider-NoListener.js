@@ -35,16 +35,18 @@ myNode.AddStream("dummy", "Some dummy data");
 
 setInterval(function () {
     let timeStamp = new Date().getTime();
-    myNode.TopicManager.SendToTopic("dummy", timeStamp + " Dummy message from Provider[" + myNode.nodeID + "]");
+    myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.nodeID}]`);
 }, 3000);
 
 // Add a test service
-myNode.AddService("Greeter2", {
+myNode.AddService("Greeter", {
     ClientCmds: {
-        sayHi: async function () { return { pathItem: "Hello!" }; },
-        sayBye: async function () { return { pathItem: "Goodbye..." }; },
+        sayHi: async function () { return { pathItem: `Hello from ${myNode.nodeID}` }; },
+        sayBye: async function () { return { pathItem: `Goodbye from ${myNode.nodeID}` }; },
         showParams: async function (params) { return { pathItem: params }; }
     }
 });
 
-myNode.ConnectToRegistry(registryurl);
+myNode.ConnectToRegistry(registryurl, async () => {
+    myNode.log("Connected to Registry");
+});

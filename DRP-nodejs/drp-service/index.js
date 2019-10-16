@@ -1145,6 +1145,11 @@ class DRP_Node {
         }
     }
 
+    /**
+     * 
+     * @param {string} remoteNodeID NodeID to connect to
+     * @returns {DRP_NodeClient} DRP Node Client
+     */
     async VerifyNodeConnection(remoteNodeID) {
 
         let thisNode = this;
@@ -1272,6 +1277,23 @@ class DRP_Node {
         }
     }
 
+    FindBroker() {
+        let thisNode = this;
+        let thisRegistry = thisNode.NodeDeclarations;
+        let nodeIDList = Object.keys(thisRegistry);
+        for (let i = 0; i < nodeIDList.length; i++) {
+            let nodeID = nodeIDList[i];
+            /** @type DRP_NodeDeclaration */
+            let thisNodeDeclaration = thisRegistry[nodeID];
+            // Is this Node a Broker?
+            if (thisNodeDeclaration.NodeURL && thisNodeDeclaration.NodeRoles.indexOf("Broker") >= 0) {
+                return nodeID;
+            }
+        }
+        // We should only reach this point when this is a Provider not yet connected to the mesh
+        return null;
+    }
+
     /**
      * @param {DRP_Command} cmdObj Command object
      * @param {object} wsConn Websocket connection object
@@ -1333,13 +1355,14 @@ class DRP_Node {
             return results;
         } else {
 
-            let targetProviderName = null;
+            let targetNodeID = null;
 
             // Are we specifying which provider to run this through?
+            // TODO - This is not yet implemented!  Need to add targetProvider to the DRP_Command object
             if (cmdObj.targetProvider) {
-                targetProviderName = cmdObj.targetProvider;
-                if (!this.NodeDeclarations[targetProviderName]) {
-                    this.log(`${baseMsg} provider ${targetProviderName} does not exist`);
+                targetNodeID = cmdObj.targetProvider;
+                if (!this.NodeDeclarations[targetNodeID]) {
+                    this.log(`${baseMsg} node ${targetNodeID} does not exist`);
                     return null;
                 }
             } else {
@@ -1353,12 +1376,12 @@ class DRP_Node {
                     if (this.NodeDeclarations[thisProviderName].Services && this.NodeDeclarations[thisProviderName].Services[cmdObj.serviceName]) {
 
                         // Yes - pick this one
-                        targetProviderName = thisProviderName;
+                        targetNodeID = thisProviderName;
                     }
                 }
 
                 // Did we find a provider with this service?
-                if (!targetProviderName) {
+                if (!targetNodeID) {
                     // No suitable provider found
                     this.log(`${baseMsg} service ${cmdObj.serviceName} does not exist`);
                     console.dir(cmdObj);
@@ -1367,21 +1390,39 @@ class DRP_Node {
             }
 
             // Does this provider offer the service we need?
-            if (this.NodeDeclarations[targetProviderName].Services && this.NodeDeclarations[targetProviderName].Services[cmdObj.serviceName]) {
-                let checkService = this.NodeDeclarations[targetProviderName].Services[cmdObj.serviceName];
+            if (this.NodeDeclarations[targetNodeID].Services && this.NodeDeclarations[targetNodeID].Services[cmdObj.serviceName]) {
+                let checkService = this.NodeDeclarations[targetNodeID].Services[cmdObj.serviceName];
 
                 // Does the service offer the command we want to execute?
                 if (checkService["ClientCmds"].includes(cmdObj.cmd)) {
-                    // Let's execute it
-                    let thisNodeClient = await this.VerifyNodeConnection(targetProviderName);
 
-                    // Await for command from provider
-                    let returnObj = null;
-                    let results = await thisNodeClient.SendCmd(thisNodeClient.wsConn, cmdObj.serviceName, cmdObj.cmd, cmdObj.params, true, null);
-                    if (results && results.payload && results.payload) {
-                        returnObj = results.payload;
+                    // Finally, make sure that we can talk to the Provider.  One of the following must be true...
+                    // * This node is listening (broker/registry)
+                    // * The target node is listening
+
+                    /** @type DRP_NodeClient */
+                    let thisNodeClient = null;
+
+                    if (thisNode.IsBroker() || thisNode.IsRegistry() || this.NodeDeclarations[targetNodeID].NodeURL) {
+                        // Verify connection to target node
+                        thisNodeClient = await this.VerifyNodeConnection(targetNodeID);
+                    } else {
+                        // Verify connection to Broker node
+                        let brokerNodeID = thisNode.FindBroker();
+                        if (brokerNodeID) {
+                            thisNodeClient = await this.VerifyNodeConnection(brokerNodeID);
+                        }
                     }
-                    return returnObj;
+
+                    if (thisNodeClient) {
+                        // Await for command from remote node
+                        let returnObj = null;
+                        let results = await thisNodeClient.SendCmd(thisNodeClient.wsConn, cmdObj.serviceName, cmdObj.cmd, cmdObj.params, true, null);
+                        if (results && results.payload && results.payload) {
+                            returnObj = results.payload;
+                        }
+                        return returnObj;
+                    } else return null;
                 } else {
                     this.log(`${baseMsg} service ${cmdObj.serviceName} does not have method ${cmdObj.cmd}`);
                     return null;
@@ -1526,7 +1567,7 @@ class DRP_Node {
         }
     }
 
-    async ConnectToRegistry(registryURL) {
+    async ConnectToRegistry(registryURL, openCallback) {
         let thisNode = this;
         // Initiate Registry Connection
         let nodeClient = new DRP_NodeClient(thisNode, registryURL, thisNode.webProxyURL, async function (response) {
@@ -1536,6 +1577,9 @@ class DRP_Node {
             }
             let getDeclarationsResponse = await nodeClient.SendCmd(null, "DRP", "getDeclarations", null, true, null);
             thisNode.NodeDeclarations = getDeclarationsResponse.payload;
+            if (openCallback && typeof openCallback === 'function') {
+                openCallback(response);
+            }
         });
     }
 

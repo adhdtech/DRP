@@ -38,20 +38,3 @@ console.log(`DRP Endpoint: ${myServerConfig.NodeURL}`);
 let myNode = new drpService.Node(["Broker", "Registry"], myServer.expressApp, drpWSRoute, myServerConfig.NodeURL);
 myNode.AddService("VDM", myVDMServer);
 myNode.EnableREST("/drpnode");
-
-// Declare dummy stream
-myNode.AddStream("dummy", "Some dummy data");
-
-setInterval(function () {
-    let timeStamp = new Date().getTime();
-    myNode.TopicManager.SendToTopic("dummy", timeStamp + " Dummy message from Provider[" + myNode.nodeID + "]");
-}, 3000);
-
-// Add a test service
-myNode.AddService("Greeter", {
-    ClientCmds: {
-        sayHi: async function () { return { pathItem: "Hello!" }; },
-        sayBye: async function () { return { pathItem: "Goodbye..." }; },
-        showParams: async function (params) { return { pathItem: params }; }
-    }
-});
