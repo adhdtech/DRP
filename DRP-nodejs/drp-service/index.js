@@ -290,6 +290,10 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
         this.RegisterCmd("listClassInstanceDefinitions", async function (...args) {
             return await thisServer.node.ListClassInstanceDefinitions(...args);
         });
+
+        this.RegisterCmd("sendToTopic", function (params, wsConn, token) {
+            thisServer.node.TopicManager.SendToTopic(params.topicName, params.topicData);
+        });
     }
 
     async Hello(params, wsConn, token) {
@@ -1456,6 +1460,9 @@ class DRP_Node {
             if (declaration.NodeID) {
                 wsConn.NodeID = declaration.NodeID;
                 thisNode.NodeEndpoints[declaration.NodeID] = new drpEndpoint.Endpoint(wsConn);
+                declaration.address = wsConn._socket._peername.address;
+                declaration.family = wsConn._socket._peername.family;
+                declaration.port = wsConn._socket._peername.port;
                 //delete thisNode.ConsumerEndpoints[wsConn.id];
                 thisNode.RegisterNode(declaration);
             }

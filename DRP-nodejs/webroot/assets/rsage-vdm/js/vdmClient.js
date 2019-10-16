@@ -609,7 +609,7 @@ class VDMServerAgent extends DRP_Client {
         let thisVDMServerAgent = this;
         console.log("VDM Client to server [" + thisVDMServerAgent.wsTarget + "] opened");
 
-        let reponse = await thisVDMServerAgent.SendCmd(thisVDMServerAgent.wsConn, "DRP", "hello", {
+        let response = await thisVDMServerAgent.SendCmd(thisVDMServerAgent.wsConn, "DRP", "hello", {
             platform: this.platform,
             userAgent: this.userAgent,
             URL: this.URL
