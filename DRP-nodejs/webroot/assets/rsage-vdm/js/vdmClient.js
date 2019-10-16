@@ -609,6 +609,12 @@ class VDMServerAgent extends DRP_Client {
         let thisVDMServerAgent = this;
         console.log("VDM Client to server [" + thisVDMServerAgent.wsTarget + "] opened");
 
+        let reponse = await thisVDMServerAgent.SendCmd(thisVDMServerAgent.wsConn, "DRP", "hello", {
+            platform: this.platform,
+            userAgent: this.userAgent,
+            URL: this.URL
+        }, true, null);
+
         //let response = await thisVDMServerAgent.SendCmd(thisVDMServerAgent.wsConn, "VDM", "userLoginRequest", { "sessionID": thisVDMServerAgent.sessionID }, true, null);
 
         //thisVDMServerAgent.vdmClient.processLoginStatus(response.payload, thisVDMServerAgent.reconnect);

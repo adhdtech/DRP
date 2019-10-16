@@ -39,6 +39,6 @@ let myNode = new drpService.Node(["Broker"], myServer.expressApp, drpWSRoute, my
 myNode.AddService("VDM", myVDMServer);
 myNode.EnableREST("/drpnode");
 
-myNode.ConnectToRegistry(registryurl, async () => {
+myNode.ConnectToRegistry(registryURL, async () => {
     myNode.log("Connected to Registry");
 });
