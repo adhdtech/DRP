@@ -16,6 +16,12 @@ function getRandomInt(max) {
     return Math.floor(Math.random() * Math.floor(max));
 }
 
+function sleep(ms) {
+    return new Promise(resolve => {
+        setTimeout(resolve, ms);
+    });
+}
+
 class DRP_PathCmd {
     /**
      * @param {string} method Method to execute
@@ -240,10 +246,7 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
                 // Process command
                 thisServer.ReceiveMessage(wsConn, message);
             });
-            //wsConn.onclose = function (ev) { console.dir(ev, {depth:2}) };
             wsConn.on("close", function (closeCode, reason) {
-                //console.log("CLOSED -> " + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort);
-                //thisServer.CloseHandler(wsConn, closeCode, remoteAddress, remotePort)
                 thisServer.CloseHandler(wsConn, closeCode);
             });
 
@@ -255,7 +258,6 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
         this.RegisterCmd("registerNode", "RegisterNode");
         this.RegisterCmd("getDeclarations", "GetDeclarations");
         this.RegisterCmd("getNodeDeclaration", "GetNodeDeclaration");
-        //this.RegisterCmd("nodeToNodeCmd", "NodeToNodeCmd");
         this.RegisterCmd("subscribe", "Subscribe");
         this.RegisterCmd("unsubscribe", "Unsubscribe");
         this.RegisterCmd("pathCmd", async function (params, wsConn, token) {
@@ -331,7 +333,6 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
                 cmdResults.output = "Endpoint does not have method";
                 thisEndpoint.node.log("Remote endpoint tried to execute invalid method '" + message.cmd + "'...");
                 console.dir(message);
-                //console.dir(thisEndpoint.EndpointCmds);
             }
         }
         // A service other than DRP has been specified
@@ -355,17 +356,14 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
      */
 
     async OpenHandler(wsConn, req) {
-        //console.log("Node client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
-        //this.service.ConsumerConnections
         if (!this.node.ConsumerConnectionID) this.node.ConsumerConnectionID = 1;
-        //wsConn.id = `${wsConn._socket.remoteAddress}-${wsConn._socket.remotePort}`;
+        // Assign ID using simple counter for now
         wsConn.id = this.node.ConsumerConnectionID;
         this.node.ConsumerConnectionID++;
         this.node.ConsumerConnections[wsConn.id] = wsConn;
     }
 
     async CloseHandler(wsConn, closeCode) {
-        //this.service.log("Node client [" + wsConn.id + "] closed with code [" + closeCode + "]");
         if (wsConn.NodeID) {
             this.node.UnregisterNode(wsConn.NodeID);
         }
@@ -381,8 +379,6 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
         let thisRouteServer = this;
         let results = {};
         // Register the declaration for future reference
-        //console.log("Stream handler reply token: " + token);
-        //console.dir(params);
         let subscriberStreamToken = params.streamToken;
         if (!wsConn.Subscriptions) wsConn.Subscriptions = {};
         wsConn.Subscriptions[subscriberStreamToken] = params.topicName;
@@ -547,16 +543,13 @@ class DRP_Node {
         if (thisNode.IsRegistry()) {
             this.AddStream("RegistryUpdate", "Registry updates");
             this.RegisterNode(this.NodeDeclaration);
-            //this.NodeDeclarations[this.NodeDeclaration.NodeID] = this.NodeDeclaration;
         }
 
         // Add a route handler even if we don't have an Express server (needed for stream relays)
         this.RouteHandler = new DRP_Node_ServerRoute(this, this.drpRoute);
     }
     log(message) {
-        //let paddedType = this.nodeRoles.padEnd(8, ' ');
         let paddedNodeID = this.nodeID.padEnd(14, ' ');
-        //console.log(`${this.getTimestamp()} ${paddedType} [${paddedNodeID}] -> ${message}`);
         console.log(`${this.getTimestamp()} [${paddedNodeID}] -> ${message}`);
     }
     getTimestamp() {
@@ -584,7 +577,6 @@ class DRP_Node {
 
         if (!thisNode.expressApp) return 1;
 
-        //this.routerStack = this.expressApp._router.stack;
         let nodeRestHandler = async function (req, res, next) {
             // Get Auth Key
             let authKey = null;
@@ -642,7 +634,6 @@ class DRP_Node {
                 }
             }
         }
-        //console.dir(results);
         return results;
     }
     ListClassInstanceDefinitions() {
@@ -826,8 +817,6 @@ class DRP_Node {
                 let oReturnObject = {};
                 if (remainingChildPath && remainingChildPath.length > 0) {
 
-                    //console.log(" -> Have remaining child path...");
-
                     let streamInstanceID = remainingChildPath.shift();
 
                     params.pathList = remainingChildPath;
@@ -835,7 +824,6 @@ class DRP_Node {
                     let providerNames = Object.keys(thisNode.NodeDeclarations);
                     for (let i = 0; i < providerNames.length; i++) {
                         let providerName = providerNames[i];
-                        //console.log("Looping over providerName: " + providerName);
                         let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
                         // Loop over Streams
                         if (!thisNodeDeclaration.Streams) continue;
@@ -849,7 +837,6 @@ class DRP_Node {
                                 }
                                 oReturnObject["Providers"].push(providerName);
                             }
-                            //console.log("added sourceID: " + streamInstanceID);
                         }
                     }
 
@@ -863,31 +850,24 @@ class DRP_Node {
 
                 } else {
                     // Return list of Streams
-                    //console.log(" -> No remaining child path...");
                     let providerNames = Object.keys(thisNode.NodeDeclarations);
-                    //console.log(` -> Checking keys[${providerNames.length}]...`);
                     for (let i = 0; i < providerNames.length; i++) {
                         let providerName = providerNames[i];
-                        //console.log("Looping over providerName: " + providerName);
                         let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
                         // Loop over Streams
                         if (!thisNodeDeclaration.Streams) continue;
                         let streamInstanceList = Object.keys(thisNodeDeclaration.Streams);
                         for (let j = 0; j < streamInstanceList.length; j++) {
                             let streamInstanceID = streamInstanceList[j];
-                            //console.log("Looping over sourceID: " + streamInstanceID);
-                            //let streamInstanceObj = thisNodeDeclaration.Streams[streamInstanceID];
                             if (!oReturnObject[streamInstanceID]) oReturnObject[streamInstanceID] = {
                                 "StreamName": streamInstanceID,
                                 "Providers": []
                             };
 
                             oReturnObject[streamInstanceID].Providers.push(providerName);
-                            //console.log("added sourceID: " + streamInstanceID);
                         }
                     }
                 }
-                //console.dir(oReturnObject);
                 return oReturnObject;
             },
             Consumers: async function (params) {
@@ -936,21 +916,15 @@ class DRP_Node {
 
                 if (!serviceInstanceID) {
                     // List Services
-
-                    //console.log(" -> No remaining child path...");
                     let providerNames = Object.keys(thisNode.NodeDeclarations);
-                    //console.log(` -> Checking keys[${providerNames.length}]...`);
                     for (let i = 0; i < providerNames.length; i++) {
                         let providerName = providerNames[i];
-                        //console.log("Looping over providerName: " + providerName);
                         let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
                         // Loop over Services
                         if (!thisNodeDeclaration.Services) continue;
                         let serviceInstanceList = Object.keys(thisNodeDeclaration.Services);
                         for (let j = 0; j < serviceInstanceList.length; j++) {
                             let serviceInstanceID = serviceInstanceList[j];
-                            //console.log("Looping over sourceID: " + serviceInstanceID);
-                            //let serviceInstanceObj = thisNodeDeclaration.Services[serviceInstanceID];
                             if (!oReturnObject[serviceInstanceID]) oReturnObject[serviceInstanceID] = {
                                 "ServiceName": serviceInstanceID,
                                 "ProviderList": [],
@@ -958,7 +932,6 @@ class DRP_Node {
                             };
 
                             oReturnObject[serviceInstanceID].ProviderList.push(providerName);
-                            //console.log("added sourceID: " + serviceInstanceID);
                         }
                     }
                 } else {
@@ -1038,13 +1011,11 @@ class DRP_Node {
                                     oReturnObject = cmdResponse.payload;
                                 }
                             }
-                            //oReturnObject = await thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
                         } else {
                             thisNode.log("UNKNOWN");
                         }
                     }
                 }
-                //console.dir(oReturnObject);
                 return oReturnObject;
             }
         };
@@ -1166,6 +1137,10 @@ class DRP_Node {
     }
 
     GetBrokerNode() {
+        let thisNode = this;
+        // Check 1: Is this a broker?  If so, run locally
+        // Check 2: Do we have any existing NodeEndpoints that are Brokers?  If so, run remote
+        // Check 3: Can we connect to a Broker in the registry?  If so, connect and run remote
         return null;
     }
 
@@ -1284,8 +1259,7 @@ class DRP_Node {
 
         let thisConsumerWS = null;
 
-        // Establish a wsConn client if not already established
-        //if (thisConsumerWS && thisConsumerWS.readyState === 1 && thisConsumerWS.clientObj) thisConsumerObj = thisConsumerWS.clientObj;
+        // Make sure the consumer session is active
         if (thisNode.ConsumerConnections[consumerID] && thisNode.ConsumerConnections[consumerID].readyState === 1) thisConsumerWS = thisNode.ConsumerConnections[consumerID];
 
         return thisConsumerWS;
@@ -1293,16 +1267,6 @@ class DRP_Node {
 
     async sendBrokerRequest(method, params) {
         let thisNode = this;
-        // NEED TO UPDATE - if there is no proxyBrokerURL, interrogate the registry to find a broker
-        /*
-        if (!thisNode.brokerClient) {
-            await new Promise(resolve => {
-                thisNode.brokerClient = new DRP_Consumer_BrokerClient(thisNode.proxyBrokerURL, resolve);
-            });
-        }
-        */
-
-        // Add logic to find a Broker and send a command through it
         let brokerNode = thisNode.GetBrokerNode();
         if (brokerNode) {
             let response = await brokerNode.SendCmd(null, "DRP", method, params, true);
@@ -1317,7 +1281,6 @@ class DRP_Node {
         if (serviceName && serviceObject && serviceObject.ClientCmds) {
             thisNode.Services[serviceName] = serviceObject;
             if (thisNode.NodeDeclaration) {
-                //this.NodeDeclaration.Services[serviceName] = Object.keys(serviceObject.ClientCmds);
                 thisNode.NodeDeclaration.Services[serviceName] = {
                     "ClientCmds": Object.keys(serviceObject.ClientCmds),
                     "Persistence": serviceObject.Persistence || false,
@@ -1479,13 +1442,13 @@ class DRP_Node {
         let isDeclarationValid = typeof declaration !== "undefined" && typeof declaration.NodeID !== "undefined" && declaration.NodeID !== null && declaration.NodeID !== "";
         if (!isDeclarationValid) return "INVALID DECLARATION";
 
-        // Add node to NodeEndpoints
         thisNode.log(`Client sent Hello [${declaration.NodeID}]`);
 
+        // If this is a peer node, move from ConsumerConnections to NodeEndpoints
         if (declaration.NodeID) {
             wsConn.NodeID = declaration.NodeID;
             thisNode.NodeEndpoints[declaration.NodeID] = new drpEndpoint.Endpoint(wsConn);
-            // Remove from thisNode.ConsumerConnections
+            delete thisNode.ConsumerConnections[wsConn.id];
             thisNode.RegisterNode(declaration);
         }
 
@@ -1515,7 +1478,6 @@ class DRP_Node {
 
         // If this is a registry node, tag the connection and relay to other nodes
         if (thisNode.IsRegistry()) {
-            // Add to declarations - TODO: CHANGE THIS TO ANOTHER NAME OR IMPLEMENT SEPARATE HELLO
             thisNode.RelayNodeChange("registerNode", declaration);
         }
 
@@ -1553,30 +1515,23 @@ class DRP_Node {
 
                             // Subscribe on behalf of the Consumer
                             let providerStreamToken = thisNode.RouteHandler.AddStreamHandler(thisNodeClient.wsConn, async function (response) {
-                                //console.log(`... stream data ... streamToken[${subscriberStreamToken}]`);
-                                //console.dir(response);
                                 let sendFailed = false;
                                 if (!consumerWSConn.Subscriptions[subscriberStreamToken]) {
                                     sendFailed = true;
                                 } else {
                                     sendFailed = thisNode.RouteHandler.SendStream(consumerWSConn, subscriberStreamToken, 2, response.payload);
-                                    //console.log(`Stream to consumer token[${subscriberStreamToken}]`);
                                 }
                                 if (sendFailed) {
                                     // Client disconnected
                                     if (thisNodeClient.wsConn.StreamHandlerQueue[response.token]) {
                                         thisNodeClient.DeleteStreamHandler(thisNodeClient.wsConn, response.token);
-                                        //console.log("Stream handler removed forcefully");
                                     }
                                     let unsubResults = await thisNodeClient.SendCmd(thisNodeClient.wsConn, "DRP", "unsubscribe", { "topicName": subscribedTopicName, "streamToken": response.token }, true, null);
-                                    //console.log("Unsubscribe from orphaned stream");
-                                    //console.dir(unsubResults);
                                 }
                             });
 
                             // Await for command from provider
                             let subResults = await thisNodeClient.SendCmd(thisNodeClient.wsConn, "DRP", "subscribe", { "topicName": subscribedTopicName, "streamToken": providerStreamToken }, true, null);
-                            let bob = 1;
                         }
                     }
                 }
@@ -1604,7 +1559,6 @@ class DRP_Node {
         let nodeIDList = Object.keys(thisNode.NodeEndpoints);
         for (let i = 0; i < nodeIDList.length; i++) {
             thisNode.NodeEndpoints[nodeIDList[i]].SendCmd(null, "DRP", cmd, params, false, null);
-            //thisNode.RouteHandler.SendCmd(thisNode.NodeEndpoints[nodeIDList[i]], "DRP", cmd, params, false, null);
             thisNode.log(`Relayed to node: [${nodeIDList[i]}]`);
         }
     }
@@ -1648,7 +1602,6 @@ class DRP_Node {
             let objKeys = Object.keys(oTargetObject);
             for (let i = 0; i < objKeys.length; i++) {
                 let returnVal;
-                //let attrType = typeof currentPathObj[objKeys[i]];
                 let childAttrObj = oTargetObject[objKeys[i]];
                 let attrType = Object.prototype.toString.call(childAttrObj).match(/^\[object (.*)\]$/)[1];
 
@@ -1674,59 +1627,6 @@ class DRP_Node {
         }
         return pathObjList;
     }
-    /*
-    async NodeToNodeCmd(params, wsConn, token) {
-        let thisNode = this;
-        // Find Provider connection, relay this packet
-        if (params.targetNodeID === thisNode.nodeID) {
-            // This message is meant for thisNode
-            let thisRegistryClient = this;
-            // We've received a message from a Broker through the Registry; should be a connection request
-            thisNode.log("We've received a Node to Node message through the Registry...");
-            //console.dir(params);
-
-            thisNode.log(`Connecting to broker [${params.sourceNodeID}] @ '${params.wsTarget}'`);
-
-            // Replace the following with a shortcut? (Add .ConnectToNode to this class)
-
-            let wsConnBroker = null;
-            if (thisRegistryClient.proxy) {
-                let opts = url.parse(thisRegistryClient.proxy);
-                let agent = new HttpsProxyAgent(opts);
-                wsConnBroker = new WebSocket(params.wsTarget, "drp", { agent: agent });
-            } else {
-                wsConnBroker = new WebSocket(params.wsTarget, "drp");
-            }
-            wsConnBroker.on('open', function () {
-                thisNode.log("Connected to broker...");
-                thisNode.RouteHandler.OpenHandler(wsConnBroker);
-                thisNode.RouteHandler.SendCmd(wsConnBroker, "DRP", "nodeConnection", { token: params.token, nodeID: thisNode.NodeDeclaration.NodeID });
-            });
-
-            wsConnBroker.on("message", function (message) {
-                // Process command
-                thisNode.RouteHandler.ReceiveMessage(wsConnBroker, message);
-            });
-
-            wsConnBroker.on("close", function (closeCode) {
-                thisNode.log(`Closed conn to broker: [${closeCode}]`);
-                thisNode.CloseHandler(wsConnBroker, closeCode);
-            });
-
-            wsConnBroker.on("error", function (error) {
-                thisRegistryClient.node.log(`Errored conn to broker: [${error}]`);
-                thisRegistryClient.node.RouteHandler.ErrorHandler(wsConnBroker, error);
-            });
-
-            thisNode.NodeConnections[params.sourceNodeID] = wsConnBroker;
-        } else {
-            thisNode.log(`Relaying to Node [${params.targetNodeID}]...`);
-            //console.dir(params);
-            thisNode.RouteHandler.SendCmd(thisNode.NodeConnections[params.targetNodeID], "DRP", "nodeToNodeCmd", params, false, null);
-        }
-        return null;
-    }
-    */
 
     IsRegistry() {
         let thisNode = this;
@@ -1761,7 +1661,6 @@ class DRP_NodeClient extends drpEndpoint.Client {
         this.openCallback = openCallback;
         // Register Endpoint commands
         // (methods should return output and optionally accept [params, wsConn, token] for streaming)
-        //this.RegisterCmd("getDeclarations", "GetDeclarations");
 
         this.RegisterCmd("subscribe", "Subscribe");
         this.RegisterCmd("unsubscribe", "Unsubscribe");
@@ -1778,19 +1677,13 @@ class DRP_NodeClient extends drpEndpoint.Client {
     // Define Handlers
     async OpenHandler(wsConn, req) {
         this.node.log("Node client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
-
-        //let response = await this.SendCmd(this.wsConn, "DRP", "getCmds", null, true, null);
-        //console.dir(response, { "depth": 10 });
-
         let response = await this.SendCmd(this.wsConn, "DRP", "hello", this.node.NodeDeclaration, true, null);
         if (this.openCallback && typeof this.openCallback === 'function') {
             this.openCallback(response);
         }
-
     }
 
     async CloseHandler(wsConn, closeCode) {
-        //console.log("Node client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
         let remoteAddress = null;
         let remotePort = null;
         if (wsConn._socket) {
@@ -1810,20 +1703,11 @@ class DRP_NodeClient extends drpEndpoint.Client {
         let thisRouteServer = this;
         let results = {};
         // Register the declaration for future reference
-        //console.log("Stream handler reply token: " + token);
-        //console.dir(params);
         let subscriberStreamToken = params.streamToken;
         if (!wsConn.Subscriptions) wsConn.Subscriptions = {};
         wsConn.Subscriptions[subscriberStreamToken] = params.topicName;
 
         let subScope = params.scope || "local";
-
-        // TO DO: We need to determine if this request came from a Consumer or a Node
-        //
-        // If it came from a node, we need to subscribe to the topic and reply back
-        // results[sourceNodeID] = thisRouteServer.node.TopicManager.SubscribeToTopic(params.topicName, wsConn, params.streamToken, params.filter);
-        //
-        // If it came from a consumer, we need to find all instances and subscribe to them on behalf of the consumer
 
         switch (subScope) {
             case "local":
@@ -1834,7 +1718,6 @@ class DRP_NodeClient extends drpEndpoint.Client {
                 let sourceNodeIDList = Object.keys(thisRouteServer.node.NodeDeclarations);
                 for (let i = 0; i < sourceNodeIDList.length; i++) {
                     let sourceNodeID = sourceNodeIDList[i];
-                    //console.log(`Checking for stream [${params.topicName}] for client on node [${sourceNodeID}]`);
                     let thisNodeDeclaration = thisRouteServer.node.NodeDeclarations[sourceNodeID];
                     if (thisNodeDeclaration.Streams && thisNodeDeclaration.Streams[params.topicName]) {
                         // This source node offers the desired stream
@@ -1850,10 +1733,7 @@ class DRP_NodeClient extends drpEndpoint.Client {
                             let thisNodeEndpoint = await thisRouteServer.node.VerifyNodeConnection(sourceNodeID);
 
                             // Subscribe on behalf of the Consumer
-                            //console.log(`Subscribing to stream [${params.topicName}] for client from node [${sourceNodeID}] using streamToken [${subscriberStreamToken}]`);
                             let sourceStreamToken = thisRouteServer.AddStreamHandler(thisNodeEndpoint.wsConn, async function (response) {
-                                //console.log(`... stream data ... streamToken[${subscriberStreamToken}]`);
-                                //console.dir(response);
                                 let sendFailed = false;
                                 if (!wsConn.Subscriptions[subscriberStreamToken]) {
                                     sendFailed = true;
@@ -1861,17 +1741,13 @@ class DRP_NodeClient extends drpEndpoint.Client {
                                     sendFailed = customRelayHandler(wsConn, subscriberStreamToken, 2, response.payload);
                                 } else {
                                     sendFailed = thisRouteServer.SendStream(wsConn, subscriberStreamToken, 2, response.payload);
-                                    //console.log(`Stream to consumer token[${subscriberStreamToken}]`);
                                 }
                                 if (sendFailed) {
                                     // Client disconnected
                                     if (thisNodeEndpoint.wsConn.StreamHandlerQueue[response.token]) {
                                         thisNodeEndpoint.DeleteStreamHandler(thisNodeEndpoint.wsConn, response.token);
-                                        //console.log("Stream handler removed forcefully");
                                     }
                                     let unsubResults = await thisNodeEndpoint.SendCmd(thisNodeEndpoint.wsConn, "DRP", "unsubscribe", { "topicName": params.topicName, "streamToken": response.token }, true, null);
-                                    //console.log("Unsubscribe from orphaned stream");
-                                    //console.dir(unsubResults);
                                 }
                             });
 
@@ -1891,7 +1767,6 @@ class DRP_NodeClient extends drpEndpoint.Client {
     async Unsubscribe(params, wsConn, token) {
         let thisRouteServer = this;
         let subscriberStreamToken = params.streamToken;
-        //console.dir(wsConn.OutboundStreams);
         if (wsConn.Subscriptions && wsConn.Subscriptions[subscriberStreamToken]) {
             delete wsConn.Subscriptions[subscriberStreamToken];
 
@@ -1932,7 +1807,6 @@ class DRP_NodeClient extends drpEndpoint.Client {
                 cmdResults.output = "Endpoint does not have method";
                 thisEndpoint.node.log("Remote endpoint tried to execute invalid method '" + message.cmd + "'...");
                 console.dir(message);
-                //console.dir(thisEndpoint.EndpointCmds);
             }
         }
         // A service other than DRP has been specified
@@ -1990,12 +1864,6 @@ class DRP_Consumer_NodeClient extends drpEndpoint.Client {
             console.log("Subscribe succeeded");
         }
     }
-}
-
-function sleep(ms) {
-    return new Promise(resolve => {
-        setTimeout(resolve, ms);
-    });
 }
 
 module.exports = {
