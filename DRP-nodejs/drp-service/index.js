@@ -365,14 +365,17 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
         // Assign ID using simple counter for now
         wsConn.id = this.node.ConsumerConnectionID;
         this.node.ConsumerConnectionID++;
-        this.node.ConsumerEndpoints[wsConn.id] = wsConn;
+        //this.node.ConsumerEndpoints[wsConn.id] = wsConn;
     }
 
     async CloseHandler(wsConn, closeCode) {
         if (wsConn.NodeID) {
             this.node.UnregisterNode(wsConn.NodeID);
         }
-        if (wsConn.id) delete this.node.ConsumerEndpoints[wsConn.id];
+        if (wsConn.id) {
+            delete this.node.ConsumerEndpoints[wsConn.id];
+            delete this.node.ConsumerDeclarations[wsConn.id];
+        }
     }
 
     async ErrorHandler(wsConn, error) {
@@ -521,6 +524,7 @@ class DRP_Node {
         /** @type {{string:DRP_NodeClient}} */
         this.NodeEndpoints = {};
         this.ConsumerEndpoints = {};
+        this.ConsumerDeclarations = {};
         //this.ServiceCommandTracking = {
         /*
          * ServiceName: {
@@ -1239,7 +1243,7 @@ class DRP_Node {
         let thisConsumerWS = null;
 
         // Make sure the consumer session is active
-        if (thisNode.ConsumerEndpoints[consumerID] && thisNode.ConsumerEndpoints[consumerID].readyState === 1) thisConsumerWS = thisNode.ConsumerEndpoints[consumerID];
+        if (thisNode.ConsumerEndpoints[consumerID] && thisNode.ConsumerEndpoints[consumerID].wsConn.readyState === 1) thisConsumerWS = thisNode.ConsumerEndpoints[consumerID].wsConn;
 
         return thisConsumerWS;
     }
@@ -1444,17 +1448,26 @@ class DRP_Node {
         let results = null;
 
         let isDeclarationValid = typeof declaration !== "undefined" && typeof declaration.NodeID !== "undefined" && declaration.NodeID !== null && declaration.NodeID !== "";
-        if (!isDeclarationValid) return "INVALID DECLARATION";
+        if (isDeclarationValid) {
+            // This is a node declaration
+            thisNode.log(`Client sent Hello [${declaration.NodeID}]`);
 
-        thisNode.log(`Client sent Hello [${declaration.NodeID}]`);
-
-        // If this is a peer node, move from ConsumerEndpoints to NodeEndpoints
-        if (declaration.NodeID) {
-            wsConn.NodeID = declaration.NodeID;
-            thisNode.NodeEndpoints[declaration.NodeID] = new drpEndpoint.Endpoint(wsConn);
-            delete thisNode.ConsumerEndpoints[wsConn.id];
-            thisNode.RegisterNode(declaration);
+            // If this is a peer node, move from ConsumerEndpoints to NodeEndpoints
+            if (declaration.NodeID) {
+                wsConn.NodeID = declaration.NodeID;
+                thisNode.NodeEndpoints[declaration.NodeID] = new drpEndpoint.Endpoint(wsConn);
+                //delete thisNode.ConsumerEndpoints[wsConn.id];
+                thisNode.RegisterNode(declaration);
+            }
+        } else if (declaration.userAgent) {
+            // This is a consumer declaration
+            thisNode.ConsumerEndpoints[wsConn.id] = new drpEndpoint.Endpoint(wsConn);
+            declaration.address = wsConn._socket._peername.address;
+            declaration.family = wsConn._socket._peername.family;
+            declaration.port = wsConn._socket._peername.port;
+            thisNode.ConsumerDeclarations[wsConn.id] = declaration;
         }
+        else results = "INVALID DECLARATION";
 
         return results;
     }
