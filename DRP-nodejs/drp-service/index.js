@@ -256,6 +256,7 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
 
         this.RegisterCmd("hello", "Hello");
         this.RegisterCmd("registerNode", "RegisterNode");
+        this.RegisterCmd("unregisterNode", "UnregisterNode");
         this.RegisterCmd("getDeclarations", "GetDeclarations");
         this.RegisterCmd("getNodeDeclaration", "GetNodeDeclaration");
         this.RegisterCmd("subscribe", "Subscribe");
@@ -297,6 +298,10 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
 
     async RegisterNode(params, wsConn, token) {
         return this.node.RegisterNode(params, wsConn, token);
+    }
+
+    async UnregisterNode(params, wsConn, token) {
+        return this.node.UnregisterNode(params, wsConn, token);
     }
 
     /**
@@ -360,14 +365,14 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
         // Assign ID using simple counter for now
         wsConn.id = this.node.ConsumerConnectionID;
         this.node.ConsumerConnectionID++;
-        this.node.ConsumerConnections[wsConn.id] = wsConn;
+        this.node.ConsumerEndpoints[wsConn.id] = wsConn;
     }
 
     async CloseHandler(wsConn, closeCode) {
         if (wsConn.NodeID) {
             this.node.UnregisterNode(wsConn.NodeID);
         }
-        if (wsConn.id) delete this.node.ConsumerConnections[wsConn.id];
+        if (wsConn.id) delete this.node.ConsumerEndpoints[wsConn.id];
     }
 
     async ErrorHandler(wsConn, error) {
@@ -515,7 +520,7 @@ class DRP_Node {
         this.NodeDeclarations = {};
         /** @type {{string:DRP_NodeClient}} */
         this.NodeEndpoints = {};
-        this.ConsumerConnections = {};
+        this.ConsumerEndpoints = {};
         //this.ServiceCommandTracking = {
         /*
          * ServiceName: {
@@ -775,230 +780,97 @@ class DRP_Node {
     GetBaseObj() {
         let thisNode = this;
         return {
-            LocalNode: thisNode,
-            ConnectedNodes: async function (params) {
-                let remainingChildPath = params.pathList;
-                let oReturnObject = null;
-                if (remainingChildPath && remainingChildPath.length > 0) {
+            NodeID: thisNode.nodeID,
+            NodeURL: thisNode.nodeURL,
+            NodeObj: thisNode,
+            Services: thisNode.Services,
+            Streams: thisNode.TopicManager.Topics,
+            Endpoints: {
+                Nodes: async function (params) {
+                    let remainingChildPath = params.pathList;
+                    let oReturnObject = null;
+                    if (remainingChildPath && remainingChildPath.length > 0) {
 
-                    let remoteNodeID = remainingChildPath.shift();
+                        let remoteNodeID = remainingChildPath.shift();
 
-                    // Need to send command to consumer with remaining tree data
-                    params.pathList = remainingChildPath;
-                    let thisNodeConnection = await thisNode.VerifyNodeConnection(remoteNodeID);
+                        // Need to send command to remoet Node with remaining tree data
+                        params.pathList = remainingChildPath;
+                        let thisNodeEndpoint = await thisNode.VerifyNodeConnection(remoteNodeID);
 
-                    if (thisNodeConnection) {
-                        // Await for command from consumer
-                        let results = await thisNode.RouteHandler.SendCmd(thisNodeConnection, "DRP", params.method, params, true, null);
-                        if (results && results.payload && results.payload) {
-                            oReturnObject = results.payload;
-                        }
-                    } else {
-                        thisNode.log(`Could not verify node connection for [${remoteNodeID}]`);
-                    }
-
-                } else {
-                    // Return list of consumers
-                    oReturnObject = {};
-                    let aNodeKeys = Object.keys(thisNode.NodeEndpoints);
-                    for (let i = 0; i < aNodeKeys.length; i++) {
-                        oReturnObject[aNodeKeys[i]] = {
-                            "ConsumerType": "SomeType1",
-                            "Status": "Unknown"
-                        };
-                    }
-                }
-                return oReturnObject;
-            },
-            Registry: thisNode.NodeDeclarations,
-            Streams: async function (params) {
-                //console.log("Checking Streams...");
-                let remainingChildPath = params.pathList;
-                let oReturnObject = {};
-                if (remainingChildPath && remainingChildPath.length > 0) {
-
-                    let streamInstanceID = remainingChildPath.shift();
-
-                    params.pathList = remainingChildPath;
-
-                    let providerNames = Object.keys(thisNode.NodeDeclarations);
-                    for (let i = 0; i < providerNames.length; i++) {
-                        let providerName = providerNames[i];
-                        let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
-                        // Loop over Streams
-                        if (!thisNodeDeclaration.Streams) continue;
-                        let streamInstanceList = Object.keys(thisNodeDeclaration.Streams);
-                        for (let j = 0; j < streamInstanceList.length; j++) {
-                            if (streamInstanceID === streamInstanceList[j]) {
-                                if (!oReturnObject["Providers"]) {
-                                    oReturnObject = {
-                                        "Providers": []
-                                    };
-                                }
-                                oReturnObject["Providers"].push(providerName);
+                        if (thisNodeEndpoint) {
+                            // Await for command from remote node
+                            let cmdResponse = await thisNodeEndpoint.SendCmd(null, "DRP", "pathCmd", params, true, null);
+                            if (cmdResponse.payload) {
+                                oReturnObject = cmdResponse.payload;
                             }
+                        } else {
+                            thisNode.log(`Could not verify node connection for [${remoteNodeID}]`);
                         }
-                    }
-
-                    if (oReturnObject["Providers"]) {
-                        oReturnObject["Providers"] = oReturnObject["Providers"].join(",");
-                    }
-
-                    if (oReturnObject["ClientCmds"]) {
-                        oReturnObject["ClientCmds"] = oReturnObject["ClientCmds"].join(",");
-                    }
-
-                } else {
-                    // Return list of Streams
-                    let providerNames = Object.keys(thisNode.NodeDeclarations);
-                    for (let i = 0; i < providerNames.length; i++) {
-                        let providerName = providerNames[i];
-                        let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
-                        // Loop over Streams
-                        if (!thisNodeDeclaration.Streams) continue;
-                        let streamInstanceList = Object.keys(thisNodeDeclaration.Streams);
-                        for (let j = 0; j < streamInstanceList.length; j++) {
-                            let streamInstanceID = streamInstanceList[j];
-                            if (!oReturnObject[streamInstanceID]) oReturnObject[streamInstanceID] = {
-                                "StreamName": streamInstanceID,
-                                "Providers": []
-                            };
-
-                            oReturnObject[streamInstanceID].Providers.push(providerName);
-                        }
-                    }
-                }
-                return oReturnObject;
-            },
-            Consumers: async function (params) {
-                let remainingChildPath = params.pathList;
-                let oReturnObject = null;
-                if (remainingChildPath && remainingChildPath.length > 0) {
-
-                    let agentID = remainingChildPath.shift();
-
-                    // Need to send command to consumer with remaining tree data
-                    params.pathList = remainingChildPath;
-                    let thisConsumerConn = await thisNode.VerifyConsumerConnection(agentID);
-
-                    if (thisConsumerConn) {
-                        // Await for command from consumer
-                        let results = await thisNode.RouteHandler.SendCmd(thisConsumerConn, "DRP", params.method, params, true, null);
-                        if (results && results.payload && results.payload) {
-                            oReturnObject = results.payload;
-                        }
-                    } else {
-                        thisNode.log(`Could not verify consumer connection for [${agentID}]`);
-                    }
-
-                } else {
-                    // Return list of consumers
-                    oReturnObject = {};
-                    let aConsumerKeys = Object.keys(thisNode.ConsumerConnections);
-                    for (let i = 0; i < aConsumerKeys.length; i++) {
-                        oReturnObject[aConsumerKeys[i]] = {
-                            "ConsumerType": "SomeType1",
-                            "Status": "Unknown"
-                        };
-                    }
-                }
-                return oReturnObject;
-            },
-            Services: async function (params) {
-                //console.log("Checking Services...");
-                // Structure:
-                //      \Services\{svcName}\Providers
-                //      \Services\{svcName}\Commands\{cmdName}\param1\param2
-                let remainingChildPath = params.pathList;
-                let oReturnObject = {};
-
-                let serviceInstanceID = remainingChildPath.shift();
-
-                if (!serviceInstanceID) {
-                    // List Services
-                    let providerNames = Object.keys(thisNode.NodeDeclarations);
-                    for (let i = 0; i < providerNames.length; i++) {
-                        let providerName = providerNames[i];
-                        let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
-                        // Loop over Services
-                        if (!thisNodeDeclaration.Services) continue;
-                        let serviceInstanceList = Object.keys(thisNodeDeclaration.Services);
-                        for (let j = 0; j < serviceInstanceList.length; j++) {
-                            let serviceInstanceID = serviceInstanceList[j];
-                            if (!oReturnObject[serviceInstanceID]) oReturnObject[serviceInstanceID] = {
-                                "ServiceName": serviceInstanceID,
-                                "ProviderList": [],
-                                "ClientCmds": thisNodeDeclaration.Services[serviceInstanceID].ClientCmds
-                            };
-
-                            oReturnObject[serviceInstanceID].ProviderList.push(providerName);
-                        }
-                    }
-                } else {
-
-                    // A service ID has been specified; retrieve Provider instances
-                    let serviceInstanceProviders = thisNode.FindProvidersForService(serviceInstanceID);
-
-                    // If service doesn't exist, return nothing
-                    if (!serviceInstanceProviders.length) return {};
-
-                    // See if an attribute has been specified
-                    let serviceAttribute = remainingChildPath.shift();
-
-                    // No attribute provided
-                    if (!serviceAttribute) {
-
-                        // Return hash of Providers, ClientCmds, etc
-                        let myRegistry = thisNode.NodeDeclarations;
-
-                        oReturnObject = {
-                            "ProviderList": serviceInstanceProviders.join(","),
-                            "ClientCmds": myRegistry[serviceInstanceProviders[0]]['Services'][serviceInstanceID]['ClientCmds'],
-                            "Provider": () => { }
-                        };
 
                     } else {
+                        // Return list of NodeEndpoints
+                        oReturnObject = {};
+                        let aNodeKeys = Object.keys(thisNode.NodeEndpoints);
+                        for (let i = 0; i < aNodeKeys.length; i++) {
+                            oReturnObject[aNodeKeys[i]] = {
+                                "ConsumerType": "SomeType1",
+                                "Status": "Unknown"
+                            };
+                        }
+                    }
+                    return oReturnObject;
+                },
+                Consumers: async function (params) {
+                    let remainingChildPath = params.pathList;
+                    let oReturnObject = null;
+                    if (remainingChildPath && remainingChildPath.length > 0) {
 
-                        // An attribute has been specified - which one?
-                        if (serviceAttribute === "ClientCmds") {
+                        let agentID = remainingChildPath.shift();
 
-                            // Was a method specified?
-                            let methodName = remainingChildPath.shift();
-                            if (!methodName) {
+                        // Need to send command to consumer with remaining tree data
+                        params.pathList = remainingChildPath;
+                        let thisConsumerConn = await thisNode.VerifyConsumerConnection(agentID);
 
-                                // No - List Methods
-                                let cmdList = myRegistry[serviceInstanceProviders[0]]['Services'][serviceInstanceID]['ClientCmds'];
-                                for (let k = 0; k < cmdList.length; k++) {
-                                    let cmdName = cmdList[k];
-                                    oReturnObject[cmdName] = async function () {
-                                        let cmdObj = {
-                                            "serviceName": serviceInstanceID,
-                                            "cmd": cmdName,
-                                            "params": null
-                                        };
-                                        oReturnObject = await thisNode.ServiceCommand(cmdObj, null, null);
-                                    };
-                                }
-                                return oReturnObject;
-
-                            } else {
-                                // Yes - Execute Method
-                                let cmdObj = {
-                                    serviceName: serviceInstanceID,
-                                    cmd: methodName,
-                                    params: {
-                                        pathList: remainingChildPath,
-                                        authKey: params.authKey,
-                                        payload: params.payload
-                                    }
-                                };
-                                oReturnObject = await thisNode.ServiceCommand(cmdObj, null, null);
+                        if (thisConsumerConn) {
+                            // Await for command from consumer
+                            let results = await thisNode.RouteHandler.SendCmd(thisConsumerConn, "DRP", params.method, params, true, null);
+                            if (results && results.payload && results.payload) {
+                                oReturnObject = results.payload;
                             }
-                        } else if (serviceAttribute === "Provider") {
-                            // Route the rest of the request to the first provider
-                            let serviceInstanceProviders = thisNode.FindProvidersForService(serviceInstanceID);
-                            let targetNodeID = serviceInstanceProviders[0];
-                            params.pathList = remainingChildPath;
+                        } else {
+                            thisNode.log(`Could not verify consumer connection for [${agentID}]`);
+                        }
+
+                    } else {
+                        // Return list of consumers
+                        oReturnObject = {};
+                        let aConsumerKeys = Object.keys(thisNode.ConsumerEndpoints);
+                        for (let i = 0; i < aConsumerKeys.length; i++) {
+                            oReturnObject[aConsumerKeys[i]] = {
+                                "ConsumerType": "SomeType1",
+                                "Status": "Unknown"
+                            };
+                        }
+                    }
+                    return oReturnObject;
+                }
+            },
+            Mesh: {
+                Registry: thisNode.NodeDeclarations,
+                Streams: async function (params) {
+                    //console.log("Checking Streams...");
+                    let remainingChildPath = params.pathList;
+                    let oReturnObject = {};
+                    if (remainingChildPath && remainingChildPath.length > 0) {
+
+                        let streamInstanceID = remainingChildPath.shift();
+
+                        params.pathList = remainingChildPath;
+
+                        if (remainingChildPath && remainingChildPath.length > 0) {
+                            // Route to target node's topic manager
+                            let targetNodeID = remainingChildPath.shift();
+                            params.pathList = ['Streams', streamInstanceID].concat(remainingChildPath);
 
                             if (targetNodeID === thisNode.nodeID) {
                                 // The target NodeID is local
@@ -1006,17 +878,127 @@ class DRP_Node {
                             } else {
                                 // The target NodeID is remote
                                 let targetProviderObj = await thisNode.VerifyNodeConnection(targetNodeID);
-                                let cmdResponse = await targetProviderObj.SendCmd(null, "DRP", "pathCmd", params, true, null);
-                                if (cmdResponse.payload) {
-                                    oReturnObject = cmdResponse.payload;
+                                if (targetProviderObj) {
+                                    let cmdResponse = await targetProviderObj.SendCmd(null, "DRP", "pathCmd", params, true, null);
+                                    if (cmdResponse.payload) {
+                                        oReturnObject = cmdResponse.payload;
+                                    }
                                 }
                             }
                         } else {
-                            thisNode.log("UNKNOWN");
+                            // Just list the Nodes with this topic
+                            let providerNames = Object.keys(thisNode.NodeDeclarations);
+                            for (let i = 0; i < providerNames.length; i++) {
+                                let providerName = providerNames[i];
+                                let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
+                                // Loop over Streams
+                                if (!thisNodeDeclaration.Streams) continue;
+                                let streamInstanceList = Object.keys(thisNodeDeclaration.Streams);
+                                for (let j = 0; j < streamInstanceList.length; j++) {
+                                    if (streamInstanceID === streamInstanceList[j]) {
+                                        oReturnObject[providerName] = () => { };
+                                    }
+                                }
+                            }
+                        }
+
+                    } else {
+                        // Return list of Streams
+                        let providerNames = Object.keys(thisNode.NodeDeclarations);
+                        for (let i = 0; i < providerNames.length; i++) {
+                            let providerName = providerNames[i];
+                            let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
+                            // Loop over Streams
+                            if (!thisNodeDeclaration.Streams) continue;
+                            let streamInstanceList = Object.keys(thisNodeDeclaration.Streams);
+                            for (let j = 0; j < streamInstanceList.length; j++) {
+                                let streamInstanceID = streamInstanceList[j];
+                                if (!oReturnObject[streamInstanceID]) oReturnObject[streamInstanceID] = {
+                                    "StreamName": streamInstanceID,
+                                    "Providers": []
+                                };
+
+                                oReturnObject[streamInstanceID].Providers.push(providerName);
+                            }
                         }
                     }
+                    return oReturnObject;
+                },
+                Services: async function (params) {
+                    //console.log("Checking Services...");
+                    let remainingChildPath = params.pathList;
+                    let oReturnObject = {};
+                    if (remainingChildPath && remainingChildPath.length > 0) {
+
+                        let serviceInstanceID = remainingChildPath.shift();
+
+                        params.pathList = remainingChildPath;
+
+                        if (remainingChildPath && remainingChildPath.length > 0) {
+                            // Route to target node's service
+                            let targetNodeID = remainingChildPath.shift();
+                            params.pathList = ['Services', serviceInstanceID].concat(remainingChildPath);
+
+                            if (targetNodeID === "any") {
+                                let serviceInstanceProviders = thisNode.FindProvidersForService(serviceInstanceID);
+                                targetNodeID = serviceInstanceProviders[0];
+                            }
+
+                            if (targetNodeID === thisNode.nodeID) {
+                                // The target NodeID is local
+                                oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
+                            } else {
+                                // The target NodeID is remote
+                                let targetProviderObj = await thisNode.VerifyNodeConnection(targetNodeID);
+                                if (targetProviderObj) {
+                                    let cmdResponse = await targetProviderObj.SendCmd(null, "DRP", "pathCmd", params, true, null);
+                                    if (cmdResponse.payload) {
+                                        oReturnObject = cmdResponse.payload;
+                                    }
+                                }
+                            }
+                        } else {
+                            // Just list the Nodes with this service
+                            let providerNames = Object.keys(thisNode.NodeDeclarations);
+                            for (let i = 0; i < providerNames.length; i++) {
+                                let providerName = providerNames[i];
+                                let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
+                                // Loop over Services
+                                if (!thisNodeDeclaration.Services) continue;
+                                let serviceInstanceList = Object.keys(thisNodeDeclaration.Services);
+                                for (let j = 0; j < serviceInstanceList.length; j++) {
+                                    if (serviceInstanceID === serviceInstanceList[j]) {
+                                        if (Object.keys(oReturnObject).length === 0) {
+                                            oReturnObject['any'] = () => { };
+                                        }
+                                        oReturnObject[providerName] = () => { };
+                                    }
+                                }
+                            }
+                        }
+
+                    } else {
+                        // Return list of Services
+                        let providerNames = Object.keys(thisNode.NodeDeclarations);
+                        for (let i = 0; i < providerNames.length; i++) {
+                            let providerName = providerNames[i];
+                            let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
+                            // Loop over Services
+                            if (!thisNodeDeclaration.Services) continue;
+                            let serviceInstanceList = Object.keys(thisNodeDeclaration.Services);
+                            for (let j = 0; j < serviceInstanceList.length; j++) {
+                                let serviceInstanceID = serviceInstanceList[j];
+                                if (!oReturnObject[serviceInstanceID]) oReturnObject[serviceInstanceID] = {
+                                    "ServiceName": serviceInstanceID,
+                                    "Providers": []
+                                };
+
+                                oReturnObject[serviceInstanceID].Providers.push(providerName);
+                            }
+                        }
+                    }
+                    return oReturnObject;
                 }
-                return oReturnObject;
             }
         };
     }
@@ -1136,14 +1118,6 @@ class DRP_Node {
         return oReturnObject;
     }
 
-    GetBrokerNode() {
-        let thisNode = this;
-        // Check 1: Is this a broker?  If so, run locally
-        // Check 2: Do we have any existing NodeEndpoints that are Brokers?  If so, run remote
-        // Check 3: Can we connect to a Broker in the registry?  If so, connect and run remote
-        return null;
-    }
-
     GetRegistryNodeIDs() {
         let thisNode = this;
         let registryNodeIDList = [];
@@ -1260,20 +1234,9 @@ class DRP_Node {
         let thisConsumerWS = null;
 
         // Make sure the consumer session is active
-        if (thisNode.ConsumerConnections[consumerID] && thisNode.ConsumerConnections[consumerID].readyState === 1) thisConsumerWS = thisNode.ConsumerConnections[consumerID];
+        if (thisNode.ConsumerEndpoints[consumerID] && thisNode.ConsumerEndpoints[consumerID].readyState === 1) thisConsumerWS = thisNode.ConsumerEndpoints[consumerID];
 
         return thisConsumerWS;
-    }
-
-    async sendBrokerRequest(method, params) {
-        let thisNode = this;
-        let brokerNode = thisNode.GetBrokerNode();
-        if (brokerNode) {
-            let response = await brokerNode.SendCmd(null, "DRP", method, params, true);
-            return response.payload;
-        } else {
-            return null;
-        }
     }
 
     async AddService(serviceName, serviceObject) {
@@ -1444,11 +1407,11 @@ class DRP_Node {
 
         thisNode.log(`Client sent Hello [${declaration.NodeID}]`);
 
-        // If this is a peer node, move from ConsumerConnections to NodeEndpoints
+        // If this is a peer node, move from ConsumerEndpoints to NodeEndpoints
         if (declaration.NodeID) {
             wsConn.NodeID = declaration.NodeID;
             thisNode.NodeEndpoints[declaration.NodeID] = new drpEndpoint.Endpoint(wsConn);
-            delete thisNode.ConsumerConnections[wsConn.id];
+            delete thisNode.ConsumerEndpoints[wsConn.id];
             thisNode.RegisterNode(declaration);
         }
 
@@ -1489,15 +1452,15 @@ class DRP_Node {
         // consumerWSConn.Subscriptions[subscriberStreamToken] = {"topicName":subscribedTopicName,"scope":"{local|global}"
 
         // This needs to be moved elsewhere; loop over consumer clients to see if the sending node has any streams someone has subscribed to
-        if (thisNode.ConsumerConnections && declaration.Streams && Object.keys(declaration.Streams).length > 0) {
+        if (thisNode.ConsumerEndpoints && declaration.Streams && Object.keys(declaration.Streams).length > 0) {
 
             // Loop over streams
             let providerStreamNames = Object.keys(declaration.Streams);
             for (let i = 0; i < providerStreamNames.length; i++) {
                 // Loop over clients
-                let consumerConnList = Object.keys(thisNode.ConsumerConnections);
+                let consumerConnList = Object.keys(thisNode.ConsumerEndpoints);
                 for (let j = 0; j < consumerConnList.length; j++) {
-                    let consumerWSConn = thisNode.ConsumerConnections[consumerConnList[j]];
+                    let consumerWSConn = thisNode.ConsumerEndpoints[consumerConnList[j]];
                     if (!consumerWSConn.Subscriptions || Object.keys(consumerWSConn.Subscriptions).length === 0) continue;
                     // Loop over client subscriptions
                     let subscriptionTokens = Object.keys(consumerWSConn.Subscriptions);
@@ -1665,6 +1628,7 @@ class DRP_NodeClient extends drpEndpoint.Client {
         this.RegisterCmd("subscribe", "Subscribe");
         this.RegisterCmd("unsubscribe", "Unsubscribe");
         this.RegisterCmd("registerNode", "RegisterNode");
+        this.RegisterCmd("unregisterNode", "UnregisterNode");
         this.RegisterCmd("getNodeDeclaration", "GetNodeDeclaration");
         this.RegisterCmd("pathCmd", async function (params, wsConn, token) {
             return await drpNode.GetObjFromPath(params, drpNode.GetBaseObj());
@@ -1782,6 +1746,10 @@ class DRP_NodeClient extends drpEndpoint.Client {
 
     async RegisterNode(params, wsConn, token) {
         return this.node.RegisterNode(params, wsConn, token);
+    }
+
+    async UnregisterNode(params, wsConn, token) {
+        return this.node.UnregisterNode(params, wsConn, token);
     }
 
     // Override ProcessCmd from drpEndpoint

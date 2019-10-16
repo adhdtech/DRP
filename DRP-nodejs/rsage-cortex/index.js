@@ -1,9 +1,9 @@
 class CortexServer {
-    constructor(drpService, postHiveLoad) {
+    constructor(drpNode, postHiveLoad) {
         let thisCortex = this;
 
         // Set DRP Broker client
-        this.drpService = drpService;
+        this.drpNode = drpNode;
 
         // Initialize Managed Object Types Hash
         this.ObjectTypes = {};
@@ -1338,28 +1338,28 @@ class Hive {
         this.collectorsProcessed = 0;
         this.classLoader = new HiveClassLoader();
 
-        // Wait until DRPService is connected... (static 5 seconds for now)
+        // Wait until DRPNode is connected... (static 5 seconds for now)
         await new Promise(resolve => {
             setTimeout(resolve, 5000);
         });
 
-        let classDefs = await this.Cortex.drpService.GetClassDefinitions();
+        let classDefs = await this.Cortex.drpNode.GetClassDefinitions();
 
         this.classLoader.LoadClasses(classDefs);
 
         thisHive.HiveClasses = thisHive.classLoader.HiveClasses;
         thisHive.HiveIndexes = thisHive.classLoader.GenerateIndexes();
         console.log("Loaded class definitions");
-        await thisHive.LoadCollectorInstances(this.Cortex.drpService);
+        await thisHive.LoadCollectorInstances(this.Cortex.drpNode);
         console.log("Loaded collector data");
         callback();
     }
 	
-    async LoadCollectorInstances(drpService) {
+    async LoadCollectorInstances() {
         let thisHive = this;
 
         // We need to get a list of all distinct class INSTANCES along with the best source for each
-        let classInstances = drpService.ListClassInstances();
+        let classInstances = this.Cortex.drpNode.ListClassInstances();
         // Loop over classes
         let classNames = Object.keys(classInstances);
         for (let i = 0; i < classNames.length; i++) {
@@ -1415,9 +1415,9 @@ class Hive {
 
                 let recordPath = ["Providers", thisClassObj.ProviderName].concat(thisClassObj.RecordPath);
 
-                // Find a suitable Broker - maybe add "Brokers" to Registry?
                 // Send cmd to broker for info
-                let returnData = await drpService.sendBrokerRequest("pathCmd", { method: "cliGetPath", pathList: recordPath, listOnly: false });
+                let cmdObj = new DRP_Cmd("DRP", "pathCmd", { method: "cliGetPath", pathList: recordPath, listOnly: false });
+                let returnData = await this.Cortex.drpNode.ServiceCommand(cmdObj);
                 let classInstanceRecords = returnData.pathItem;
 
                 // Add data to Hive
