@@ -787,7 +787,8 @@ class DRP_Node {
             }
 
             // We have the best provider for this class instance
-            let recordPath = ["Providers", bestProviderName].concat(bestProviderObj.RecordPath);
+            //let recordPath = ["Providers", bestProviderName].concat(bestProviderObj.RecordPath);
+            let recordPath = ["Mesh", "Services"].concat(bestProviderObj.RecordPath);
             let returnData = await thisNode.GetObjFromPath({ method: "cliGetPath", pathList: recordPath, listOnly: false, authKey: params.authKey }, thisNode.GetBaseObj());
             results[thisSourceInstanceName] = returnData.pathItem;
         }
