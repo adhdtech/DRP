@@ -242,14 +242,16 @@ class DRP_Client extends DRP_Endpoint {
         this.proxy = proxy;
         let thisClient = this;
 
+        let wsMaxPayload = 512 * 1024 * 1024;
+
         // Create wsConn
         let wsConn = null;
         if (thisClient.proxy) {
             let opts = url.parse(thisClient.proxy);
             let agent = new HttpsProxyAgent(opts);
-            wsConn = new WebSocket(thisClient.wsTarget, "drp", { agent: agent });
+            wsConn = new WebSocket(thisClient.wsTarget, "drp", { agent: agent, maxPayload: wsMaxPayload });
         } else {
-            wsConn = new WebSocket(thisClient.wsTarget, "drp");
+            wsConn = new WebSocket(thisClient.wsTarget, "drp", { maxPayload: wsMaxPayload });
         }
         this.wsConn = wsConn;
 
