@@ -1,4 +1,11 @@
+var drpNode = require('drp-service').Node;
+
 class CortexServer {
+    /**
+     * 
+     * @param {drpNode} drpNode DRP Node
+     * @param {function} postHiveLoad Post load function
+     */
     constructor(drpNode, postHiveLoad) {
         let thisCortex = this;
 
@@ -99,7 +106,7 @@ class CortexServer {
         }
         return returnObj;
     }
-	
+
 }
 
 // Define parent Cortex Object class
@@ -513,7 +520,7 @@ class HiveMapQuery {
                         }
                     }
                     // We verified that the class exists, field is stereotyped with a valid MK/FK type and data is present
-					
+
                     return true;
 
                 } else {
@@ -548,9 +555,9 @@ class HiveMapQuery {
                     */
                 }
 
-                //break;
+            //break;
             default:
-			
+
         }
         return returnVal;
     }
@@ -659,7 +666,7 @@ function hiveClass(umlClassObj) {
     if (umlClassObj.Stereotypes[0]) {
         this.Stereotype = umlClassObj.Stereotypes[0];
     }
-	
+
     this.Functions = umlClassObj.Functions;
 }
 
@@ -783,6 +790,9 @@ class Hive {
         this.HiveIndexes = {};
 
         this.wsConn = [];
+
+        /** @type CortexServer */
+        this.Cortex = null;
 
         this.collectorProfiles = {};
         this.CollectorClients = {};
@@ -1354,7 +1364,7 @@ class Hive {
         console.log("Loaded collector data");
         callback();
     }
-	
+
     async LoadCollectorInstances() {
         let thisHive = this;
 
@@ -1403,22 +1413,30 @@ class Hive {
 
         // dir drp:\Registry\rSageCollectors\SourceInstances\AZ_ESN\VOIP.NortelCDP\Definition
         // dir drp:\Registry\{PROVIDER}\SourceInstances\{INSTANCE}\{CLASS}\Definition
+        //
+        // UPDATE
+        // dir drp:\drpinstance}\{Mesh}\Services\{INSTANCE}
         let sourceInstanceNames = Object.keys(thisHive.CollectorInstances);
         for (let i = 0; i < sourceInstanceNames.length; i++) {
             let thisSourceInstanceName = sourceInstanceNames[i];
             let thisSourceInstanceObj = thisHive.CollectorInstances[thisSourceInstanceName];
-            
+
             let classNames = Object.keys(thisSourceInstanceObj);
             for (let j = 0; j < classNames.length; j++) {
                 let thisClassName = classNames[j];
                 let thisClassObj = thisSourceInstanceObj[thisClassName];
 
-                let recordPath = ["Providers", thisClassObj.ProviderName].concat(thisClassObj.RecordPath);
+                //let recordPath = ["Providers", thisClassObj.ProviderName].concat(thisClassObj.RecordPath);
+                let recordPath = ["Mesh", "Services"].concat(thisClassObj.RecordPath);
 
                 // Send cmd to broker for info
-                let cmdObj = new DRP_Cmd("DRP", "pathCmd", { method: "cliGetPath", pathList: recordPath, listOnly: false });
-                let returnData = await this.Cortex.drpNode.ServiceCommand(cmdObj);
-                let classInstanceRecords = returnData.pathItem;
+                let params = {};
+                params.pathList = recordPath;
+                let brokerNodeID = thisHive.Cortex.drpNode.FindBroker();
+                let brokerNodeClient = await thisHive.Cortex.drpNode.VerifyNodeConnection(brokerNodeID);
+                let cmdResponse = await brokerNodeClient.SendCmd(null, "DRP", "pathCmd", params, true, null);
+
+                let classInstanceRecords = cmdResponse.payload.pathItem;
 
                 // Add data to Hive
                 console.log(`Retrieved [${thisClassName}] from ${thisSourceInstanceName}@${thisClassObj.ProviderName}, Length: ${Object.keys(classInstanceRecords).length}`);
@@ -1682,7 +1700,7 @@ class Hive {
         }
         return returnVal;
     }
-	
+
 }
 
 class ICRQuery {

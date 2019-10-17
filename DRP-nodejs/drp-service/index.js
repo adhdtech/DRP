@@ -178,6 +178,8 @@ class DRP_Server {
         this.expressApp = express();
         this.expressApp.use(cors());
 
+        let wsMaxPayload = 512 * 1024 * 1024;
+
         // Is SSL enabled?
         if (webServerConfig.SSLEnabled) {
             var optionsExpress = {
@@ -186,11 +188,11 @@ class DRP_Server {
                 passphrase: webServerConfig.SSLCrtFilePwd
             };
             let httpsServer = https.createServer(optionsExpress, this.expressApp);
-            expressWs(this.expressApp, httpsServer);
+            expressWs(this.expressApp, httpsServer, { wsOptions: { maxPayload: wsMaxPayload } });
             this.webServer = httpsServer;
 
         } else {
-            expressWs(this.expressApp);
+            expressWs(this.expressApp, null, { wsOptions: { maxPayload: wsMaxPayload } });
             this.webServer = this.expressApp;
         }
 
@@ -1925,10 +1927,10 @@ class DRP_Consumer_NodeClient extends drpEndpoint.Client {
 }
 
 module.exports = {
-    "Node": DRP_Node,
-    "Service": DRP_Service,
-    "Server": DRP_Server,
-    "ServerRoute": DRP_Node_ServerRoute,
-    "ConsumerClient": DRP_Consumer_NodeClient,
-    "Command": DRP_Command
+    Node: DRP_Node,
+    Service: DRP_Service,
+    Server: DRP_Server,
+    ServerRoute: DRP_Node_ServerRoute,
+    ConsumerClient: DRP_Consumer_NodeClient,
+    Command: DRP_Command
 };
