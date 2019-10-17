@@ -1,6 +1,5 @@
 'use strict';
 var drpService = require('drp-service');
-var vdmServer = require('rsage-vdm');
 var os = require("os");
 
 var protocol = "ws";
