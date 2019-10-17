@@ -48,6 +48,7 @@
     <Content Include="rsage-vdm\index.js" />
     <Content Include="rsage-vdm\package.json" />
     <Content Include="testClient.js" />
+    <Content Include="testProvider-NoListener2.js" />
     <Content Include="testProvider-NoListener.js" />
     <Content Include="testProvider.js" />
     <Content Include="testRegistry.js" />
