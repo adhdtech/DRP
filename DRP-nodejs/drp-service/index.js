@@ -583,12 +583,16 @@ class DRP_Node {
     /**
      * 
      * @param {string} restRoute Route to listen for Node REST requests
+     * @param {string} basePath Base path list
      * @returns {number} Failure code
      */
-    EnableREST(restRoute) {
+    EnableREST(restRoute, basePath) {
         let thisNode = this;
 
         if (!thisNode.expressApp) return 1;
+
+        let tmpBasePath = basePath || "";
+        let basePathArray = tmpBasePath.replace(/^\/|\/$/g, '').split('/');
 
         let nodeRestHandler = async function (req, res, next) {
             // Get Auth Key
@@ -608,7 +612,7 @@ class DRP_Node {
             if (req.query.format) format = 1;
 
             // Treat as "getPath"
-            let results = await thisNode.GetObjFromPath({ "method": "cliGetPath", "pathList": remainingPath, "listOnly": listOnly, "authKey": authKey }, thisNode.GetBaseObj());
+            let results = await thisNode.GetObjFromPath({ "method": "cliGetPath", "pathList": basePathArray.concat(remainingPath), "listOnly": listOnly, "authKey": authKey }, thisNode.GetBaseObj());
             try {
                 res.end(JSON.stringify(results, null, format));
             } catch (e) {

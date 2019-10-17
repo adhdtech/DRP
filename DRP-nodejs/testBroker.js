@@ -37,7 +37,7 @@ console.log(`DRP Endpoint: ${myServerConfig.NodeURL}`);
 
 let myNode = new drpService.Node(["Broker"], myServer.expressApp, drpWSRoute, myServerConfig.NodeURL);
 myNode.AddService("VDM", myVDMServer);
-myNode.EnableREST("/drpnode");
+myNode.EnableREST("/broker", "Mesh");
 
 myNode.ConnectToRegistry(registryURL, async () => {
     myNode.log("Connected to Registry");
