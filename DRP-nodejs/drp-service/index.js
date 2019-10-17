@@ -940,8 +940,26 @@ class DRP_Node {
 
                         let serviceInstanceID = remainingChildPath.shift();
 
-                        params.pathList = remainingChildPath;
+                        params.pathList = ['Services', serviceInstanceID].concat(remainingChildPath);
 
+                        let serviceInstanceProviders = thisNode.FindProvidersForService(serviceInstanceID);
+                        let targetNodeID = serviceInstanceProviders[0];
+
+                        if (targetNodeID === thisNode.nodeID) {
+                            // The target NodeID is local
+                            oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
+                        } else {
+                            // The target NodeID is remote
+                            let targetProviderObj = await thisNode.VerifyNodeConnection(targetNodeID);
+                            if (targetProviderObj) {
+                                let cmdResponse = await targetProviderObj.SendCmd(null, "DRP", "pathCmd", params, true, null);
+                                if (cmdResponse.payload) {
+                                    oReturnObject = cmdResponse.payload;
+                                }
+                            }
+                        }
+
+                        /*
                         if (remainingChildPath && remainingChildPath.length > 0) {
                             // Route to target node's service
                             let targetNodeID = remainingChildPath.shift();
@@ -984,6 +1002,7 @@ class DRP_Node {
                                 }
                             }
                         }
+                        */
 
                     } else {
                         // Return list of Services
