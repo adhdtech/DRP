@@ -31,10 +31,12 @@ myServer.start();
 // Create VDM Server on expressApp
 let myVDMServer = new vdmServer("VDM", myServer.expressApp, myServerConfig.WebRoot);
 
-// Create Broker on expressApp
-console.log(`Starting DRP Node`);
-console.log(`DRP Endpoint: ${myServerConfig.NodeURL}`);
-
+// Create Node
+console.log(`Starting DRP Node...`);
 let myNode = new drpService.Node(["Broker", "Registry"], myServer.expressApp, drpWSRoute, myServerConfig.NodeURL);
 myNode.AddService("VDM", myVDMServer);
 myNode.EnableREST("/broker", "Mesh");
+
+if (myNode.nodeURL) {
+    myNode.log(`Listening at: ${myNode.nodeURL}`);
+}

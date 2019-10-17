@@ -520,7 +520,10 @@ class DRP_Node {
         this.nodeID = `${os.hostname()}-${process.pid}-${getRandomInt(9999)}`;
         this.expressApp = expressApp || null;
         this.drpRoute = drpRoute || "/";
-        this.nodeURL = nodeURL || null;
+        this.nodeURL = null;
+        if (this.expressApp) {
+            this.nodeURL = nodeURL;
+        }
         this.nodeRoles = nodeRoles || [];
         this.webProxyURL = webProxyURL || null;
         /** @type {{string:DRP_NodeDeclaration}} */
