@@ -1,32 +1,35 @@
 'use strict';
 var drpService = require('drp-service');
+var os = require("os");
 
-//var port = process.env.PORT || 8080;
-var port = 8082;
-let protocol = "ws";
-let svcFQDN = "localhost";
-let drpWSRoute = ""; //"/drpnode";
+var protocol = "ws";
+if (process.env.SSL_ENABLED) {
+    protocol = "wss";
+}
+var port = process.env.PORT || 8080;
+var hostname = process.env.HOSTNAME || os.hostname();
+
+let drpWSRoute = "";
 
 // Set config
 let myServerConfig = {
+    "NodeURL": `${protocol}://${hostname}:${port}${drpWSRoute}`,
     "Port": port,
-    "SSLEnabled": false,
-    "SSLKeyFile": "ssl/mydomain.key",
-    "SSLCrtFile": "ssl/mydomain.crt",
-    "SSLCrtFilePwd": "mycertpw"
+    "SSLEnabled": process.env.SSL_ENABLED || false,
+    "SSLKeyFile": process.env.SSL_KEYFILE || "",
+    "SSLCrtFile": process.env.SSL_CRTFILE || "",
+    "SSLCrtFilePwd": process.env.SSL_CRTFILEPWD || "",
+    "WebRoot": process.env.WEBROOT || "webroot"
 };
-
-if (myServerConfig.SSLEnabled) protocol = "wss";
-
-let nodeURL = `${protocol}://${svcFQDN}:${myServerConfig.Port}${drpWSRoute}`;
 
 // Create expressApp
 let myServer = new drpService.Server(myServerConfig);
 myServer.start();
 
-// Create Registry
-console.log(`Loading Registry`);
-console.log(`DRP Endpoint: ${nodeURL}`);
-//let myRegistry = new drpService.Registry(myServer.expressApp);
+// Create Node
+console.log(`Starting DRP Node...`);
+let myNode = new drpService.Node(["Registry"], myServer.expressApp, drpWSRoute, myServerConfig.NodeURL);
 
-let myRegistry = new drpService.Node(["Registry"], myServer.expressApp, drpWSRoute, nodeURL);
+if (myNode.nodeURL) {
+    myNode.log(`Listening at: ${myNode.nodeURL}`);
+}
