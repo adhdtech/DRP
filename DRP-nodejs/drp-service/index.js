@@ -1550,7 +1550,7 @@ class DRP_Node {
                 // Loop over clients
                 let consumerConnList = Object.keys(thisNode.ConsumerEndpoints);
                 for (let j = 0; j < consumerConnList.length; j++) {
-                    let consumerWSConn = thisNode.ConsumerEndpoints[consumerConnList[j]];
+                    let consumerWSConn = thisNode.ConsumerEndpoints[consumerConnList[j]].wsConn;
                     if (!consumerWSConn.Subscriptions || Object.keys(consumerWSConn.Subscriptions).length === 0) continue;
                     // Loop over client subscriptions
                     let subscriptionTokens = Object.keys(consumerWSConn.Subscriptions);
