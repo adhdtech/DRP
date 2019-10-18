@@ -123,6 +123,11 @@ class DRP_TopicManager {
 }
 
 class DRP_TopicManager_Topic {
+    /**
+     * 
+     * @param {DRP_TopicManager} topicManager Topic Manager
+     * @param {string} topicName Topic Name
+     */
     constructor(topicManager, topicName) {
         var thisTopic = this;
 
@@ -158,10 +163,10 @@ class DRP_TopicManager_Topic {
         let i = thisTopic.Subscribers.length;
         while (i--) {
             let thisSubscriberObj = thisTopic.Subscribers[i];
-            let sendFailed = this.TopicManager.node.RouteHandler.SendStream(thisSubscriberObj.conn, thisSubscriberObj.token, 2, message);
+            let sendFailed = thisTopic.TopicManager.node.RouteHandler.SendStream(thisSubscriberObj.conn, thisSubscriberObj.token, 2, message);
             if (sendFailed) {
                 thisTopic.Subscribers.splice(i, 1);
-                console.log("Subscription client[" + i + "] removed forcefully");
+                thisTopic.TopicManager.node.log("Subscription client[" + i + "] removed forcefully");
             }
         }
     }
