@@ -1,9 +1,9 @@
 ﻿// VDM Desktop
 /**
  * VDM Desktop manager
- * @param {HTMLDivElement} vdmDiv
- * @param {string} vdmTitle
- * @param {Object.<string,VDMAppletProfile>} appletProfiles
+ * @param {HTMLDivElement} vdmDiv Base DIV for the VDM
+ * @param {string} vdmTitle Title on top bar
+ * @param {Object.<string,VDMAppletProfile>} appletProfiles Dictionary of applet profiles
  */
 class VDMDesktop {
     constructor(vdmDiv, vdmTitle, appletProfiles) {
@@ -32,11 +32,11 @@ class VDMDesktop {
         this.appletCreateIndex = 0;
 
         // Top Bar
-        this.vdmTopBar = ({
+        this.vdmTopBar = {
             title: vdmTitle,
             leftSide: [],
             rightSide: []
-        });
+        };
 
         // Top Bar Status LED classes
         this.vdmLEDClasses = {
@@ -44,7 +44,7 @@ class VDMDesktop {
             green: "led led-green",
             blue: "led led-blue",
             yellow: "led led-yellow"
-        }
+        };
 
         // Disable F5 and backspace keys unless we're in a text input
         this.disableBackAndRefreshKeys();
@@ -73,7 +73,7 @@ class VDMDesktop {
         this.alertBtn = $(this.vdmTopNav).find(".btn-group.alerts")[0];
         this.alertAnchor = $(this.alertBtn).find("li")[0];
         $(this.alertAnchor).attr({
-            href: "javascript:void(0);",
+            href: "javascript:void(0);"
         });
         this.alertSpan = $(this.alertBtn).find("span")[0];
 
@@ -85,13 +85,13 @@ class VDMDesktop {
         $(this.vdmDiv).show();
 
         // Resize Window logic
-        $(window).resize(function() {
+        $(window).resize(function () {
             $(vdmDiv).height($(window).height());
-            $(".vdmWindow").each(function(i) {
+            $(".vdmWindow").each(function (i) {
                 let topLevel = $(this).parent();
                 topLevel.height($(window).height());
             });
-            $(".vdmWindow").each(function(i) {
+            $(".vdmWindow").each(function (i) {
                 $(this).draggable({
                     handle: '.vdmWindowHeader',
                     containment: [0, thisVDMDesktop.vdmTopBarHeight, $(window).width() - 50, $(window).height() - 50]
@@ -101,8 +101,8 @@ class VDMDesktop {
     }
 
     disableBackAndRefreshKeys() {
-        $(document).bind("keydown", function(e) {
-            if ((e.which || e.keyCode) == 116) {
+        $(document).bind("keydown", function (e) {
+            if ((e.which || e.keyCode) === 116) {
                 e.preventDefault();
             }
             if ((e.which || e.keyCode) === 8 && !$(e.target).is("input, textarea")) {
@@ -154,7 +154,7 @@ class VDMDesktop {
 
     // Add Client app profile
     /**
-     * @param {VDMAppletProfile} appletProfile
+     * @param {VDMAppletProfile} appletProfile Profile describing new Window
      */
     addAppletProfile(appletProfile) {
         let thisVDMDesktop = this;
@@ -172,10 +172,10 @@ class VDMDesktop {
     }
 
     evalWithinContext(context, code) {
-        let outerResults = (function(code) {
+        let outerResults = function (code) {
             let innerResults = eval(code);
             return innerResults;
-        }).apply(context, [code]);
+        }.apply(context, [code]);
         return outerResults;
     }
 
@@ -186,7 +186,7 @@ class VDMDesktop {
             var tmpAppletName = appletProfileList[i];
             var appletDefinition = thisVDMDesktop.appletProfiles[tmpAppletName];
             var tmpScriptPath = appletDefinition.appletScript;
-            if (appletDefinition.appletPath && (!(appletDefinition.appletScript.match(/https?:\/\//)))) {
+            if (appletDefinition.appletPath && !appletDefinition.appletScript.match(/https?:\/\//)) {
                 tmpScriptPath = appletDefinition.appletPath + '/' + appletDefinition.appletScript;
                 let thisAppletScript = await thisVDMDesktop.fetchURLResource(tmpScriptPath);
                 appletDefinition.appletClass = thisVDMDesktop.evalWithinContext(appletDefinition, thisAppletScript);
@@ -278,10 +278,10 @@ class VDMDesktop {
 
     fetchURLResource(url) {
         let thisVDMDesktop = this;
-        return new Promise(function(resolve, reject) {
+        return new Promise(function (resolve, reject) {
             var xhr = new XMLHttpRequest();
             xhr.open("GET", url);
-            xhr.onload = function() {
+            xhr.onload = function () {
                 if (this.status >= 200 && this.status < 300) {
                     resolve(xhr.responseText);
                 } else {
@@ -291,7 +291,7 @@ class VDMDesktop {
                     });
                 }
             };
-            xhr.onerror = function() {
+            xhr.onerror = function () {
                 reject({
                     status: this.status,
                     statusText: xhr.statusText
@@ -308,9 +308,9 @@ class VDMDesktop {
         let itemLI = document.createElement("li");
         let itemA = document.createElement("a");
         $(itemA).attr({
-            href: "javascript:void(0);",
+            href: "javascript:void(0);"
         });
-        $(itemA).click(function() { onClickAction(); });
+        $(itemA).click(function () { onClickAction(); });
         let itemI = document.createElement("i");
         $(itemI).attr({
             class: "fa " + iconClass
@@ -376,7 +376,7 @@ class VDMDesktop {
         $(ctrlAnch).attr({
             href: "javascript:void(0);"
         });
-        ctrlAnch.onclick = function() { thisVDMDesktop.closeWindow(newAppletObj) };
+        ctrlAnch.onclick = function () { thisVDMDesktop.closeWindow(newAppletObj); };
         $(ctrlAnch).append("<i class=\"fa fa-times fa-lg\"></i>");
 
         // Create new Window DIV
@@ -387,15 +387,15 @@ class VDMDesktop {
 
         // Set position, index, height and width
         $(newAppletObj.windowDiv).css({
-            'top': (((thisVDMDesktop.appletCreateIndex) & 7) + 1) * 10,
-            'left': (((thisVDMDesktop.appletCreateIndex) & 7) + 1) * 10,
+            'top': ((thisVDMDesktop.appletCreateIndex & 7) + 1) * 10,
+            'left': ((thisVDMDesktop.appletCreateIndex & 7) + 1) * 10,
             'z-index': newAppletObj.zIndex
         });
         $(newAppletObj.windowDiv).width(newAppletObj.sizeX);
         $(newAppletObj.windowDiv).height(newAppletObj.sizeY);
 
         // See if we have menuItems
-        let haveMenuItems = (newAppletObj.menu && Object.keys(newAppletObj.menu).length > 0);
+        let haveMenuItems = newAppletObj.menu && Object.keys(newAppletObj.menu).length > 0;
 
         // Add member elements to windowDiv
         $(newAppletObj.windowDiv).append("<div class=\"vdmWindowHeader\"></div>");
@@ -411,7 +411,7 @@ class VDMDesktop {
             "data": $(newAppletObj.windowDiv).children(".vdmWindowData")[0],
             "footer": $(newAppletObj.windowDiv).children(".vdmWindowFooter")[0],
             "popover": $(newAppletObj.windowDiv).children(".vdmWindowPopover")[0]
-        }
+        };
 
         if (!haveMenuItems) {
             newAppletObj.windowParts.data.style.top = "18px";
@@ -432,18 +432,18 @@ class VDMDesktop {
         $(newAppletObj.windowDiv).children(".vdmWindowHeader").children(".ctrls").append(ctrlAnch);
 
         // If we have a Startup Script, run it
-        if (newAppletObj.appletName && thisVDMDesktop.appletProfiles[newAppletObj.appletName].startupScript != '') {
+        if (newAppletObj.appletName && thisVDMDesktop.appletProfiles[newAppletObj.appletName].startupScript !== '') {
             thisVDMDesktop.evalWithinContext(newAppletObj, thisVDMDesktop.appletProfiles[newAppletObj.appletName].startupScript);
         }
 
         // Create and populate menu element
         let mainMenu = document.createElement("ul");
-        $.each(newAppletObj.menu, function(menuHeader, menuItems) {
+        $.each(newAppletObj.menu, function (menuHeader, menuItems) {
             let menuCol = document.createElement("li");
             let menuTop = $('<span/>', { tabindex: "1" });
             $(menuTop).append(menuHeader);
-            let menuOptionList = document.createElement("ul")
-            $.each(menuItems, function(optionName, optionValue) {
+            let menuOptionList = document.createElement("ul");
+            $.each(menuItems, function (optionName, optionValue) {
                 let optRef = document.createElement("a");
                 optRef.href = "javascript:void(0);";
                 optRef.onclick = optionValue;
@@ -497,12 +497,12 @@ class VDMDesktop {
             handle: '.vdmWindowHeader',
             containment: [0, thisVDMDesktop.vdmTopBarHeight, $(window).width() - 50, $(window).height() - 50],
             zIndex: 1,
-            start: function(event, ui) {
+            start: function (event, ui) {
                 $(this).css("z-index-cur", $(this).css("z-index"));
                 $(this).css("z-index", "999999");
                 $(this).css("cursor", "pointer");
             },
-            stop: function(event, ui) {
+            stop: function (event, ui) {
                 $(this).css("z-index", $(this).css("z-index-cur"));
                 $(this).css("cursor", "auto");
                 if (typeof newAppletObj.resizeMovingHook !== "undefined") {
@@ -512,7 +512,7 @@ class VDMDesktop {
         });
 
         // Make Window active on mouse down (if not already selected)
-        $(newAppletObj.windowDiv).bind("mousedown", function(e) {
+        $(newAppletObj.windowDiv).bind("mousedown", function (e) {
             if (this !== thisVDMDesktop.currentWindowDiv) {
                 thisVDMDesktop.switchActiveWindow(this);
             }
@@ -523,7 +523,7 @@ class VDMDesktop {
 
         // Apply controls to Resize button
         let divResize = $(newAppletObj.windowDiv).find('.resize');
-        $(divResize).mousedown(function(e) {
+        $(divResize).mousedown(function (e) {
             let resizeDiv = $(this).parent().parent();
             let containerDiv = $(resizeDiv).parent().parent();
             let divSizeOut = $(resizeDiv).find('.sizeReport');
@@ -531,7 +531,7 @@ class VDMDesktop {
             let mouseStartY = e.pageY;
             let pageStartX = $(resizeDiv).width();
             let pageStartY = $(resizeDiv).height();
-            $(containerDiv).bind('mousemove', function(e) {
+            $(containerDiv).bind('mousemove', function (e) {
                 let gParentDiv = resizeDiv;
                 let gParentWidth = pageStartX - (mouseStartX - e.pageX);
                 let gParentHeight = pageStartY - (mouseStartY - e.pageY);
@@ -542,7 +542,7 @@ class VDMDesktop {
                     newAppletObj.resizeMovingHook();
                 }
             });
-            $(containerDiv).bind('mouseup', function(e) {
+            $(containerDiv).bind('mouseup', function (e) {
                 $(this).unbind('mousemove');
             });
         });
@@ -596,8 +596,8 @@ class VDMDesktop {
 
         // Make sure we have the higest z-index
         let currentZ = parseFloat($(newActiveDiv).css("z-index"));
-        $(".vdmWindow").each(function() {
-            if (this != newActiveDiv) {
+        $(".vdmWindow").each(function () {
+            if (this !== newActiveDiv) {
                 let checkDiv = this;
                 let checkZ = parseFloat($(checkDiv).css("z-index"));
                 if (checkZ > currentZ) {
@@ -605,7 +605,7 @@ class VDMDesktop {
                     $(checkDiv).css("z-index", currentZ);
                     $(newActiveDiv).css("z-index", checkZ);
                     currentZ = checkZ;
-                } else if (checkZ == currentZ) {
+                } else if (checkZ === currentZ) {
                     // Set to 1 higher
                     currentZ++;
                     $(newActiveDiv).css("z-index", currentZ);
@@ -617,9 +617,9 @@ class VDMDesktop {
 
 /**
  * Base Window attributes
- * @param {string} title
- * @param {number} sizeX
- * @param {number} sizeY
+ * @param {string} title Window title
+ * @param {number} sizeX Window width
+ * @param {number} sizeY Window height
  */
 class BaseWindowDef {
     constructor(title, sizeX, sizeY) {
@@ -631,8 +631,8 @@ class BaseWindowDef {
 
 /**
  * VDM Desktop manager
- * @param {string} appletName
- * @param {string} appletIcon
+ * @param {string} appletName Applet Name
+ * @param {string} appletIcon Applet Icon
  */
 class VDMAppletProfile {
     constructor() {
@@ -644,16 +644,16 @@ class VDMAppletProfile {
         this.showInMenu = true;
         this.startupScript = "";
         this.window = {
-            title : "",
-            sizeX : 300,
-            sizeY : 250
-        }
+            title: "",
+            sizeX: 300,
+            sizeY: 250
+        };
     }
 }
 
 /**
  * VDM Window
- * @param {BaseWindowDef} windowProfile
+ * @param {BaseWindowDef} windowProfile Profile describing new Window
  */
 class VDMWindow {
     constructor(windowProfile) {
@@ -695,14 +695,14 @@ class VDMWindow {
     }
 
     /**
-     * Split paneDiv into upper and lower panes
-     * @param {HTMLDivElement} paneDiv
-     * @param {number} splitOffset
-     * @param {boolean} scrollLeft
-     * @param {boolean} scrollRight
-     * @returns {}
+     * Split paneDiv into left and right panes
+     * @param {HTMLDivElement} paneDiv DIV to split
+     * @param {number} splitOffset Offset from left
+     * @param {boolean} scrollLeft Offer scroll on returned left pane
+     * @param {boolean} scrollRight Offer scroll on returned right pane
+     * @return {HTMLDivElement[]} Array of return elements [leftPane, divider, rightPane]
      */
-    splitPaneVertical(paneDiv, splitOffset, scrollLeft, scrollRight) {
+    splitPaneHorizontal(paneDiv, splitOffset, scrollLeft, scrollRight) {
         $(paneDiv).addClass("parent");
         let a = document.createElement("div");
         a.className = "dwData dwData-LeftPane";
@@ -714,37 +714,37 @@ class VDMWindow {
         $(paneDiv).append(b);
         $(paneDiv).append(c);
         $(b).css({ left: splitOffset + 'px' });
-        $(a).css({ width: (splitOffset - 1) + 'px' });
-        $(c).css({ left: (splitOffset + 4) + 'px' });
+        $(a).css({ width: splitOffset - 1 + 'px' });
+        $(c).css({ left: splitOffset + 4 + 'px' });
 
         if (scrollLeft) { $(a).css({ "overflow-y": "auto" }); } else { $(a).css({ "overflow-y": "hidden" }); }
         if (scrollRight) { $(c).css({ "overflow-y": "auto" }); } else { $(c).css({ "overflow-y": "hidden" }); }
 
-        $(b).mousedown(function(e) {
+        $(b).mousedown(function (e) {
             let mouseStartX = e.pageX;
             let pageStartX = parseInt($(b).css('left'));
-            $(paneDiv).bind('mousemove', function(e) {
+            $(paneDiv).bind('mousemove', function (e) {
                 let newOffset = pageStartX + (e.pageX - mouseStartX);
                 $(b).css({ left: newOffset + 'px' });
-                $(a).css({ width: (newOffset - 1) + 'px' });
-                $(c).css({ left: (newOffset + 4) + 'px' });
+                $(a).css({ width: newOffset - 1 + 'px' });
+                $(c).css({ left: newOffset + 4 + 'px' });
             });
-            $(paneDiv).bind('mouseup', function(e) {
+            $(paneDiv).bind('mouseup', function (e) {
                 $(this).unbind('mousemove');
-                let newOffset = pageStartX + (e.pageX - mouseStartX)
             });
         });
         return [a, b, c];
     }
 
     /**
-     * Split paneDiv into left and right panes
-     * @param {HTMLDivElement} paneDiv
-     * @param {number} splitOffset
-     * @param {boolean} scrollTop
-     * @param {boolean} scrollBottom
+     * Split paneDiv into top and bottom panes
+     * @param {HTMLDivElement} paneDiv DIV to split
+     * @param {number} splitOffset Offset from top
+     * @param {boolean} scrollTop Offer scroll on returned top pane
+     * @param {boolean} scrollBottom Offer scroll on returned bottom pane
+     * @return {HTMLDivElement[]} Array of return elements [topPane, divider, bottomPane]
      */
-    splitPaneHorizontal(paneDiv, splitOffset, scrollTop, scrollBottom) {
+    splitPaneVertical(paneDiv, splitOffset, scrollTop, scrollBottom) {
         $(paneDiv).addClass("parent");
         let a = document.createElement("div");
         a.className = "dwData dwData-TopPane";
@@ -756,24 +756,23 @@ class VDMWindow {
         $(paneDiv).append(b);
         $(paneDiv).append(c);
         $(b).css({ top: splitOffset + 'px' });
-        $(a).css({ height: (splitOffset - 1) + 'px' });
-        $(c).css({ top: (splitOffset + 4) + 'px' });
+        $(a).css({ height: splitOffset - 1 + 'px' });
+        $(c).css({ top: splitOffset + 4 + 'px' });
 
         if (scrollTop) { $(a).css({ "overflow-y": "auto" }); } else { $(a).css({ "overflow-y": "hidden" }); }
         if (scrollBottom) { $(c).css({ "overflow-y": "auto" }); } else { $(c).css({ "overflow-y": "hidden" }); }
 
-        $(b).mousedown(function(e) {
+        $(b).mousedown(function (e) {
             let mouseStartY = e.pageY;
             let pageStartY = parseInt($(b).css('top'));
-            $(paneDiv).bind('mousemove', function(e) {
+            $(paneDiv).bind('mousemove', function (e) {
                 let newOffset = pageStartY + (e.pageY - mouseStartY);
                 $(b).css({ top: newOffset + 'px' });
-                $(a).css({ height: (newOffset - 1) + 'px' });
-                $(c).css({ top: (newOffset + 4) + 'px' });
+                $(a).css({ height: newOffset - 1 + 'px' });
+                $(c).css({ top: newOffset + 4 + 'px' });
             });
-            $(paneDiv).bind('mouseup', function(e) {
+            $(paneDiv).bind('mouseup', function (e) {
                 $(this).unbind('mousemove');
-                let newOffset = pageStartY + (e.pageY - mouseStartY)
             });
         });
         return [a, b, c];
@@ -826,13 +825,13 @@ class VDMCollapseTree {
             let newUL = document.createElement("ul");
             newLI.appendChild(newUL);
             newItemRef.leftMenuUL = newUL;
-            $(newA).on('click', function() {
+            $(newA).on('click', function () {
                 $(this).parent().toggleClass('active');
                 $(this).parent().children('ul').toggle();
                 clickFunction(newItemRef);
             });
         } else {
-            $(newA).on('click', function() {
+            $(newA).on('click', function () {
                 clickFunction(newItemRef);
             });
         }
