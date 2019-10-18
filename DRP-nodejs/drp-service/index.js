@@ -1637,8 +1637,15 @@ class DRP_Node {
         let returnCode = 0;
         if (params.targetNodeID === thisNode.nodeID) {
             // Initiate Node Connection
-            thisNode.log(`Received back request, connecting to [${params.sourceNodeID}] @ ${params.wsTarget}`);
-            let nodeClient = new DRP_NodeClient(thisNode, params.wsTarget, false, thisNode.webProxyURL, null);
+            if (thisNode.NodeEndpoints[params.sourceNodeID]) {
+                // We already have this NodeEndpoint registered.
+                // TODO - Determine if this is a new connection in progress or a stale disconnected session
+                thisNode.log(`Received back request, already have NodeEndpoints[${params.sourceNodeID}]`);
+            } else {
+                thisNode.log(`Received back request, connecting to [${params.sourceNodeID}] @ ${params.wsTarget}`);
+                let nodeClient = new DRP_NodeClient(thisNode, params.wsTarget, false, thisNode.webProxyURL, null);
+                thisNode.NodeEndpoints[params.sourceNodeID] = nodeClient;
+            }
         } else {
             // Are we connected to the target node?  If so, relay
             if (thisNode.NodeEndpoints[params.targetNodeID]) {
