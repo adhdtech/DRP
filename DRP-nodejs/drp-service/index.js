@@ -1204,7 +1204,7 @@ class DRP_Node {
             // If we have a valid target URL, wait a few seconds for connection to initiate
             if (targetNodeURL) {
                 thisNode.log(`Connecting to Node [${remoteNodeID}] @ '${targetNodeURL}'`);
-                thisNodeEndpoint = new DRP_NodeClient(thisNode, targetNodeURL, thisNode.webProxyURL);
+                thisNodeEndpoint = new DRP_NodeClient(thisNode, targetNodeURL, false, thisNode.webProxyURL);
                 thisNode.NodeEndpoints[remoteNodeID] = thisNodeEndpoint;
 
                 for (let i = 0; i < 50; i++) {
@@ -1619,7 +1619,7 @@ class DRP_Node {
     async ConnectToRegistry(registryURL, openCallback) {
         let thisNode = this;
         // Initiate Registry Connection
-        let nodeClient = new DRP_NodeClient(thisNode, registryURL, thisNode.webProxyURL, async function (response) {
+        let nodeClient = new DRP_NodeClient(thisNode, registryURL, true, thisNode.webProxyURL, async function (response) {
             let getDeclarationResponse = await nodeClient.SendCmd(null, "DRP", "getNodeDeclaration", null, true, null);
             if (getDeclarationResponse && getDeclarationResponse.payload && getDeclarationResponse.payload.NodeID) {
                 thisNode.NodeEndpoints[getDeclarationResponse.payload.NodeID] = nodeClient;
@@ -1638,7 +1638,7 @@ class DRP_Node {
         if (params.targetNodeID === thisNode.nodeID) {
             // Initiate Node Connection
             thisNode.log(`Received back request, connecting to [${params.sourceNodeID}] @ ${params.wsTarget}`);
-            let nodeClient = new DRP_NodeClient(thisNode, params.wsTarget, thisNode.webProxyURL, null);
+            let nodeClient = new DRP_NodeClient(thisNode, params.wsTarget, false, thisNode.webProxyURL, null);
         } else {
             // Are we connected to the target node?  If so, relay
             if (thisNode.NodeEndpoints[params.targetNodeID]) {
@@ -1707,12 +1707,14 @@ class DRP_NodeClient extends drpEndpoint.Client {
     /**
     * @param {DRP_Node} drpNode Local Node
     * @param {string} wsTarget Remote Node WS target
+    * @param {boolean} retryOnClose Do we retry on close
     * @param {string} proxy Web proxy
     * @param {function} openCallback Execute after connection is established
     */
-    constructor(drpNode, wsTarget, proxy, openCallback) {
+    constructor(drpNode, wsTarget, retryOnClose, proxy, openCallback) {
         super(wsTarget, proxy);
         this.node = drpNode;
+        this.retryOnClose = retryOnClose;
         this.proxy = proxy;
         this.openCallback = openCallback;
         // Register Endpoint commands
@@ -1748,8 +1750,10 @@ class DRP_NodeClient extends drpEndpoint.Client {
             remotePort = wsConn._socket.remotePort;
         }
         this.node.log("Node client [" + remoteAddress + ":" + remotePort + "] closed with code [" + closeCode + "]");
-        await sleep(5000);
-        this.RetryConnection();
+        if (this.retryOnClose) {
+            await sleep(5000);
+            this.RetryConnection();
+        }
     }
 
     async ErrorHandler(wsConn, error) {
