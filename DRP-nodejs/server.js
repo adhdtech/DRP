@@ -34,6 +34,7 @@ let myVDMServer = new vdmServer("VDM", myServer.expressApp, myServerConfig.WebRo
 // Create Node
 console.log(`Starting DRP Node...`);
 let myNode = new drpService.Node(["Broker", "Registry"], myServer.expressApp, drpWSRoute, myServerConfig.NodeURL);
+myNode.NodeServer = myServer;
 myNode.AddService("VDM", myVDMServer);
 myNode.EnableREST("/broker", "Mesh");
 
