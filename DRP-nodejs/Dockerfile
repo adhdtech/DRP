@@ -3,9 +3,6 @@ FROM node:lts-alpine
 # Define app directory
 ENV APPDIR=/app
 
-# Full webroot
-ENV WEBROOT=$APPDIR/webroot
-
 # Create app directory
 WORKDIR /app
 
