@@ -3,17 +3,11 @@ FROM node:lts-alpine
 # Define app directory
 ENV APPDIR=/app
 
-# Define script name
-ARG runscript=server.js
-
-# Full script path
-ENV SCRIPTPATH=$APPDIR/$runscript
-
 # Full webroot
 ENV WEBROOT=$APPDIR/webroot
 
 # Create app directory
-WORKDIR ${APPDIR}
+WORKDIR /app
 
 # Install app dependencies
 # A wildcard is used to ensure both package.json AND package-lock.json are copied
@@ -23,7 +17,7 @@ COPY drp-service/ drp-service/
 COPY rsage-vdm/ rsage-vdm/
 COPY webroot/ webroot/
 COPY package.json .
-COPY ${runscript} .
+COPY server.js .
 
 RUN npm install
 # If you are building your code for production
@@ -33,4 +27,4 @@ RUN npm install
 #COPY . .
 
 EXPOSE 8080
-CMD [ "node $SCRIPTPATH" ]
+CMD [ "node", "server.js" ]
