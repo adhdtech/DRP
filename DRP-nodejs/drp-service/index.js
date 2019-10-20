@@ -1472,7 +1472,7 @@ class DRP_Node {
     /**
     * 
     * @param {DRP_NodeDeclaration} declaration DRP Node Declaration
-    * @param {any} wsConn Source websocket conn
+    * @param {WebSocket} wsConn Source websocket conn
     * @param {any} token Reply token
     * @returns {object} Unsure
     */
@@ -1486,8 +1486,16 @@ class DRP_Node {
             // This is a node declaration
             thisNode.log(`Client sent Hello [${declaration.NodeID}]`);
 
-            // If this is a peer node, move from ConsumerEndpoints to NodeEndpoints
-            if (declaration.NodeID) {
+            if (!declaration.NodeID) {
+                // Invalid NodeID
+                thisNode.log("Declaration did not include a valid NodeID");
+                wsConn.close();
+            } else if (!thisNode.IsRegistry() && !thisNode.NodeDeclarations[declaration.NodeID]) {
+                // This host isn't a registry and doesn't recognize the provided NodeID
+                thisNode.log(`Node [${declaration.NodeID}] tried to register to a non-registry Broker`);
+                wsConn.close();
+            } else {
+                // Allow the registration
                 wsConn.NodeID = declaration.NodeID;
                 thisNode.NodeEndpoints[declaration.NodeID] = new drpEndpoint.Endpoint(wsConn);
                 declaration.address = wsConn._socket._peername.address;
