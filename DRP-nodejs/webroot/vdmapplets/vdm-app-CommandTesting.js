@@ -27,9 +27,9 @@
 
                 myApp.appVars.svcDictionary = {};
 
-                let svcListResponse = await myApp.sendCmd("DRP", "pathCmd", { "method": "cliGetPath", "pathList": ["Services"], "params": {}, "listOnly": false }, true);
-                if (svcListResponse.pathItem) {
-                    myApp.appVars.svcDictionary = svcListResponse.pathItem;
+                let svcListResponse = await myApp.sendCmd("DRP", "listServiceInstances", null, true);
+                if (svcListResponse) {
+                    myApp.appVars.svcDictionary = svcListResponse;
 
                     // Populate Service list
                     let serviceNameList = Object.keys(myApp.appVars.svcDictionary);

@@ -746,7 +746,7 @@ class DRP_Node {
                 let serviceInstanceObj = thisNodeDeclaration.Services[serviceInstanceID];
                 if (!results[serviceInstanceID]) results[serviceInstanceID] = {
                     providers: [],
-                    methods: serviceInstanceObj
+                    ClientCmds: serviceInstanceObj.ClientCmds
                 };
 
                 results[serviceInstanceID].providers.push(providerName);
