@@ -1,0 +1,24 @@
+descriptor-schema-version: "2.2"
+
+info:
+ name: iox_docker_drp
+ description: "DRP IOX Demo"
+ version: "1.0"
+ author-link: "https://www.adhdtech.com"
+ author-name: "Pete Brown"
+
+app:
+ cpuarch: "x86_64"
+ type: docker
+ resources:
+   profile: c1.small
+   network:
+     -
+       interface-name: eth0
+       ports:
+         tcp:
+           - 8080
+
+ startup:
+   rootfs: rootfs.tar
+   target: ["node /app/server.js"]
