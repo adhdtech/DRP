@@ -264,7 +264,6 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
         this.RegisterCmd("hello", "Hello");
         this.RegisterCmd("registerNode", "RegisterNode");
         this.RegisterCmd("unregisterNode", "UnregisterNode");
-        this.RegisterCmd("getDeclarations", "GetDeclarations");
         this.RegisterCmd("getNodeDeclaration", "GetNodeDeclaration");
         this.RegisterCmd("subscribe", "Subscribe");
         this.RegisterCmd("unsubscribe", "Unsubscribe");
@@ -318,9 +317,6 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
     /**
     * @returns {{string:DRP_NodeDeclaration}} Node Declarations
     */
-    async GetDeclarations() {
-        return this.node.NodeDeclarations;
-    }
 
     async GetNodeDeclaration() {
         return this.node.NodeDeclaration;
@@ -1629,8 +1625,8 @@ class DRP_Node {
             if (getDeclarationResponse && getDeclarationResponse.payload && getDeclarationResponse.payload.NodeID) {
                 thisNode.NodeEndpoints[getDeclarationResponse.payload.NodeID] = nodeClient;
             }
-            let getDeclarationsResponse = await nodeClient.SendCmd(null, "DRP", "getDeclarations", null, true, null);
-            thisNode.NodeDeclarations = getDeclarationsResponse.payload;
+            let getRegistryResponse = await nodeClient.SendCmd(null, "DRP", "getRegistry", null, true, null);
+            thisNode.NodeDeclarations = getRegistryResponse.payload;
             if (openCallback && typeof openCallback === 'function') {
                 openCallback(response);
             }
