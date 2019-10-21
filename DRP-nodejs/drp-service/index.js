@@ -222,15 +222,15 @@ class DRP_Server {
 class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
     /**
      * 
-     * @param {DRP_Node} node DRP Node Object
+     * @param {DRP_Node} drpNode DRP Node Object
      * @param {string} route URL Route
      */
-    constructor(node, route) {
+    constructor(drpNode, route) {
         super();
 
         let thisServer = this;
-        let expressApp = node.expressApp;
-        this.node = node;
+        let expressApp = drpNode.expressApp;
+        this.node = drpNode;
 
         if (expressApp && expressApp.route !== null) {
             // This may be an Express server
@@ -299,6 +299,13 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
 
         this.RegisterCmd("sendToTopic", function (params, wsConn, token) {
             thisServer.node.TopicManager.SendToTopic(params.topicName, params.topicData);
+        });
+
+        this.RegisterCmd("getTopology", async function (...args) {
+            return await thisServer.node.GetTopology(...args);
+        });
+        this.RegisterCmd("listClientConnections", function (...args) {
+            return thisServer.node.ListClientConnections(...args);
         });
     }
 
@@ -1711,6 +1718,54 @@ class DRP_Node {
         let isBroker = thisNode.nodeRoles.indexOf("Broker") >= 0;
         return isBroker;
     }
+
+    async GetTopology() {
+        let thisNode = this;
+        let clientConnections = {};
+        // We need to get a list of all nodes from the registry
+        let nodeIDList = Object.keys(thisNode.NodeDeclarations);
+        for (let i = 0; i < nodeIDList.length; i++) {
+            let nodeID = nodeIDList[i];
+            /** @type DRP_NodeDeclaration */
+            let nodeDeclaration = thisNode.NodeDeclarations[nodeID];
+            let nodeClientConnections = {};
+            if (nodeID === thisNode.nodeID) {
+                nodeClientConnections = thisNode.ListClientConnections();
+                nodeClientConnections.roles = nodeDeclaration.NodeRoles;
+            } else {
+                // Send a command to each node to get the list of client connections
+                let nodeConnection = await thisNode.VerifyNodeConnection(nodeID);
+                let cmdResponse = await nodeConnection.SendCmd(null, "DRP", "listClientConnections", null, true, null);
+                nodeClientConnections = cmdResponse.payload;
+                nodeClientConnections.roles = nodeDeclaration.NodeRoles;
+            }
+
+            // Add to hash
+            clientConnections[nodeID] = nodeClientConnections;
+            
+        }
+
+        return clientConnections;
+    }
+
+    ListClientConnections() {
+        let thisNode = this;
+        let nodeClientConnections = {
+            nodeClients: [],
+            consumerClients: Object.keys(thisNode.ConsumerEndpoints)
+        };
+
+        // Loop over NodeEndpoints
+        let endpointIDList = Object.keys(thisNode.NodeEndpoints);
+        for (let i = 0; i < endpointIDList.length; i++) {
+            let thisEndpoint = thisNode.NodeEndpoints[endpointIDList[i]];
+            if (thisEndpoint.wsConn._isServer) {
+                nodeClientConnections.nodeClients.push(endpointIDList[i]);
+            }
+        }
+
+        return nodeClientConnections;
+    }
 }
 
 class DRP_Service {
@@ -1746,6 +1801,15 @@ class DRP_NodeClient extends drpEndpoint.Client {
         });
         this.RegisterCmd("connectToNode", async function (...args) {
             drpNode.ConnectToNode(...args);
+        });
+        this.RegisterCmd("getTopology", async function (...args) {
+            return await drpNode.GetTopology(...args);
+        });
+        this.RegisterCmd("listClientConnections", function (...args) {
+            return drpNode.ListClientConnections(...args);
+        });
+        this.RegisterCmd("sendToTopic", function (params, wsConn, token) {
+            drpNode.TopicManager.SendToTopic(params.topicName, params.topicData);
         });
     }
 
