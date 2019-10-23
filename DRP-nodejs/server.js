@@ -36,6 +36,7 @@ console.log(`Starting DRP Node...`);
 let myNode = new drpService.Node(["Broker", "Registry"], myServer.expressApp, drpWSRoute, myServerConfig.NodeURL);
 myNode.NodeServer = myServer;
 myNode.AddService("VDM", myVDMServer);
+myNode.AddStream("RESTLogs", "REST service logs");
 myNode.EnableREST("/broker", "Mesh");
 
 if (myNode.nodeURL) {
