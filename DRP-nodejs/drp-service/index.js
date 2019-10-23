@@ -631,11 +631,28 @@ class DRP_Node {
             } catch (e) {
                 res.end(`Failed to stringify response: ${e}`);
             }
+            let timeStamp = thisNode.getTimestamp();
+            thisNode.TopicManager.SendToTopic("RESTLogs", {
+                timestamp: timeStamp,
+                nodeid: thisNode.nodeID,
+                req: {
+                    hostname: req.hostname,
+                    ip: req.ip,
+                    method: req.method,
+                    protocol: req.protocol,
+                    path: req.path,
+                    headers: req.headers,
+                    query: req.query,
+                    baseUrl: req.baseUrl,
+                    body: req.body
+                },
+                res: results
+            });
             next();
         };
 
-        thisNode.expressApp.get(`${restRoute}`, nodeRestHandler);
-        thisNode.expressApp.get(`${restRoute}/*`, nodeRestHandler);
+        thisNode.expressApp.all(`${restRoute}`, nodeRestHandler);
+        thisNode.expressApp.all(`${restRoute}/*`, nodeRestHandler);
 
         return 0;
     }
@@ -1492,6 +1509,15 @@ class DRP_Node {
         if (isDeclarationValid) {
             // This is a node declaration
             thisNode.log(`Client sent Hello [${declaration.NodeID}]`);
+
+            // Added due to race condition; a broker which provides may gets connection requests after connection to the registry but before getting registry declarations
+            // Instead of doing this, we SHOULD put a marker in that says whether or not we've received an intial copy of the registry
+            for (let i = 0; i < 5; i++) {
+                if (declaration.NodeID && !thisNode.IsRegistry() && !thisNode.NodeDeclarations[declaration.NodeID]) {
+                    // wait for a second...
+                    await sleep(1000);
+                }
+            }
 
             if (!declaration.NodeID) {
                 // Invalid NodeID
