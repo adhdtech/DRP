@@ -167,6 +167,8 @@ class DRP_TopicManager_Topic {
             if (sendFailed) {
                 thisTopic.Subscribers.splice(i, 1);
                 thisTopic.TopicManager.node.log("Subscription client[" + i + "] removed forcefully");
+            } else {
+                thisTopic.SentMessages++;
             }
         }
     }
