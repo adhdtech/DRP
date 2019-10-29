@@ -1317,10 +1317,10 @@ class DRP_Node {
                     "Weight": serviceObject.Weight || 0,
                     "Zone": serviceObject.Zone || null
                 };
+
+                thisNode.SendToRegistries("registerNode", thisNode.NodeDeclaration);
             }
         }
-
-        thisNode.SendToRegistries("registerNode", thisNode.NodeDeclaration);
     }
 
     async RemoveService(serviceName) {
@@ -1336,6 +1336,7 @@ class DRP_Node {
         let thisNode = this;
         if (streamName && streamDescription) {
             thisNode.NodeDeclaration.Streams[streamName] = streamDescription;
+            thisNode.SendToRegistries("registerNode", thisNode.NodeDeclaration);
         }
     }
 
