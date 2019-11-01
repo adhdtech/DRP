@@ -1,0 +1,21 @@
+{
+  "name": "rsage-cache",
+  "version": "1.0.0",
+  "description": "rSage Cache Service",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "drp",
+    "service",
+    "provider",
+    "rsage"
+  ],
+  "author": "chykn <jpbrown@adhdtech.com>",
+  "license": "ISC",
+  "dependencies": {
+    "mongodb": "*",
+    "drp-service": "*"
+  }
+}
