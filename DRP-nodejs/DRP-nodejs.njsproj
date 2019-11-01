@@ -39,6 +39,8 @@
     <Content Include="jsondocs\test.json">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="rsage-cache\index.js" />
+    <Content Include="rsage-cache\package.json" />
     <Content Include="serverAuth.js" />
     <Content Include="testBroker.js" />
     <Content Include="server.js" />
@@ -77,6 +79,7 @@
     <Folder Include="drp-endpoint\" />
     <Folder Include="drp-service\" />
     <Folder Include="jsondocs\" />
+    <Folder Include="rsage-cache\" />
     <Folder Include="rsage-cortex\" />
     <Folder Include="rsage-vdm\" />
     <Folder Include="webroot\" />
