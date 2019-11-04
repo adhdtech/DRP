@@ -2,6 +2,8 @@
 var drpService = require('drp-service');
 var cortex = require('rsage-cortex');
 
+process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
+
 var registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
 
 // Create Node
@@ -11,11 +13,12 @@ let myNode = new drpService.Node(["Provider"]);
 myNode.ConnectToRegistry(registryURL, async () => {
     myNode.log("Connected to Registry");
 
-    let myCortex = new cortex.CortexServer(myNode, async function () {
+    let myHive = new cortex.Hive("Hive", myNode);
+    let myCortex = new cortex.Cortex("Cortex", myNode, myHive, async function () {
         // Post Hive Load
-        console.log("Hive load complete, Cortex continuing startup...");
+        myNode.log("Hive load complete, Cortex continuing startup...");
 
-        await myNode.AddService("Cortex", myCortex);
-        await myNode.AddService("Hive", myCortex.Hive);
+        await myNode.AddService(myHive);
+        await myNode.AddService(myCortex);
     });
 });

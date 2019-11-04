@@ -5,14 +5,14 @@ require('events').EventEmitter.prototype._maxListeners = 100;
 
 class rSageCacheService extends drpService.Service {
     /**
-     * @param {string} serviceID Service Instance ID
-     * @param {drpService.Node} node Associated DRP Node
+     * @param {string} serviceName Service Name
+     * @param {drpService.Node} drpNode DRP Node
      * @param {Function} loadCompleteCallback Load complete callback function
      */
-    constructor(serviceID, node, loadCompleteCallback) {
-        super(serviceID);
+    constructor(serviceName, drpNode, loadCompleteCallback) {
+        super(serviceName);
         let thisService = this;
-		this.node = node;
+		this.node = drpNode;
         this.mongoDBurl = null;
         this.mongoConn = null;
 

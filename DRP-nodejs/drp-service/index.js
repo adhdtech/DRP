@@ -1,6 +1,4 @@
 var WebSocket = require('ws');
-var HttpsProxyAgent = require('https-proxy-agent');
-var url = require('url');
 var drpEndpoint = require('drp-endpoint');
 var bodyParser = require('body-parser');
 var express = require('express');
@@ -175,13 +173,13 @@ class DRP_TopicManager_Topic {
 }
 
 // Instantiate Express instance
-class DRP_Server {
+class DRP_WebServer {
     constructor(webServerConfig) {
 
         // Setup the Express web server
         this.webServerConfig = webServerConfig;
 
-        this.webServer = null;
+        this.server = null;
         this.expressApp = express();
         this.expressApp.use(cors());
 
@@ -196,11 +194,11 @@ class DRP_Server {
             };
             let httpsServer = https.createServer(optionsExpress, this.expressApp);
             expressWs(this.expressApp, httpsServer, { wsOptions: { maxPayload: wsMaxPayload } });
-            this.webServer = httpsServer;
+            this.server = httpsServer;
 
         } else {
             expressWs(this.expressApp, null, { wsOptions: { maxPayload: wsMaxPayload } });
-            this.webServer = this.expressApp;
+            this.server = this.expressApp;
         }
 
         this.expressApp.get('env');
@@ -211,17 +209,21 @@ class DRP_Server {
     }
 
     start() {
-        let thisDRPServer = this;
+        let thiswebServer = this;
         return new Promise(function (resolve, reject) {
-            thisDRPServer.webServer.listen(thisDRPServer.webServerConfig.Port, function () {
-                resolve();
-            });
+            try {
+                thiswebServer.server.listen(thiswebServer.webServerConfig.Port, function () {
+                    resolve();
+                });
+            } catch (err) {
+                reject(err);
+            }
         });
     }
 }
 
 // Handles incoming DRP connections
-class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
+class DRP_WebServerRoute extends drpEndpoint.Endpoint {
     /**
      * 
      * @param {DRP_Node} drpNode DRP Node Object
@@ -230,13 +232,12 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
     constructor(drpNode, route) {
         super();
 
-        let thisServer = this;
-        let expressApp = drpNode.expressApp;
-        this.node = drpNode;
+        let thisWebServerRoute = this;
+        this.drpNode = drpNode;
 
-        if (expressApp && expressApp.route !== null) {
+        if (drpNode.WebServer && drpNode.WebServer.expressApp && drpNode.WebServer.expressApp.route !== null) {
             // This may be an Express server
-            if (typeof expressApp.ws === "undefined") {
+            if (typeof drpNode.WebServer.expressApp.ws === "undefined") {
                 // Websockets aren't enabled
                 throw new Error("Must enable ws on Express server");
             }
@@ -245,21 +246,21 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
             return;
         }
 
-        expressApp.ws(route, async function drpWebsocketHandler(wsConn, req) {
+        drpNode.WebServer.expressApp.ws(route, async function drpWebsocketHandler(wsConn, req) {
 
-            await thisServer.OpenHandler(wsConn, req);
-            let remoteAddress = wsConn._socket.remoteAddress;
-            let remotePort = wsConn._socket.remotePort;
+            await thisWebServerRoute.OpenHandler(wsConn, req);
+            //let remoteAddress = wsConn._socket.remoteAddress;
+            //let remotePort = wsConn._socket.remotePort;
 
             wsConn.on("message", function (message) {
                 // Process command
-                thisServer.ReceiveMessage(wsConn, message);
+                thisWebServerRoute.ReceiveMessage(wsConn, message);
             });
             wsConn.on("close", function (closeCode, reason) {
-                thisServer.CloseHandler(wsConn, closeCode);
+                thisWebServerRoute.CloseHandler(wsConn, closeCode);
             });
 
-            wsConn.on("error", function (error) { thisServer.ErrorHandler(wsConn, error); });
+            wsConn.on("error", function (error) { thisWebServerRoute.ErrorHandler(wsConn, error); });
 
         });
 
@@ -270,57 +271,57 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
         this.RegisterCmd("subscribe", "Subscribe");
         this.RegisterCmd("unsubscribe", "Unsubscribe");
         this.RegisterCmd("pathCmd", async function (params, wsConn, token) {
-            return await thisServer.node.GetObjFromPath(params, thisServer.node.GetBaseObj());
+            return await thisWebServerRoute.drpNode.GetObjFromPath(params, thisWebServerRoute.drpNode.GetBaseObj());
         });
         this.RegisterCmd("connectToNode", async function (...args) {
-            return await thisServer.node.ConnectToNode(...args);
+            return await thisWebServerRoute.drpNode.ConnectToNode(...args);
         });
         this.RegisterCmd("getRegistry", function () {
-            return thisServer.node.NodeDeclarations;
+            return thisWebServerRoute.drpNode.NodeDeclarations;
         });
 
         this.RegisterCmd("getClassRecords", async function (...args) {
-            return await thisServer.node.GetClassRecords(...args);
+            return await thisWebServerRoute.drpNode.GetClassRecords(...args);
         });
 
         this.RegisterCmd("listClassInstances", function () {
-            return thisServer.node.ListClassInstances();
+            return thisWebServerRoute.drpNode.ListClassInstances();
         });
 
         this.RegisterCmd("listServiceInstances", function () {
-            return thisServer.node.ListServiceInstances();
+            return thisWebServerRoute.drpNode.ListServiceInstances();
         });
 
         this.RegisterCmd("getClassDefinitions", function () {
-            return thisServer.node.GetClassDefinitions();
+            return thisWebServerRoute.drpNode.GetClassDefinitions();
         });
 
         this.RegisterCmd("listClassInstanceDefinitions", async function (...args) {
-            return await thisServer.node.ListClassInstanceDefinitions(...args);
+            return await thisWebServerRoute.drpNode.ListClassInstanceDefinitions(...args);
         });
 
         this.RegisterCmd("sendToTopic", function (params, wsConn, token) {
-            thisServer.node.TopicManager.SendToTopic(params.topicName, params.topicData);
+            thisWebServerRoute.drpNode.TopicManager.SendToTopic(params.topicName, params.topicData);
         });
 
         this.RegisterCmd("getTopology", async function (...args) {
-            return await thisServer.node.GetTopology(...args);
+            return await thisWebServerRoute.drpNode.GetTopology(...args);
         });
         this.RegisterCmd("listClientConnections", function (...args) {
-            return thisServer.node.ListClientConnections(...args);
+            return thisWebServerRoute.drpNode.ListClientConnections(...args);
         });
     }
 
     async Hello(params, wsConn, token) {
-        return this.node.Hello(params, wsConn, token);
+        return this.drpNode.Hello(params, wsConn, token);
     }
 
     async RegisterNode(params, wsConn, token) {
-        return this.node.RegisterNode(params, wsConn, token);
+        return this.drpNode.RegisterNode(params, wsConn, token);
     }
 
     async UnregisterNode(params, wsConn, token) {
-        return this.node.UnregisterNode(params, wsConn, token);
+        return this.drpNode.UnregisterNode(params, wsConn, token);
     }
 
     /**
@@ -328,7 +329,7 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
     */
 
     async GetNodeDeclaration() {
-        return this.node.NodeDeclaration;
+        return this.drpNode.NodeDeclaration;
     }
 
     // Override ProcessCmd from drpEndpoint
@@ -352,14 +353,14 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
                 }
             } else {
                 cmdResults.output = "Endpoint does not have method";
-                thisEndpoint.node.log("Remote endpoint tried to execute invalid method '" + message.cmd + "'...");
+                thisEndpoint.drpNode.log("Remote endpoint tried to execute invalid method '" + message.cmd + "'...");
                 console.dir(message);
             }
         }
         // A service other than DRP has been specified
         else {
             try {
-                cmdResults.output = await thisEndpoint.node.ServiceCommand(message, wsConn);
+                cmdResults.output = await thisEndpoint.drpNode.ServiceCommand(message, wsConn);
                 cmdResults.status = 1;
             } catch (err) {
                 cmdResults.output = err.message;
@@ -377,25 +378,25 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
      */
 
     async OpenHandler(wsConn, req) {
-        if (!this.node.ConsumerConnectionID) this.node.ConsumerConnectionID = 1;
+        if (!this.drpNode.ConsumerConnectionID) this.drpNode.ConsumerConnectionID = 1;
         // Assign ID using simple counter for now
-        wsConn.id = this.node.ConsumerConnectionID;
-        this.node.ConsumerConnectionID++;
+        wsConn.id = this.drpNode.ConsumerConnectionID;
+        this.drpNode.ConsumerConnectionID++;
         //this.node.ConsumerEndpoints[wsConn.id] = wsConn;
     }
 
     async CloseHandler(wsConn, closeCode) {
         if (wsConn.NodeID) {
-            this.node.UnregisterNode(wsConn.NodeID);
+            this.drpNode.UnregisterNode(wsConn.NodeID);
         }
         if (wsConn.id) {
-            delete this.node.ConsumerEndpoints[wsConn.id];
-            delete this.node.ConsumerDeclarations[wsConn.id];
+            delete this.drpNode.ConsumerEndpoints[wsConn.id];
+            delete this.drpNode.ConsumerDeclarations[wsConn.id];
         }
     }
 
     async ErrorHandler(wsConn, error) {
-        this.node.log("Node client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
+        this.drpNode.log("Node client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
     }
 
     // Define Endpoints commands
@@ -412,27 +413,27 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
 
         switch (subScope) {
             case "local":
-                results[thisRouteServer.node.nodeID] = thisRouteServer.node.TopicManager.SubscribeToTopic(params.topicName, wsConn, params.streamToken, params.filter);
+                results[thisRouteServer.drpNode.nodeID] = thisRouteServer.drpNode.TopicManager.SubscribeToTopic(params.topicName, wsConn, params.streamToken, params.filter);
                 break;
             case "global":
                 // Find anyone who provides this data and subscribe on the consumer's behalf
-                let sourceNodeIDList = Object.keys(thisRouteServer.node.NodeDeclarations);
+                let sourceNodeIDList = Object.keys(thisRouteServer.drpNode.NodeDeclarations);
                 for (let i = 0; i < sourceNodeIDList.length; i++) {
                     let sourceNodeID = sourceNodeIDList[i];
                     //console.log(`Checking for stream [${params.topicName}] for client on node [${sourceNodeID}]`);
-                    let thisNodeDeclaration = thisRouteServer.node.NodeDeclarations[sourceNodeID];
+                    let thisNodeDeclaration = thisRouteServer.drpNode.NodeDeclarations[sourceNodeID];
                     if (thisNodeDeclaration.Streams && thisNodeDeclaration.Streams[params.topicName]) {
                         // This source node offers the desired stream
 
                         // Is it this node?
-                        if (sourceNodeID === thisRouteServer.node.nodeID) {
-                            results[sourceNodeID] = thisRouteServer.node.TopicManager.SubscribeToTopic(params.topicName, wsConn, params.streamToken, params.filter);
+                        if (sourceNodeID === thisRouteServer.drpNode.nodeID) {
+                            results[sourceNodeID] = thisRouteServer.drpNode.TopicManager.SubscribeToTopic(params.topicName, wsConn, params.streamToken, params.filter);
                         } else {
                             /**
                             * @type {DRP_NodeClient} DRP Node Client
                             */
 
-                            let thisNodeEndpoint = await thisRouteServer.node.VerifyNodeConnection(sourceNodeID);
+                            let thisNodeEndpoint = await thisRouteServer.drpNode.VerifyNodeConnection(sourceNodeID);
 
                             // Subscribe on behalf of the Consumer
                             //console.log(`Subscribing to stream [${params.topicName}] for client from node [${sourceNodeID}] using streamToken [${subscriberStreamToken}]`);
@@ -481,7 +482,7 @@ class DRP_Node_ServerRoute extends drpEndpoint.Endpoint {
             delete wsConn.Subscriptions[subscriberStreamToken];
 
             // Dirty workaround - try removing locally on each call
-            thisRouteServer.node.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, params.streamToken, params.filter);
+            thisRouteServer.drpNode.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, params.streamToken, params.filter);
         }
         return null;
     }
@@ -511,10 +512,11 @@ class DRP_NodeDeclaration {
 }
 
 class DRP_Command {
-    constructor(serviceName, cmd, params) {
+    constructor(serviceName, cmd, params, targetNodeID) {
         this.serviceName = serviceName;
         this.cmd = cmd;
         this.params = params;
+        this.targetNodeID = targetNodeID;
     }
 }
 
@@ -522,18 +524,18 @@ class DRP_Node {
     /**
      * 
      * @param {string[]} nodeRoles List of Roles: Broker, Provider, Registry
-     * @param {express} expressApp Express server (optional)
+     * @param {DRP_WebServer} webServer Web server (optional)
      * @param {string} drpRoute DRP WS Route (optional)
      * @param {string} nodeURL Node WS URL (optional)
      * @param {string} webProxyURL Web Proxy URL (optional)
      */
-    constructor(nodeRoles, expressApp, drpRoute, nodeURL, webProxyURL) {
+    constructor(nodeRoles, webServer, drpRoute, nodeURL, webProxyURL) {
         let thisNode = this;
         this.nodeID = `${os.hostname()}-${process.pid}-${getRandomInt(9999)}`;
-        this.expressApp = expressApp || null;
+        this.WebServer = webServer || null;
         this.drpRoute = drpRoute || "/";
         this.nodeURL = null;
-        if (this.expressApp) {
+        if (this.WebServer && this.WebServer.expressApp) {
             this.nodeURL = nodeURL;
         }
         this.nodeRoles = nodeRoles || [];
@@ -574,7 +576,7 @@ class DRP_Node {
         }
 
         // Add a route handler even if we don't have an Express server (needed for stream relays)
-        this.RouteHandler = new DRP_Node_ServerRoute(this, this.drpRoute);
+        this.RouteHandler = new DRP_WebServerRoute(this, this.drpRoute);
     }
     log(message) {
         let paddedNodeID = this.nodeID.padEnd(14, ' ');
@@ -604,7 +606,7 @@ class DRP_Node {
     EnableREST(restRoute, basePath) {
         let thisNode = this;
 
-        if (!thisNode.expressApp) return 1;
+        if (!thisNode.WebServer || !thisNode.WebServer.expressApp) return 1;
 
         let tmpBasePath = basePath || "";
         let basePathArray = tmpBasePath.replace(/^\/|\/$/g, '').split('/');
@@ -653,8 +655,8 @@ class DRP_Node {
             next();
         };
 
-        thisNode.expressApp.all(`${restRoute}`, nodeRestHandler);
-        thisNode.expressApp.all(`${restRoute}/*`, nodeRestHandler);
+        thisNode.WebServer.expressApp.all(`${restRoute}`, nodeRestHandler);
+        thisNode.WebServer.expressApp.all(`${restRoute}/*`, nodeRestHandler);
 
         return 0;
     }
@@ -922,9 +924,9 @@ class DRP_Node {
                                 oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
                             } else {
                                 // The target NodeID is remote
-                                let targetProviderObj = await thisNode.VerifyNodeConnection(targetNodeID);
-                                if (targetProviderObj) {
-                                    let cmdResponse = await targetProviderObj.SendCmd(null, "DRP", "pathCmd", params, true, null);
+                                let targetNodeObj = await thisNode.VerifyNodeConnection(targetNodeID);
+                                if (targetNodeObj) {
+                                    let cmdResponse = await targetNodeObj.SendCmd(null, "DRP", "pathCmd", params, true, null);
                                     if (cmdResponse.payload) {
                                         oReturnObject = cmdResponse.payload;
                                     }
@@ -987,59 +989,14 @@ class DRP_Node {
                             oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
                         } else {
                             // The target NodeID is remote
-                            let targetProviderObj = await thisNode.VerifyNodeConnection(targetNodeID);
-                            if (targetProviderObj) {
-                                let cmdResponse = await targetProviderObj.SendCmd(null, "DRP", "pathCmd", params, true, null);
+                            let targetNodeObj = await thisNode.VerifyNodeConnection(targetNodeID);
+                            if (targetNodeObj) {
+                                let cmdResponse = await targetNodeObj.SendCmd(null, "DRP", "pathCmd", params, true, null);
                                 if (cmdResponse.payload) {
                                     oReturnObject = cmdResponse.payload;
                                 }
                             }
                         }
-
-                        /*
-                        if (remainingChildPath && remainingChildPath.length > 0) {
-                            // Route to target node's service
-                            let targetNodeID = remainingChildPath.shift();
-                            params.pathList = ['Services', serviceInstanceID].concat(remainingChildPath);
-
-                            if (targetNodeID === "any") {
-                                let serviceInstanceProviders = thisNode.FindProvidersForService(serviceInstanceID);
-                                targetNodeID = serviceInstanceProviders[0];
-                            }
-
-                            if (targetNodeID === thisNode.nodeID) {
-                                // The target NodeID is local
-                                oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
-                            } else {
-                                // The target NodeID is remote
-                                let targetProviderObj = await thisNode.VerifyNodeConnection(targetNodeID);
-                                if (targetProviderObj) {
-                                    let cmdResponse = await targetProviderObj.SendCmd(null, "DRP", "pathCmd", params, true, null);
-                                    if (cmdResponse.payload) {
-                                        oReturnObject = cmdResponse.payload;
-                                    }
-                                }
-                            }
-                        } else {
-                            // Just list the Nodes with this service
-                            let providerNames = Object.keys(thisNode.NodeDeclarations);
-                            for (let i = 0; i < providerNames.length; i++) {
-                                let providerName = providerNames[i];
-                                let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
-                                // Loop over Services
-                                if (!thisNodeDeclaration.Services) continue;
-                                let serviceInstanceList = Object.keys(thisNodeDeclaration.Services);
-                                for (let j = 0; j < serviceInstanceList.length; j++) {
-                                    if (serviceInstanceID === serviceInstanceList[j]) {
-                                        if (Object.keys(oReturnObject).length === 0) {
-                                            oReturnObject['any'] = () => { };
-                                        }
-                                        oReturnObject[providerName] = () => { };
-                                    }
-                                }
-                            }
-                        }
-                        */
 
                     } else {
                         // Return list of Services
@@ -1308,16 +1265,20 @@ class DRP_Node {
         return thisConsumerWS;
     }
 
-    async AddService(serviceName, serviceObject) {
+    /**
+     * 
+     * @param {DRP_Service} serviceObj DRP Service
+     */
+    async AddService(serviceObj) {
         let thisNode = this;
-        if (serviceName && serviceObject && serviceObject.ClientCmds) {
-            thisNode.Services[serviceName] = serviceObject;
+        if (serviceObj && serviceObj.serviceName && serviceObj.ClientCmds) {
+            thisNode.Services[serviceObj.serviceName] = serviceObj;
             if (thisNode.NodeDeclaration) {
-                thisNode.NodeDeclaration.Services[serviceName] = {
-                    "ClientCmds": Object.keys(serviceObject.ClientCmds),
-                    "Persistence": serviceObject.Persistence || false,
-                    "Weight": serviceObject.Weight || 0,
-                    "Zone": serviceObject.Zone || null
+                thisNode.NodeDeclaration.Services[serviceObj.serviceName] = {
+                    "ClientCmds": Object.keys(serviceObj.ClientCmds),
+                    "Persistence": serviceObj.Persistence || false,
+                    "Weight": serviceObj.Weight || 0,
+                    "Zone": serviceObj.Zone || null
                 };
 
                 thisNode.SendToRegistries("registerNode", thisNode.NodeDeclaration);
@@ -1423,9 +1384,8 @@ class DRP_Node {
             let targetNodeID = null;
 
             // Are we specifying which provider to run this through?
-            // TODO - This is not yet implemented!  Need to add targetProvider to the DRP_Command object
-            if (cmdObj.targetProvider) {
-                targetNodeID = cmdObj.targetProvider;
+            if (cmdObj.targetNodeID) {
+                targetNodeID = cmdObj.targetNodeID;
                 if (!this.NodeDeclarations[targetNodeID]) {
                     this.log(`${baseMsg} node ${targetNodeID} does not exist`);
                     return null;
@@ -1515,10 +1475,12 @@ class DRP_Node {
 
             // Added due to race condition; a broker which provides may gets connection requests after connection to the registry but before getting registry declarations
             // Instead of doing this, we SHOULD put a marker in that says whether or not we've received an intial copy of the registry
-            for (let i = 0; i < 5; i++) {
-                if (declaration.NodeID && !thisNode.IsRegistry() && !thisNode.NodeDeclarations[declaration.NodeID]) {
-                    // wait for a second...
-                    await sleep(1000);
+            if (!thisNode.IsRegistry() && declaration.NodeID) {
+                for (let i = 0; i < 5; i++) {
+                    if (!thisNode.NodeDeclarations[declaration.NodeID]) {
+                        // wait for a second...
+                        await sleep(1000);
+                    }
                 }
             }
 
@@ -1534,9 +1496,9 @@ class DRP_Node {
                 // Allow the registration
                 wsConn.NodeID = declaration.NodeID;
                 thisNode.NodeEndpoints[declaration.NodeID] = new drpEndpoint.Endpoint(wsConn);
-                declaration.address = wsConn._socket._peername.address;
-                declaration.family = wsConn._socket._peername.family;
-                declaration.port = wsConn._socket._peername.port;
+                //declaration.address = wsConn._socket._peername.address;
+                //declaration.family = wsConn._socket._peername.family;
+                //declaration.port = wsConn._socket._peername.port;
                 //delete thisNode.ConsumerEndpoints[wsConn.id];
                 thisNode.RegisterNode(declaration);
             }
@@ -1798,8 +1760,15 @@ class DRP_Node {
 }
 
 class DRP_Service {
-    constructor(serviceID) {
-        this.serviceID = serviceID;
+    /**
+     * 
+     * @param {string} serviceName Service Name
+     * @param {DRP_Node} drpNode DRP Node
+     */
+    constructor(serviceName, drpNode) {
+        this.serviceName = serviceName;
+        this.drpNode = drpNode;
+        this.ClientCmds = null;
     }
 }
 
@@ -1813,7 +1782,7 @@ class DRP_NodeClient extends drpEndpoint.Client {
     */
     constructor(drpNode, wsTarget, retryOnClose, proxy, openCallback) {
         super(wsTarget, proxy);
-        this.node = drpNode;
+        this.drpNode = drpNode;
         this.retryOnClose = retryOnClose;
         this.proxy = proxy;
         this.openCallback = openCallback;
@@ -1844,8 +1813,8 @@ class DRP_NodeClient extends drpEndpoint.Client {
 
     // Define Handlers
     async OpenHandler(wsConn, req) {
-        this.node.log("Node client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
-        let response = await this.SendCmd(this.wsConn, "DRP", "hello", this.node.NodeDeclaration, true, null);
+        this.drpNode.log("Node client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
+        let response = await this.SendCmd(this.wsConn, "DRP", "hello", this.drpNode.NodeDeclaration, true, null);
         if (this.openCallback && typeof this.openCallback === 'function') {
             this.openCallback(response);
         }
@@ -1858,7 +1827,7 @@ class DRP_NodeClient extends drpEndpoint.Client {
             remoteAddress = wsConn._socket.remoteAddress;
             remotePort = wsConn._socket.remotePort;
         }
-        this.node.log("Node client [" + remoteAddress + ":" + remotePort + "] closed with code [" + closeCode + "]");
+        this.drpNode.log("Node client [" + remoteAddress + ":" + remotePort + "] closed with code [" + closeCode + "]");
         if (this.retryOnClose) {
             await sleep(5000);
             this.RetryConnection();
@@ -1866,7 +1835,7 @@ class DRP_NodeClient extends drpEndpoint.Client {
     }
 
     async ErrorHandler(wsConn, error) {
-        this.node.log("Node client encountered error [" + error + "]");
+        this.drpNode.log("Node client encountered error [" + error + "]");
     }
 
     async Subscribe(params, wsConn, token, customRelayHandler) {
@@ -1881,26 +1850,26 @@ class DRP_NodeClient extends drpEndpoint.Client {
 
         switch (subScope) {
             case "local":
-                results[thisRouteServer.node.nodeID] = thisRouteServer.node.TopicManager.SubscribeToTopic(params.topicName, wsConn, params.streamToken, params.filter);
+                results[thisRouteServer.drpNode.nodeID] = thisRouteServer.drpNode.TopicManager.SubscribeToTopic(params.topicName, wsConn, params.streamToken, params.filter);
                 break;
             case "global":
                 // Find anyone who provides this data and subscribe on the consumer's behalf
-                let sourceNodeIDList = Object.keys(thisRouteServer.node.NodeDeclarations);
+                let sourceNodeIDList = Object.keys(thisRouteServer.drpNode.NodeDeclarations);
                 for (let i = 0; i < sourceNodeIDList.length; i++) {
                     let sourceNodeID = sourceNodeIDList[i];
-                    let thisNodeDeclaration = thisRouteServer.node.NodeDeclarations[sourceNodeID];
+                    let thisNodeDeclaration = thisRouteServer.drpNode.NodeDeclarations[sourceNodeID];
                     if (thisNodeDeclaration.Streams && thisNodeDeclaration.Streams[params.topicName]) {
                         // This source node offers the desired stream
 
                         // Is it this node?
-                        if (sourceNodeID === thisRouteServer.node.nodeID) {
-                            results[sourceNodeID] = thisRouteServer.node.TopicManager.SubscribeToTopic(params.topicName, wsConn, params.streamToken, params.filter);
+                        if (sourceNodeID === thisRouteServer.drpNode.nodeID) {
+                            results[sourceNodeID] = thisRouteServer.drpNode.TopicManager.SubscribeToTopic(params.topicName, wsConn, params.streamToken, params.filter);
                         } else {
                             /**
                             * @type {DRP_NodeClient} DRP Node Client
                             */
 
-                            let thisNodeEndpoint = await thisRouteServer.node.VerifyNodeConnection(sourceNodeID);
+                            let thisNodeEndpoint = await thisRouteServer.drpNode.VerifyNodeConnection(sourceNodeID);
 
                             // Subscribe on behalf of the Consumer
                             let sourceStreamToken = thisRouteServer.AddStreamHandler(thisNodeEndpoint.wsConn, async function (response) {
@@ -1941,21 +1910,21 @@ class DRP_NodeClient extends drpEndpoint.Client {
             delete wsConn.Subscriptions[subscriberStreamToken];
 
             // Dirty workaround - try removing locally on each call
-            thisRouteServer.node.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, params.streamToken, params.filter);
+            thisRouteServer.drpNode.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, params.streamToken, params.filter);
         }
         return null;
     }
 
     async GetNodeDeclaration() {
-        return this.node.NodeDeclaration;
+        return this.drpNode.NodeDeclaration;
     }
 
     async RegisterNode(params, wsConn, token) {
-        return this.node.RegisterNode(params, wsConn, token);
+        return this.drpNode.RegisterNode(params, wsConn, token);
     }
 
     async UnregisterNode(params, wsConn, token) {
-        return this.node.UnregisterNode(params, wsConn, token);
+        return this.drpNode.UnregisterNode(params, wsConn, token);
     }
 
     // Override ProcessCmd from drpEndpoint
@@ -1979,14 +1948,14 @@ class DRP_NodeClient extends drpEndpoint.Client {
                 }
             } else {
                 cmdResults.output = "Endpoint does not have method";
-                thisEndpoint.node.log("Remote endpoint tried to execute invalid method '" + message.cmd + "'...");
+                thisEndpoint.drpNode.log("Remote endpoint tried to execute invalid method '" + message.cmd + "'...");
                 console.dir(message);
             }
         }
         // A service other than DRP has been specified
         else {
             try {
-                cmdResults.output = await thisEndpoint.node.ServiceCommand(message, wsConn);
+                cmdResults.output = await thisEndpoint.drpNode.ServiceCommand(message, wsConn);
                 cmdResults.status = 1;
             } catch (err) {
                 cmdResults.output = err.message;
@@ -2000,7 +1969,7 @@ class DRP_NodeClient extends drpEndpoint.Client {
     }
 }
 
-class DRP_Consumer_NodeClient extends drpEndpoint.Client {
+class DRP_ConsumerClient extends drpEndpoint.Client {
     constructor(wsTarget, callback) {
         super(wsTarget);
         this.postOpenCallback = callback;
@@ -2043,8 +2012,8 @@ class DRP_Consumer_NodeClient extends drpEndpoint.Client {
 module.exports = {
     Node: DRP_Node,
     Service: DRP_Service,
-    Server: DRP_Server,
-    ServerRoute: DRP_Node_ServerRoute,
-    ConsumerClient: DRP_Consumer_NodeClient,
+    WebServer: DRP_WebServer,
+    WebServerRoute: DRP_WebServerRoute,
+    ConsumerClient: DRP_ConsumerClient,
     Command: DRP_Command
 };

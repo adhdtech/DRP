@@ -23,12 +23,12 @@ let myServerConfig = {
 };
 
 // Create expressApp
-let myServer = new drpService.Server(myServerConfig);
-myServer.start();
+let myWebServer = new drpService.WebServer(myServerConfig);
+myWebServer.start();
 
 // Create Node
-console.log(`Starting DRP Node...`);
-let myNode = new drpService.Node(["Registry"], myServer.expressApp, drpWSRoute, myServerConfig.NodeURL);
+console.log(`Starting DRP Node`);
+let myNode = new drpService.Node(["Registry"], myWebServer, drpWSRoute, myServerConfig.NodeURL);
 
 if (myNode.nodeURL) {
     myNode.log(`Listening at: ${myNode.nodeURL}`);

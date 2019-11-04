@@ -1,6 +1,8 @@
 'use strict';
 var drpService = require('drp-service');
 
+process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
+
 var registryurl = process.env.REGISTRYURL || "ws://localhost:8080";
 
 // Create Node
@@ -16,7 +18,8 @@ setInterval(function () {
 }, 3000);
 
 // Add a test service
-myNode.AddService("Greeter", {
+myNode.AddService({
+    ServiceName: "Greeter",
     ClientCmds: {
         sayHi: async function () { return { pathItem: `Hello from ${myNode.nodeID}` }; },
         sayBye: async function () { return { pathItem: `Goodbye from ${myNode.nodeID}` }; },
