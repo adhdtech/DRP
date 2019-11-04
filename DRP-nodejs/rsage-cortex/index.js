@@ -1,12 +1,16 @@
-var drpNode = require('drp-service').Node;
+var drpService = require('drp-service');
+var drpNode = drpService.Node;
 
-class CortexServer {
+class Cortex extends drpService.Service {
     /**
      * 
+     * @param {string} serviceName Service Name
      * @param {drpNode} drpNode DRP Node
+     * @param {Hive} hiveObj Hive
      * @param {function} postHiveLoad Post load function
      */
-    constructor(drpNode, postHiveLoad) {
+    constructor(serviceName, drpNode, hiveObj, postHiveLoad) {
+        super(serviceName, drpNode);
         let thisCortex = this;
 
         // Set DRP Broker client
@@ -16,12 +20,10 @@ class CortexServer {
         this.ObjectTypes = {};
 
         // Instantiate Hive
-        this.Hive = new Hive();
+        this.Hive = hiveObj;
 
         // Start VDM Hive
-        this.Hive.Start({
-            Cortex: thisCortex
-        }, function () {
+        this.Hive.Start(function () {
             // After Hive finishes initializing....
             postHiveLoad();
             // Start add on modules
@@ -29,37 +31,6 @@ class CortexServer {
         });
 
         this.ClientCmds = {};
-    }
-
-    LogEvent(logMsg, source) {
-        let dateTimeStamp = this.GetTimestamp();
-        if (!source) {
-            source = "CORTEX";
-        }
-        console.log(dateTimeStamp + " " + source + " - " + logMsg);
-    }
-
-    GetTimestamp() {
-        let date = new Date();
-
-        let hour = date.getHours();
-        hour = (hour < 10 ? "0" : "") + hour;
-
-        let min = date.getMinutes();
-        min = (min < 10 ? "0" : "") + min;
-
-        let sec = date.getSeconds();
-        sec = (sec < 10 ? "0" : "") + sec;
-
-        let year = date.getFullYear();
-
-        let month = date.getMonth() + 1;
-        month = (month < 10 ? "0" : "") + month;
-
-        let day = date.getDate();
-        day = (day < 10 ? "0" : "") + day;
-
-        return year + "" + month + "" + day + "" + hour + "" + min + "" + sec;
     }
 
     ListObjectTypes() {
@@ -585,6 +556,11 @@ class HiveMapQuery {
 }
 
 class CortexObjectManager {
+    /**
+     * 
+     * @param {Cortex} CortexServer Cortex
+     * @param {string} ObjectManagerName Object Manager Name
+     */
     constructor(CortexServer, ObjectManagerName) {
         let thisObjMgr = this;
 
@@ -645,7 +621,7 @@ class CortexObjectManager {
                 thisObjMgr.ManagedObjects[objectType][key] = newObject;
             }
         }
-        console.log("Populating Objects - " + objectType + " [" + keyList.length + "]");
+        thisObjMgr.CortexServer.drpNode.log("Populating Objects - " + objectType + " [" + keyList.length + "]");
     }
 }
 
@@ -781,26 +757,24 @@ class HiveClassLoader {
     }
 }
 
-class Hive {
-    constructor() {
+class Hive extends drpService.Service {
+    /**
+     * 
+     * @param {string} serviceName Service Name
+     * @param {drpNode} drpNode DRP Node
+     */
+    constructor(serviceName, drpNode) {
+        super(serviceName, drpNode);
         let thisHive = this;
         this.cfgOpts = {};
         this.HiveClasses = {};
         this.HiveData = {};
         this.HiveIndexes = {};
 
-        this.wsConn = [];
-
-        /** @type CortexServer */
-        this.Cortex = null;
-
-        this.collectorProfiles = {};
-        this.CollectorClients = {};
-        this.UnityClients = {};
         this.CollectorInstances = {};
-        this.collectorsProcessed = 0;
-        this.IsReady = false;
-        this.HiveClassLoader = null;
+
+        /** @type {HiveClassLoader} */
+        this.ClassLoader = null;
 
         this.ClientCmds = {
             // Old Hive client commands
@@ -1314,7 +1288,7 @@ class Hive {
                 icrQuery.Run();
                 if (icrQuery.errorStatus) {
                     //console.log("ICRQuery Error: [" + icrQuery.errorStatus + "]");
-                    thisHive.vdmServer.LogHiveEvent("ICRQuery Error: [" + icrQuery.errorStatus + "] --> " + params.query);
+                    thisHive.drpNode.log("ICRQuery Error: [" + icrQuery.errorStatus + "] --> " + params.query);
                 } else {
                     returnObj.icrQuery = icrQuery.returnObj.icrQuery;
                     returnObj.records = icrQuery.returnObj.results;
@@ -1333,35 +1307,25 @@ class Hive {
         };
     }
 
-    async Start(cfgOpts, callback) {
+    async Start(callback) {
         let thisHive = this;
-        this.cfgOpts = cfgOpts;
-        this.Cortex = cfgOpts.Cortex;
 
         this.RunAfterHiveLoad = callback;
 
-        this.IsReady = false;
         this.HiveClasses = {};
         this.HiveData = {};
         this.HiveIndexes = {};
-        //this.collectorProfiles = {};
-        this.collectorsProcessed = 0;
-        this.classLoader = new HiveClassLoader();
+        this.ClassLoader = new HiveClassLoader();
 
-        // Wait until DRPNode is connected... (static 5 seconds for now)
-        await new Promise(resolve => {
-            setTimeout(resolve, 5000);
-        });
+        let classDefs = await thisHive.drpNode.GetClassDefinitions();
 
-        let classDefs = await this.Cortex.drpNode.GetClassDefinitions();
+        this.ClassLoader.LoadClasses(classDefs);
 
-        this.classLoader.LoadClasses(classDefs);
-
-        thisHive.HiveClasses = thisHive.classLoader.HiveClasses;
-        thisHive.HiveIndexes = thisHive.classLoader.GenerateIndexes();
-        console.log("Loaded class definitions");
-        await thisHive.LoadCollectorInstances(this.Cortex.drpNode);
-        console.log("Loaded collector data");
+        thisHive.HiveClasses = thisHive.ClassLoader.HiveClasses;
+        thisHive.HiveIndexes = thisHive.ClassLoader.GenerateIndexes();
+        thisHive.drpNode.log("Loaded class definitions");
+        await thisHive.LoadCollectorInstances(thisHive.drpNode);
+        thisHive.drpNode.log("Loaded collector data");
         callback();
     }
 
@@ -1369,7 +1333,7 @@ class Hive {
         let thisHive = this;
 
         // We need to get a list of all distinct class INSTANCES along with the best source for each
-        let classInstances = this.Cortex.drpNode.ListClassInstances();
+        let classInstances = thisHive.drpNode.ListClassInstances();
         // Loop over classes
         let classNames = Object.keys(classInstances);
         for (let i = 0; i < classNames.length; i++) {
@@ -1432,14 +1396,14 @@ class Hive {
                 // Send cmd to broker for info
                 let params = {};
                 params.pathList = recordPath;
-                let brokerNodeID = thisHive.Cortex.drpNode.FindBroker();
-                let brokerNodeClient = await thisHive.Cortex.drpNode.VerifyNodeConnection(brokerNodeID);
+                let brokerNodeID = thisHive.drpNode.FindBroker();
+                let brokerNodeClient = await thisHive.drpNode.VerifyNodeConnection(brokerNodeID);
                 let cmdResponse = await brokerNodeClient.SendCmd(null, "DRP", "pathCmd", params, true, null);
 
                 let classInstanceRecords = cmdResponse.payload.pathItem;
 
                 // Add data to Hive
-                console.log(`Retrieved [${thisClassName}] from ${thisSourceInstanceName}@${thisClassObj.ProviderName}, Length: ${Object.keys(classInstanceRecords).length}`);
+                thisHive.drpNode.log(`Retrieved [${thisClassName}] from ${thisSourceInstanceName}@${thisClassObj.ProviderName}, Length: ${Object.keys(classInstanceRecords).length}`);
                 let newRecordHash = {};
                 Object.keys(classInstanceRecords).forEach(function (objPK) {
                     newRecordHash[objPK] = {
@@ -2182,7 +2146,8 @@ ICRQuery.prototype.Verbs = {
 };
 
 module.exports = {
-    CortexServer: CortexServer,
+    Hive: Hive,
+    Cortex: Cortex,
     CortexObjectManager: CortexObjectManager,
     CortexObject: CortexObject,
     CortexObjectQuery: CortexObjectQuery,

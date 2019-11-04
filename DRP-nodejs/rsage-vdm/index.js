@@ -1,4 +1,6 @@
 ﻿var drpService = require('drp-service');
+var drpNode = drpService.Node;
+var drpWebServer = drpService.WebServer;
 var express = require('express');
 var basicAuth = require('express-basic-auth');
 
@@ -56,21 +58,21 @@ class VDMServer_UserAppInstance {
 class VDMServer extends drpService.Service {
     /**
      * 
-     * @param {string} serviceID Service Instance ID
-     * @param {object} expressApp Express app
+     * @param {string} serviceName Service Name
+     * @param {drpNode} drpNode DRP Node
      * @param {string} clientDirectory Client directory
      * @param {object} asyncAuthorizer Async Authorizer
      */
-    constructor(serviceID, expressApp, clientDirectory, asyncAuthorizer) {
-        super(serviceID);
+    constructor(serviceName, drpNode, clientDirectory, asyncAuthorizer) {
+        super(serviceName, drpNode);
 
-        this.expressApp = expressApp;
+        this.expressApp = drpNode.WebServer.expressApp;
 
         this.clientStaticDir = clientDirectory;
-        expressApp.use(express.static(clientDirectory));
+        this.expressApp.use(express.static(clientDirectory));
 
         if (asyncAuthorizer) {
-            expressApp.get('/', basicAuth({
+            this.expressApp.get('/', basicAuth({
                 challenge: true,
                 authorizer: asyncAuthorizer,
                 authorizeAsync: true
@@ -81,7 +83,7 @@ class VDMServer extends drpService.Service {
             });
         }
         else {
-            expressApp.route('/')
+            this.expressApp.route('/')
                 .get((req, res) => {
                     res.sendFile("client.html", { "root": clientDirectory });
                     //res.redirect('client.html');
@@ -94,10 +96,7 @@ class VDMServer extends drpService.Service {
 
         let thisVDMServer = this;
 
-        //this.expressApp = expressApp;
-        //this.wsClients = [];
         this.clientSessions = {};
-        //this.wsServer = null;
 
         this.ClientCmds = {
             "listClientSessions": function () {
@@ -156,7 +155,7 @@ class VDMServer extends drpService.Service {
         };
         */
 
-        thisVDMServer.expressApp.use(function vdmServerAttachHandler(req, res, next) {
+        this.expressApp.use(function vdmServerAttachHandler(req, res, next) {
             req.VDMServer = thisVDMServer;
             next();
         });

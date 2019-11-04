@@ -24,19 +24,18 @@ let myServerConfig = {
     "WebRoot": process.env.WEBROOT || "webroot"
 };
 
-// Create expressApp
-let myServer = new drpService.Server(myServerConfig);
-myServer.start();
-
-// Create VDM Server on expressApp
-let myVDMServer = new vdmServer("VDM", myServer.expressApp, myServerConfig.WebRoot);
+// Create WebServer
+let myWebServer = new drpService.WebServer(myServerConfig);
+myWebServer.start();
 
 // Create Node
 console.log(`Starting DRP Node...`);
-let myNode = new drpService.Node(["Broker", "Registry"], myServer.expressApp, drpWSRoute, myServerConfig.NodeURL);
-myNode.NodeServer = myServer;
-myNode.AddService("VDM", myVDMServer);
-myNode.AddStream("RESTLogs", "REST service logs");
+let myNode = new drpService.Node(["Broker", "Registry"], myWebServer, drpWSRoute, myServerConfig.NodeURL);
+
+// Create VDM Server on Node
+let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot);
+
+myNode.AddService(myVDMServer);
 myNode.EnableREST("/broker", "Mesh");
 
 if (myNode.nodeURL) {

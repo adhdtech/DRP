@@ -1,52 +1,69 @@
 'use strict';
 var drpService = require('drp-service');
+var os = require("os");
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
-var registryURL = process.argv[2];
-if (!registryURL) {
-    console.error("No registry URL specified!\n\n> node " + process.argv[1] + " <registryURL>");
-    process.exit(0);
+var protocol = "ws";
+if (process.env.SSL_ENABLED) {
+    protocol = "wss";
 }
+var port = process.env.PORT || 8081;
+var hostname = process.env.HOSTNAME || os.hostname();
+var registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
 
-var port = 8081;
+let drpWSRoute = "";
 
 // Set config
 let myServerConfig = {
-    "ProviderURL": "ws://localhost:8081/provider",
+    "NodeURL": `${protocol}://${hostname}:${port}${drpWSRoute}`,
     "Port": port,
-    "SSLEnabled": false,
-    "SSLKeyFile": "ssl/mydomain.key",
-    "SSLCrtFile": "ssl/mydomain.crt",
-    "SSLCrtFilePwd": "mycertpw",
-    "WebRoot": "webroot"
+    "SSLEnabled": process.env.SSL_ENABLED || false,
+    "SSLKeyFile": process.env.SSL_KEYFILE || "",
+    "SSLCrtFile": process.env.SSL_CRTFILE || "",
+    "SSLCrtFilePwd": process.env.SSL_CRTFILEPWD || "",
+    "WebRoot": process.env.WEBROOT || "webroot"
 };
+
+// Create a test service to expose
+class testService extends drpService.Service {
+    /**
+     * 
+     * @param {string} serviceName Service Name
+     * @param {drpNode} drpNode DRP Node
+     */
+    constructor(serviceName, drpNode) {
+        super(serviceName, drpNode);
+        this.ClientCmds = {
+            sayHi: async function () { return { pathItem: "Hello!" }; },
+            sayBye: async function () { return { pathItem: "Goodbye..." }; }
+        };
+    }
+}
 
 // Create expressApp
-let myServer = new drpService.Server(myServerConfig);
-myServer.start();
+let myWebServer = new drpService.WebServer(myServerConfig);
+myWebServer.start();
 
-// Load Provider
-console.log(`Loading Provider`);
-let myProvider = new drpService.Provider(myServer.expressApp, myServerConfig["ProviderURL"]);
+// Create Node
+console.log(`Starting DRP Node...`);
+let myNode = new drpService.Node(["Provider"], myWebServer, drpWSRoute, myServerConfig.NodeURL);
 
-// Declare dummy stream
-myProvider.NodeDeclaration.Streams = {
-    "dummy": { Class: "FakeData" }
-};
-setInterval(function () {
-    let timeStamp = new Date().getTime();
-    myProvider.TopicManager.SendToTopic("dummy", timeStamp + " Dummy message from Provider[" + myProvider.nodeID + "]");
-}, 3000);
+if (myNode.nodeURL) {
+    myNode.log(`Listening at: ${myNode.nodeURL}`);
+}
+
+// Add dummy stream
+myNode.AddStream("dummy", "FakeData");
 
 // Add a test service
-myProvider.AddService("Greeter", {
-    ClientCmds: {
-        sayHi: async function () { return { pathItem: "Hello!" }; },
-        sayBye: async function () { return { pathItem: "Goodbye..." }; },
-        showParams: async function (params) { return { pathItem: params }; }
-    }
-});
+myNode.AddService(new testService("TestService", myNode));
+
+// Start sending data to dummy topic
+setInterval(function () {
+	let timeStamp = new Date().getTime();
+    myNode.TopicManager.SendToTopic("dummy", timeStamp + " Dummy message from Provider[" + myServerConfig["Name"] + "]");
+}, 3000);
 
 // Connect to Registry
-myProvider.ConnectToRegistry(registryURL);
+myNode.ConnectToRegistry(registryURL);

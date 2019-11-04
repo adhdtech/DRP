@@ -1,19 +1,27 @@
 'use strict';
 var fs = require('fs');
 var drpService = require('drp-service');
+var drpNode = drpService.Node;
 
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
-var registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
+//var registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
+var registryURL = "ws://localhost:8080";
 
 // Create Node
 console.log(`Starting DRP Node...`);
 let myNode = new drpService.Node(["Provider"]);
 
-class JSONDocManager {
-    constructor(basePath) {
+class JSONDocManager extends drpService.Service {
+    /**
+     * 
+     * @param {string} serviceName Service Name
+     * @param {drpNode} drpNode DRP Node
+     * @param {string} basePath Base path
+     */
+    constructor(serviceName, drpNode, basePath) {
+        super(serviceName, drpNode);
         var thisDocMgr = this;
-        this.Name = "JSONDocMgr";
         this.basePath = basePath;
 
         this.ClientCmds = {
@@ -98,5 +106,7 @@ class JSONDocManager {
     }
 }
 
-myNode.AddService("JSONDocMgr", new JSONDocManager("jsondocs\\"));
+let myService = new JSONDocManager("JSONDocMgr", myNode, "jsondocs\\");
+
+myNode.AddService(myService);
 myNode.ConnectToRegistry(registryURL);
