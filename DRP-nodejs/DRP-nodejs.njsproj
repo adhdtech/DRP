@@ -5,7 +5,8 @@
     <Name>DRP-nodejs</Name>
     <RootNamespace>DRP-nodejs</RootNamespace>
     <SaveNodeJsSettingsInProjectFile>True</SaveNodeJsSettingsInProjectFile>
-    <ScriptArguments>ws://localhost:8082/drpnode ws://localhost:8080/broker</ScriptArguments>
+    <ScriptArguments>
+    </ScriptArguments>
     <NodeExeArguments>--max-old-space-size=4096</NodeExeArguments>
     <Environment>
     </Environment>
@@ -35,6 +36,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Content Include="Dockerfile" />
+    <Content Include="drpProvider-Cortex.js" />
     <Content Include="drpProvider-JSONDocMgr.js" />
     <Content Include="jsondocs\test.json">
       <SubType>Code</SubType>
