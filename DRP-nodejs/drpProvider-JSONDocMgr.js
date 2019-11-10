@@ -5,8 +5,7 @@ var drpNode = drpService.Node;
 
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
-//var registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
-var registryURL = "ws://localhost:8080";
+var registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
 
 // Create Node
 console.log(`Starting DRP Node...`);

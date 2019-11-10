@@ -36,6 +36,7 @@ let myNode = new drpService.Node(["Broker", "Registry"], myWebServer, drpWSRoute
 let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot);
 
 myNode.AddService(myVDMServer);
+myNode.AddStream("RESTLogs", "REST service logs");
 myNode.EnableREST("/broker", "Mesh");
 
 if (myNode.nodeURL) {

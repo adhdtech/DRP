@@ -4,9 +4,19 @@ var url = require('url');
 
 class DRP_Endpoint {
     constructor(wsConn) {
-        this.wsConn = wsConn || null;
         let thisEndpoint = this;
+        /** @type {WebSocket} */
+        this.wsConn = wsConn || null;
+        if (this.wsConn) {
+            this.wsConn.drpEndpoint = this;
+        }
         this.EndpointCmds = {};
+        /** @type {{string:DRP_Subscription}} */
+        this.Subscriptions = {};
+        /** @type {function} */
+        this.openCallback;
+        /** @type {function} */
+        this.closeCallback;
         this.RegisterCmd("getCmds", "GetCmds");
     }
 
@@ -224,6 +234,30 @@ class DRP_Endpoint {
         }
     }
 
+    /**
+    * 
+    * @param {DRP_Subscription} subscriptionObject Subscription object
+    */
+    async WatchStream(subscriptionObject) {
+        let thisEndpoint = this;
+        subscriptionObject.subscribedTo.push(thisEndpoint.wsConn.nodeID);
+        let streamToken = thisEndpoint.AddStreamHandler(thisEndpoint.wsConn, function (message) {
+            if (message && message.payload) {
+                subscriptionObject.streamHandler(message.payload);
+            }
+        });
+
+        let response = await thisEndpoint.SendCmd(thisEndpoint.wsConn, "DRP", "subscribe", { "topicName": subscriptionObject.topicName, "streamToken": streamToken, "scope": subscriptionObject.scope }, true, null);
+
+        if (response.status === 0) {
+            thisEndpoint.DeleteStreamHandler(thisEndpoint.wsConn, streamToken);
+            subscriptionObject.subscribedTo.slice(subscriptionObject.subscribedTo.indexOf(targetNodeID), 1);
+            thisEndpoint.drpNode.log("Subscribe failed, deleted handler");
+        } else {
+            thisEndpoint.drpNode.log(`Subscribed to ${thisEndpoint.wsConn.nodeID} -> ${subscriptionObject.topicName}`);
+        }
+    }
+
     GetCmds() {
         return Object.keys(this.EndpointCmds);
     }
@@ -330,7 +364,26 @@ class DRP_Stream {
     }
 }
 
+class DRP_Subscription {
+    /**
+     * @param {string} streamToken Token
+     * @param {string} topicName Topic name
+     * @param {string} scope global|local
+     * @param {{string:object}} filter Filter
+     * @param {function} streamHandler Stream handler
+     */
+    constructor(streamToken, topicName, scope, filter, streamHandler) {
+        this.streamToken = streamToken;
+        this.topicName = topicName;
+        this.scope = scope || "local";
+        this.filter = filter || null;
+        this.subscribedTo = [];
+        this.streamHandler = streamHandler;
+    }
+}
+
 module.exports = {
     Client: DRP_Client,
-    Endpoint: DRP_Endpoint
+    Endpoint: DRP_Endpoint,
+    Subscription: DRP_Subscription
 };
