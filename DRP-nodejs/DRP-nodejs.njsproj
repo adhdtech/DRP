@@ -91,7 +91,6 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="cucm-sql-async\" />
-    <Folder Include="drp-endpoint\" />
     <Folder Include="drp-mesh\" />
     <Folder Include="drp-mesh\lib\" />
     <Folder Include="drp-service-cache\" />
