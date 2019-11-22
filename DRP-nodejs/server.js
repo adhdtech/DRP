@@ -57,7 +57,7 @@ myNode.AddStream("RESTLogs", "REST service logs");
 myNode.EnableREST("/Mesh", "Mesh");
 
 // Add another service for demo
-let docService = new docManager("JSONDocMgr", myNode, "jsondocs\\");
+let docService = new docManager("JSONDocMgr", myNode, "jsondocs/");
 myNode.AddService(docService);
 
 if (myNode.nodeURL) {
