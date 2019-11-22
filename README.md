@@ -28,24 +28,24 @@ node server.js
 ```
 
 ## Sample Provider
-This sample will start a Provider which listens on ws://localhost:8081/provider and connects to the Registry on ws://localhost:8080/registry
+This sample will start a Provider which listens on ws://localhost:8081 and connects to the Registry at ws://localhost:8080
 ```
-node testProvider.js
+node drpProvider-Test.js
 ```
 ## Sample Provider - No Listener
 This sample will start a Provider which does not listen for connections; it connects directly to Brokers who need it
 ```
-node testProvider-NoListener.js
+node drpProvider-Test-NoListener.js
 ```
 
-## Sample Client
-This sample will start a Consumer which connects to the Broker on ws://localhost:8080/broker and subscribes to the dummy stream
+## Sample Consumer
+This sample will start a Consumer which connects to the Broker on ws://localhost:8080 and subscribes to the dummy stream
 ```
-node testClient.js
+node drpConsumer.js
 ```
 
 ## Web UI
-Running server.js will also start the rSage web interface on http://localhost:8080 which connects to the Broker on ws://localhost:8080/broker.  Click Go -> Command Testing to see the commands exposed to DRP Consumers.<br>
+Running server.js will also start the rSage web interface on http://localhost:8080 which connects to the Broker on ws://localhost:8080.  Click Go -> Command Testing to see the commands exposed to DRP Consumers.<br>
 * **getCmds** - List DRP Consumer commands<br>
 * **getRegistry** - Get dump of Registry<br>
 * **listServiceInstances** - List Services and which Providers offer them<br>
@@ -56,25 +56,36 @@ Navigate the DRP topology via CLI using the DRPDrive.dll module.  Open a PowerSh
 ```
 cd PSDrive\bin\Debug
 Import-Module .\DRPDrive.dll
-Connect-DRP -Alias dev -URL ws://localhost:8080/broker
-dir drp:\dev
-dir drp:\dev\Registry
-dir drp:\dev\Providers
+Connect-DRP -Alias local -URL ws://localhost:8080
+dir drp:\local
 
-# View last 10 messages in a topic
-dir drp:\dev\Providers\{providerID}\Streams\dummy\LastTen
+# Dump the Mesh registry
+gi drp:\local\Mesh\Registry
+
+# List Services available in Mesh
+dir drp:\local\Mesh\Services
 
 # Execute a service command
-gi drp:\dev\Services\Greeter\ClientCmds\sayHi
+gi drp:\local\Mesh\Services\JSONDocMgr\ClientCmds\listFiles
 
-# View list of Consumers
-dir drp:\dev\Consumers
+# List Streams available in Mesh
+dir drp:\local\Mesh\Streams
+
+# Retrieve last 10 messages sent to a stream
+gi drp:\local\Mesh\Streams\RESTLogs\{nodeID}\LastTen
+
+# View list of attached Nodes & Consumers
+dir drp:\local\Endpoints\Nodes
+dir drp:\local\Endpoints\Consumers
+
+# Dump the Mesh Topology
+gi drp:\local\NodeObj\RouteHandler\EndpointCmds\getTopology
 
 # Retrieve HTML document from a consumer web session for debugging
-gi drp:\dev\Consumers\{id}\HTMLDocument\children\0\outerHTML
+gi drp:\local\Endpoints\Consumers\{consumerID}\HTMLDocument\children\0\outerHTML
 
 # Execute a command on the consumer web session to RickRoll the user
-gi drp:\dev\Consumers\{id}\RickRoll
+gi drp:\local\Endpoints\Consumers\{consumerID}\RickRoll
 ```
 
 
