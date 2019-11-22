@@ -20,6 +20,18 @@ resource requests.
 **Consumers** - Client facing applications, monitoring and analytics<br>
 
 ## Demo
+**Option 1: Docker Container**
+```
+docker pull adhdtech/drp-nodejs
+docker create --name drp-demo -p 8080:8080 -e "PORT=8080" -e "HOSTNAME=localhost" adhdtech/drp-nodejs
+docker start drp-demo
+```
+
+**Option 2: Git Clone**
+```
+git clone https://github.com/adhdtech/DRP.git DRP
+```
+
 Checkout repo, change to directory.  Execute the following to start a demo service which provides the Registry, Provider and Broker routes on ws://localhost:8080
 ```
 cd DRP-nodejs
