@@ -2,7 +2,7 @@
 
 const DRP_Service = require('drp-mesh').Service;
 
-var fs = require('fs');
+const fs = require('fs');
 
 class JSONDocManager extends DRP_Service {
     /**
