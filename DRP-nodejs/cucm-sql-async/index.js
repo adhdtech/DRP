@@ -1,6 +1,6 @@
-var util = require("util");
-var https = require("https");
-var parseString = require('xml2js').parseString;
+const util = require("util");
+const https = require("https");
+const parseString = require('xml2js').parseString;
 
 var XML_ENVELOPE = '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns="http://www.cisco.com/AXL/API/10.5"><soapenv:Header/><soapenv:Body><ns:executeSQL%s><sql>%s</sql></ns:executeSQL%s></soapenv:Body></soapenv:Envelope>';
 
