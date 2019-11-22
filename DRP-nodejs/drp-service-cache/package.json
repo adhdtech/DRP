@@ -1,18 +1,21 @@
 {
-  "name": "rsage-cortex",
+  "name": "drp-service-cache",
   "version": "1.0.0",
-  "description": "rSage Cortex",
+  "description": "DRP Cache Service",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
-    "rsage",
-    "cortex",
-    "vdm"
+    "drp",
+    "service",
+    "cache",
+    "rsage"
   ],
   "author": "chykn <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
+    "mongodb": "*",
+    "drp-mesh": "*"
   }
 }

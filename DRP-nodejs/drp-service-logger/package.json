@@ -1,7 +1,7 @@
 {
-  "name": "rsage-cache",
+  "name": "drp-service-logger",
   "version": "1.0.0",
-  "description": "rSage Cache Service",
+  "description": "DRP Logger Service",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -9,13 +9,12 @@
   "keywords": [
     "drp",
     "service",
-    "provider",
-    "rsage"
+    "logger"
   ],
   "author": "chykn <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
-    "mongodb": "*",
-    "drp-service": "*"
+    "drp-mesh": "*",
+    "mssql": "*"
   }
 }

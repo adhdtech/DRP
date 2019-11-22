@@ -1,6 +1,8 @@
-var WebSocket = require('ws');
-var HttpsProxyAgent = require('https-proxy-agent');
-var url = require('url');
+'use strict';
+
+const DRP_Subscription = require('./subscription');
+
+const WebSocket = require('ws');
 
 class DRP_Endpoint {
     constructor(wsConn) {
@@ -251,7 +253,7 @@ class DRP_Endpoint {
 
         if (response.status === 0) {
             thisEndpoint.DeleteStreamHandler(thisEndpoint.wsConn, streamToken);
-            subscriptionObject.subscribedTo.slice(subscriptionObject.subscribedTo.indexOf(targetNodeID), 1);
+            subscriptionObject.subscribedTo.slice(subscriptionObject.subscribedTo.indexOf(thisEndpoint.wsConn.nodeID), 1);
             thisEndpoint.drpNode.log("Subscribe failed, deleted handler");
         } else {
             thisEndpoint.drpNode.log(`Subscribed to ${thisEndpoint.wsConn.nodeID} -> ${subscriptionObject.topicName}`);
@@ -267,73 +269,6 @@ class DRP_Endpoint {
     async CloseHandler() { }
 
     async ErrorHandler() { }
-}
-
-class DRP_Client extends DRP_Endpoint {
-    constructor(wsTarget, proxy) {
-        super();
-        this.wsTarget = wsTarget;
-        this.proxy = proxy;
-        let thisClient = this;
-
-        let wsMaxPayload = 512 * 1024 * 1024;
-
-        // Create wsConn
-        let wsConn = null;
-        if (thisClient.proxy) {
-            let opts = url.parse(thisClient.proxy);
-            let agent = new HttpsProxyAgent(opts);
-            wsConn = new WebSocket(thisClient.wsTarget, "drp", { agent: agent, maxPayload: wsMaxPayload });
-        } else {
-            wsConn = new WebSocket(thisClient.wsTarget, "drp", { maxPayload: wsMaxPayload });
-        }
-        this.wsConn = wsConn;
-
-        wsConn.on('open', function () {
-            setInterval(function ping() {
-                wsConn.ping(function () { });
-            }, 30000);
-            thisClient.OpenHandler(wsConn);
-        });
-
-        wsConn.on("message", function (message) {
-            // Process command
-            thisClient.ReceiveMessage(wsConn, message);
-        });
-
-        wsConn.on("close", function (closeCode) { thisClient.CloseHandler(wsConn, closeCode); });
-
-        wsConn.on("error", function (error) { thisClient.ErrorHandler(wsConn, error); });
-    }
-
-    async RetryConnection() {
-        let thisClient = this;
-        let wsConn = null;
-        if (thisClient.proxy) {
-            let opts = url.parse(thisClient.proxy);
-            let agent = new HttpsProxyAgent(opts);
-            wsConn = new WebSocket(thisClient.wsTarget, "drp", { agent: agent });
-        } else {
-            wsConn = new WebSocket(thisClient.wsTarget, "drp");
-        }
-        this.wsConn = wsConn;
-
-        wsConn.on('open', function () {
-            setInterval(function ping() {
-                wsConn.ping(function () { });
-            }, 30000);
-            thisClient.OpenHandler(wsConn);
-        });
-
-        wsConn.on("message", function (message) {
-            // Process command
-            thisClient.ReceiveMessage(wsConn, message);
-        });
-
-        wsConn.on("close", function (closeCode) { thisClient.CloseHandler(wsConn, closeCode); });
-
-        wsConn.on("error", function (error) { thisClient.ErrorHandler(wsConn, error); });
-    }
 }
 
 class DRP_Cmd {
@@ -364,26 +299,4 @@ class DRP_Stream {
     }
 }
 
-class DRP_Subscription {
-    /**
-     * @param {string} streamToken Token
-     * @param {string} topicName Topic name
-     * @param {string} scope global|local
-     * @param {{string:object}} filter Filter
-     * @param {function} streamHandler Stream handler
-     */
-    constructor(streamToken, topicName, scope, filter, streamHandler) {
-        this.streamToken = streamToken;
-        this.topicName = topicName;
-        this.scope = scope || "local";
-        this.filter = filter || null;
-        this.subscribedTo = [];
-        this.streamHandler = streamHandler;
-    }
-}
-
-module.exports = {
-    Client: DRP_Client,
-    Endpoint: DRP_Endpoint,
-    Subscription: DRP_Subscription
-};
+module.exports = DRP_Endpoint;

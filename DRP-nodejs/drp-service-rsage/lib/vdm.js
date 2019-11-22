@@ -1,15 +1,7 @@
-﻿var drpService = require('drp-service');
-var drpNode = drpService.Node;
-var drpWebServer = drpService.WebServer;
+let DRP_Node = require('drp-mesh').Node;
+let DRP_Service = require('drp-mesh').Service;
 var express = require('express');
 var basicAuth = require('express-basic-auth');
-
-// Create ID Generator
-/*
-var flakeIdGen = require('flake-idgen');
-var intformat = require('biguint-format');
-var idGenerator = new flakeIdGen;
-*/
 
 class VDMServer_UserAppInstance {
     constructor(conn, appletIndex, appletName, vdmServer) {
@@ -55,13 +47,13 @@ class VDMServer_UserAppInstance {
     }
 }
 
-class VDMServer extends drpService.Service {
+class VDMServer extends DRP_Service {
     /**
      * 
      * @param {string} serviceName Service Name
-     * @param {drpNode} drpNode DRP Node
+     * @param {DRP_Node} drpNode DRP Node
      * @param {string} clientDirectory Client directory
-     * @param {object} asyncAuthorizer Async Authorizer
+     * @param {function} asyncAuthorizer Async Authorizer
      */
     constructor(serviceName, drpNode, clientDirectory, asyncAuthorizer) {
         super(serviceName, drpNode);

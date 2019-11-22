@@ -1,5 +1,7 @@
 'use strict';
-var drpService = require('drp-service');
+const DRP_Node = require('drp-mesh').Node;
+const DRP_WebServer = require('drp-mesh').WebServer;
+
 var os = require("os");
 
 var protocol = "ws";
@@ -8,6 +10,7 @@ if (process.env.SSL_ENABLED) {
 }
 var port = process.env.PORT || 8080;
 var hostname = process.env.HOSTNAME || os.hostname();
+var registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
 
 let drpWSRoute = "";
 
@@ -23,12 +26,12 @@ let myServerConfig = {
 };
 
 // Create expressApp
-let myWebServer = new drpService.WebServer(myServerConfig);
+let myWebServer = new DRP_WebServer(myServerConfig);
 myWebServer.start();
 
-// Create Node
+// Create Broker on expressApp
 console.log(`Starting DRP Node`);
-let myNode = new drpService.Node(["Registry"], myWebServer, drpWSRoute, myServerConfig.NodeURL);
+let myNode = new DRP_Node(["Registry"], myWebServer, drpWSRoute, myServerConfig.NodeURL);
 
 if (myNode.nodeURL) {
     myNode.log(`Listening at: ${myNode.nodeURL}`);

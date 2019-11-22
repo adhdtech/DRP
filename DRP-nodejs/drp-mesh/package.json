@@ -1,14 +1,15 @@
 {
-  "name": "drp-service",
+  "name": "drp-mesh",
   "version": "1.0.0",
-  "description": "DRP Services",
+  "description": "DRP Mesh",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "drp",
-    "service",
+    "mesh",
+	  "service",
     "registry",
     "provider",
     "broker"
@@ -16,13 +17,10 @@
   "author": "chykn <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
-    "drp-endpoint": "*",
+    "ws": "*",
     "body-parser": "*",
     "express": "*",
     "express-ws": "*",
-    "express-basic-auth": "*",
-    "flake-idgen": "*",
-    "biguint-format": "*",
     "cors": "*"
   }
 }

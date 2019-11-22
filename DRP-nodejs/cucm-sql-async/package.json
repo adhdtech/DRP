@@ -1,21 +1,16 @@
 {
-  "name": "rsage-vdm",
+  "name": "cucm-sql-async",
   "version": "1.0.0",
-  "description": "virtual desktop manager",
+  "description": "CUCM SQL Module",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
-    "rsage",
-    "vdm",
-    "virtual",
-    "desktop",
-    "manager"
+    "cucm-sql-async"
   ],
   "dependencies": {
-    "flake-idgen": "*",
-    "biguint-format": "*"
+    "xml2js": "^0.4.9"
   },
   "author": "chykn <jpbrown@adhdtech.com>",
   "license": "ISC"

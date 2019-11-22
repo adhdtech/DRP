@@ -1,7 +1,10 @@
 'use strict';
-var drpService = require('drp-service');
-var vdmServer = require('rsage-vdm');
-var os = require("os");
+const DRP_Node = require('drp-mesh').Node;
+const DRP_WebServer = require('drp-mesh').WebServer;
+const vdmServer = require('drp-service-rsage').VDM;
+const os = require("os");
+
+process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
 var protocol = "ws";
 if (process.env.SSL_ENABLED) {
@@ -25,21 +28,21 @@ let myServerConfig = {
 };
 
 // Create expressApp
-let myServer = new drpService.Server(myServerConfig);
-myServer.start();
+let myWebServer = new DRP_WebServer(myServerConfig);
+myWebServer.start();
 
-// Create VDM Server on expressApp
-let myVDMServer = new vdmServer("VDM", myServer.expressApp, myServerConfig.WebRoot);
+// Create Node
+console.log(`Starting DRP Node...`);
+let myNode = new DRP_Node(["Broker"], myWebServer, drpWSRoute, myServerConfig.NodeURL);
 
-// Create Broker on expressApp
-console.log(`Starting DRP Node`);
-console.log(`DRP Endpoint: ${myServerConfig.NodeURL}`);
+// Create VDM Server on node
+let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot);
 
-let myNode = new drpService.Node(["Broker"], myServer.expressApp, drpWSRoute, myServerConfig.NodeURL);
-myNode.AddService("VDM", myVDMServer);
+myNode.AddService(myVDMServer);
 myNode.AddStream("RESTLogs", "REST service logs");
-myNode.EnableREST("/broker", "Mesh");
+myNode.EnableREST("/Mesh", "Mesh");
 
-myNode.ConnectToRegistry(registryURL, async () => {
-    myNode.log("Connected to Registry");
-});
+if (myNode.nodeURL) {
+    myNode.log(`Listening at: ${myNode.nodeURL}`);
+}
+myNode.ConnectToRegistry(registryURL);

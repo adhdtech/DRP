@@ -1,22 +1,19 @@
 {
-  "name": "drp-endpoint",
+  "name": "drp-service-docmgr",
   "version": "1.0.0",
-  "description": "DRP Endpoint",
+  "description": "DRP Doc Manager",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "drp",
-    "endpoint"
-  ],
-  "files": [
-    "index.js"
+    "service",
+    "docmgr"
   ],
   "author": "chykn <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
-    "ws": "*",
-    "https-proxy-agent": "*"
+    "drp-mesh": "*"
   }
 }

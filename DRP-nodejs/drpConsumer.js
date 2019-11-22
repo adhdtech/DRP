@@ -1,16 +1,13 @@
 'use strict';
-var drpService = require('drp-service');
-var os = require("os");
-
-var hostname = os.hostname();
+const DRP_Consumer = require('drp-mesh').Consumer;
+const DRP_Subscription = require('drp-mesh').Subscription;
 
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
-var registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
+var brokerURL = process.env.BROKERURL || "ws://localhost:8080";
 
-console.log(`Starting Test Client, connecting to Node @ ${registryURL}`);
-
-let myClient = new drpService.ConsumerClient(registryURL, async function () {
+console.log(`Starting Test Consumer, connecting to Broker Node @ ${brokerURL}`);
+let myConsumer = new DRP_Consumer(brokerURL, null, async function () {
     // Connection established - let's do stuff
     let response = null;
 
@@ -26,8 +23,8 @@ let myClient = new drpService.ConsumerClient(registryURL, async function () {
     //myClient.GetClassRecords("SomeDataClass", (payload) => console.dir(payload) );
 
     // Subscribe to a stream
-    myClient.WatchStream("dummy", "global", (payload) => console.log(" STREAM -> " + payload));
-    myClient.WatchStream("RegistryUpdate", null, (payload) => console.log(" STREAM -> " + payload));
+    myConsumer.BrokerClient.WatchStream(new DRP_Subscription(null, "dummy", "global", null, (payload) => console.log(" STREAM -> " + payload)));
+    myConsumer.BrokerClient.WatchStream(new DRP_Subscription(null, "RegistryUpdate", "global", null, (payload) => console.log(" STREAM -> " + payload)));
 
     // Execute a service command
     //myClient.SendCmd(this.wsConn, "serviceCommand", { "serviceName": "Hive", "method": "listStereoTypes" }, false, (payload) => { console.dir(payload) });

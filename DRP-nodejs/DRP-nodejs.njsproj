@@ -18,7 +18,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>ba4b474a-fa17-4e27-bcda-500a68bbbb3a</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>server.js</StartupFile>
+    <StartupFile>drpConsumer.js</StartupFile>
     <StartWebBrowser>False</StartWebBrowser>
     <SearchPath>
     </SearchPath>
@@ -35,31 +35,43 @@
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="cucm-sql-async\index.js" />
+    <Content Include="cucm-sql-async\LICENSE" />
+    <Content Include="cucm-sql-async\package.json" />
+    <Content Include="cucm-sql-async\README.md" />
     <Content Include="Dockerfile" />
-    <Content Include="drpProvider-Cortex.js" />
+    <Content Include="drp-mesh\index.js" />
+    <Content Include="drp-mesh\lib\consumer.js" />
+    <Content Include="drp-mesh\lib\client.js" />
+    <Content Include="drp-mesh\lib\endpoint.js" />
+    <Content Include="drp-mesh\lib\node.js" />
+    <Content Include="drp-mesh\lib\routehandler.js" />
+    <Content Include="drp-mesh\lib\service.js" />
+    <Content Include="drp-mesh\lib\subscription.js" />
+    <Content Include="drp-mesh\lib\topicmanager.js" />
+    <Content Include="drp-mesh\lib\webserver.js" />
+    <Content Include="drp-mesh\package.json" />
+    <Content Include="drp-service-cache\index.js" />
+    <Content Include="drp-service-cache\package.json" />
+    <Content Include="drp-service-docmgr\index.js" />
+    <Content Include="drp-service-docmgr\package.json" />
+    <Content Include="drp-service-rsage\index.js" />
+    <Content Include="drp-service-rsage\lib\cortex.js" />
+    <Content Include="drp-service-rsage\lib\hive.js" />
+    <Content Include="drp-service-rsage\lib\vdm.js" />
+    <Content Include="drp-service-rsage\package.json" />
     <Content Include="drpProvider-JSONDocMgr.js" />
+    <Content Include="drpProvider-rSage.js" />
     <Content Include="jsondocs\test.json">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="rsage-cache\index.js" />
-    <Content Include="rsage-cache\package.json" />
-    <Content Include="serverAuth.js" />
-    <Content Include="testBroker.js" />
+    <Content Include="drpBroker.js" />
     <Content Include="server.js" />
-    <Content Include="drp-endpoint\index.js" />
-    <Content Include="drp-endpoint\package.json" />
-    <Content Include="drp-service\index.js" />
-    <Content Include="drp-service\package.json" />
     <Content Include="package.json" />
-    <Content Include="rsage-cortex\index.js" />
-    <Content Include="rsage-cortex\package.json" />
-    <Content Include="rsage-vdm\index.js" />
-    <Content Include="rsage-vdm\package.json" />
-    <Content Include="testClient.js" />
-    <Content Include="testProvider-NoListener2.js" />
-    <Content Include="testProvider-NoListener.js" />
-    <Content Include="testProvider.js" />
-    <Content Include="testRegistry.js" />
+    <Content Include="drpConsumer.js" />
+    <Content Include="drpProvider-Test-NoListener.js" />
+    <Content Include="drpProvider-Test.js" />
+    <Content Include="drpRegistry.js" />
     <Content Include="webroot\assets\cytoscape\css\cytoscape-context-menus.css" />
     <Content Include="webroot\assets\cytoscape\js\cytoscape-context-menus.js" />
     <Content Include="webroot\assets\cytoscape\js\cytoscape.min.js" />
@@ -78,12 +90,15 @@
     <Content Include="webroot\vdmapplets\vdm-app-RickRoll.js" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="cucm-sql-async\" />
     <Folder Include="drp-endpoint\" />
-    <Folder Include="drp-service\" />
+    <Folder Include="drp-mesh\" />
+    <Folder Include="drp-mesh\lib\" />
+    <Folder Include="drp-service-cache\" />
+    <Folder Include="drp-service-docmgr\" />
+    <Folder Include="drp-service-rsage\" />
+    <Folder Include="drp-service-rsage\lib\" />
     <Folder Include="jsondocs\" />
-    <Folder Include="rsage-cache\" />
-    <Folder Include="rsage-cortex\" />
-    <Folder Include="rsage-vdm\" />
     <Folder Include="webroot\" />
     <Folder Include="webroot\assets\" />
     <Folder Include="webroot\assets\cytoscape\" />

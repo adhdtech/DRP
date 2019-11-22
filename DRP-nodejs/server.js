@@ -1,7 +1,10 @@
 'use strict';
-var drpService = require('drp-service');
-var vdmServer = require('rsage-vdm');
-var os = require("os");
+const DRP_Node = require('drp-mesh').Node;
+const DRP_WebServer = require('drp-mesh').WebServer;
+const vdmServer = require('drp-service-rsage').VDM;
+const os = require("os");
+
+process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
 var protocol = "ws";
 if (process.env.SSL_ENABLED) {
@@ -24,20 +27,33 @@ let myServerConfig = {
     "WebRoot": process.env.WEBROOT || "webroot"
 };
 
-// Create WebServer
-let myWebServer = new drpService.WebServer(myServerConfig);
+// Create expressApp
+let myWebServer = new DRP_WebServer(myServerConfig);
 myWebServer.start();
 
 // Create Node
 console.log(`Starting DRP Node...`);
-let myNode = new drpService.Node(["Broker", "Registry"], myWebServer, drpWSRoute, myServerConfig.NodeURL);
+let myNode = new DRP_Node(["Broker", "Registry"], myWebServer, drpWSRoute, myServerConfig.NodeURL);
 
-// Create VDM Server on Node
-let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot);
+// Declare VDM Authorization function
+/*
+function myAsyncAuthorizer(username, password, cb) {
+    if (username === 'user' && password === 'pass')
+        return cb(null, true);
+    else
+        return cb(null, false);
+}
+*/
+
+// Set authorizator to null for demo
+let myAsyncAuthorizer = null;
+
+// Create VDM Server on node
+let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot, myAsyncAuthorizer);
 
 myNode.AddService(myVDMServer);
 myNode.AddStream("RESTLogs", "REST service logs");
-myNode.EnableREST("/broker", "Mesh");
+myNode.EnableREST("/Mesh", "Mesh");
 
 if (myNode.nodeURL) {
     myNode.log(`Listening at: ${myNode.nodeURL}`);

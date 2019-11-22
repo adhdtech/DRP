@@ -2,12 +2,13 @@
   "name": "drp-test",
   "version": "1.0.0",
   "description": "DRP Test Files",
-  "main": "demoServer.js",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "drp",
+    "mesh",
     "service",
     "registry",
     "provider",
@@ -16,10 +17,9 @@
   "author": "chykn <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
-    "drp-endpoint": "./drp-endpoint",
-    "drp-service": "./drp-service",
-    "rsage-vdm": "./rsage-vdm",
-    "express": "*",
-    "express-ws": "*"
+    "drp-mesh": "./drp-mesh",
+    "drp-service-cache": "./drp-service-cache",
+    "drp-service-docmgr": "./drp-service-docmgr",
+    "drp-service-rsage": "./drp-service-rsage"
   }
 }
