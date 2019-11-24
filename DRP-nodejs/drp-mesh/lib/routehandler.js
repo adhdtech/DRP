@@ -274,12 +274,19 @@ class DRP_RouteHandler extends DRP_Endpoint {
     async Unsubscribe(params, wsConn, token) {
         let thisRouteServer = this;
         let subscriberStreamToken = params.streamToken;
+
+        /** @type {DRP_Endpoint} */
+        let remoteEndpoint = wsConn.drpEndpoint;
+
+        // If this wsConn isn't a Node or Consumer, return null
+        if (!remoteEndpoint) return null;
+
         //console.dir(wsConn.OutboundStreams);
-        if (wsConn.Subscriptions && wsConn.Subscriptions[subscriberStreamToken]) {
-            delete wsConn.Subscriptions[subscriberStreamToken];
+        if (remoteEndpoint.Subscriptions[subscriberStreamToken]) {
+            delete remoteEndpoint.Subscriptions[subscriberStreamToken];
 
             // Dirty workaround - try removing locally on each call
-            thisRouteServer.drpNode.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, params.streamToken, params.filter);
+            thisRouteServer.drpNode.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, subscriberStreamToken, params.filter);
         }
         return null;
     }
