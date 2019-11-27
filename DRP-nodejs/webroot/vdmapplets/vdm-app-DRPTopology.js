@@ -3,6 +3,17 @@
         super(appletProfile, vdmClient);
         let myApp = this;
 
+        class topologyNode {
+            constructor() {
+                /** @type {string[]} */
+                this.consumerClients = [];
+                /** @type {string[]} */
+                this.nodeClients = [];
+                /** @type {string[]} */
+                this.roles = [];
+            }
+        }
+
         // Prerequisites
         myApp.preReqs = [{
             "JS": "/assets/cytoscape/js/cytoscape.min.js"
@@ -15,30 +26,15 @@
 
         // Dropdown menu items
         myApp.menu = {
-            "File": {
-                "Load": async function () {
-                    /*
-                    if (myApp.appVars.currentFile.length > 0) {
-                        await myApp.appFuncs.loadFile(myApp.appVars.currentFile);
-                        myApp.appVars.msgBox.innerHTML = "Loaded";
-                    }
-                    */
-                    let jsonText = `{"elements":{"nodes":[{"data":{"group":"nodes","id":"49d895b6-1953-4139-bbd4-7a9d40afb6f9","label":"node1"},"position":{"x":119,"y":133},"group":"nodes","removed":false,"selected":false,"selectable":true,"locked":false,"grabbable":true,"classes":""},{"data":{"group":"nodes","id":"d1ba0134-5ed1-46be-8a65-1ea0b0183642","label":"node2"},"position":{"x":270,"y":202},"group":"nodes","removed":false,"selected":false,"selectable":true,"locked":false,"grabbable":true,"classes":""}],"edges":[{"data":{"source":"49d895b6-1953-4139-bbd4-7a9d40afb6f9","target":"d1ba0134-5ed1-46be-8a65-1ea0b0183642","label":"dynamic","id":"ed551066-37f6-453e-a08c-ca2b571a7357"},"position":{},"group":"edges","removed":false,"selected":false,"selectable":true,"locked":false,"grabbable":true,"classes":""}]},"style":[{"selector":"node","style":{"label":"data(label)"}},{"selector":"edge","style":{"target-arrow-shape":"triangle"}},{"selector":":selected","style":{}}],"zoomingEnabled":true,"userZoomingEnabled":true,"zoom":1,"minZoom":1e-50,"maxZoom":1e+50,"panningEnabled":true,"userPanningEnabled":true,"pan":{"x":47,"y":-24},"boxSelectionEnabled":true,"renderer":{"name":"canvas"},"wheelSensitivity":0.25}`;
-                    let jsonParsed = JSON.parse(jsonText);
-                    myApp.appVars.cy.json(jsonParsed);
-                    let bob = 1;
+            "View": {
+                "Node Topology": async function () {
+                    myApp.appFuncs.loadNodeTopology();
                 },
-                "Save": async function () {
+                "Output JSON": async function () {
                     let fileData = JSON.stringify(myApp.appVars.cy.json());
                     console.log(fileData);
                     //myApp.appVars.msgBox.innerHTML = results;
                     //alert(results);
-                }
-            },
-            "Mode": {
-                "View": async function () {
-                },
-                "Edit": async function () {
                 }
             }
         };
@@ -55,18 +51,129 @@
 		 */
 
         myApp.appFuncs = {
-            "listFiles": async function () {
-                let fileList = await myApp.sendCmd("JSONDocMgr", "listFiles", null, true);
-                return fileList;
+            "placeNode": function (nodeClass) {
+                let returnPosition = { x: 0, y: 0 };
+                let colsPerRow = 6;
+                switch (nodeClass) {
+                    case "Registry":
+                        returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Registry"]);
+                        myApp.appVars.nodeCursors["Registry"].y += 50;
+                        break;
+                    case "Broker":
+                        returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Broker"]);
+                        returnPosition.y += myApp.appVars.nodeCursors["Broker"].index * 250;
+                        myApp.appVars.nodeCursors["Broker"].index++;
+                        break;
+                    case "Provider":
+                        returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Provider"]);
+                        myApp.appVars.nodeCursors["Provider"].y += 50;
+                        break;
+                    case "Logger":
+                        returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Logger"]);
+                        myApp.appVars.nodeCursors["Logger"].y += 50;
+                        break;
+                    case "Consumer":
+                        returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Consumer"]);
+                        let column = returnPosition.index % colsPerRow;
+                        returnPosition.x += column * 50;
+                        let row = Math.floor(returnPosition.index / colsPerRow);
+                        returnPosition.y += row * 50;
+                        myApp.appVars.nodeCursors["Consumer"].index++;
+                        break;
+                    default:
+                }
+                return returnPosition;
             },
-            "loadFile": async function (fileName) {
-                let jsonData = await myApp.sendCmd("JSONDocMgr", "loadFile", { "fileName": fileName }, true);
+            /**
+             * 
+             * @param {Object.<string, topologyNode>} topologyObj DRP Topology
+             */
+            "importMeshTopology": async function (topologyObj) {
+                //let jsonText = `{"elements":{"nodes":[{"data":{"group":"nodes","id":"49d895b6-1953-4139-bbd4-7a9d40afb6f9","label":"node1"},"position":{"x":119,"y":133},"group":"nodes","removed":false,"selected":false,"selectable":true,"locked":false,"grabbable":true,"classes":""},{"data":{"group":"nodes","id":"d1ba0134-5ed1-46be-8a65-1ea0b0183642","label":"node2"},"position":{"x":270,"y":202},"group":"nodes","removed":false,"selected":false,"selectable":true,"locked":false,"grabbable":true,"classes":""}],"edges":[{"data":{"source":"49d895b6-1953-4139-bbd4-7a9d40afb6f9","target":"d1ba0134-5ed1-46be-8a65-1ea0b0183642","label":"dynamic","id":"ed551066-37f6-453e-a08c-ca2b571a7357"},"position":{},"group":"edges","removed":false,"selected":false,"selectable":true,"locked":false,"grabbable":true,"classes":""}]},"style":[{"selector":"node","style":{"label":"data(label)"}},{"selector":"edge","style":{"target-arrow-shape":"triangle"}},{"selector":":selected","style":{}}],"zoomingEnabled":true,"userZoomingEnabled":true,"zoom":1,"minZoom":1e-50,"maxZoom":1e+50,"panningEnabled":true,"userPanningEnabled":true,"pan":{"x":47,"y":-24},"boxSelectionEnabled":true,"renderer":{"name":"canvas"},"wheelSensitivity":0.25}`;
+                //let jsonParsed = JSON.parse(jsonText);
+                //myApp.appVars.cy.json(jsonParsed);
+
+                // Clear existing nodes and edges
+
+                // Loop over DRP Nodes in topology
+                let nodeIDs = Object.keys(topologyObj);
+                for (let i = 0; i < nodeIDs.length; i++) {
+                    let nodeID = nodeIDs[i];
+                    let drpNode = topologyObj[nodeID];
+
+                    // Add DRP Node as Cytoscape node
+                    myApp.appVars.cy.add({
+                        group: 'nodes',
+                        data: {
+                            id: nodeID,
+                            label: nodeID,
+                            drpNode: drpNode
+                        },
+                        classes: drpNode.roles.join(" "),
+                        position: myApp.appFuncs.placeNode(drpNode.roles[0])
+                    });
+                }
+
+                // Loop over DRP Nodes again; create Edges
+                for (let i = 0; i < nodeIDs.length; i++) {
+                    let nodeID = nodeIDs[i];
+                    let drpNode = topologyObj[nodeID];
+                    myApp.appVars.nodeCursors["Consumer"].index = 0;
+                    let nodeObj = myApp.appVars.cy.getElementById(nodeID);
+                    myApp.appVars.nodeCursors["Consumer"].y = nodeObj.position().y;
+
+                    // Loop over nodeClients
+                    for (let j = 0; j < drpNode.nodeClients.length; j++) {
+                        let targetNodeID = drpNode.nodeClients[j];
+                        myApp.appVars.cy.add({
+                            group: 'edges',
+                            data: {
+                                id: `${nodeID}_${targetNodeID}`,
+                                source: targetNodeID,
+                                target: nodeID
+                            }
+                        });
+                    }
+
+                    // Loop over consumerClients
+                    for (let j = 0; j < drpNode.consumerClients.length; j++) {
+                        let consumerID = `${nodeID}-c:${drpNode.consumerClients[j]}`;
+
+                        myApp.appVars.cy.add({
+                            group: 'nodes',
+                            data: {
+                                id: consumerID,
+                                label: `${drpNode.consumerClients[j]}`
+                            },
+                            classes: ["Consumer"],
+                            position: myApp.appFuncs.placeNode("Consumer")
+                        });
+
+                        myApp.appVars.cy.add({
+                            group: 'edges',
+                            data: {
+                                id: `${consumerID}_${nodeID}`,
+                                source: consumerID,
+                                target: nodeID
+                            }
+                        });
+                    }
+                }
+            },
+            "loadNodeTopology": async function () {
                 myApp.appVars.cy.elements().remove();
-                myApp.appVars.jsonEditor.set(JSON.parse(jsonData));
-            },
-            "saveFile": async function (fileName, fileData) {
-                let results = await myApp.sendCmd("JSONDocMgr", "saveFile", { "fileName": fileName, "fileData": fileData }, true);
-                return results;
+
+                myApp.appVars.nodeCursors = {
+                    Registry: { x: 400, y: 50, index: 0 },
+                    Broker: { x: 550, y: 100, index: 0 },
+                    Provider: { x: 200, y: 100, index: 0 },
+                    Logger: { x: 450, y: 250, index: 0 },
+                    Consumer: { x: 725, y: 100, index: 0 }
+                };
+
+                /** @type {Object.<string, topologyNode>}} */
+                let topologyObj = await myApp.sendCmd(null, "getTopology", null, true);
+                myApp.appFuncs.importMeshTopology(topologyObj);
             }
         };
 
@@ -74,7 +181,14 @@
             dataStructs: {},
             cy: null,
             linkFromObj: null,
-            currentFile: ""
+            currentFile: "",
+            nodeCursors: {
+                Registry: { x: 400, y: 50, index: 0 },
+                Broker: { x: 550, y: 100, index: 0 },
+                Provider: { x: 200, y: 100, index: 0 },
+                Logger: { x: 450, y: 250, index: 0 },
+                Consumer: { x: 725, y: 100, index: 0 }
+            }
         };
 
         myApp.recvCmd = {
@@ -89,18 +203,57 @@
         let cy = cytoscape({
             container: myApp.appVars.cyBox,
             wheelSensitivity: .25,
+            zoom: .8,
+            //pan: { "x": 300, "y": 160 },
 
             style: [{
                 selector: 'node',
                 style: {
                     //'font-family' : 'FontAwesome',
                     //'content' : '\uf099  twitter'
-                    'content': 'data(label)'
+                    'content': 'data(label)',
+                    'opacity': 1
+                }
+            }, {
+                selector: 'node.Provider',
+                style: {
+                    'shape': "triangle",
+                    'background-color': '#AADDAA'
+                }
+            }, {
+                selector: 'node.Broker',
+                style: {
+                    'shape': "square",
+                    'background-color': '#AAAADD'
+                }
+            }, {
+                selector: 'node.Registry',
+                style: {
+                    'shape': "circle",
+                    'background-color': '#654321'
+                }
+            }, {
+                selector: 'node.Logger',
+                style: {
+                    'shape': "star",
+                    'background-color': 'gold'
+                }
+            }, {
+                selector: 'node.Consumer',
+                style: {
+                    'shape': "circle",
+                    'background-color': 'black',
+                    'text-valign': 'center',
+                    'text-halign': 'center'
                 }
             }, {
                 selector: 'edge',
                 style: {
-                    'target-arrow-shape': 'triangle'
+                    'width': 2,
+                    'line-color': '#fcc',
+                    'target-arrow-color': '#fcc',
+                    'target-arrow-shape': 'triangle',
+                    'curve-style': 'bezier'
                     //'content' : 'data(label)'
                 }
             }, {
@@ -281,6 +434,8 @@
             myApp.appVars.cy.resize();
             //cy.fit();
         };
+
+        myApp.appFuncs.loadNodeTopology();
     }
 });
 //# sourceURL=vdm-app-DRPTopology.js

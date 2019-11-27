@@ -557,6 +557,14 @@ class rSageApplet extends VDMApplet {
         );
     }
 
+    /**
+     * 
+     * @param {string} serviceName Service Name
+     * @param {string} cmdName Command
+     * @param {object} cmdData Data object
+     * @param {boolean} awaitResponse Await response flag
+     * @return {function} Returns Promise
+     */
     async sendCmd(serviceName, cmdName, cmdData, awaitResponse) {
         let thisApplet = this;
         let returnData = null;
