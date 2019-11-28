@@ -402,6 +402,14 @@ class DRP_Client extends DRP_Endpoint {
             }
             return oReturnObject;
         });
+
+        this.RegisterCmd("ping", async function (params, wsConn, token) {
+            var startTime = new Date().getTime();
+            await thisClient.SendCmd(thisClient.wsConn, "DRP", "getCmds", null, true, null);
+            let endTime = new Date().getTime();
+            let msElapsed = endTime - startTime;
+            return `${msElapsed}`;
+        });
     }
 }
 

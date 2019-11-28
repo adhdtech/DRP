@@ -23,8 +23,8 @@ let myConsumer = new DRP_Consumer(brokerURL, null, async function () {
     //myClient.GetClassRecords("SomeDataClass", (payload) => console.dir(payload) );
 
     // Subscribe to a stream
-    myConsumer.BrokerClient.WatchStream(new DRP_Subscription(null, "dummy", "global", null, (payload) => console.log(" STREAM -> " + payload)));
-    myConsumer.BrokerClient.WatchStream(new DRP_Subscription(null, "RegistryUpdate", "global", null, (payload) => console.log(" STREAM -> " + payload)));
+    myConsumer.BrokerClient.WatchStream("dummy", "global", (payload) => console.log(" STREAM -> " + payload));
+    myConsumer.BrokerClient.WatchStream("RegistryUpdate", "global", (payload) => console.log(" STREAM -> " + payload));
 
     // Execute a service command
     //myClient.SendCmd(this.wsConn, "serviceCommand", { "serviceName": "Hive", "method": "listStereoTypes" }, false, (payload) => { console.dir(payload) });

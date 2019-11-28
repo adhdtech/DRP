@@ -1191,7 +1191,7 @@ class DRP_Node {
                 let providerConn = await thisNode.VerifyNodeConnection(declaration.NodeID);
                 // Are we already subscribed?
                 if (providerConn && subscriptionObject.subscribedTo.indexOf(declaration.NodeID) < 0) {
-                    providerConn.WatchStream(subscriptionObject);
+                    providerConn.RegisterSubscription(subscriptionObject);
                 }
             }
         }
@@ -1379,7 +1379,7 @@ class DRP_Node {
                     let providerID = providerList[j];
                     let providerConn = await thisNode.VerifyNodeConnection(providerID);
                     if (providerConn && subscriptionObject.subscribedTo.indexOf(providerID) < 0) {
-                        providerConn.WatchStream(subscriptionObject);
+                        providerConn.RegisterSubscription(subscriptionObject);
                     }
                 }
             }

@@ -20,6 +20,13 @@ class DRP_Endpoint {
         /** @type {function} */
         this.closeCallback;
         this.RegisterCmd("getCmds", "GetCmds");
+        this.RegisterCmd("ping", async function (params, wsConn, token) {
+            var startTime = new Date().getTime();
+            await thisEndpoint.SendCmd(wsConn, "DRP", "getCmds", null, true, null);
+            let endTime = new Date().getTime();
+            let msElapsed = endTime - startTime;
+            return `${msElapsed}`;
+        });
     }
 
     GetToken(wsConnParam) {
@@ -237,10 +244,22 @@ class DRP_Endpoint {
     }
 
     /**
+     * 
+     * @param {string} topicName Stream to watch
+     * @param {string} scope global|local
+     * @param {function} streamHandler Function to process stream packets
+     */
+    async WatchStream(topicName, scope, streamHandler) {
+        let thisEndpoint = this;
+        let subscriptionObj = new DRP_Subscription(null, topicName, scope, null, streamHandler);
+        thisEndpoint.RegisterSubscription(subscriptionObj);
+    }
+
+    /**
     * 
     * @param {DRP_Subscription} subscriptionObject Subscription object
     */
-    async WatchStream(subscriptionObject) {
+    async RegisterSubscription(subscriptionObject) {
         let thisEndpoint = this;
         subscriptionObject.subscribedTo.push(thisEndpoint.wsConn.nodeID);
         let streamToken = thisEndpoint.AddStreamHandler(thisEndpoint.wsConn, function (message) {
