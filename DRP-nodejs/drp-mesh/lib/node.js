@@ -1112,6 +1112,7 @@ class DRP_Node {
                 wsConn.nodeID = declaration.NodeID;
                 thisNode.NodeEndpoints[declaration.NodeID] = new DRP_Endpoint(wsConn);
                 thisNode.NodeEndpoints[declaration.NodeID].nodeID = declaration.NodeID;
+                thisNode.NodeEndpoints[declaration.NodeID].StartPinging();
                 //let peername = await thisNode.AwaitSocketPeername(wsConn._socket);
                 //declaration.family = peername.family;
                 //declaration.address = peername.address;
@@ -1122,6 +1123,7 @@ class DRP_Node {
             // This is a consumer declaration
             thisNode.ConsumerEndpoints[wsConn.id] = new DRP_Endpoint(wsConn);
             thisNode.ConsumerEndpoints[wsConn.id].ConsumerID = wsConn.id;
+            thisNode.ConsumerEndpoints[wsConn.id].StartPinging();
             //let peername = await thisNode.AwaitSocketPeername(wsConn._socket);
             //declaration.family = peername.family;
             //declaration.address = peername.address;
@@ -1489,17 +1491,26 @@ class DRP_Node {
     ListClientConnections() {
         let thisNode = this;
         let nodeClientConnections = {
-            nodeClients: [],
-            consumerClients: Object.keys(thisNode.ConsumerEndpoints)
+            nodeClients: {},
+            consumerClients: {}
         };
 
         // Loop over NodeEndpoints
-        let endpointIDList = Object.keys(thisNode.NodeEndpoints);
-        for (let i = 0; i < endpointIDList.length; i++) {
-            let thisEndpoint = thisNode.NodeEndpoints[endpointIDList[i]];
+        let nodeIDList = Object.keys(thisNode.NodeEndpoints);
+        for (let i = 0; i < nodeIDList.length; i++) {
+            let nodeID = nodeIDList[i];
+            let thisEndpoint = thisNode.NodeEndpoints[nodeID];
             if (thisEndpoint.wsConn._isServer) {
-                nodeClientConnections.nodeClients.push(endpointIDList[i]);
+                nodeClientConnections.nodeClients[nodeID] = thisEndpoint.pingTimeMs;
             }
+        }
+
+        // Loop over ConsumerEndpoints
+        let consumerIDList = Object.keys(thisNode.ConsumerEndpoints);
+        for (let i = 0; i < consumerIDList.length; i++) {
+            let consumerID = consumerIDList[i];
+            let thisEndpoint = thisNode.ConsumerEndpoints[consumerID];
+            nodeClientConnections.consumerClients[consumerID] = thisEndpoint.pingTimeMs;
         }
 
         return nodeClientConnections;

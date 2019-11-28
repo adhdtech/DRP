@@ -123,27 +123,31 @@
                     myApp.appVars.nodeCursors["Consumer"].y = nodeObj.position().y;
 
                     // Loop over nodeClients
-                    for (let j = 0; j < drpNode.nodeClients.length; j++) {
-                        let targetNodeID = drpNode.nodeClients[j];
+                    let nodeClientIDs = Object.keys(drpNode.nodeClients);
+                    for (let j = 0; j < nodeClientIDs.length; j++) {
+                        let targetNodeID = nodeClientIDs[j];
+
                         myApp.appVars.cy.add({
                             group: 'edges',
                             data: {
                                 id: `${nodeID}_${targetNodeID}`,
                                 source: targetNodeID,
-                                target: nodeID
+                                target: nodeID,
+                                label: drpNode.nodeClients[nodeClientIDs[j]]
                             }
                         });
                     }
 
                     // Loop over consumerClients
-                    for (let j = 0; j < drpNode.consumerClients.length; j++) {
-                        let consumerID = `${nodeID}-c:${drpNode.consumerClients[j]}`;
+                    let consumerClientIDs = Object.keys(drpNode.consumerClients);
+                    for (let j = 0; j < consumerClientIDs.length; j++) {
+                        let consumerID = `${nodeID}-c:${consumerClientIDs[j]}`;
 
                         myApp.appVars.cy.add({
                             group: 'nodes',
                             data: {
                                 id: consumerID,
-                                label: `${drpNode.consumerClients[j]}`
+                                label: `${consumerClientIDs[j]}`
                             },
                             classes: ["Consumer"],
                             position: myApp.appFuncs.placeNode("Consumer")
@@ -154,7 +158,8 @@
                             data: {
                                 id: `${consumerID}_${nodeID}`,
                                 source: consumerID,
-                                target: nodeID
+                                target: nodeID,
+                                label: drpNode.consumerClients[consumerClientIDs[j]]
                             }
                         });
                     }
@@ -253,8 +258,8 @@
                     'line-color': '#fcc',
                     'target-arrow-color': '#fcc',
                     'target-arrow-shape': 'triangle',
-                    'curve-style': 'bezier'
-                    //'content' : 'data(label)'
+                    'curve-style': 'bezier',
+                    'content' : 'data(label)'
                 }
             }, {
                 selector: ':selected',

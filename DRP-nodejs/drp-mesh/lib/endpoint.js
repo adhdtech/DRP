@@ -19,14 +19,27 @@ class DRP_Endpoint {
         this.openCallback;
         /** @type {function} */
         this.closeCallback;
+        this.pingTimeMs = null;
         this.RegisterCmd("getCmds", "GetCmds");
         this.RegisterCmd("ping", async function (params, wsConn, token) {
             var startTime = new Date().getTime();
             await thisEndpoint.SendCmd(wsConn, "DRP", "getCmds", null, true, null);
             let endTime = new Date().getTime();
             let msElapsed = endTime - startTime;
-            return `${msElapsed}`;
+            return msElapsed;
         });
+    }
+
+    StartPinging() {
+        let thisEndpoint = this;
+        setInterval(async () => {
+            let response = await thisEndpoint.SendCmd(thisEndpoint.wsConn, "DRP", "ping", null, true, null);
+            if (typeof response.payload !== "undefined") {
+                thisEndpoint.pingTimeMs = response.payload;
+            } else {
+                // Response did not include payload; drop connection?
+            }
+        }, 10000);
     }
 
     GetToken(wsConnParam) {

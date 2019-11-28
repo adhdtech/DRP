@@ -408,7 +408,7 @@ class DRP_Client extends DRP_Endpoint {
             await thisClient.SendCmd(thisClient.wsConn, "DRP", "getCmds", null, true, null);
             let endTime = new Date().getTime();
             let msElapsed = endTime - startTime;
-            return `${msElapsed}`;
+            return msElapsed;
         });
     }
 }
