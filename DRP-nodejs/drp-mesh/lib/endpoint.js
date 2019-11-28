@@ -32,12 +32,16 @@ class DRP_Endpoint {
 
     StartPinging() {
         let thisEndpoint = this;
-        setInterval(async () => {
-            let response = await thisEndpoint.SendCmd(thisEndpoint.wsConn, "DRP", "ping", null, true, null);
-            if (typeof response.payload !== "undefined") {
-                thisEndpoint.pingTimeMs = response.payload;
-            } else {
-                // Response did not include payload; drop connection?
+        let thisRollingPing = setInterval(async () => {
+            try {
+                let response = await thisEndpoint.SendCmd(thisEndpoint.wsConn, "DRP", "ping", null, true, null);
+                if (typeof response.payload !== "undefined") {
+                    thisEndpoint.pingTimeMs = response.payload;
+                } else {
+                    // Response did not include payload; drop connection?
+                }
+            } catch (ex) {
+                clearInterval(thisRollingPing);
             }
         }, 10000);
     }

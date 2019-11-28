@@ -1501,7 +1501,7 @@ class DRP_Node {
             let nodeID = nodeIDList[i];
             let thisEndpoint = thisNode.NodeEndpoints[nodeID];
             if (thisEndpoint.wsConn._isServer) {
-                nodeClientConnections.nodeClients[nodeID] = thisEndpoint.pingTimeMs;
+                nodeClientConnections.nodeClients[nodeID] = { pingTimeMs: thisEndpoint.pingTimeMs };
             }
         }
 
@@ -1510,7 +1510,7 @@ class DRP_Node {
         for (let i = 0; i < consumerIDList.length; i++) {
             let consumerID = consumerIDList[i];
             let thisEndpoint = thisNode.ConsumerEndpoints[consumerID];
-            nodeClientConnections.consumerClients[consumerID] = thisEndpoint.pingTimeMs;
+            nodeClientConnections.consumerClients[consumerID] = { pingTimeMs: thisEndpoint.pingTimeMs };
         }
 
         return nodeClientConnections;

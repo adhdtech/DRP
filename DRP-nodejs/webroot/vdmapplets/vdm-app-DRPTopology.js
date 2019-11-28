@@ -133,7 +133,7 @@
                                 id: `${nodeID}_${targetNodeID}`,
                                 source: targetNodeID,
                                 target: nodeID,
-                                label: drpNode.nodeClients[nodeClientIDs[j]]
+                                label: drpNode.nodeClients[nodeClientIDs[j]]['pingTimeMs'] + " ms"
                             }
                         });
                     }
@@ -159,7 +159,7 @@
                                 id: `${consumerID}_${nodeID}`,
                                 source: consumerID,
                                 target: nodeID,
-                                label: drpNode.consumerClients[consumerClientIDs[j]]
+                                label: drpNode.consumerClients[consumerClientIDs[j]]['pingTimeMs'] + " ms"
                             }
                         });
                     }
