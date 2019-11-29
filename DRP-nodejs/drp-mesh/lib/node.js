@@ -1112,7 +1112,6 @@ class DRP_Node {
                 wsConn.nodeID = declaration.NodeID;
                 thisNode.NodeEndpoints[declaration.NodeID] = new DRP_Endpoint(wsConn);
                 thisNode.NodeEndpoints[declaration.NodeID].nodeID = declaration.NodeID;
-                thisNode.NodeEndpoints[declaration.NodeID].StartPinging();
                 //let peername = await thisNode.AwaitSocketPeername(wsConn._socket);
                 //declaration.family = peername.family;
                 //declaration.address = peername.address;
@@ -1123,7 +1122,6 @@ class DRP_Node {
             // This is a consumer declaration
             thisNode.ConsumerEndpoints[wsConn.id] = new DRP_Endpoint(wsConn);
             thisNode.ConsumerEndpoints[wsConn.id].ConsumerID = wsConn.id;
-            thisNode.ConsumerEndpoints[wsConn.id].StartPinging();
             //let peername = await thisNode.AwaitSocketPeername(wsConn._socket);
             //declaration.family = peername.family;
             //declaration.address = peername.address;
@@ -1501,7 +1499,7 @@ class DRP_Node {
             let nodeID = nodeIDList[i];
             let thisEndpoint = thisNode.NodeEndpoints[nodeID];
             if (thisEndpoint.wsConn._isServer) {
-                nodeClientConnections.nodeClients[nodeID] = { pingTimeMs: thisEndpoint.pingTimeMs };
+                nodeClientConnections.nodeClients[nodeID] = { pingTimeMs: thisEndpoint.wsConn.pingTimeMs };
             }
         }
 
@@ -1510,7 +1508,7 @@ class DRP_Node {
         for (let i = 0; i < consumerIDList.length; i++) {
             let consumerID = consumerIDList[i];
             let thisEndpoint = thisNode.ConsumerEndpoints[consumerID];
-            nodeClientConnections.consumerClients[consumerID] = { pingTimeMs: thisEndpoint.pingTimeMs };
+            nodeClientConnections.consumerClients[consumerID] = { pingTimeMs: thisEndpoint.wsConn.pingTimeMs };
         }
 
         return nodeClientConnections;

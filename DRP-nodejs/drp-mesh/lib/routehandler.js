@@ -14,6 +14,8 @@ class DRP_RouteHandler extends DRP_Endpoint {
         super();
 
         let thisWebServerRoute = this;
+        this.wsPingInterval = 10000;
+        this.wsPingHistoryLength = 100;
         this.drpNode = drpNode;
 
         if (drpNode.WebServer && drpNode.WebServer.expressApp && drpNode.WebServer.expressApp.route !== null) {
@@ -37,12 +39,46 @@ class DRP_RouteHandler extends DRP_Endpoint {
                 // Process command
                 thisWebServerRoute.ReceiveMessage(wsConn, message);
             });
-            wsConn.on("close", function (closeCode, reason) {
-                thisWebServerRoute.CloseHandler(wsConn, closeCode);
+
+            wsConn.on("pong", function (message) {
+                // Received pong; calculate time
+                if (wsConn.pingSentTime) {
+                    wsConn.pongRecvdTime = new Date().getTime();
+                    wsConn.pingTimeMs = wsConn.pongRecvdTime - wsConn.pingSentTime;
+
+                    // Clear values for next run
+                    wsConn.pingSentTime = null;
+                    wsConn.pongRecvdTime = null;
+
+                    // Track ping history
+                    if (wsConn.pingTimes.length >= thisWebServerRoute.wsPingHistoryLength) {
+                        wsConn.pingTimes.shift();
+                    }
+                    wsConn.pingTimes.push(wsConn.pingTimeMs);
+                }
             });
 
-            wsConn.on("error", function (error) { thisWebServerRoute.ErrorHandler(wsConn, error); });
+            wsConn.on("close", function (closeCode, reason) {
+                thisWebServerRoute.CloseHandler(wsConn, closeCode);
+                clearInterval(thisRollingPing);
+            });
 
+            wsConn.on("error", function (error) {
+                thisWebServerRoute.ErrorHandler(wsConn, error);
+            });
+
+            // Set up wsPings tracking values
+            wsConn.pingSentTime = null;
+            wsConn.pongRecvdTime = null;
+            wsConn.pingTimes = [];
+
+            // Set up wsPing Interval
+            let thisRollingPing = setInterval(async () => {
+                thisWebServerRoute.SendWsPing(wsConn, thisRollingPing);
+            }, thisWebServerRoute.wsPingInterval);
+
+            // Run wsPing now to get initial value
+            thisWebServerRoute.SendWsPing(wsConn, thisRollingPing);
         });
 
         this.RegisterCmd("hello", "Hello");
@@ -91,6 +127,23 @@ class DRP_RouteHandler extends DRP_Endpoint {
         this.RegisterCmd("listClientConnections", function (...args) {
             return thisWebServerRoute.drpNode.ListClientConnections(...args);
         });
+    }
+
+    SendWsPing(wsConn, intervalObj) {
+        try {
+            if (wsConn.pingSentTime) {
+                // Did not receive response last interval; enter null value
+                if (wsConn.pingTimes.length >= thisWebServerRoute.wsPingHistoryLength) {
+                    wsConn.pingTimes.shift();
+                }
+                wsConn.pingTimes.push(null);
+            }
+            wsConn.pingSentTime = new Date().getTime();
+            wsConn.pongRecvdTime = null;
+            wsConn.ping();
+        } catch (ex) {
+            clearInterval(intervalObj);
+        }
     }
 
     async Hello(params, wsConn, token) {
