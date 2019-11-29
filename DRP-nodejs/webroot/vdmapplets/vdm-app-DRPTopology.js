@@ -133,7 +133,7 @@
                                 id: `${nodeID}_${targetNodeID}`,
                                 source: targetNodeID,
                                 target: nodeID,
-                                label: drpNode.nodeClients[nodeClientIDs[j]]['pingTimeMs'] + " ms"
+                                label: drpNode.nodeClients[nodeClientIDs[j]]['pingTimeMs'] + " ms\n" + drpNode.nodeClients[nodeClientIDs[j]]['uptimeSeconds'] + " s"
                             }
                         });
                     }
@@ -159,7 +159,7 @@
                                 id: `${consumerID}_${nodeID}`,
                                 source: consumerID,
                                 target: nodeID,
-                                label: drpNode.consumerClients[consumerClientIDs[j]]['pingTimeMs'] + " ms"
+                                label: drpNode.consumerClients[consumerClientIDs[j]]['pingTimeMs'] + " ms\n" + drpNode.consumerClients[consumerClientIDs[j]]['uptimeSeconds'] + " s"
                             }
                         });
                     }
@@ -170,10 +170,10 @@
 
                 myApp.appVars.nodeCursors = {
                     Registry: { x: 400, y: 50, index: 0 },
-                    Broker: { x: 550, y: 100, index: 0 },
+                    Broker: { x: 650, y: 100, index: 0 },
                     Provider: { x: 200, y: 100, index: 0 },
                     Logger: { x: 450, y: 250, index: 0 },
-                    Consumer: { x: 725, y: 100, index: 0 }
+                    Consumer: { x: 825, y: 100, index: 0 }
                 };
 
                 /** @type {Object.<string, topologyNode>}} */
@@ -189,10 +189,10 @@
             currentFile: "",
             nodeCursors: {
                 Registry: { x: 400, y: 50, index: 0 },
-                Broker: { x: 550, y: 100, index: 0 },
+                Broker: { x: 650, y: 100, index: 0 },
                 Provider: { x: 200, y: 100, index: 0 },
                 Logger: { x: 450, y: 250, index: 0 },
-                Consumer: { x: 725, y: 100, index: 0 }
+                Consumer: { x: 825, y: 100, index: 0 }
             }
         };
 
@@ -216,6 +216,8 @@
                 style: {
                     //'font-family' : 'FontAwesome',
                     //'content' : '\uf099  twitter'
+                    'font-size': '12px',
+                    'text-wrap': 'wrap',
                     'content': 'data(label)',
                     'opacity': 1
                 }
@@ -259,6 +261,8 @@
                     'target-arrow-color': '#fcc',
                     'target-arrow-shape': 'triangle',
                     'curve-style': 'bezier',
+                    'font-size': '10px',
+                    'text-wrap': 'wrap',
                     'content' : 'data(label)'
                 }
             }, {

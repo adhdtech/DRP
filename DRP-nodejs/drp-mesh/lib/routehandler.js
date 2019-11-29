@@ -67,6 +67,9 @@ class DRP_RouteHandler extends DRP_Endpoint {
                 thisWebServerRoute.ErrorHandler(wsConn, error);
             });
 
+            // Note connection open time
+            wsConn.openTime = new Date().getTime();
+
             // Set up wsPings tracking values
             wsConn.pingSentTime = null;
             wsConn.pongRecvdTime = null;

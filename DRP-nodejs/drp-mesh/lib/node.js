@@ -1493,13 +1493,18 @@ class DRP_Node {
             consumerClients: {}
         };
 
+        let currentTime = new Date().getTime();
+
         // Loop over NodeEndpoints
         let nodeIDList = Object.keys(thisNode.NodeEndpoints);
         for (let i = 0; i < nodeIDList.length; i++) {
             let nodeID = nodeIDList[i];
             let thisEndpoint = thisNode.NodeEndpoints[nodeID];
             if (thisEndpoint.wsConn._isServer) {
-                nodeClientConnections.nodeClients[nodeID] = { pingTimeMs: thisEndpoint.wsConn.pingTimeMs };
+                nodeClientConnections.nodeClients[nodeID] = {
+                    pingTimeMs: thisEndpoint.wsConn.pingTimeMs,
+                    uptimeSeconds: Math.floor((currentTime - thisEndpoint.wsConn.openTime)/1000)
+                };
             }
         }
 
@@ -1508,7 +1513,10 @@ class DRP_Node {
         for (let i = 0; i < consumerIDList.length; i++) {
             let consumerID = consumerIDList[i];
             let thisEndpoint = thisNode.ConsumerEndpoints[consumerID];
-            nodeClientConnections.consumerClients[consumerID] = { pingTimeMs: thisEndpoint.wsConn.pingTimeMs };
+            nodeClientConnections.consumerClients[consumerID] = {
+                pingTimeMs: thisEndpoint.wsConn.pingTimeMs,
+                uptimeSeconds: Math.floor((currentTime - thisEndpoint.wsConn.openTime)/1000)
+            };
         }
 
         return nodeClientConnections;
