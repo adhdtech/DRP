@@ -1227,7 +1227,7 @@ class DRP_Node {
 
                             if (declaration.NodeID === thisNode.nodeID) {
                                 // The client needs to subscribe to the local Node
-                                thisNode.SubscribeToTopic(thisSubscription.topicName, thisEndpoint.wsConn, thisSubscription.streamToken, thisSubscription.filter);
+                                thisNode.TopicManager.SubscribeToTopic(thisSubscription.topicName, thisEndpoint.wsConn, thisSubscription.streamToken, thisSubscription.filter);
                             } else {
                                 // The client needs to subscribe to a remote Node
                                 let thisNodeClient = await thisNode.VerifyNodeConnection(declaration.NodeID);
@@ -1291,7 +1291,7 @@ class DRP_Node {
 
                             if (declaration.NodeID === thisNode.nodeID) {
                                 // The client needs to subscribe to the local Node
-                                thisNode.SubscribeToTopic(thisSubscription.topicName, thisEndpoint.wsConn, thisSubscription.streamToken, thisSubscription.filter);
+                                thisNode.TopicManager.SubscribeToTopic(thisSubscription.topicName, thisEndpoint.wsConn, thisSubscription.streamToken, thisSubscription.filter);
                             } else {
                                 // The client needs to subscribe to a remote Node
                                 let thisNodeClient = await thisNode.VerifyNodeConnection(declaration.NodeID);
