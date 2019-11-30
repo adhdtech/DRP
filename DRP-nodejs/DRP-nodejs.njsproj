@@ -63,7 +63,7 @@
     <Content Include="drp-service-rsage\lib\vdm.js" />
     <Content Include="drp-service-rsage\package.json" />
     <Content Include="drpProvider-JSONDocMgr.js" />
-    <Content Include="drpProvider-rSage.js" />
+    <Content Include="drpProvider-Hive.js" />
     <Content Include="jsondocs\test.json">
       <SubType>Code</SubType>
     </Content>
