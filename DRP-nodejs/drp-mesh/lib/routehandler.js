@@ -116,10 +116,6 @@ class DRP_RouteHandler extends DRP_Endpoint {
             return thisWebServerRoute.drpNode.GetClassDefinitions();
         });
 
-        this.RegisterCmd("listClassInstanceDefinitions", async function (...args) {
-            return await thisWebServerRoute.drpNode.ListClassInstanceDefinitions(...args);
-        });
-
         this.RegisterCmd("sendToTopic", function (params, wsConn, token) {
             thisWebServerRoute.drpNode.TopicManager.SendToTopic(params.topicName, params.topicData);
         });

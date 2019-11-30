@@ -704,57 +704,6 @@ class Hive extends DRP_Service {
         /** @type {Hive} */
         let thisHive = this;
 
-        // We need to get a list of all distinct class INSTANCES along with the best source for each
-        //let classInstances = thisHive.drpNode.ListClassInstances();
-        // Loop over classes
-        /*
-        //let classNames = Object.keys(classInstances);
-        for (let i = 0; i < classNames.length; i++) {
-            let thisClassName = classNames[i];
-            let thisClassObj = classInstances[thisClassName];
-
-            // Loop over sourceInstances
-            let sourceInstanceNames = Object.keys(thisClassObj);
-            for (let j = 0; j < sourceInstanceNames.length; j++) {
-                let thisSourceInstanceName = sourceInstanceNames[j];
-                let thisSourceInstanceObj = thisClassObj[thisSourceInstanceName];
-
-                // Loop over providers; get the best precedence (lower is better)
-                let bestProviderObj = null;
-                let bestProviderName = null;
-                let providerNames = Object.keys(thisSourceInstanceObj.providers);
-                for (let k = 0; k < providerNames.length; k++) {
-                    let thisProviderName = providerNames[k];
-                    let thisProviderObj = thisSourceInstanceObj.providers[thisProviderName];
-                    if (!bestProviderObj || thisProviderObj.Precedence < bestProviderObj.Precedence) {
-                        bestProviderObj = thisProviderObj;
-                        bestProviderName = thisProviderName;
-                    }
-                }
-
-                // We have the best provider for this class instance
-                if (!thisHive.CollectorInstances[thisSourceInstanceName]) {
-                    thisHive.CollectorInstances[thisSourceInstanceName] = {};
-                }
-                thisHive.CollectorInstances[thisSourceInstanceName][thisClassName] = {
-                    ProviderName: bestProviderName,
-                    RecordPath: bestProviderObj.RecordPath,
-                    Loaded: false
-                };
-            }
-
-
-        }
-        */
-
-        // Start querying INSTANCES in parallel and the CLASSES in each sequentially
-
-        // dir drp:\Registry\rSageCollectors\SourceInstances\AZ_ESN\VOIP.NortelCDP\Definition
-        // dir drp:\Registry\{PROVIDER}\SourceInstances\{INSTANCE}\{CLASS}\Definition
-        //
-        // UPDATE
-        // dir drp:\drpinstance}\{Mesh}\Services\{INSTANCE}
-
         /** @type {DRP_Node} */
         //let thisNode = thisHive.drpNode;
         let serviceListObj = thisHive.drpNode.ListServiceInstances();

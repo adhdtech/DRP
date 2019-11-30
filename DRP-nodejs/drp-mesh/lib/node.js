@@ -35,22 +35,17 @@ class DRP_NodeDeclaration {
     /**
      * 
      * @param {string} nodeID Node ID
-     * @param {string[]} nodeRoles Functional Roles ['Registry','Broker','Provider']
+     * @param {string[]} nodeRoles Functional Roles ['Registry','Broker','Provider','Logger']
      * @param {string} nodeURL Listening URL (optional)
-     * @param {{string:object}} classes Class definitions and instance paths (optional)
-     * @param {object} structure Object structure (optional)
      * @param {{string:object}} streams Provided Streams
      * @param {{string:object}} services Provided services
      */
-    constructor(nodeID, nodeRoles, nodeURL, classes, structure, streams, services) {
+    constructor(nodeID, nodeRoles, nodeURL, streams, services) {
         this.NodeID = nodeID;
         this.NodeRoles = nodeRoles;
         this.NodeURL = nodeURL;
-        this.Classes = classes || {};
-        this.Structure = structure || {};
         this.Streams = streams || {};
         this.Services = services || {};
-        this.SourceInstances = {};
     }
 }
 
@@ -242,38 +237,6 @@ class DRP_Node {
         return results;
     }
 
-    ListClassInstanceDefinitions() {
-        let results = {};
-        // Loop over Node Declarations
-        //console.log("Looping over this.NodeDeclarations: " + this.NodeDeclarations);
-        let nodeIDs = Object.keys(this.NodeDeclarations);
-        for (let i = 0; i < nodeIDs.length; i++) {
-            let nodeID = nodeIDs[i];
-            //console.log("Looping over providerName: " + providerName);
-            let thisNodeDeclaration = this.NodeDeclarations[nodeID];
-            // Loop over Sources
-            let sourceInstanceList = Object.keys(thisNodeDeclaration.SourceInstances);
-            for (let j = 0; j < sourceInstanceList.length; j++) {
-                let sourceInstanceID = sourceInstanceList[j];
-                //console.log("Looping over sourceID: " + sourceID);
-                let sourceInstanceObj = thisNodeDeclaration.SourceInstances[sourceInstanceID];
-                // Loop over Classes
-                let classNames = Object.keys(sourceInstanceObj);
-                for (let k = 0; k < classNames.length; k++) {
-                    let className = classNames[k];
-                    //console.log("Looping over className: " + className);
-                    if (!results[className]) {
-                        results[className] = {};
-                    }
-                    if (!results[className][sourceInstanceID]) {
-                        results[className][sourceInstanceID] = {};
-                    }
-                    results[className][sourceInstanceID][nodeID] = thisNodeDeclaration.SourceInstances[sourceInstanceID][className];
-                }
-            }
-        }
-        return results;
-    }
     ListClassInstances(params) {
         let results = {};
         let findClassName = params;
@@ -301,8 +264,6 @@ class DRP_Node {
                             results[className][serviceID] = { providers: [] };
                         }
                         results[className][serviceID].providers.push(nodeID);
-                        //results[className][serviceID].providers[nodeID] = Object.assign({}, thisNodeDeclaration.SourceInstances[serviceID][className]);
-                        //delete results[className][serviceID].providers[nodeID].Definition;
                     }
                 }
             }
@@ -354,7 +315,7 @@ class DRP_Node {
 
         let thisClassObj = classInstances[thisClassName];
 
-        // Loop over sourceInstances
+        // Loop over Class for this service
         let serviceNames = Object.keys(thisClassObj);
         for (let j = 0; j < serviceNames.length; j++) {
             let serviceName = serviceNames[j];
