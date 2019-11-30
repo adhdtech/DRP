@@ -11,7 +11,7 @@ DRPMesh.RouteHandler = require('./lib/routehandler');
 DRPMesh.Service = require('./lib/service');
 DRPMesh.TopicManager = require('./lib/topicmanager');
 DRPMesh.Subscription = require('./lib/subscription');
-DRPMesh.UMLClass = require('./lib/umlclass');
+DRPMesh.UML = require('./lib/uml');
 DRPMesh.Command = class DRP_Command {
     constructor(serviceName, cmd, params, targetNodeID) {
         this.serviceName = serviceName;

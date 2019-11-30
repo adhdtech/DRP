@@ -1,6 +1,6 @@
 'use strict';
 
-const UMLClass = require('./umlclass');
+const UMLClass = require('./uml').Class;
 
 class DRP_Service {
     /**

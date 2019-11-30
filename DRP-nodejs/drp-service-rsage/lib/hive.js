@@ -21,23 +21,25 @@ class HiveClassLoader {
             let thisClass = this.HiveClasses[classKeys[i]];
             let attributeKeys = Object.keys(thisClass.Attributes);
             for (let j = 0; j < attributeKeys.length; j++) {
-                let thisAttribute = thisClass.Attributes[attributeKeys[j]];
-                let keyArr = thisAttribute.Restrictions.split(",");
-                // Loop over keys of attribute
-                for (let k = 0; k < keyArr.length; k++) {
-                    switch (keyArr[k]) {
-                        case 'MK':
-                            this.CheckIdxEntry(HiveIndexes, thisAttribute.Stereotype);
-                            HiveIndexes[thisAttribute.Stereotype].MKAttributes.push(thisAttribute);
-                            break;
-                        case 'FK':
-                            this.CheckIdxEntry(HiveIndexes, thisAttribute.Stereotype);
-                            HiveIndexes[thisAttribute.Stereotype].FKAttributes.push(thisAttribute);
-                            break;
-                        case 'PK':
-                            break;
-                        default:
-                            break;
+                let thisAttrDef = thisClass.Attributes[attributeKeys[j]];
+                if (thisAttrDef.Restrictions) {
+                    let keyArr = thisAttrDef.Restrictions.split(",");
+                    // Loop over keys of attribute
+                    for (let k = 0; k < keyArr.length; k++) {
+                        switch (keyArr[k]) {
+                            case 'MK':
+                                this.CheckIdxEntry(HiveIndexes, thisAttrDef.Stereotype);
+                                HiveIndexes[thisAttrDef.Stereotype].MKAttributes.push(thisAttrDef);
+                                break;
+                            case 'FK':
+                                this.CheckIdxEntry(HiveIndexes, thisAttrDef.Stereotype);
+                                HiveIndexes[thisAttrDef.Stereotype].FKAttributes.push(thisAttrDef);
+                                break;
+                            case 'PK':
+                                break;
+                            default:
+                                break;
+                        }
                     }
                 }
             }
@@ -787,26 +789,28 @@ class Hive extends DRP_Service {
 
             // Assign values as necessary
             let thisAttrDef = thisClassDefinition.Attributes[attrKey];
-            let keyArr = thisAttrDef.Restrictions.split(",");
-            for (let k = 0; k < keyArr.length; k++) {
-                switch (keyArr[k]) {
-                    case 'MK':
-                        fieldIndexKeys[attrKey] = {
-                            'KeyType': 'MK',
-                            'Stereotype': thisAttrDef.Stereotype
-                        };
-                        break;
-                    case 'FK':
-                        fieldIndexKeys[attrKey] = {
-                            'KeyType': 'FK',
-                            'Stereotype': thisAttrDef.Stereotype
-                        };
-                        break;
-                    case 'PK':
-                        // Special case - this IS the object's array key
-                        break;
-                    default:
-                        break;
+            if (thisAttrDef.Restrictions) {
+                let keyArr = thisAttrDef.Restrictions.split(",");
+                for (let k = 0; k < keyArr.length; k++) {
+                    switch (keyArr[k]) {
+                        case 'MK':
+                            fieldIndexKeys[attrKey] = {
+                                'KeyType': 'MK',
+                                'Stereotype': thisAttrDef.Stereotype
+                            };
+                            break;
+                        case 'FK':
+                            fieldIndexKeys[attrKey] = {
+                                'KeyType': 'FK',
+                                'Stereotype': thisAttrDef.Stereotype
+                            };
+                            break;
+                        case 'PK':
+                            // Special case - this IS the object's array key
+                            break;
+                        default:
+                            break;
+                    }
                 }
             }
         }

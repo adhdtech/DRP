@@ -302,16 +302,17 @@
                 let sTypeName = null;
                 //let patt = /^_/;
                 //if (fieldName == "ObjectType" || patt.test(fieldName)) return sTypeName;
-                if (myApp.appVars.dataStructs['ClassTypes'][className].Attributes[fieldName]) {
-                    let attrConstr = myApp.appVars.dataStructs['ClassTypes'][className].Attributes[fieldName].Restrictions;
+                let attributeDef = myApp.appVars.dataStructs['ClassTypes'][className].Attributes[fieldName];
+                if (attributeDef && attributeDef.Restrictions) {
+                    let attrConstr = attributeDef.Restrictions;
                     let keyArr = attrConstr.split(",");
                     for (let k = 0; k < keyArr.length; k++) {
                         switch (keyArr[k]) {
                             case 'MK':
-                                sTypeName = myApp.appVars.dataStructs['ClassTypes'][className].Attributes[fieldName].Stereotype;
+                                sTypeName = attributeDef.Stereotype;
                                 break;
                             case 'FK':
-                                sTypeName = myApp.appVars.dataStructs['ClassTypes'][className].Attributes[fieldName].Stereotype;
+                                sTypeName = attributeDef.Stereotype;
                                 break;
                             case 'PK':
                                 break;

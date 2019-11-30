@@ -1,7 +1,9 @@
 'use strict';
 const DRP_Node = require('drp-mesh').Node;
 const DRP_Service = require('drp-mesh').Service;
-const DRP_UMLClass = require('drp-mesh').UMLClass;
+const DRP_UMLAttribute = require('drp-mesh').UML.Attribute;
+const DRP_UMLFunction = require('drp-mesh').UML.Function;
+const DRP_UMLClass = require('drp-mesh').UML.Class;
 
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
@@ -19,57 +21,23 @@ class TestService extends DRP_Service {
 
         this.AddClass(new DRP_UMLClass("Person", [],
             [
-                {
-                    "Name": "personID",
-                    "Stereotype": "personID",
-                    "Visibility": "",
-                    "Derived": false,
-                    "Type": "int",
-                    "Default": "",
-                    "Multiplicity": "1",
-                    "Restrictions": "PK,MK"
-                },
-                {
-                    "Name": "firstName",
-                    "Stereotype": "",
-                    "Visibility": "",
-                    "Derived": false,
-                    "Type": "string(128)",
-                    "Default": "",
-                    "Multiplicity": "1",
-                    "Restrictions": ""
-                },
-                {
-                    "Name": "lastName",
-                    "Stereotype": "",
-                    "Visibility": "",
-                    "Derived": false,
-                    "Type": "string(128)",
-                    "Default": "",
-                    "Multiplicity": "1",
-                    "Restrictions": ""
-                },
-                {
-                    "Name": "departmentName",
-                    "Stereotype": "departmentName",
-                    "Visibility": "",
-                    "Derived": false,
-                    "Type": "string(128)",
-                    "Default": "",
-                    "Multiplicity": "1",
-                    "Restrictions": "FK"
-                }
+                new DRP_UMLAttribute("personID", "personID", null, false, "int", null, "1", "PK,MK"),
+                new DRP_UMLAttribute("firstName", null, null, false, "string(128)", null, "1", null),
+                new DRP_UMLAttribute("lastName", null, null, false, "string(128)", null, "1", null),
+                new DRP_UMLAttribute("departmentName", "departmentName", null, false, "string(128)", null, "1", "FK")
             ],
             [
-                {
-                    "Name": "terminate",
-                    "Visibility": "",
-                    "Parameters": [
-                        "effectiveData"
-                    ],
-                    "Return": "results"
-                }
+                new DRP_UMLFunction("terminate", null, ["effectiveDate"], "results")
             ]
+        ));
+
+        this.AddClass(new DRP_UMLClass("Department", [],
+            [
+                new DRP_UMLAttribute("name", "departmentName", null, false, "int", null, "1", "PK,MK"),
+                new DRP_UMLAttribute("description", null, null, false, "string(128)", null, "1", null),
+                new DRP_UMLAttribute("address", null, null, false, "string(128)", null, "1", null)
+            ],
+            []
         ));
 
         this.Classes['Person'].AddRecord({
@@ -86,7 +54,14 @@ class TestService extends DRP_Service {
             "departmentName": "Accounting"
         }, this.serviceName, "2019-11-30T04:10:54.843Z");
 
+        this.Classes['Department'].AddRecord({
+            "name": "Accounting",
+            "description": "Number crunchers",
+            "address": "123 Pine St, Nowhere, AR"
+        }, this.serviceName, "2019-11-30T04:10:54.843Z");
+
         this.Classes['Person'].loadedCache = true;
+        this.Classes['Department'].loadedCache = true;
     }
 }
 
