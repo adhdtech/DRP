@@ -1,42 +1,6 @@
 const DRP_Service = require('drp-mesh').Service;
 const DRP_Node = require('drp-mesh').Node;
 
-// Hive code
-function hiveClass(umlClassObj) {
-    this.Name = "";
-    this.Stereotype = "";
-    this.Attributes = {};
-    this.Functions = {};
-    this.PrimaryKey = "";
-
-    this.Name = umlClassObj.Name;
-    if (umlClassObj.Stereotypes[0]) {
-        this.Stereotype = umlClassObj.Stereotypes[0];
-    }
-
-    this.Functions = umlClassObj.Functions;
-}
-
-function hiveClass_Attribute(umlAttr, colref, parentClass) {
-    this.Name = umlAttr.Name || "";
-    this.Stereotype = umlAttr.Stereotype || "";
-    this.Visibility = umlAttr.Visibility || "";
-    this.Derived = umlAttr.Derived || "";
-    this.Type = umlAttr.Type || "";
-    this.Default = umlAttr.Default || "";
-    this.Multiplicity = umlAttr.Multiplicity || "";
-    this.Restrictions = umlAttr.Restrictions || "";
-    this.colRef = colref || 0;
-    this.parentClass = parentClass || null;
-}
-
-function hiveClass_Function(umlFunc) {
-    this.Name = umlFunc.Name || "";
-    this.Visibility = umlFunc.Visibility || "";
-    this.Parameters = umlFunc.Parameters || "";
-    this.Return = umlFunc.Return || "";
-}
-
 class HiveClassLoader {
 
     constructor() {
@@ -46,43 +10,7 @@ class HiveClassLoader {
     LoadClasses(umlClasses) {
         // Translate UMLClasses objects
 
-        /*
-        let classKeys = Object.keys(umlClasses);
-        for (let i = 0; i < classKeys.length; i++) {
-            let umlClass = umlClasses[classKeys[i]];
-            let thisHiveClass = new hiveClass(umlClass);
-            this.HiveClasses[thisHiveClass.Stereotype] = thisHiveClass;
-        }
-        */
-
         this.HiveClasses = umlClasses;
-
-        // Set PK's
-        /*
-        let classKeys = Object.keys(this.HiveClasses);
-        for (let i = 0; i < classKeys.length; i++) {
-            let thisClass = this.HiveClasses[classKeys[i]];
-            let attributeKeys = Object.keys(thisClass.Attributes);
-            for (let j = 0; j < attributeKeys.length; j++) {
-                let thisAttribute = thisClass.Attributes[attributeKeys[j]];
-                let keyArr = thisAttribute.Restrictions.split(",");
-                // Loop over keys of attribute
-                for (let k = 0; k < keyArr.length; k++) {
-                    switch (keyArr[k]) {
-                        case 'MK':
-                            break;
-                        case 'FK':
-                            break;
-                        case 'PK':
-                            this.HiveClasses[classKeys[i]].PrimaryKey = thisAttribute.Name;
-                            break;
-                        default:
-                            break;
-                    }
-                }
-            }
-        }
-        */
     }
 
     GenerateIndexes() {
@@ -729,7 +657,7 @@ class Hive extends DRP_Service {
                         'FK': [],
                         'data': classInstanceRecords[objPK]
                     };
-                    newRecordHash[objPK].data['_collectorID'] = serviceName;
+                    newRecordHash[objPK].data['_serviceName'] = serviceName;
                 });
                 // Add data to Hive
                 if (!thisHive.HiveData[className]) {
@@ -771,7 +699,7 @@ class Hive extends DRP_Service {
         let thisHive = this;
 
         // Class Type & Data Shortcuts
-        let className = thisRecord.data["_objClass"];
+        let className = thisRecord.data['_objClass'];
 
         // Initialize HiveData[className] if it doesn't exist
         if (typeof thisHive.HiveData[className] === "undefined") {

@@ -50,6 +50,7 @@
     <Content Include="drp-mesh\lib\service.js" />
     <Content Include="drp-mesh\lib\subscription.js" />
     <Content Include="drp-mesh\lib\topicmanager.js" />
+    <Content Include="drp-mesh\lib\umlclass.js" />
     <Content Include="drp-mesh\lib\webserver.js" />
     <Content Include="drp-mesh\package.json" />
     <Content Include="drp-service-cache\index.js" />

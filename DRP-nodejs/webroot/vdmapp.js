@@ -54,6 +54,20 @@ window.onload = function () {
         appletScript: 'vdm-app-DRPTopology.js',
         vdmClient: vdmClient
     });
+	
+	myVDMDesktop.addAppletProfile({
+        appletName: 'HiveBrowser',
+        window: {
+            title: 'Hive Browser',
+            sizeX: 800,
+            sizeY: 400
+        },
+        appletIcon: 'fa-book',
+        showInMenu: true,
+        appletPath: vdmAppletsPath,
+        appletScript: 'vdm-app-HiveBrowser.js',
+        vdmClient: vdmClient
+    });
 
     myVDMDesktop.addAppletProfile({
         appletName: 'RickRoll',

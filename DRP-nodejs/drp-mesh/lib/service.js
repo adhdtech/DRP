@@ -1,5 +1,7 @@
 'use strict';
 
+const UMLClass = require('./umlclass');
+
 class DRP_Service {
     /**
      * 
@@ -10,7 +12,16 @@ class DRP_Service {
         this.serviceName = serviceName;
         this.drpNode = drpNode;
         this.ClientCmds = {};
+        /** @type Object.<string,UMLClass> */
         this.Classes = {};
+    }
+
+    /**
+     * 
+     * @param {UMLClass} umlClass New Class definition
+     */
+    AddClass(umlClass) {
+        this.Classes[umlClass.Name] = umlClass;
     }
 }
 
