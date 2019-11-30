@@ -33,7 +33,7 @@ class TestService extends DRP_Service {
 
         this.AddClass(new DRP_UMLClass("Department", [],
             [
-                new DRP_UMLAttribute("name", "departmentName", null, false, "int", null, "1", "PK,MK"),
+                new DRP_UMLAttribute("name", "departmentName", null, false, "string(128)", null, "1", "PK,MK"),
                 new DRP_UMLAttribute("description", null, null, false, "string(128)", null, "1", null),
                 new DRP_UMLAttribute("address", null, null, false, "string(128)", null, "1", null)
             ],
