@@ -101,12 +101,15 @@
                     let nodeID = nodeIDs[i];
                     let drpNode = topologyObj[nodeID];
 
+                    let labelData = nodeID;
+                    if (drpNode.url) labelData = `${nodeID}\n${drpNode.url}`;
+
                     // Add DRP Node as Cytoscape node
                     myApp.appVars.cy.add({
                         group: 'nodes',
                         data: {
                             id: nodeID,
-                            label: nodeID,
+                            label: labelData,
                             drpNode: drpNode
                         },
                         classes: drpNode.roles.join(" "),

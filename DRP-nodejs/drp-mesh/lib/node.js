@@ -1420,31 +1420,33 @@ class DRP_Node {
 
     async GetTopology() {
         let thisNode = this;
-        let clientConnections = {};
+        let topologyObj = {};
         // We need to get a list of all nodes from the registry
         let nodeIDList = Object.keys(thisNode.NodeDeclarations);
         for (let i = 0; i < nodeIDList.length; i++) {
             let nodeID = nodeIDList[i];
             /** @type DRP_NodeDeclaration */
             let nodeDeclaration = thisNode.NodeDeclarations[nodeID];
-            let nodeClientConnections = {};
+            let topologyNode = {};
             if (nodeID === thisNode.nodeID) {
-                nodeClientConnections = thisNode.ListClientConnections();
-                nodeClientConnections.roles = nodeDeclaration.NodeRoles;
+                topologyNode = thisNode.ListClientConnections();
             } else {
                 // Send a command to each node to get the list of client connections
                 let nodeConnection = await thisNode.VerifyNodeConnection(nodeID);
                 let cmdResponse = await nodeConnection.SendCmd(null, "DRP", "listClientConnections", null, true, null);
-                nodeClientConnections = cmdResponse.payload;
-                nodeClientConnections.roles = nodeDeclaration.NodeRoles;
+                topologyNode = cmdResponse.payload;
             }
 
+            // Append Roles and Listening URL
+            topologyNode.roles = nodeDeclaration.NodeRoles;
+            topologyNode.url = nodeDeclaration.NodeURL;
+
             // Add to hash
-            clientConnections[nodeID] = nodeClientConnections;
+            topologyObj[nodeID] = topologyNode;
 
         }
 
-        return clientConnections;
+        return topologyObj;
     }
 
     ListClientConnections() {
