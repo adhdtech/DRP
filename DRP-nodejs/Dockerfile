@@ -17,6 +17,12 @@ COPY webroot/ webroot/
 COPY jsondocs/ jsondocs/
 COPY package.json .
 COPY server.js .
+COPY drpRegistry.js .
+COPY drpBroker.js .
+COPY drpConsumer.js .
+COPY drpProvider-JSONDocMgr.js .
+COPY drpProvider-Test.js .
+COPY drpProvider-Test-NoListener.js .
 
 RUN npm install
 # If you are building your code for production
