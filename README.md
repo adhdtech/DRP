@@ -108,6 +108,18 @@ This starts a sample Provider which does not listen for connections; it connects
 node drpProvider-Test-NoListener.js
 ```
 
+Let's take a look at the relevant code.  In these samples we're creating a simple test service and advertising it to the mesh.
+
+![TestServiceCode](img/testServiceCode.png)
+
+Now let's test the new service through the Web UI
+
+![GreeterTest](img/greeterTest.png)
+
+Or through PowerShell
+
+![GreeterTestPS](img/greeterTestPS.png)
+
 ## Sample Consumer
 This sample will start a Consumer which connects to the Broker on ws://localhost:8080 and subscribes to the dummy stream
 ```
