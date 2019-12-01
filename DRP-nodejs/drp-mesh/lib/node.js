@@ -1083,6 +1083,7 @@ class DRP_Node {
             // This is a consumer declaration
             thisNode.ConsumerEndpoints[wsConn.id] = new DRP_Endpoint(wsConn);
             thisNode.ConsumerEndpoints[wsConn.id].ConsumerID = wsConn.id;
+            thisNode.ConsumerEndpoints[wsConn.id].drpNode = thisNode;
             //let peername = await thisNode.AwaitSocketPeername(wsConn._socket);
             //declaration.family = peername.family;
             //declaration.address = peername.address;
