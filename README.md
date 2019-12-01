@@ -99,11 +99,7 @@ gi drp:\local\Endpoints\Consumers\{consumerID}\RickRoll
 ```
 
 ## Sample Providers
-This starts a sample Provider which listens on ws://localhost:8081 and connects to the Registry at ws://localhost:8080
-```
-node drpProvider-Test.js
-```
-This starts a sample Provider which does not listen for connections; it connects directly to Brokers who need it
+This starts a non-listening sample Provider which connects to Brokers who need to communicate with it
 ```
 node drpProvider-Test-NoListener.js
 ```
