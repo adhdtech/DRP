@@ -63,6 +63,10 @@ Running server.js will also start the rSage web interface on http://localhost:80
 * **listServiceInstances** - List Services and which Providers offer them<br>
 * ... more ....
 
+## Topology Viewer
+In the rSage web interface on http://localhost:8080, Click Go -> Topology Viewer to see a map of all nodes currently connected to the mesh
+![Topology](img/drpTopologySample.png)
+
 ## PowerShell PSDrive
 Navigate the DRP topology via CLI using the DRPDrive.dll module.  Open a PowerShell session and run the following.
 ```
@@ -102,8 +106,8 @@ gi drp:\local\Endpoints\Consumers\{consumerID}\RickRoll
 
 
 ## Stream Subscription
-![alt text](img/streamsub1.svg)
+![StreamSub1](img/streamsub1.svg)
 
 
 ## Stream Subscription (Provider behind firewall or not listening)
-![alt text](img/streamsub2.svg)
+![StreamSub2](img/streamsub2.svg)
