@@ -66,8 +66,8 @@ Running server.js will also start the rSage web interface on http://localhost:80
 * **listServiceInstances** - List Services and which Providers offer them<br>
 * ... more ....
 
-## Topology Viewer
-In the rSage web interface on http://localhost:8080, Click Go -> Topology Viewer to see a map of all nodes currently connected to the mesh.  The direction as well as current latency and uptime for each connection is displayed.
+## DRP Topology Viewer
+In the rSage web interface on http://localhost:8080, Click Go -> DRP Topology to see a map of all nodes currently connected to the mesh.  The direction as well as current latency and uptime for each connection is displayed.
 
 Here is a sample from the public demo site.
 
