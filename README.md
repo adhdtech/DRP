@@ -114,14 +114,12 @@ Let's take a look at the relevant code.  In these samples we're creating a simpl
 
 Now let's test the new service
 
-Web UI
-![GreeterTest](img/greeterTest.png)
+Client|Output
+---|---
+Web UI|![GreeterTest](img/greeterTest.png)
+REST|![GreeterTestPS](img/greeterTestREST.png)
+PowerShell|![GreeterTestPS](img/greeterTestPS.png)
 
-REST
-![GreeterTestPS](img/greeterTestREST.png)
-
-PowerShell
-![GreeterTestPS](img/greeterTestPS.png)
 
 ## Sample Consumer
 This sample will start a Consumer which connects to the Broker on ws://localhost:8080 and subscribes to the dummy stream
