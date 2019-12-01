@@ -141,7 +141,14 @@ class DRP_RouteHandler extends DRP_Endpoint {
             wsConn.pongRecvdTime = null;
             wsConn.ping();
         } catch (ex) {
-            clearInterval(intervalObj);
+            if (wsConn.drpEndpoint) {
+                if (wsConn.nodeID) {
+                    wsConn.drpEndpoint.drpNode.log(`Error sending wsPing to Node ${wsConn.nodeID}: ${ex}`);
+                } else if (wsConn.id) {
+                    wsConn.drpEndpoint.drpNode.log(`Error sending wsPing to Consumer ${wsConn.id}: ${ex}`);
+                }
+            }
+            //clearInterval(intervalObj);
         }
     }
 
