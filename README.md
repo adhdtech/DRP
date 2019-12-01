@@ -20,6 +20,9 @@ resource requests.
 **Consumers** - Client facing applications, monitoring and analytics<br>
 
 ## Demo
+The public demo is hosted at https://rsage.io:8443.  To run it on your own system, either grab the Docker container or clone this repo.
+
+
 **Option 1: Docker Container**
 ```
 docker pull adhdtech/drp-nodejs
@@ -64,7 +67,10 @@ Running server.js will also start the rSage web interface on http://localhost:80
 * ... more ....
 
 ## Topology Viewer
-In the rSage web interface on http://localhost:8080, Click Go -> Topology Viewer to see a map of all nodes currently connected to the mesh
+In the rSage web interface on http://localhost:8080, Click Go -> Topology Viewer to see a map of all nodes currently connected to the mesh.  The direction as well as current latency and uptime for each connection is displayed.
+
+Here is a sample from the public demo site.
+
 ![Topology](img/drpTopologySample.png)
 
 ## PowerShell PSDrive
