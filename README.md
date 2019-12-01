@@ -112,10 +112,15 @@ Let's take a look at the relevant code.  In these samples we're creating a simpl
 
 ![TestServiceCode](img/testServiceCode.png)
 
-Now let's test the new service through the Web UI, REST & PowerShell
+Now let's test the new service
 
+Web UI
 ![GreeterTest](img/greeterTest.png)
+
+REST
 ![GreeterTestPS](img/greeterTestREST.png)
+
+PowerShell
 ![GreeterTestPS](img/greeterTestPS.png)
 
 ## Sample Consumer
