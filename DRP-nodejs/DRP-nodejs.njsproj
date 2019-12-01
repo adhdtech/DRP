@@ -62,6 +62,7 @@
     <Content Include="drp-service-rsage\lib\hive.js" />
     <Content Include="drp-service-rsage\lib\vdm.js" />
     <Content Include="drp-service-rsage\package.json" />
+    <Content Include="drpProvider-Cache.js" />
     <Content Include="drpProvider-JSONDocMgr.js" />
     <Content Include="drpProvider-Hive.js" />
     <Content Include="jsondocs\test.json">

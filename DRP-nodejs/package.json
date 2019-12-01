@@ -17,6 +17,8 @@
   "author": "chykn <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
+    "axios": "*",
+    "cucm-sql-async": "./cucm-sql-async",
     "drp-mesh": "./drp-mesh",
     "drp-service-cache": "./drp-service-cache",
     "drp-service-docmgr": "./drp-service-docmgr",
