@@ -48,7 +48,7 @@ Running server.js will also start the rSage web interface on http://localhost:80
 ## DRP Topology Viewer
 In the rSage web interface on http://localhost:8080, Click Go -> DRP Topology to see a map of all nodes currently connected to the mesh.  The direction as well as current latency and uptime for each connection is displayed.
 
-Here is a sample from the public demo site.
+Here is an example from the public demo site.
 
 ![Topology](img/drpTopologySample.png)
 
@@ -98,7 +98,7 @@ gi drp:\local\Endpoints\Consumers\{consumerID}\HTMLDocument\children\0\outerHTML
 gi drp:\local\Endpoints\Consumers\{consumerID}\RickRoll
 ```
 
-## Sample Providers
+## Sample Provider
 This starts a non-listening sample Provider which connects to Brokers who need to communicate with it
 ```
 node drpProvider-Test-NoListener.js
