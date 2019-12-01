@@ -9,6 +9,7 @@ WORKDIR /app
 # Install app dependencies
 # A wildcard is used to ensure both package.json AND package-lock.json are copied
 # where available (npm@5+)
+COPY cucm-sql-async/ cucm-sql-async/
 COPY drp-mesh/ drp-mesh/
 COPY drp-service-cache/ drp-service-cache/
 COPY drp-service-docmgr/ drp-service-docmgr/
