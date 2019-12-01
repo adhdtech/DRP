@@ -42,29 +42,8 @@ npm install
 node server.js
 ```
 
-## Sample Provider
-This sample will start a Provider which listens on ws://localhost:8081 and connects to the Registry at ws://localhost:8080
-```
-node drpProvider-Test.js
-```
-## Sample Provider - No Listener
-This sample will start a Provider which does not listen for connections; it connects directly to Brokers who need it
-```
-node drpProvider-Test-NoListener.js
-```
-
-## Sample Consumer
-This sample will start a Consumer which connects to the Broker on ws://localhost:8080 and subscribes to the dummy stream
-```
-node drpConsumer.js
-```
-
 ## Web UI
-Running server.js will also start the rSage web interface on http://localhost:8080 which connects to the Broker on ws://localhost:8080.  Click Go -> Command Testing to see the commands exposed to DRP Consumers.<br>
-* **getCmds** - List DRP Consumer commands<br>
-* **getRegistry** - Get dump of Registry<br>
-* **listServiceInstances** - List Services and which Providers offer them<br>
-* ... more ....
+Running server.js will also start the rSage web interface on http://localhost:8080 which connects to the Broker on ws://localhost:8080.
 
 ## DRP Topology Viewer
 In the rSage web interface on http://localhost:8080, Click Go -> DRP Topology to see a map of all nodes currently connected to the mesh.  The direction as well as current latency and uptime for each connection is displayed.
@@ -72,6 +51,15 @@ In the rSage web interface on http://localhost:8080, Click Go -> DRP Topology to
 Here is a sample from the public demo site.
 
 ![Topology](img/drpTopologySample.png)
+
+## Command Testing
+Click Go -> Command Testing to see the commands exposed to DRP Consumers.<br>
+* **getCmds** - List DRP Consumer commands<br>
+* **getRegistry** - Get dump of Registry<br>
+* **listServiceInstances** - List Services and which Providers offer them<br>
+* ... more ....
+
+![CommandTesting](img/commandTesting.png)
 
 ## PowerShell PSDrive
 Navigate the DRP topology via CLI using the DRPDrive.dll module.  Open a PowerShell session and run the following.
@@ -110,6 +98,21 @@ gi drp:\local\Endpoints\Consumers\{consumerID}\HTMLDocument\children\0\outerHTML
 gi drp:\local\Endpoints\Consumers\{consumerID}\RickRoll
 ```
 
+## Sample Providers
+This starts a sample Provider which listens on ws://localhost:8081 and connects to the Registry at ws://localhost:8080
+```
+node drpProvider-Test.js
+```
+This starts a sample Provider which does not listen for connections; it connects directly to Brokers who need it
+```
+node drpProvider-Test-NoListener.js
+```
+
+## Sample Consumer
+This sample will start a Consumer which connects to the Broker on ws://localhost:8080 and subscribes to the dummy stream
+```
+node drpConsumer.js
+```
 
 ## Stream Subscription
 ![StreamSub1](img/streamsub1.svg)
