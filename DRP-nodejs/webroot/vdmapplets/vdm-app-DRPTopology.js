@@ -136,7 +136,8 @@
                                 id: `${nodeID}_${targetNodeID}`,
                                 source: targetNodeID,
                                 target: nodeID,
-                                label: drpNode.nodeClients[nodeClientIDs[j]]['pingTimeMs'] + " ms\n" + drpNode.nodeClients[nodeClientIDs[j]]['uptimeSeconds'] + " s"
+                                //label: drpNode.nodeClients[nodeClientIDs[j]]['pingTimeMs'] + " ms\n" + drpNode.nodeClients[nodeClientIDs[j]]['uptimeSeconds'] + " s"
+                                label: drpNode.nodeClients[nodeClientIDs[j]]['pingTimeMs'] + " ms"
                             }
                         });
                     }
@@ -152,7 +153,7 @@
                                 id: consumerID,
                                 label: `${consumerClientIDs[j]}`
                             },
-                            classes: ["Consumer"],
+                            classes: "Consumer",
                             position: myApp.appFuncs.placeNode("Consumer")
                         });
 
@@ -162,7 +163,8 @@
                                 id: `${consumerID}_${nodeID}`,
                                 source: consumerID,
                                 target: nodeID,
-                                label: drpNode.consumerClients[consumerClientIDs[j]]['pingTimeMs'] + " ms\n" + drpNode.consumerClients[consumerClientIDs[j]]['uptimeSeconds'] + " s"
+                                //label: drpNode.consumerClients[consumerClientIDs[j]]['pingTimeMs'] + " ms\n" + drpNode.consumerClients[consumerClientIDs[j]]['uptimeSeconds'] + " s"
+                                label: drpNode.consumerClients[consumerClientIDs[j]]['pingTimeMs'] + " ms"
                             }
                         });
                     }
@@ -239,7 +241,7 @@
             }, {
                 selector: 'node.Registry',
                 style: {
-                    'shape': "circle",
+                    'shape': "diamond",
                     'background-color': '#654321'
                 }
             }, {
@@ -252,7 +254,9 @@
                 selector: 'node.Consumer',
                 style: {
                     'shape': "circle",
-                    'background-color': 'black',
+                    'background-color': '#DDD',
+                    'border-width': 3,
+                    'border-color': '#333',
                     'text-valign': 'center',
                     'text-halign': 'center'
                 }
@@ -263,11 +267,17 @@
                     'line-color': '#fcc',
                     'target-arrow-color': '#fcc',
                     'target-arrow-shape': 'triangle',
+                    'opacity': 0.5,
                     'curve-style': 'bezier',
                     'font-size': '10px',
                     'text-wrap': 'wrap',
                     'content': 'data(label)',
                     'text-rotation': 'autorotate'
+                }
+            }, {
+                selector: 'edge.hover',
+                style: {
+                    'opacity': 1.0
                 }
             }, {
                 selector: ':selected',
@@ -286,6 +296,22 @@
 
         myApp.appVars.cy = cy;
 
+        cy.on('mouseover', 'node', function (e) {
+            e.cyTarget.connectedEdges().addClass('hover');
+        });
+        cy.on('mouseout', 'node', function (e) {
+            e.cyTarget.connectedEdges().removeClass('hover');
+        });
+
+        cy.on('mouseover', 'edge', function (e) {
+            e.cyTarget.addClass('hover');
+        });
+        cy.on('mouseout', 'edge', function (e) {
+            e.cyTarget.removeClass('hover');
+        });
+
+        let removed = null;
+
         var contextMenu = myApp.appVars.cy.contextMenus({
             menuItems: [
                 {
@@ -293,7 +319,7 @@
                     content: 'remove',
                     selector: 'node, edge',
                     onClickFunction: function (event) {
-                        var target = event.target || event.cyTarget;
+                        var target = event.cyTarget;
                         removed = target.remove();
 
                         contextMenu.showMenuItem('undo-last-remove');
@@ -317,7 +343,7 @@
                     content: 'hide',
                     selector: '*',
                     onClickFunction: function (event) {
-                        var target = event.target || event.cyTarget;
+                        var target = event.cyTarget;
                         target.hide();
                     },
                     disabled: false
