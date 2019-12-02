@@ -2,7 +2,7 @@
 Declarative Resource Protocol - a JSON based Websocket subprotocol for declaring and consuming resources.
 
 ## Overview
-TLDR - It's a relatively easy way to create a service mesh.
+TLDR - It provides a relatively easy way to create a service mesh.
 
 In legacy applications, resource dependencies are often statically defined.  When a new service component is
 introduced, DNS, load balancer entries, firewall rules, monitoring, etc must be provisioned.  DRP can reduce
@@ -10,7 +10,7 @@ complexity by providing a mechanism which allows services to self-register and d
 
 Mesh solutions such as Istio are very powerful, but tend to have a steep learning curve and can be tricky to set up.
 DRP can be thought of as a way to create a "beginner's" mesh.  With the provided samples, anyone with some Node.js
-experience should be able to set up a mesh and create a service in a relatively short amount of time.
+experience should be able to set up a mesh and create a service in a short amount of time.
 
 ## Goals
 * Reduce barriers between resources and consumers
