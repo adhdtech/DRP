@@ -20,8 +20,8 @@ experience should be able to set up a mesh and create a service in a relatively 
 
 ## Components
 **Registries** - Nodes which track and distribute state of other nodes and services<br>
-**Providers** - Nodes which offers services for consumption<br>
-**Services** - Logical units of RPC methods, streams, object class definitions & object instances
+**Providers** - Nodes which offer services for consumption<br>
+**Services** - Logical units consisting of RPC methods, streams, object class definitions & object instances
 **Brokers** - Nodes which process resource requests and track declarations from consumers<br>
 **Consumers** - Web pages, scripts, PowerShell clients, etc which make calls to Brokers
 
