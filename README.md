@@ -19,7 +19,7 @@ experience should be able to set up a mesh and create a service in a relatively 
 * Provide mechanism for resource discovery and structure traversal
 
 ## Components
-**Nodes** - A process which communicates using the DRP protocol, has one or more roles<br>
+**Nodes** - A process which communicates using the DRP protocol; has one or more roles<br>
 **Services** - Logical units consisting of RPC methods, streams, object class definitions & object instances<br>
 **Consumers** - Web pages, scripts, PowerShell clients, etc which make calls to Broker Nodes<br>
 
