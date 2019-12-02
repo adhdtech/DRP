@@ -24,9 +24,9 @@ experience should be able to set up a mesh and create a service in a short amoun
 **Consumers** - Web pages, scripts, PowerShell clients, etc which make calls to Broker Nodes<br>
 
 ## Node Roles
-**Registry** - Node which track and distribute state of other nodes and services<br>
+**Registry** - Node which tracks and distributes state of other nodes and services<br>
 **Provider** - Node which offers services for consumption<br>
-**Broker** - Node which processes resource requests and track declarations from consumers<br>
+**Broker** - Node which processes resource requests and tracks declarations from consumers<br>
 
 ## Demo
 The public demo is hosted at https://rsage.io:8443.  To run it on your own system, either grab the Docker container or clone this repo.
