@@ -20,8 +20,8 @@ experience should be able to set up a mesh and create a service in a relatively 
 
 ## Components
 **Nodes** - A process which communicates using the DRP protocol, has one or more roles<br>
-**Services** - Logical units consisting of RPC methods, streams, object class definitions & object instances
-**Consumers** - Web pages, scripts, PowerShell clients, etc which make calls to Broker Nodes
+**Services** - Logical units consisting of RPC methods, streams, object class definitions & object instances<br>
+**Consumers** - Web pages, scripts, PowerShell clients, etc which make calls to Broker Nodes<br>
 
 ## Node Roles
 **Registry** - Node which track and distribute state of other nodes and services<br>
