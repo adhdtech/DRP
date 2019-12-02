@@ -266,7 +266,8 @@
                     'curve-style': 'bezier',
                     'font-size': '10px',
                     'text-wrap': 'wrap',
-                    'content' : 'data(label)'
+                    'content': 'data(label)',
+                    'text-rotation': 'autorotate'
                 }
             }, {
                 selector: ':selected',
