@@ -27,8 +27,8 @@
         // Dropdown menu items
         myApp.menu = {
             "View": {
-                "Node Topology": async function () {
-                    myApp.appFuncs.loadNodeTopology();
+                "Toggle Refresh": function () {
+                    myApp.appFuncs.toggleRefresh();
                 },
                 "Output JSON": async function () {
                     let fileData = JSON.stringify(myApp.appVars.cy.json());
@@ -51,6 +51,17 @@
 		 */
 
         myApp.appFuncs = {
+            "toggleRefresh": function () {
+                if (!myApp.appVars.refreshActive) {
+                    myApp.appVars.refreshInterval = setInterval(async () => {
+                        myApp.appFuncs.loadNodeTopology();
+                    }, 10000);
+                    myApp.appVars.refreshActive = true;
+                } else {
+                    clearInterval(myApp.appVars.refreshInterval);
+                    myApp.appVars.refreshActive = false;
+                }
+            },
             "placeNode": function (nodeClass) {
                 let returnPosition = { x: 0, y: 0 };
                 let colsPerRow = 6;
@@ -189,6 +200,8 @@
 
         myApp.appVars = {
             dataStructs: {},
+            refreshActive: false,
+            refreshInterval: null,
             cy: null,
             linkFromObj: null,
             currentFile: "",
@@ -241,14 +254,14 @@
             }, {
                 selector: 'node.Registry',
                 style: {
-                    'shape': "diamond",
-                    'background-color': '#654321'
+                    'shape': "star",
+                    'background-color': 'gold'
                 }
             }, {
                 selector: 'node.Logger',
                 style: {
-                    'shape': "star",
-                    'background-color': 'gold'
+                    'shape': "diamond",
+                    'background-color': '#654321'
                 }
             }, {
                 selector: 'node.Consumer',
