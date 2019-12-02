@@ -62,12 +62,11 @@ Click Go -> Command Testing to see the commands exposed to DRP Consumers.<br>
 ![CommandTesting](img/commandTesting.png)
 
 ## PowerShell PSDrive
-You can navigate the DRP topology via CLI using the DRPDrive.dll module.  The following will connect you to the
-local DRP instance and give an idea of the information available in the mesh.
+You can navigate the DRP topology via CLI using the DRPDrive.dll module.  After cloning the repo, execute the following to connect to the local DRP Broker.
 
 ```
 # Load PowerShell Provider
-cd PSDrive\bin\Debug
+cd DRP-dotnet\bin\Debug
 Import-Module .\DRPDrive.dll
 
 # Connect to local DRP Broker
@@ -75,7 +74,10 @@ Connect-DRP -Alias local -URL ws://localhost:8080
 
 # Connect to public DRP Broker (optional)
 Connect-DRP -Alias public -URL wss://rsage.io:8443
+```
 
+Now we can poke around and see some of the information available in the mesh.
+```
 # Dump the Mesh registry
 gi drp:\local\Mesh\Registry
 
