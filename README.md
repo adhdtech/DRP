@@ -17,10 +17,11 @@ experience should be able to set up a mesh and create a service in a relatively 
 * Provide mechanism for resource discovery and structure traversal
 
 ## Components
-**Registries** - Track and distribute state of providers and their resources<br>
-**Providers** - Declare services, objects and streams available for consumption<br>
-**Brokers** - Process resource requests and track declarations from consumers<br>
-**Consumers** - Client facing applications, monitoring and analytics<br>
+**Registries** - Nodes which track and distribute state of other nodes and services<br>
+**Providers** - Nodes which offers services for consumption<br>
+**Services** - Logical units of RPC methods, streams, object class definitions & object instances
+**Brokers** - Nodes which process resource requests and track declarations from consumers<br>
+**Consumers** - Web pages, scripts, PowerShell clients, etc which make calls to Brokers
 
 ## Demo
 The public demo is hosted at https://rsage.io:8443.  To run it on your own system, either grab the Docker container or clone this repo.
