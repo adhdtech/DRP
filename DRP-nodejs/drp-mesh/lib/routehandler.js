@@ -129,6 +129,7 @@ class DRP_RouteHandler extends DRP_Endpoint {
     }
 
     SendWsPing(wsConn, intervalObj) {
+        let thisWebServerRoute = this;
         try {
             if (wsConn.pingSentTime) {
                 // Did not receive response last interval; enter null value
