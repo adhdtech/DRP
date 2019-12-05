@@ -29,12 +29,14 @@ class UMLFunction {
      * @param {string} visibility public|private
      * @param {string[]} parameters Input parameters
      * @param {string} returnData Output value
+     * @param {function} realFunction Actual function to execute
      */
-    constructor(name, visibility, parameters, returnData) {
+    constructor(name, visibility, parameters, returnData, realFunction) {
         this.Name = name;
         this.Visibility = visibility;
         this.Parameters = parameters;
         this.Return = returnData;
+        this.RealFunction = realFunction;
     }
 }
 
@@ -75,15 +77,19 @@ class UMLClass {
 
         this.AddRecord = (newRecordObj, serviceName, snapTime) => {
             let thisClass = this;
+            let tmpObj = null;
             if (newRecordObj.hasOwnProperty(thisClass.PrimaryKey)) {
-                let tmpObj = {
+                tmpObj = {
                     "_objClass": thisClass.Name,
+                    "_objPK": null,
                     "_serviceName": serviceName,
                     "_snapTime": snapTime
                 };
                 Object.keys(thisClass.Attributes).map(item => { if (newRecordObj.hasOwnProperty(item)) tmpObj[item] = newRecordObj[item]; });
+                tmpObj["_objPK"] = tmpObj[thisClass.PrimaryKey];
                 this.cache[tmpObj[thisClass.PrimaryKey]] = tmpObj;
             }
+            return tmpObj;
         };
     }
 

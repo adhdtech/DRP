@@ -7,6 +7,7 @@ const DRP_Service = require("./service");
 const DRP_TopicManager = require("./topicmanager");
 const DRP_RouteHandler = require("./routehandler");
 const DRP_Subscription = require('./subscription');
+const DRP_Command = require('./command');
 
 function getRandomInt(max) {
     return Math.floor(Math.random() * Math.floor(max));
@@ -46,15 +47,6 @@ class DRP_NodeDeclaration {
         this.NodeURL = nodeURL;
         this.Streams = streams || {};
         this.Services = services || {};
-    }
-}
-
-class DRP_Command {
-    constructor(serviceName, cmd, params, targetNodeID) {
-        this.serviceName = serviceName;
-        this.cmd = cmd;
-        this.params = params;
-        this.targetNodeID = targetNodeID;
     }
 }
 
@@ -99,6 +91,8 @@ class DRP_Node {
          * }
          */
         //};
+
+        /** @type Object.<string,DRP_Service> */
         this.Services = {};
 
         this.NodeDeclaration = new DRP_NodeDeclaration(this.nodeID, this.nodeRoles, this.nodeURL);
