@@ -130,6 +130,7 @@ class DRP_RouteHandler extends DRP_Endpoint {
 
     SendWsPing(wsConn, intervalObj) {
         let thisWebServerRoute = this;
+        //console.dir(wsConn);
         try {
             if (wsConn.pingSentTime) {
                 // Did not receive response last interval; enter null value
@@ -137,6 +138,13 @@ class DRP_RouteHandler extends DRP_Endpoint {
                     wsConn.pingTimes.shift();
                 }
                 wsConn.pingTimes.push(null);
+                if (wsConn.drpEndpoint && wsConn.drpEndpoint.drpNode) {
+                    if (wsConn.nodeID) {
+                        wsConn.drpEndpoint.drpNode.log(`wsPing timed out to Node ${wsConn.nodeID}`);
+                    } else if (wsConn.id) {
+                        wsConn.drpEndpoint.drpNode.log(`wsPing timed out to Consumer ${wsConn.id}`);
+                    }
+                }
             }
             wsConn.pingSentTime = new Date().getTime();
             wsConn.pongRecvdTime = null;
@@ -149,7 +157,6 @@ class DRP_RouteHandler extends DRP_Endpoint {
                     wsConn.drpEndpoint.drpNode.log(`Error sending wsPing to Consumer ${wsConn.id}: ${ex}`);
                 }
             }
-            //clearInterval(intervalObj);
         }
     }
 

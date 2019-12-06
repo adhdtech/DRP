@@ -9,12 +9,12 @@
   "keywords": [
     "drp",
     "mesh",
-	  "service",
+    "service",
     "registry",
     "provider",
     "broker"
   ],
-  "author": "chykn <jpbrown@adhdtech.com>",
+  "author": "Pete Brown <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
     "ws": "*",
@@ -22,5 +22,6 @@
     "express": "*",
     "express-ws": "*",
     "cors": "*"
-  }
+  },
+  "publishConfig": { "registry": "https://npm.pkg.github.com/" }
 }

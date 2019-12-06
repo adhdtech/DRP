@@ -17,7 +17,6 @@ class DRP_TopicManager {
         // Add logic to verify topic queue name is formatted correctly and doesn't already exist
         this.Topics[topicName] = new DRP_TopicManager_Topic(this, topicName);
         this.drpNode.log("Created topic [" + topicName + "]", "TopicManager");
-        //this.DRPServer.LogEvent("Created topic [" + topicName + "]", "TopicManager");
     }
 
     SubscribeToTopic(topicName, conn, token, filter) {
@@ -33,7 +32,6 @@ class DRP_TopicManager {
         });
 
         this.drpNode.log("Subscribed to topic [" + topicName + "] with token [" + token + "]");
-        //this.DRPServer.VDMServer.LogWSUnityClientEvent(conn, "Subscribed to topic [" + topicName + "]");
     }
 
     UnsubscribeFromTopic(topicName, conn, token, filter) {
