@@ -45,8 +45,8 @@ window.onload = function () {
         appletName: 'DRPTopology',
         window: {
             title: 'DRP Topology',
-            sizeX: 880,
-            sizeY: 400
+            sizeX: 950,
+            sizeY: 600
         },
         appletIcon: 'fa-list-alt',
         showInMenu: true,

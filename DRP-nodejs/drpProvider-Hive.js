@@ -10,13 +10,17 @@ var registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
 console.log(`Starting DRP Node...`);
 let myNode = new DRP_Node(["Provider"]);
 
+let myHive = null;
+
 myNode.ConnectToRegistry(registryURL, async () => {
     myNode.log("Connected to Registry");
 
-    let myHive = new rSageHive("Hive", myNode);
-    myHive.Start(async () => {
-        myNode.log("Hive load complete, adding service...");
+    if (!myHive) {
+        myHive = new rSageHive("Hive", myNode);
+        myHive.Start(async () => {
+            myNode.log("Hive load complete, adding service...");
 
-        await myNode.AddService(myHive);
-    });
+            await myNode.AddService(myHive);
+        });
+    }
 });

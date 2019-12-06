@@ -1435,6 +1435,7 @@ class DRP_Node {
             // Append Roles and Listening URL
             topologyNode.roles = nodeDeclaration.NodeRoles;
             topologyNode.url = nodeDeclaration.NodeURL;
+            topologyNode.services = Object.keys(nodeDeclaration.Services);
 
             // Add to hash
             topologyObj[nodeID] = topologyNode;

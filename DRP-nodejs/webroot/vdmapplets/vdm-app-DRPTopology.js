@@ -91,6 +91,11 @@
                         returnPosition.y += row * 50;
                         myApp.appVars.nodeCursors["Consumer"].index++;
                         break;
+                    case "Service":
+                        returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Service"]);
+                        myApp.appVars.nodeCursors["Service"].y += 50;
+                        myApp.appVars.nodeCursors["Service"].index++;
+                        break;
                     default:
                 }
                 return returnPosition;
@@ -109,31 +114,63 @@
                 // Loop over DRP Nodes in topology
                 let nodeIDs = Object.keys(topologyObj);
                 for (let i = 0; i < nodeIDs.length; i++) {
-                    let nodeID = nodeIDs[i];
-                    let drpNode = topologyObj[nodeID];
+                    let drpNodeID = nodeIDs[i];
+                    let drpNode = topologyObj[drpNodeID];
 
-                    let labelData = nodeID;
-                    if (drpNode.url) labelData = `${nodeID}\n${drpNode.url}`;
+                    let labelData = drpNodeID;
+                    if (drpNode.url) labelData = `${drpNodeID}\n${drpNode.url}`;
 
                     // Add DRP Node as Cytoscape node
                     myApp.appVars.cy.add({
                         group: 'nodes',
                         data: {
-                            id: nodeID,
+                            id: drpNodeID,
                             label: labelData,
                             drpNode: drpNode
                         },
                         classes: drpNode.roles.join(" "),
                         position: myApp.appFuncs.placeNode(drpNode.roles[0])
                     });
+
+                    // Loop over Node services
+                    for (let j = 0; j < drpNode.services.length; j++) {
+
+                        let serviceName = drpNode.services[j];
+                        let serviceNodeID = `svc-${serviceName}`;
+
+                        // See if service node exists
+                        let svcNodeObj = myApp.appVars.cy.getElementById(serviceNodeID);
+                        if (svcNodeObj.length === 0) {
+                            // No - create it
+                            myApp.appVars.cy.add({
+                                group: 'nodes',
+                                data: {
+                                    id: serviceNodeID,
+                                    label: serviceName
+                                },
+                                classes: "Service",
+                                position: myApp.appFuncs.placeNode("Service")
+                            });
+                        }
+
+                        // Create edge
+                        myApp.appVars.cy.add({
+                            group: 'edges',
+                            data: {
+                                id: `${serviceNodeID}_${drpNodeID}`,
+                                source: serviceNodeID,
+                                target: drpNodeID
+                            }
+                        });
+                    }
                 }
 
                 // Loop over DRP Nodes again; create Edges
                 for (let i = 0; i < nodeIDs.length; i++) {
-                    let nodeID = nodeIDs[i];
-                    let drpNode = topologyObj[nodeID];
+                    let drpNodeID = nodeIDs[i];
+                    let drpNode = topologyObj[drpNodeID];
                     myApp.appVars.nodeCursors["Consumer"].index = 0;
-                    let nodeObj = myApp.appVars.cy.getElementById(nodeID);
+                    let nodeObj = myApp.appVars.cy.getElementById(drpNodeID);
                     myApp.appVars.nodeCursors["Consumer"].y = nodeObj.position().y;
 
                     // Loop over nodeClients
@@ -144,9 +181,9 @@
                         myApp.appVars.cy.add({
                             group: 'edges',
                             data: {
-                                id: `${nodeID}_${targetNodeID}`,
+                                id: `${drpNodeID}_${targetNodeID}`,
                                 source: targetNodeID,
-                                target: nodeID,
+                                target: drpNodeID,
                                 //label: drpNode.nodeClients[nodeClientIDs[j]]['pingTimeMs'] + " ms\n" + drpNode.nodeClients[nodeClientIDs[j]]['uptimeSeconds'] + " s"
                                 label: drpNode.nodeClients[nodeClientIDs[j]]['pingTimeMs'] + " ms"
                             }
@@ -156,7 +193,7 @@
                     // Loop over consumerClients
                     let consumerClientIDs = Object.keys(drpNode.consumerClients);
                     for (let j = 0; j < consumerClientIDs.length; j++) {
-                        let consumerID = `${nodeID}-c:${consumerClientIDs[j]}`;
+                        let consumerID = `${drpNodeID}-c:${consumerClientIDs[j]}`;
 
                         myApp.appVars.cy.add({
                             group: 'nodes',
@@ -171,9 +208,9 @@
                         myApp.appVars.cy.add({
                             group: 'edges',
                             data: {
-                                id: `${consumerID}_${nodeID}`,
+                                id: `${consumerID}_${drpNodeID}`,
                                 source: consumerID,
-                                target: nodeID,
+                                target: drpNodeID,
                                 //label: drpNode.consumerClients[consumerClientIDs[j]]['pingTimeMs'] + " ms\n" + drpNode.consumerClients[consumerClientIDs[j]]['uptimeSeconds'] + " s"
                                 label: drpNode.consumerClients[consumerClientIDs[j]]['pingTimeMs'] + " ms"
                             }
@@ -189,7 +226,8 @@
                     Broker: { x: 650, y: 100, index: 0 },
                     Provider: { x: 200, y: 100, index: 0 },
                     Logger: { x: 450, y: 250, index: 0 },
-                    Consumer: { x: 825, y: 100, index: 0 }
+                    Consumer: { x: 825, y: 100, index: 0 },
+                    Service: { x: 50, y: 100, index: 0 }
                 };
 
                 /** @type {Object.<string, topologyNode>}} */
@@ -226,7 +264,7 @@
         let cy = cytoscape({
             container: myApp.appVars.cyBox,
             wheelSensitivity: .25,
-            zoom: .8,
+            zoom: 1,
             //pan: { "x": 300, "y": 160 },
 
             style: [{
