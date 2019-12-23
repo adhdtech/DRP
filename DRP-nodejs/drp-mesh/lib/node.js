@@ -1,6 +1,10 @@
 'use strict';
 
 const os = require('os');
+const util = require('util');
+const tcpp = require('tcp-ping');
+const tcpPing = util.promisify(tcpp.ping);
+const dns = require('dns').promises;
 const DRP_Endpoint = require("./endpoint");
 const DRP_Client = require("./client");
 const DRP_Service = require("./service");
@@ -1342,6 +1346,71 @@ class DRP_Node {
         });
     }
 
+    async ConnectToRegistryByDomain(domainName, openCallback) {
+        let thisNode = this;
+        // Look up SRV records for DNS
+        try {
+            let recordList = await dns.resolveSrv(`_drp._tcp.${domainName}`);
+
+            let srvHash = recordList.reduce((map, srvRecord) => {
+                let key = `${srvRecord.name}-${srvRecord.port}`;
+                srvRecord.pingInfo = null;
+                map[key] = srvRecord;
+                return map;
+            }, {});
+
+            let srvKeys = Object.keys(srvHash);
+
+            // Run tcp pings in parallel
+            await Promise.all(
+                srvKeys.map(async (srvKey) => {
+                    let srvRecord = srvHash[srvKey];
+                    try {
+                        srvRecord.pingInfo = await tcpPing({
+                            address: srvRecord.name,
+                            port: srvRecord.port,
+                            timeout: 1000,
+                            attempts: 3
+                        });
+                    }
+                    catch (ex) {
+                        // Cannot do tcpPing against host:port
+                        thisNode.log(ex);
+                    }
+                })
+            );
+
+            // Find registry with lowest average ping time
+            let closestRegistry = null;
+            for (let i = 0; i < srvKeys.length; i++) {
+                let checkRegistry = srvHash[srvKeys[i]];
+                if (checkRegistry.pingInfo && checkRegistry.pingInfo.avg) {
+                    if (!closestRegistry || checkRegistry.pingInfo.avg < closestRegistry.pingInfo.avg) {
+                        closestRegistry = checkRegistry;
+                    }
+                }
+            }
+
+            if (closestRegistry) {
+                let protocol = "ws";
+                let portString = closestRegistry.port.toString();
+                let checkString = portString.slice(-3, 3);
+                if (checkString === "44") {
+                    protocol = "wss";
+                }
+
+                // Connect to target
+                let registryURL = `${protocol}://${closestRegistry.name}:${closestRegistry.port}`;
+                thisNode.ConnectToRegistry(registryURL, openCallback);
+            } else {
+                thisNode.log(`Could not find active registry`);
+            }
+
+        } catch (ex) {
+            thisNode.log(`Error resolving DNS: ${ex}`);
+        }
+    }
+
     async ConnectToNode(params, wsConn, token) {
         let thisNode = this;
         let returnCode = 0;
@@ -1462,7 +1531,7 @@ class DRP_Node {
             if (thisEndpoint.wsConn._isServer) {
                 nodeClientConnections.nodeClients[nodeID] = {
                     pingTimeMs: thisEndpoint.wsConn.pingTimeMs,
-                    uptimeSeconds: Math.floor((currentTime - thisEndpoint.wsConn.openTime)/1000)
+                    uptimeSeconds: Math.floor((currentTime - thisEndpoint.wsConn.openTime) / 1000)
                 };
             }
         }
@@ -1474,7 +1543,7 @@ class DRP_Node {
             let thisEndpoint = thisNode.ConsumerEndpoints[consumerID];
             nodeClientConnections.consumerClients[consumerID] = {
                 pingTimeMs: thisEndpoint.wsConn.pingTimeMs,
-                uptimeSeconds: Math.floor((currentTime - thisEndpoint.wsConn.openTime)/1000)
+                uptimeSeconds: Math.floor((currentTime - thisEndpoint.wsConn.openTime) / 1000)
             };
         }
 

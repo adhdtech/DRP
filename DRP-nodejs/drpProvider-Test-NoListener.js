@@ -8,6 +8,7 @@ const DRP_UMLClass = require('drp-mesh').UML.Class;
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
 var registryurl = process.env.REGISTRYURL || "ws://localhost:8080";
+var servicename = process.env.SERVICENAME || "TestService";
 
 // Create test service class
 class TestService extends DRP_Service {
@@ -73,12 +74,18 @@ let myNode = new DRP_Node(["Provider"]);
 myNode.AddStream("dummy", "Test stream");
 
 // Add a test service
-myNode.AddService(new TestService("Greeter", myNode));
+myNode.AddService(new TestService(servicename, myNode));
 
 // Connect to Registry
 myNode.ConnectToRegistry(registryurl, async () => {
     myNode.log("Connected to Registry");
 });
+
+/*
+myNode.ConnectToRegistryByDomain("rsage.io", async () => {
+    myNode.log("Connected to Registry");
+});
+*/
 
 setInterval(function () {
     let timeStamp = new Date().getTime();

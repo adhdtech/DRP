@@ -21,7 +21,8 @@
     "body-parser": "*",
     "express": "*",
     "express-ws": "*",
-    "cors": "*"
+    "cors": "*",
+    "tcp-ping": "*"
   },
   "publishConfig": { "registry": "https://npm.pkg.github.com/" }
 }
