@@ -18,9 +18,12 @@ namespace ADHDTech.DRP
     {
         public string Alias;
         public string URL;
+        public string User;
+        public string Pass;
         public string ProxyAddress;
         public string ProxyUser;
         public string ProxyPass;
+        public int Timeout;
     }
 
     [CmdletProvider("DRPProvider", ProviderCapabilities.None)]
@@ -120,9 +123,11 @@ namespace ADHDTech.DRP
 
             foreach (JProperty thisProperty in sampleObject.Properties())
             {
-                DataColumn newColumn = new DataColumn();
-                newColumn.DataType = typeof(string);  //thisProperty.Value.GetType();
-                newColumn.ColumnName = thisProperty.Name;
+                DataColumn newColumn = new DataColumn
+                {
+                    DataType = typeof(string),
+                    ColumnName = thisProperty.Name
+                };
                 newTable.Columns.Add(newColumn);
             }
 
@@ -153,9 +158,9 @@ namespace ADHDTech.DRP
 
                 if (returnedData != null && returnedData["pathItem"] != null)
                 {
-                    object returnObj = null;
-                    string returnJSONString = null;
+                    string returnJSONString;
                     string itemType = returnedData["pathItem"].GetType().ToString();
+                    object returnObj;
                     if (itemType.Equals("Newtonsoft.Json.Linq.JValue"))
                     {
                         returnObj = returnedData["pathItem"].Value<string>();
@@ -203,7 +208,7 @@ namespace ADHDTech.DRP
 
                 //Console.WriteLine("Connected to DRP Broker!");
                 //JObject returnedData = myDRPClient.SendDRPCmd("cliSetItem", new List<Object> { ChunkPath(path), value });
-                JObject returnedData = myDRPClient.SendCmd("pathCmd", new Dictionary<string, object>() { { "method", "SetItem" }, { "pathList", remainingPath }, { "params", value } });
+                JObject returnedData = myDRPClient.SendCmd("pathCmd", new Dictionary<string, object>() { { "method", "cliSetPath" }, { "pathList", remainingPath }, { "objData", value } });
 
                 if (returnedData["success"] != null)
                 {
@@ -219,12 +224,12 @@ namespace ADHDTech.DRP
                     }
                     if (returnObj != null)
                     {
-                        Console.WriteLine("SetItem returned status = [" + returnObj + "]");
+                        Console.WriteLine("cliSetPath returned status = [" + returnObj + "]");
                         //WriteItemObject(returnObj, this.ProviderInfo + "::" + path, false);
                     }
                     else
                     {
-                        Console.WriteLine("SetItem returned status is null!");
+                        Console.WriteLine("cliSetPath returned status is null!");
                     }
 
                 }
@@ -427,7 +432,7 @@ namespace ADHDTech.DRP
             }
         }
 
-        private string pathSeparator = "\\";
+        private readonly string pathSeparator = "\\";
 
     }
 
@@ -444,6 +449,12 @@ namespace ADHDTech.DRP
         public string Alias { get; set; }
 
         [Parameter(Mandatory = false)]
+        public string User { get; set; }
+
+        [Parameter(Mandatory = false)]
+        public string Pass { get; set; }
+
+        [Parameter(Mandatory = false)]
         public string ProxyAddress { get; set; }
 
         [Parameter(Mandatory = false)]
@@ -452,6 +463,9 @@ namespace ADHDTech.DRP
         [Parameter(Mandatory = false)]
         public string ProxyPass { get; set; }
 
+        [Parameter(Mandatory = false)]
+        public int? Timeout { get; set; }
+
         protected override void BeginProcessing () {
 
             Console.WriteLine("Setting: {0} to {1}", this.Alias, this.URL);
@@ -459,9 +473,12 @@ namespace ADHDTech.DRP
             {
                 Alias = Alias,
                 URL = URL,
+                User = User ?? "",
+                Pass = Pass ?? "",
                 ProxyAddress = ProxyAddress ?? "",
                 ProxyUser = ProxyUser ?? "",
-                ProxyPass = ProxyPass ?? ""
+                ProxyPass = ProxyPass ?? "",
+                Timeout = Timeout ?? 30000
             };
         }
     }

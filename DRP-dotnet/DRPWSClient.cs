@@ -88,10 +88,10 @@ namespace ADHDTech.DRP
             });
 
             // Define action to execute task
-            Action returnAction = () =>
+            void returnAction()
             {
                 ReturnDataTask.Start();
-            };
+            }
 
             // Send command, wait up to 30 seconds for return
             SendCmd(wsConn, serviceName, cmd, @params, data =>
@@ -108,7 +108,7 @@ namespace ADHDTech.DRP
                 {
                     Console.Error.WriteLine("Error converting message to JObject: " + ex.Message + "\r\n<<<" + data + ">>>");
                 }
-                returnAction.Invoke();
+                returnAction();
             });
 
             // Wait for task to complete
@@ -172,12 +172,14 @@ namespace ADHDTech.DRP
     public class DRP_Client : DRP_Endpoint
     {
         public DRP_WebsocketConn wsConn;
-        Dictionary<string, Action<object>> DRPCallbacks = new Dictionary<string, Action<object>>();
         public bool clientConnected = false;
         public bool clientDied = false;
+        public BrokerProfile brokerProfile = null;
 
-        public DRP_Client(BrokerProfile brokerProfile)
+        public DRP_Client(BrokerProfile argBrokerProfile)
         {
+            brokerProfile = argBrokerProfile;
+
             // Connect to WS
             wsConn = new DRP_WebsocketConn(brokerProfile.URL, new string[] { "drp" });
             wsConn.SslConfiguration.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
@@ -212,12 +214,22 @@ namespace ADHDTech.DRP
             // We have a connection
             //Console.WriteLine("Session open!");
             clientConnected = true;
+
+            // If we have credentials, authenticate
+            if (brokerProfile.User.Length > 0) {
+                //JObject returnedData = SendCmd("hello", new Dictionary<string, object>() {
+                SendCmd("hello", new Dictionary<string, object>() {
+                    { "userAgent", "dotnet" },
+                    { "user", brokerProfile.User },
+                    { "pass", brokerProfile.Pass }
+                });
+            }
         }
 
         public void EndClientSession(object sender, EventArgs e)
         {
             // The session has ended
-            WebSocketSharp.CloseEventArgs closeArgs = (WebSocketSharp.CloseEventArgs)e;
+            //WebSocketSharp.CloseEventArgs closeArgs = (WebSocketSharp.CloseEventArgs)e;
             if (!clientConnected)
             {
                 clientDied = true;

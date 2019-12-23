@@ -5,8 +5,6 @@ const DRP_UMLAttribute = require('drp-mesh').UML.Attribute;
 const DRP_UMLFunction = require('drp-mesh').UML.Function;
 const DRP_UMLClass = require('drp-mesh').UML.Class;
 
-process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
-
 var registryurl = process.env.REGISTRYURL || "ws://localhost:8080";
 var servicename = process.env.SERVICENAME || "TestService";
 

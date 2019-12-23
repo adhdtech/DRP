@@ -44,13 +44,17 @@ class DRP_NodeDeclaration {
      * @param {string} nodeURL Listening URL (optional)
      * @param {{string:object}} streams Provided Streams
      * @param {{string:object}} services Provided services
+     * @param {string} domainKey Domain Key
+     * @param {string} zoneName Zone Name
      */
-    constructor(nodeID, nodeRoles, nodeURL, streams, services) {
+    constructor(nodeID, nodeRoles, nodeURL, streams, services, domainKey, zoneName) {
         this.NodeID = nodeID;
         this.NodeRoles = nodeRoles;
         this.NodeURL = nodeURL;
         this.Streams = streams || {};
         this.Services = services || {};
+        this.DomainKey = domainKey;
+        this.ZoneName = zoneName;
     }
 }
 
@@ -62,12 +66,18 @@ class DRP_Node {
      * @param {string} drpRoute DRP WS Route (optional)
      * @param {string} nodeURL Node WS URL (optional)
      * @param {string} webProxyURL Web Proxy URL (optional)
+     * @param {string} domainName DRP Domain Name (optional)
+     * @param {string} domainKey DRP Domain Key (optional)
+     * @param {string} zoneName DRP Zone Name (optional)
      */
-    constructor(nodeRoles, webServer, drpRoute, nodeURL, webProxyURL) {
+    constructor(nodeRoles, webServer, drpRoute, nodeURL, webProxyURL, domainName, domainKey, zoneName) {
         let thisNode = this;
         this.nodeID = `${os.hostname()}-${process.pid}-${getRandomInt(9999)}`;
         this.WebServer = webServer || null;
         this.drpRoute = drpRoute || "/";
+        this.DomainName = domainName;
+        this.DomainKey = domainKey;
+        this.ZoneName = zoneName;
         this.nodeURL = null;
         if (this.WebServer && this.WebServer.expressApp) {
             this.nodeURL = nodeURL;
@@ -111,6 +121,11 @@ class DRP_Node {
         if (thisNode.IsRegistry()) {
             this.AddStream("RegistryUpdate", "Registry updates");
             this.RegisterNode(this.NodeDeclaration);
+
+            if (this.DomainName) {
+                // A domain name was provided; attempt to cluster with other registry hosts
+                this.ConnectToOtherRegistries();
+            }
         }
 
         // Add a route handler even if we don't have an Express server (needed for stream relays)
@@ -1045,7 +1060,16 @@ class DRP_Node {
 
         if (isDeclarationValid) {
             // This is a node declaration
-            thisNode.log(`Client sent Hello [${declaration.NodeID}]`);
+            thisNode.log(`Remote node client sent Hello [${declaration.NodeID}]`);
+
+            // If this Node has a domain key, the remote node needs to match
+            if (thisNode.DomainKey) {
+                if (!declaration.DomainKey || declaration.DomainKey !== thisNode.DomainKey) {
+                    // The remote node did not offer a DomainKey or the key does not match
+                    thisNode.log(`Node [${declaration.NodeID}] DomainKey is not correct: ${declaration.DomainKey}`);
+                    wsConn.close();
+                }
+            }
 
             // Added due to race condition; a broker which provides may gets connection requests after connection to the registry but before getting registry declarations
             // Instead of doing this, we SHOULD put a marker in that says whether or not we've received an intial copy of the registry
@@ -1308,6 +1332,39 @@ class DRP_Node {
         }
     }
 
+    async PingDomainRegistries(domainName) {
+        let thisNode = this;
+        let recordList = await dns.resolveSrv(`_drp._tcp.${domainName}`);
+
+        let srvHash = recordList.reduce((map, srvRecord) => {
+            let key = `${srvRecord.name}-${srvRecord.port}`;
+            srvRecord.pingInfo = null;
+            map[key] = srvRecord;
+            return map;
+        }, {});
+
+        let srvKeys = Object.keys(srvHash);
+
+        // Run tcp pings in parallel
+        await Promise.all(
+            srvKeys.map(async (srvKey) => {
+                let srvRecord = srvHash[srvKey];
+                try {
+                    srvRecord.pingInfo = await tcpPing({
+                        address: srvRecord.name,
+                        port: srvRecord.port,
+                        timeout: 1000,
+                        attempts: 3
+                    });
+                }
+                catch (ex) {
+                    // Cannot do tcpPing against host:port
+                    thisNode.log(ex);
+                }
+            })
+        );
+    }
+
     async ConnectToRegistry(registryURL, openCallback) {
         let thisNode = this;
         // Initiate Registry Connection
@@ -1350,35 +1407,9 @@ class DRP_Node {
         let thisNode = this;
         // Look up SRV records for DNS
         try {
-            let recordList = await dns.resolveSrv(`_drp._tcp.${domainName}`);
 
-            let srvHash = recordList.reduce((map, srvRecord) => {
-                let key = `${srvRecord.name}-${srvRecord.port}`;
-                srvRecord.pingInfo = null;
-                map[key] = srvRecord;
-                return map;
-            }, {});
-
+            let srvHash = await thisNode.PingDomainRegistries(thisNode.DomainName);
             let srvKeys = Object.keys(srvHash);
-
-            // Run tcp pings in parallel
-            await Promise.all(
-                srvKeys.map(async (srvKey) => {
-                    let srvRecord = srvHash[srvKey];
-                    try {
-                        srvRecord.pingInfo = await tcpPing({
-                            address: srvRecord.name,
-                            port: srvRecord.port,
-                            timeout: 1000,
-                            attempts: 3
-                        });
-                    }
-                    catch (ex) {
-                        // Cannot do tcpPing against host:port
-                        thisNode.log(ex);
-                    }
-                })
-            );
 
             // Find registry with lowest average ping time
             let closestRegistry = null;
@@ -1393,6 +1424,8 @@ class DRP_Node {
 
             if (closestRegistry) {
                 let protocol = "ws";
+
+                // Dirty check to see if the port is SSL; are the last three digits 44x?
                 let portString = closestRegistry.port.toString();
                 let checkString = portString.slice(-3, 3);
                 if (checkString === "44") {
@@ -1404,6 +1437,44 @@ class DRP_Node {
                 thisNode.ConnectToRegistry(registryURL, openCallback);
             } else {
                 thisNode.log(`Could not find active registry`);
+            }
+
+        } catch (ex) {
+            thisNode.log(`Error resolving DNS: ${ex}`);
+        }
+    }
+
+    async ConnectToOtherRegistries() {
+        let thisNode = this;
+        try {
+
+            let srvHash = await thisNode.PingDomainRegistries(thisNode.DomainName);
+            let srvKeys = Object.keys(srvHash);
+
+            // Connect to all remote registries
+            for (let i = 0; i < srvKeys.length; i++) {
+                let checkRegistry = srvHash[srvKeys[i]];
+
+                // Skip the local registry
+                let checkNamePort = `^wss?://${checkRegistry.name}:${checkRegistry.port}$`;
+                let regExp = new RegExp(checkNamePort);
+                if (thisNode.nodeURL.match(regExp)) {
+                    continue;
+                }
+
+                // Is the registry host reachable?
+                if (checkRegistry.pingInfo && checkRegistry.pingInfo.avg) {
+                    // Dirty check to see if the port is SSL; are the last three digits 44x?
+                    let protocol = "ws";
+                    let portString = closestRegistry.port.toString();
+                    let checkString = portString.slice(-3, 3);
+                    if (checkString === "44") {
+                        protocol = "wss";
+                    }
+                    // Connect to target
+                    let registryURL = `${protocol}://${checkRegistry.name}:${checkRegistry.port}`;
+                    thisNode.ConnectToRegistry(registryURL, openCallback);
+                }
             }
 
         } catch (ex) {
