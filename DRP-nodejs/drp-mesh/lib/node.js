@@ -1071,8 +1071,8 @@ class DRP_Node {
                 }
             }
 
-            // Added due to race condition; a broker which provides may gets connection requests after connection to the registry but before getting registry declarations
-            // Instead of doing this, we SHOULD put a marker in that says whether or not we've received an intial copy of the registry
+            // TODO - Added due to race condition; a broker which provides may gets connection requests after connection to the registry but before getting
+            // registry declarations.  Instead of doing this, we SHOULD put a marker in that says whether or not we've received an intial copy of the registry
             if (!thisNode.IsRegistry() && declaration.NodeID) {
                 for (let i = 0; i < 5; i++) {
                     if (!thisNode.NodeDeclarations[declaration.NodeID]) {
@@ -1318,6 +1318,11 @@ class DRP_Node {
         delete thisNode.NodeDeclarations[nodeID];
         thisNode.TopicManager.SendToTopic("RegistryUpdate", { "action": "unregister", "nodeID": nodeID });
         if (thisNode.IsRegistry()) {
+            // TODO - If the disconnected node was a registry, remove nodes it advertised (same for future proxy node role)
+
+            // TODO - UPDATE DECLARATIONS TO INCLUDE SUPPORT FOR MULTIPLE NODES
+
+            // Relay changes to other nodes
             thisNode.RelayNodeChange("unregisterNode", nodeID);
         }
     }

@@ -1,5 +1,6 @@
 'use strict';
 
+const DRP_Node = require("./node");
 const DRP_Endpoint = require("./endpoint");
 const DRP_Subscription = require('./subscription');
 
@@ -237,9 +238,6 @@ class DRP_RouteHandler extends DRP_Endpoint {
 
             // Was this a Node?
             if (wsConn.drpEndpoint.nodeID) {
-
-                // If the remote node was a registry, we need to start timers to remove the remote nodes
-
                 this.drpNode.UnregisterNode(wsConn.drpEndpoint.nodeID);
             }
 
