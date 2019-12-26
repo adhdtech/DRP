@@ -227,10 +227,7 @@ class DRP_RouteHandler extends DRP_Endpoint {
      */
 
     async OpenHandler(wsConn, req) {
-        if (!this.drpNode.ConsumerConnectionID) this.drpNode.ConsumerConnectionID = 1;
-        // Assign ID using simple counter for now
-        wsConn.id = this.drpNode.ConsumerConnectionID;
-        this.drpNode.ConsumerConnectionID++;
+        // Moved logic for assigning ConsumerIDs; before, ALL connections were getting them
     }
 
     async CloseHandler(wsConn, closeCode) {
@@ -238,6 +235,7 @@ class DRP_RouteHandler extends DRP_Endpoint {
 
             // Was this a Node?
             if (wsConn.drpEndpoint.nodeID) {
+
                 this.drpNode.UnregisterNode(wsConn.drpEndpoint.nodeID);
             }
 

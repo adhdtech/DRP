@@ -1103,6 +1103,13 @@ class DRP_Node {
             }
         } else if (declaration.userAgent) {
             // This is a consumer declaration
+
+            // Moved from wsOpen handler
+            if (!thisNode.ConsumerConnectionID) thisNode.ConsumerConnectionID = 1;
+            // Assign ID using simple counter for now
+            wsConn.id = this.drpNode.ConsumerConnectionID;
+            this.drpNode.ConsumerConnectionID++;
+
             thisNode.ConsumerEndpoints[wsConn.id] = new DRP_Endpoint(wsConn);
             thisNode.ConsumerEndpoints[wsConn.id].ConsumerID = wsConn.id;
             thisNode.ConsumerEndpoints[wsConn.id].drpNode = thisNode;
