@@ -1,5 +1,7 @@
 'use strict';
 
+// Had to remove this so we don't have a circular eval problem
+//const DRP_Node = require("./node");
 const DRP_Endpoint = require("./endpoint");
 
 const WebSocket = require('ws');
@@ -10,9 +12,10 @@ class DRP_Client extends DRP_Endpoint {
      * 
      * @param {string} wsTarget WebSocket target
      * @param {string} proxy Proxy URL
+     * @param {DRP_Node} drpNode DRP Node
      */
-    constructor(wsTarget, proxy) {
-        super();
+    constructor(wsTarget, proxy, drpNode) {
+        super(null, drpNode);
         this.wsTarget = wsTarget;
         this.proxy = proxy;
         let thisClient = this;

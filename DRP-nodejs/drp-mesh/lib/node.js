@@ -1093,7 +1093,7 @@ class DRP_Node {
             } else {
                 // Allow the registration
                 wsConn.nodeID = declaration.NodeID;
-                thisNode.NodeEndpoints[declaration.NodeID] = new DRP_Endpoint(wsConn);
+                thisNode.NodeEndpoints[declaration.NodeID] = new DRP_Endpoint(wsConn, thisNode);
                 thisNode.NodeEndpoints[declaration.NodeID].nodeID = declaration.NodeID;
                 //let peername = await thisNode.AwaitSocketPeername(wsConn._socket);
                 //declaration.family = peername.family;
@@ -1107,10 +1107,10 @@ class DRP_Node {
             // Moved from wsOpen handler
             if (!thisNode.ConsumerConnectionID) thisNode.ConsumerConnectionID = 1;
             // Assign ID using simple counter for now
-            wsConn.id = this.drpNode.ConsumerConnectionID;
-            this.drpNode.ConsumerConnectionID++;
+            wsConn.id = thisNode.ConsumerConnectionID;
+            thisNode.ConsumerConnectionID++;
 
-            thisNode.ConsumerEndpoints[wsConn.id] = new DRP_Endpoint(wsConn);
+            thisNode.ConsumerEndpoints[wsConn.id] = new DRP_Endpoint(wsConn, thisNode);
             thisNode.ConsumerEndpoints[wsConn.id].ConsumerID = wsConn.id;
             thisNode.ConsumerEndpoints[wsConn.id].drpNode = thisNode;
             //let peername = await thisNode.AwaitSocketPeername(wsConn._socket);
@@ -1644,8 +1644,7 @@ class DRP_NodeClient extends DRP_Client {
     * @param {function} closeCallback Execute after connection is terminated
     */
     constructor(drpNode, wsTarget, retryOnClose, proxy, openCallback, closeCallback) {
-        super(wsTarget, proxy);
-        this.drpNode = drpNode;
+        super(wsTarget, proxy, drpNode);
         this.retryOnClose = retryOnClose;
         this.proxy = proxy;
         this.openCallback = openCallback;
@@ -1794,46 +1793,6 @@ class DRP_NodeClient extends DRP_Client {
         return this.drpNode.UnregisterNode(params, wsConn, token);
     }
 
-    // Override ProcessCmd from drpEndpoint
-    async ProcessCmd(wsConn, message) {
-        let thisNodeClient = this;
-
-        var cmdResults = {
-            status: 0,
-            output: null
-        };
-
-        // Is the message meant for the default DRP service?
-        if (!message.serviceName || message.serviceName === "DRP") {
-            if (typeof thisNodeClient.EndpointCmds[message.cmd] === 'function') {
-                // Execute method
-                try {
-                    cmdResults.output = await thisNodeClient.EndpointCmds[message.cmd](message.params, wsConn, message.replytoken);
-                    cmdResults.status = 1;
-                } catch (err) {
-                    cmdResults.output = err.message;
-                }
-            } else {
-                cmdResults.output = "Endpoint does not have method";
-                thisNodeClient.drpNode.log("Remote endpoint tried to execute invalid method '" + message.cmd + "'...");
-                console.dir(message);
-            }
-        }
-        // A service other than DRP has been specified
-        else {
-            try {
-                cmdResults.output = await thisNodeClient.drpNode.ServiceCommand(message, wsConn);
-                cmdResults.status = 1;
-            } catch (err) {
-                cmdResults.output = err.message;
-            }
-        }
-
-        // Reply with results
-        if (typeof message.replytoken !== "undefined" && message.replytoken !== null) {
-            thisNodeClient.SendReply(wsConn, message.replytoken, cmdResults.status, cmdResults.output);
-        }
-    }
 }
 
 module.exports = DRP_Node;

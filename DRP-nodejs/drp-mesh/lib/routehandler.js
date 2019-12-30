@@ -181,47 +181,6 @@ class DRP_RouteHandler extends DRP_Endpoint {
         return this.drpNode.NodeDeclaration;
     }
 
-    // Override ProcessCmd from drpEndpoint
-    async ProcessCmd(wsConn, message) {
-        let thisEndpoint = this;
-
-        var cmdResults = {
-            status: 0,
-            output: null
-        };
-
-        // Is the message meant for the default DRP service?
-        if (!message.serviceName || message.serviceName === "DRP") {
-            if (typeof thisEndpoint.EndpointCmds[message.cmd] === 'function') {
-                // Execute method
-                try {
-                    cmdResults.output = await thisEndpoint.EndpointCmds[message.cmd](message.params, wsConn, message.replytoken);
-                    cmdResults.status = 1;
-                } catch (err) {
-                    cmdResults.output = err.message;
-                }
-            } else {
-                cmdResults.output = "Endpoint does not have method";
-                thisEndpoint.drpNode.log("Remote endpoint tried to execute invalid method '" + message.cmd + "'...");
-                console.dir(message);
-            }
-        }
-        // A service other than DRP has been specified
-        else {
-            try {
-                cmdResults.output = await thisEndpoint.drpNode.ServiceCommand(message, wsConn);
-                cmdResults.status = 1;
-            } catch (err) {
-                cmdResults.output = err.message;
-            }
-        }
-
-        // Reply with results
-        if (typeof message.replytoken !== "undefined" && message.replytoken !== null) {
-            thisEndpoint.SendReply(wsConn, message.replytoken, cmdResults.status, cmdResults.output);
-        }
-    }
-
     /*
      * Will this section cause the registry to tag Node connections as clients?
      */

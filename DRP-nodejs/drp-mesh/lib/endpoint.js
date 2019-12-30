@@ -1,14 +1,23 @@
 'use strict';
 
+// Had to remove this so we don't have a circular eval problem
+//const DRP_Node = require('./node');
 const DRP_Subscription = require('./subscription');
 
 const WebSocket = require('ws');
 
 class DRP_Endpoint {
-    constructor(wsConn) {
+    /**
+     * 
+     * @param {Websocket} wsConn Websocket connection
+     * @param {DRP_Node} drpNode DRP Node
+     */
+    constructor(wsConn, drpNode) {
         let thisEndpoint = this;
         /** @type {WebSocket} */
         this.wsConn = wsConn || null;
+        /** @type {DRP_Node} */
+        this.drpNode = drpNode;
         if (this.wsConn) {
             this.wsConn.drpEndpoint = this;
         }
@@ -58,10 +67,8 @@ class DRP_Endpoint {
         let wsConn = wsConnParam || this.wsConn;
         if (wsConn && wsConn.StreamHandlerQueue) {
             delete wsConn.StreamHandlerQueue[streamToken];
-            //console.log("Deleted stream handler!");
         } else {
-            console.log("ERROR: Could not delete streamToken[" + streamToken + "]");
-            //console.dir(wsConn.StreamHandlerQueue);
+            thisEndpoint.log("ERROR: Could not delete streamToken[" + streamToken + "]");
         }
     }
 
@@ -75,7 +82,7 @@ class DRP_Endpoint {
                 return thisEndpoint[method](...args);
             };
         } else {
-            console.log("Cannot add EndpointCmds[" + cmd + "]" + " -> sourceObj[" + method + "] of type " + typeof thisEndpoint[method]);
+            thisEndpoint.log("Cannot add EndpointCmds[" + cmd + "]" + " -> sourceObj[" + method + "] of type " + typeof thisEndpoint[method]);
         }
     }
 
@@ -103,7 +110,6 @@ class DRP_Endpoint {
 
         let sendCmd = new DRP_Cmd(serviceName, cmd, params, replyToken);
         wsConn.send(JSON.stringify(sendCmd));
-        //console.log("SEND -> " + JSON.stringify(sendCmd));
         return returnVal;
     }
 
@@ -118,7 +124,6 @@ class DRP_Endpoint {
                 replyString = JSON.stringify(new DRP_Reply(token, 2, `Failed to stringify response: ${e}`));
             }
             wsConn.send(replyString);
-            //console.log("SEND -> " + replyString);
             return 0;
         } else {
             return 1;
@@ -130,7 +135,6 @@ class DRP_Endpoint {
         if (wsConn.readyState === WebSocket.OPEN) {
             let streamCmd = new DRP_Stream(token, status, payload);
             wsConn.send(JSON.stringify(streamCmd));
-            //console.log("SEND -> " + JSON.stringify(streamCmd));
             return 0;
         } else {
             return 1;
@@ -146,24 +150,27 @@ class DRP_Endpoint {
             output: null
         };
 
-        if (typeof thisEndpoint.EndpointCmds[message.cmd] === 'function') {
-            // Execute method
+        // Is the message meant for the default DRP service?
+        if (!message.serviceName || message.serviceName === "DRP") {
+            if (typeof thisEndpoint.EndpointCmds[message.cmd] === 'function') {
+                // Execute method
+                try {
+                    cmdResults.output = await thisEndpoint.EndpointCmds[message.cmd](message.params, wsConn, message.replytoken);
+                    cmdResults.status = 1;
+                } catch (err) {
+                    cmdResults.output = err.message;
+                }
+            } else {
+                cmdResults.output = "Endpoint does not have method";
+                thisEndpoint.log(`Remote endpoint tried to execute invalid method '${message.cmd}'`);
+            }
+        } else {
             try {
-                cmdResults.output = await thisEndpoint.EndpointCmds[message.cmd](message.params, wsConn, message.replytoken);
+                cmdResults.output = await thisEndpoint.drpNode.ServiceCommand(message, wsConn);
                 cmdResults.status = 1;
             } catch (err) {
                 cmdResults.output = err.message;
             }
-        } else {
-            cmdResults.output = "Endpoint does not have method";
-            if (thisEndpoint.service && thisEndpoint.service.log) {
-                thisEndpoint.service.log("Remote endpoint tried to execute invalid method '" + message.cmd + "'...");
-            } else {
-                console.log("Remote endpoint tried to execute invalid method");
-                console.dir(message);
-                console.dir(thisEndpoint.service);
-            }
-            //console.dir(thisEndpoint.EndpointCmds);
         }
 
         // Reply with results
@@ -215,7 +222,7 @@ class DRP_Endpoint {
         try {
             message = JSON.parse(rawMessage);
         } catch (e) {
-            console.log("Received non-JSON message, disconnecting client... %s", wsConn._socket.remoteAddress);
+            thisEndpoint.log("Received non-JSON message, disconnecting client... %s", wsConn._socket.remoteAddress);
             wsConn.close();
             return;
         }
@@ -232,7 +239,7 @@ class DRP_Endpoint {
                 thisEndpoint.ProcessStream(wsConn, message);
                 break;
             default:
-                console.log("Invalid message.type; here's the JSON data..." + rawMessage);
+                thisEndpoint.log("Invalid message.type; here's the JSON data..." + rawMessage);
         }
     }
 
@@ -266,9 +273,9 @@ class DRP_Endpoint {
         if (response.status === 0) {
             thisEndpoint.DeleteStreamHandler(thisEndpoint.wsConn, streamToken);
             subscriptionObject.subscribedTo.slice(subscriptionObject.subscribedTo.indexOf(thisEndpoint.wsConn.nodeID), 1);
-            thisEndpoint.drpNode.log("Subscribe failed, deleted handler");
+            thisEndpoint.log("Subscribe failed, deleted handler");
         } else {
-            thisEndpoint.drpNode.log(`Subscribed to ${thisEndpoint.wsConn.nodeID} -> ${subscriptionObject.topicName}`);
+            thisEndpoint.log(`Subscribed to ${thisEndpoint.wsConn.nodeID} -> ${subscriptionObject.topicName}`);
         }
     }
 
@@ -281,6 +288,15 @@ class DRP_Endpoint {
     async CloseHandler() { }
 
     async ErrorHandler() { }
+
+    log(logMessage) {
+        let thisEndpoint = this;
+        if (thisEndpoint.drpNode) {
+            thisEndpoint.drpNode.log(logMessage);
+        } else {
+            console.log(logMessage);
+        }
+    }
 }
 
 class DRP_Cmd {

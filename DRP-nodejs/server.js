@@ -54,6 +54,7 @@ let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot, myAsyncAu
 
 myNode.AddService(myVDMServer);
 myNode.AddStream("RESTLogs", "REST service logs");
+myNode.AddStream("dummy", "dummy logs");
 myNode.EnableREST("/Mesh", "Mesh");
 
 // Add another service for demo
@@ -63,3 +64,8 @@ myNode.AddService(docService);
 if (myNode.nodeURL) {
     myNode.log(`Listening at: ${myNode.nodeURL}`);
 }
+
+setInterval(function () {
+    let timeStamp = new Date().getTime();
+    myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.nodeID}]`);
+}, 3000);
