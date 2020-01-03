@@ -116,10 +116,9 @@ class DRP_Endpoint {
     SendReply(wsConnParam, token, status, payload) {
         let wsConn = wsConnParam || this.wsConn;
         if (wsConn.readyState === WebSocket.OPEN) {
-            let replyCmd = new DRP_Reply(token, status, payload);
             let replyString = null;
             try {
-                replyString = JSON.stringify(replyCmd);
+                replyString = JSON.stringify(new DRP_Reply(token, status, payload));
             } catch (e) {
                 replyString = JSON.stringify(new DRP_Reply(token, 2, `Failed to stringify response: ${e}`));
             }
@@ -141,9 +140,28 @@ class DRP_Endpoint {
         }
     }
 
+    /**
+     * 
+     * @param {WebSocket} wsConnParam WebSocket connection
+     * @param {DRP_Cmd} message DRP Command
+     */
     async ProcessCmd(wsConnParam, message) {
         let wsConn = wsConnParam || this.wsConn;
         let thisEndpoint = this;
+
+        // TODO - Add logic to support the .srcNodeID & .tgtNodeID attributes for command routing
+
+        /**
+         * Possible conditions:
+         *      .tgtNodeID is NULL/undef || .tgtNodeID === thisEndpoint.drpNode.nodeID
+         *          -> Execute locally
+         *          
+         *      .tgtNodeID exists && is a recognized node
+         *          -> VerifyConnection & route command to target
+         *          
+         *       ELSE
+         *          -> No path to .tgtNodeID
+         **/
 
         var cmdResults = {
             status: 0,
@@ -300,30 +318,36 @@ class DRP_Endpoint {
 }
 
 class DRP_Cmd {
-    constructor(serviceName, cmd, params, replytoken) {
+    constructor(serviceName, cmd, params, replytoken, srcNodeID, tgtNodeID) {
         this.type = "cmd";
         this.cmd = cmd;
         this.params = params;
         this.serviceName = serviceName;
         this.replytoken = replytoken;
+        this.srcNodeID = srcNodeID;
+        this.tgtNodeID = tgtNodeID;
     }
 }
 
 class DRP_Reply {
-    constructor(token, status, payload) {
+    constructor(token, status, payload, srcNodeID, tgtNodeID) {
         this.type = "reply";
         this.token = token;
         this.status = status;
         this.payload = payload;
+        this.srcNodeID = srcNodeID;
+        this.tgtNodeID = tgtNodeID;
     }
 }
 
 class DRP_Stream {
-    constructor(token, status, payload) {
+    constructor(token, status, payload, srcNodeID, tgtNodeID) {
         this.type = "stream";
         this.token = token;
         this.status = status;
         this.payload = payload;
+        this.srcNodeID = srcNodeID;
+        this.tgtNodeID = tgtNodeID;
     }
 }
 
