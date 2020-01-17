@@ -11,8 +11,9 @@ class DRP_Endpoint {
      * 
      * @param {Websocket} wsConn Websocket connection
      * @param {DRP_Node} drpNode DRP Node
+     * @param {string} endpointID Remote Endpoint ID
      */
-    constructor(wsConn, drpNode) {
+    constructor(wsConn, drpNode, endpointID) {
         let thisEndpoint = this;
         /** @type {WebSocket} */
         this.wsConn = wsConn || null;
@@ -21,7 +22,17 @@ class DRP_Endpoint {
         if (this.wsConn) {
             this.wsConn.drpEndpoint = this;
         }
+        this.EndpointID = endpointID || null;
         this.EndpointCmds = {};
+
+        /** @type WebSocket */
+        this.wsConn = null;
+        /** @type Object<string,function> */
+        this.ReplyHandlerQueue = {};
+        /** @type Object<string,function> */
+        this.StreamHandlerQueue = {};
+        this.TokenNum = 1;
+
         /** @type {{string:DRP_Subscription}} */
         this.Subscriptions = {};
         /** @type {function} */
@@ -31,45 +42,30 @@ class DRP_Endpoint {
         this.RegisterCmd("getCmds", "GetCmds");
     }
 
-    GetToken(wsConnParam) {
-        let wsConn = wsConnParam || this.wsConn;
-        if (! wsConn.TokenNum) {
-            wsConn.ReplyHandlerQueue = {};
-            wsConn.StreamHandlerQueue = {};
-            wsConn.TokenNum = 1;
-        }
-        let replyToken = wsConn.TokenNum;
-        wsConn.TokenNum++;
-        return replyToken.toString();
+    GetToken() {
+        let replyToken = this.TokenNum;
+        this.TokenNum++;
+        return replyToken;
     }
 
-    AddReplyHandler(wsConnParam, callback) {
-        let wsConn = wsConnParam || this.wsConn;
-        let token = this.GetToken(wsConn);
-        wsConn.ReplyHandlerQueue[token] = callback;
+    AddReplyHandler(callback) {
+        let token = this.GetToken();
+        this.ReplyHandlerQueue[token] = callback;
         return token;
     }
 
-    DeleteReplyHandler(wsConnParam, token) {
-        let wsConn = wsConnParam || this.wsConn;
-        delete wsConn.ReplyHandlerQueue[token];
+    DeleteReplyHandler(token) {
+        delete this.ReplyHandlerQueue[token];
     }
 
-    AddStreamHandler(wsConnParam, callback) {
-        let wsConn = wsConnParam || this.wsConn;
-        let streamToken = this.GetToken(wsConn);
-        wsConn.StreamHandlerQueue[streamToken] = callback;
-        //console.dir(wsConn.StreamHandlerQueue);
+    AddStreamHandler(callback) {
+        let streamToken = this.GetToken();
+        this.StreamHandlerQueue[streamToken] = callback;
         return streamToken;
     }
 
-    DeleteStreamHandler(wsConnParam, streamToken) {
-        let wsConn = wsConnParam || this.wsConn;
-        if (wsConn && wsConn.StreamHandlerQueue) {
-            delete wsConn.StreamHandlerQueue[streamToken];
-        } else {
-            thisEndpoint.log("ERROR: Could not delete streamToken[" + streamToken + "]");
-        }
+    DeleteStreamHandler(streamToken) {
+        delete this.StreamHandlerQueue[streamToken];
     }
 
     RegisterCmd(cmd, method) {
@@ -86,22 +82,21 @@ class DRP_Endpoint {
         }
     }
 
-    SendCmd(wsConnParam, serviceName, cmd, params, promisify, callback) {
+    SendCmd(serviceName, cmd, params, promisify, callback) {
         let thisEndpoint = this;
         let returnVal = null;
         let replyToken = null;
-        let wsConn = wsConnParam || this.wsConn;
 
         if (promisify) {
             // We expect a response, using await; add 'resolve' to queue
-            returnVal = new Promise(function(resolve, reject) {
-                replyToken = thisEndpoint.AddReplyHandler(wsConn, function(message) {
+            returnVal = new Promise(function (resolve, reject) {
+                replyToken = thisEndpoint.AddReplyHandler(function (message) {
                     resolve(message);
                 });
             });
         } else if (typeof callback === 'function') {
             // We expect a response, using callback; add callback to queue
-            replyToken = thisEndpoint.AddReplyHandler(wsConn, callback);
+            replyToken = thisEndpoint.AddReplyHandler(callback);
             //replyToken = thisEndpoint.GetToken(wsConn);
             //wsConn.ReturnCmdQueue[replyToken] = callback;
         } else {
@@ -109,31 +104,29 @@ class DRP_Endpoint {
         }
 
         let sendCmd = new DRP_Cmd(serviceName, cmd, params, replyToken);
-        wsConn.send(JSON.stringify(sendCmd));
+        thisEndpoint.wsConn.send(JSON.stringify(sendCmd));
         return returnVal;
     }
 
-    SendReply(wsConnParam, token, status, payload) {
-        let wsConn = wsConnParam || this.wsConn;
-        if (wsConn.readyState === WebSocket.OPEN) {
+    SendReply(token, status, payload) {
+        if (this.wsConn.readyState === WebSocket.OPEN) {
             let replyString = null;
             try {
                 replyString = JSON.stringify(new DRP_Reply(token, status, payload));
             } catch (e) {
                 replyString = JSON.stringify(new DRP_Reply(token, 2, `Failed to stringify response: ${e}`));
             }
-            wsConn.send(replyString);
+            this.wsConn.send(replyString);
             return 0;
         } else {
             return 1;
         }
     }
 
-    SendStream(wsConnParam, token, status, payload) {
-        let wsConn = wsConnParam || this.wsConn;
-        if (wsConn.readyState === WebSocket.OPEN) {
+    SendStream(token, status, payload) {
+        if (this.wsConn.readyState === WebSocket.OPEN) {
             let streamCmd = new DRP_Stream(token, status, payload);
-            wsConn.send(JSON.stringify(streamCmd));
+            this.wsConn.send(JSON.stringify(streamCmd));
             return 0;
         } else {
             return 1;
@@ -142,11 +135,9 @@ class DRP_Endpoint {
 
     /**
      * 
-     * @param {WebSocket} wsConnParam WebSocket connection
      * @param {DRP_Cmd} message DRP Command
      */
-    async ProcessCmd(wsConnParam, message) {
-        let wsConn = wsConnParam || this.wsConn;
+    async ProcessCmd(message) {
         let thisEndpoint = this;
 
         // TODO - Add logic to support the .srcNodeID & .tgtNodeID attributes for command routing
@@ -168,93 +159,105 @@ class DRP_Endpoint {
             output: null
         };
 
-        // Is the message meant for the default DRP service?
-        if (!message.serviceName || message.serviceName === "DRP") {
-            if (typeof thisEndpoint.EndpointCmds[message.cmd] === 'function') {
-                // Execute method
+        if (!message.tgtNodeID || message.tgtNodeID === thisEndpoint.drpNode.nodeID) {
+            // Execute locally
+
+            // Is the message meant for the default DRP service?
+            if (!message.serviceName || message.serviceName === "DRP") {
+                if (typeof thisEndpoint.EndpointCmds[message.cmd] === 'function') {
+                    // Execute method
+                    try {
+                        cmdResults.output = await thisEndpoint.EndpointCmds[message.cmd](message.params, message.replytoken);
+                        cmdResults.status = 1;
+                    } catch (err) {
+                        cmdResults.output = err.message;
+                    }
+                } else {
+                    cmdResults.output = "Endpoint does not have method";
+                    thisEndpoint.log(`Remote endpoint tried to execute invalid method '${message.cmd}'`);
+                }
+            } else {
                 try {
-                    cmdResults.output = await thisEndpoint.EndpointCmds[message.cmd](message.params, wsConn, message.replytoken);
+                    cmdResults.output = await thisEndpoint.drpNode.ServiceCommand(message, thisEndpoint);
                     cmdResults.status = 1;
                 } catch (err) {
                     cmdResults.output = err.message;
                 }
-            } else {
-                cmdResults.output = "Endpoint does not have method";
-                thisEndpoint.log(`Remote endpoint tried to execute invalid method '${message.cmd}'`);
             }
+
         } else {
+            // This message is meant for a remote node
+
             try {
-                cmdResults.output = await thisEndpoint.drpNode.ServiceCommand(message, wsConn);
-                cmdResults.status = 1;
-            } catch (err) {
-                cmdResults.output = err.message;
+                /** @type DRP_Endpoint */
+                let targetNodeEndpoint = await thisEndpoint.drpNode.VerifyNodeConnection(sourceNodeID);
+                let cmdResponse = await targetNodeEndpoint.SendCmd(message.serviceName, message.cmd, message.params, true, null);
+            } catch (ex) {
+                // Either could not get connection to node or command send attempt errored out
             }
         }
 
         // Reply with results
         if (typeof message.replytoken !== "undefined" && message.replytoken !== null) {
-            thisEndpoint.SendReply(wsConn, message.replytoken, cmdResults.status, cmdResults.output);
+            thisEndpoint.SendReply(message.replytoken, cmdResults.status, cmdResults.output);
         }
     }
 
-    async ProcessReply(wsConnParam, message) {
-        let wsConn = wsConnParam || this.wsConn;
+    async ProcessReply(message) {
         let thisEndpoint = this;
 
         //console.dir(message, {"depth": 10})
 
         // Yes - do we have the token?
-        if (wsConn.hasOwnProperty("ReplyHandlerQueue") && wsConn.ReplyHandlerQueue.hasOwnProperty(message.token)) {
+        if (thisEndpoint.ReplyHandlerQueue.hasOwnProperty(message.token)) {
 
             // We have the token - execute the reply callback
-            wsConn.ReplyHandlerQueue[message.token](message);
+            thisEndpoint.ReplyHandlerQueue[message.token](message);
 
-            delete wsConn.ReplyHandlerQueue[message.token];
+            delete thisEndpoint.ReplyHandlerQueue[message.token];
 
         } else {
             // We do not have the token - tell the sender we do not honor this token
         }
     }
 
-    async ProcessStream(wsConnParam, message) {
-        let wsConn = wsConnParam || this.wsConn;
+    async ProcessStream(message) {
         let thisEndpoint = this;
 
         //console.dir(message, {"depth": 10})
 
         // Yes - do we have the token?
-        if (wsConn.hasOwnProperty("StreamHandlerQueue") && wsConn.StreamHandlerQueue.hasOwnProperty(message.token)) {
+        if (thisEndpoint.StreamHandlerQueue.hasOwnProperty(message.token)) {
 
             // We have the token - execute the reply callback
-            wsConn.StreamHandlerQueue[message.token](message);
+            thisEndpoint.StreamHandlerQueue[message.token](message);
 
         } else {
             // We do not have the token - tell the sender we do not honor this token
         }
     }
-    
-    async ReceiveMessage(wsConnParam, rawMessage) {
-        let wsConn = wsConnParam || this.wsConn;
+
+    async ReceiveMessage(rawMessage) {
         let thisEndpoint = this;
         let message;
         try {
             message = JSON.parse(rawMessage);
         } catch (e) {
             thisEndpoint.log("Received non-JSON message, disconnecting client... %s", wsConn._socket.remoteAddress);
-            wsConn.close();
+            thisEndpoint.wsConn.close();
             return;
         }
         //console.log("RECV <- " + rawMessage);
 
         switch (message.type) {
             case 'cmd':
-                thisEndpoint.ProcessCmd(wsConn, message);
+                thisEndpoint.ProcessCmd(message);
                 break;
             case 'reply':
-                thisEndpoint.ProcessReply(wsConn, message);
+                thisEndpoint.ProcessReply(message);
                 break;
             case 'stream':
-                thisEndpoint.ProcessStream(wsConn, message);
+                thisEndpoint.ProcessStream(message);
                 break;
             default:
                 thisEndpoint.log("Invalid message.type; here's the JSON data..." + rawMessage);
@@ -279,21 +282,21 @@ class DRP_Endpoint {
     */
     async RegisterSubscription(subscriptionObject) {
         let thisEndpoint = this;
-        subscriptionObject.subscribedTo.push(thisEndpoint.wsConn.nodeID);
-        let streamToken = thisEndpoint.AddStreamHandler(thisEndpoint.wsConn, function (message) {
+        subscriptionObject.subscribedTo.push(thisEndpoint.EndpointID);
+        let streamToken = thisEndpoint.AddStreamHandler(function (message) {
             if (message && message.payload) {
                 subscriptionObject.streamHandler(message.payload);
             }
         });
 
-        let response = await thisEndpoint.SendCmd(thisEndpoint.wsConn, "DRP", "subscribe", { "topicName": subscriptionObject.topicName, "streamToken": streamToken, "scope": subscriptionObject.scope }, true, null);
+        let response = await thisEndpoint.SendCmd("DRP", "subscribe", { "topicName": subscriptionObject.topicName, "streamToken": streamToken, "scope": subscriptionObject.scope }, true, null);
 
         if (response.status === 0) {
-            thisEndpoint.DeleteStreamHandler(thisEndpoint.wsConn, streamToken);
-            subscriptionObject.subscribedTo.slice(subscriptionObject.subscribedTo.indexOf(thisEndpoint.wsConn.nodeID), 1);
+            thisEndpoint.DeleteStreamHandler(streamToken);
+            subscriptionObject.subscribedTo.slice(subscriptionObject.subscribedTo.indexOf(thisEndpoint.EndpointID), 1);
             thisEndpoint.log("Subscribe failed, deleted handler");
         } else {
-            thisEndpoint.log(`Subscribed to ${thisEndpoint.wsConn.nodeID} -> ${subscriptionObject.topicName}`);
+            thisEndpoint.log(`Subscribed to ${thisEndpoint.EndpointID} -> ${subscriptionObject.topicName}`);
         }
     }
 
@@ -301,11 +304,81 @@ class DRP_Endpoint {
         return Object.keys(this.EndpointCmds);
     }
 
-    async OpenHandler() { }
+    async OpenHandler(req) { }
 
     async CloseHandler() { }
 
     async ErrorHandler() { }
+
+    Close() {
+        this.wsConn.close();
+    }
+
+    IsReady() {
+        if (this.wsConn && this.wsConn.readyState === 1)
+            return true;
+        else
+            return false;
+    }
+
+    IsConnecting() {
+        if (this.wsConn && this.wsConn.readyState === 0)
+            return true;
+        else
+            return false;
+    }
+
+    /**
+    * @returns {string} Remote Address
+    */
+    RemoteAddress() {
+        let returnVal = null;
+        if (this.wsConn._socket) {
+            returnVal = this.wsConn._socket.remoteAddress;
+        }
+        return returnVal;
+    }
+
+    /**
+     * @returns {string} Remote Port
+     */
+    RemotePort() {
+        let returnVal = null;
+        if (this.wsConn._socket) {
+            returnVal = this.wsConn._socket.remotePort;
+        }
+        return returnVal;
+    }
+
+    /**
+     * @returns {number} Uptime in seconds
+     */
+    UpTime() {
+        let currentTime = new Date().getTime();
+        return Math.floor((currentTime - this.wsConn.openTime) / 1000);
+    }
+
+    /**
+     * @returns {number} Ping time in milliseconds
+     */
+    PingTime() {
+        let returnVal = null;
+        if (this.wsConn._socket) {
+            returnVal = this.wsConn._socket.remotePort;
+        }
+        return returnVal;
+    }
+
+    ConnectionStats() {
+        return {
+            pingTimeMs: this.PingTime(),
+            uptimeSeconds: this.UpTime()
+        };
+    }
+
+    IsServer() {
+        return this.wsConn._isServer;
+    }
 
     log(logMessage) {
         let thisEndpoint = this;

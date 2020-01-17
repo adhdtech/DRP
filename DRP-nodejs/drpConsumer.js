@@ -12,12 +12,12 @@ let myConsumer = new DRP_Consumer(brokerURL, null, async function () {
     let response = null;
 
     // See what commands are available;
-    //response = await myClient.SendCmd(this.wsConn, "getCmds", null, true, null);
+    //response = await myClient.SendCmd("getCmds", null, true, null);
     //console.dir(response, { "depth": 10 });
-    //myClient.SendCmd(this.wsConn, "getCmds", null, false, (response) => { console.dir(response) });
+    //myClient.SendCmd("getCmds", null, false, (response) => { console.dir(response) });
 
     // Execute a pathCmd
-    //myClient.SendCmd(this.wsConn, "pathCmd", { "method": "cliGetPath", "pathList": ["Providers", "JSONDocMgr1", "Services", "JSONDocMgr", "ClientCmds", "listFiles"], "params": {}, "listOnly": true }, false, (payload) => { console.dir(payload, { "depth": 10 }) });
+    //myClient.SendCmd("pathCmd", { "method": "cliGetPath", "pathList": ["Providers", "JSONDocMgr1", "Services", "JSONDocMgr", "ClientCmds", "listFiles"], "params": {}, "listOnly": true }, false, (payload) => { console.dir(payload, { "depth": 10 }) });
     
     // Get data for a class
     //myClient.GetClassRecords("SomeDataClass", (payload) => console.dir(payload) );
@@ -27,18 +27,18 @@ let myConsumer = new DRP_Consumer(brokerURL, null, async function () {
     myConsumer.BrokerClient.WatchStream("RegistryUpdate", "global", (payload) => console.log(" STREAM -> " + payload));
 
     // Execute a service command
-    //myClient.SendCmd(this.wsConn, "serviceCommand", { "serviceName": "Hive", "method": "listStereoTypes" }, false, (payload) => { console.dir(payload) });
+    //myClient.SendCmd("serviceCommand", { "serviceName": "Hive", "method": "listStereoTypes" }, false, (payload) => { console.dir(payload) });
 
     // List Files
-    //myClient.SendCmd(this.wsConn, "serviceCommand", { "serviceName": "JSONDocMgr", "method": "listFiles" }, false, (payload) => { console.dir(payload) });
+    //myClient.SendCmd("serviceCommand", { "serviceName": "JSONDocMgr", "method": "listFiles" }, false, (payload) => { console.dir(payload) });
 
     // Load a file
-    //response = await myClient.SendCmd(this.wsConn, "serviceCommand", { "serviceName": "JSONDocMgr", "method": "loadFile", "fileName": "newFile.json" }, true, null);
+    //response = await myClient.SendCmd("serviceCommand", { "serviceName": "JSONDocMgr", "method": "loadFile", "fileName": "newFile.json" }, true, null);
 
     // Save a file
-    //response = await myClient.SendCmd(this.wsConn, "serviceCommand", { "serviceName": "JSONDocMgr", "method": "saveFile", "fileName": "newFile.json", "fileData": JSON.stringify({"someKey":"someVal"}) }, true, null);
+    //response = await myClient.SendCmd("serviceCommand", { "serviceName": "JSONDocMgr", "method": "saveFile", "fileName": "newFile.json", "fileData": JSON.stringify({"someKey":"someVal"}) }, true, null);
 	
-	//response = (await myClient.SendCmd(this.wsConn, "Greeter", "showParams", {"pathList":["asdf","ijkl"]}, true, null)).payload.pathItem;
+	//response = (await myClient.SendCmd("Greeter", "showParams", {"pathList":["asdf","ijkl"]}, true, null)).payload.pathItem;
 
     console.dir(response, { "depth": 10 });
 });

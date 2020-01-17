@@ -3,46 +3,42 @@ var JSONCmd = function () {
     this.data = {};
 };
 
-class DRP_Endpoint {
+class DRP_Endpoint_Browser {
     constructor() {
         let thisEndpoint = this;
         this.EndpointCmds = {};
+        /** @type WebSocket */
+        this.wsConn = null;
+        this.ReplyHandlerQueue = {};
+        this.StreamHandlerQueue = {};
+        this.TokenNum = 1;
         this.RegisterCmd("getCmds", "GetCmds");
     }
 
-    GetToken(wsConn) {
-        if (!wsConn.TokenNum) {
-            wsConn.ReplyHandlerQueue = {};
-            wsConn.StreamHandlerQueue = {};
-            wsConn.TokenNum = 1;
-        }
-        let replyToken = wsConn.TokenNum;
-        wsConn.TokenNum++;
+    GetToken() {
+        let replyToken = this.TokenNum;
+        this.TokenNum++;
         return replyToken;
     }
 
-    AddReplyHandler(wsConn, callback) {
-        let token = this.GetToken(wsConn);
-        wsConn.ReplyHandlerQueue[token] = callback;
+    AddReplyHandler(callback) {
+        let token = this.GetToken();
+        this.ReplyHandlerQueue[token] = callback;
         return token;
     }
 
-    DeleteReplyHandler(wsConn, token) {
-        delete wsConn.ReplyHandlerQueue[token];
+    DeleteReplyHandler(token) {
+        delete this.ReplyHandlerQueue[token];
     }
 
-    AddStreamHandler(wsConn, callback) {
-        let streamToken = this.GetToken(wsConn);
-        wsConn.StreamHandlerQueue[streamToken] = callback;
+    AddStreamHandler(callback) {
+        let streamToken = this.GetToken();
+        this.StreamHandlerQueue[streamToken] = callback;
         return streamToken;
     }
 
-    DeleteStreamHandler(wsConn, streamToken) {
-        if (wsConn && wsConn.StreamHandlerQueue) {
-            delete wsConn.StreamHandlerQueue[streamToken];
-        } else {
-            console.log("ERROR: Could not delete streamToken[" + streamToken + "]");
-        }
+    DeleteStreamHandler(streamToken) {
+        delete this.StreamHandlerQueue[streamToken];
     }
 
     RegisterCmd(cmd, method) {
@@ -59,7 +55,7 @@ class DRP_Endpoint {
         }
     }
 
-    SendCmd(wsConn, serviceName, cmd, params, promisify, callback) {
+    SendCmd(serviceName, cmd, params, promisify, callback) {
         let thisEndpoint = this;
         let returnVal = null;
         let replyToken = null;
@@ -67,13 +63,13 @@ class DRP_Endpoint {
         if (promisify) {
             // We expect a response, using await; add 'resolve' to queue
             returnVal = new Promise(function (resolve, reject) {
-                replyToken = thisEndpoint.AddReplyHandler(wsConn, function (message) {
+                replyToken = thisEndpoint.AddReplyHandler(function (message) {
                     resolve(message);
                 });
             });
         } else if (typeof callback === 'function') {
             // We expect a response, using callback; add callback to queue
-            replyToken = thisEndpoint.AddReplyHandler(wsConn, callback);
+            replyToken = thisEndpoint.AddReplyHandler(callback);
             //replyToken = thisEndpoint.GetToken(wsConn);
             //wsConn.ReturnCmdQueue[replyToken] = callback;
         } else {
@@ -81,7 +77,7 @@ class DRP_Endpoint {
         }
 
         let sendCmd = new DRP_Cmd(serviceName, cmd, params, replyToken);
-        wsConn.send(JSON.stringify(sendCmd));
+        this.wsConn.send(JSON.stringify(sendCmd));
         //console.log("SEND -> " + JSON.stringify(sendCmd));
         return returnVal;
     }
@@ -92,14 +88,14 @@ class DRP_Endpoint {
         let replyToken = null;
 
         if (!params) params = {};
-        params.streamToken = thisEndpoint.AddStreamHandler(wsConn, callback);
+        params.streamToken = thisEndpoint.AddStreamHandler(callback);
 
         if (sourceApplet) {
             sourceApplet.streamHandlerTokens.push(params.streamToken);
         }
 
         returnVal = new Promise(function (resolve, reject) {
-            replyToken = thisEndpoint.AddReplyHandler(wsConn, function (message) {
+            replyToken = thisEndpoint.AddReplyHandler(function (message) {
                 //console.dir(message);
                 resolve(message);
             });
@@ -123,7 +119,7 @@ class DRP_Endpoint {
         }
     }
 
-    SendStream(wsConn, token, status, payload) {
+    SendStream(token, status, payload) {
         if (wsConn.readyState === WebSocket.OPEN) {
             let streamCmd = new DRP_Stream(token, status, payload);
             wsConn.send(JSON.stringify(streamCmd));
@@ -145,7 +141,7 @@ class DRP_Endpoint {
         if (typeof thisEndpoint.EndpointCmds[message.cmd] === 'function') {
             // Execute method
             try {
-                cmdResults.output = await thisEndpoint.EndpointCmds[message.cmd](message.params, wsConn, message.replytoken);
+                cmdResults.output = await thisEndpoint.EndpointCmds[message.cmd](message.params, thisEndpoint.wsConn, message.replytoken);
                 cmdResults.status = 1;
             } catch (err) {
                 cmdResults.output = err.message;
@@ -158,7 +154,7 @@ class DRP_Endpoint {
 
         // Reply with results
         if (typeof message.replytoken !== "undefined" && message.replytoken !== null) {
-            thisEndpoint.SendReply(wsConn, message.replytoken, cmdResults.status, cmdResults.output);
+            thisEndpoint.SendReply(message.replytoken, cmdResults.status, cmdResults.output);
         }
     }
 
@@ -186,7 +182,7 @@ class DRP_Endpoint {
         //console.dir(message, {"depth": 10})
 
         // Yes - do we have the token?
-        if (wsConn.hasOwnProperty("StreamHandlerQueue") && wsConn.StreamHandlerQueue.hasOwnProperty(message.token)) {
+        if (thisEndpoint.StreamHandlerQueue.hasOwnProperty(message.token)) {
 
             // We have the token - execute the reply callback
             wsConn.StreamHandlerQueue[message.token](message);
@@ -195,12 +191,12 @@ class DRP_Endpoint {
             if (message.status < 2) {
 
                 // Yes - delete the handler
-                delete wsConn.StreamHandlerQueue[message.token];
+                delete thisEndpoint.StreamHandlerQueue[message.token];
             }
 
         } else {
             // We do not have the token - tell the sender we do not honor this token
-            let unsubResults = await thisEndpoint.SendCmd(wsConn, "DRP", "unsubscribe", { "streamToken": message.token }, true, null);
+            let unsubResults = await thisEndpoint.SendCmd("DRP", "unsubscribe", { "streamToken": message.token }, true, null);
             //console.log("Send close request for unknown stream");
         }
     }
@@ -363,7 +359,7 @@ class DRP_Endpoint {
     async ErrorHandler() { }
 }
 
-class DRP_Client extends DRP_Endpoint {
+class DRP_Client_Browser extends DRP_Endpoint_Browser {
     constructor() {
         super();
     }
@@ -381,7 +377,7 @@ class DRP_Client extends DRP_Endpoint {
 
         wsConn.onmessage = function (message) { thisClient.ReceiveMessage(wsConn, message.data); };
 
-        wsConn.onclose = function (closeCode) { thisClient.CloseHandler(wsConn, closeCode); };
+        wsConn.onclose = function (closeCode) { thisClient.CloseHandler(closeCode); };
 
         wsConn.onerror = function (error) { thisClient.ErrorHandler(wsConn, error); };
 
@@ -590,7 +586,7 @@ class rSageApplet extends VDMApplet {
     }
 }
 
-class VDMServerAgent extends DRP_Client {
+class VDMServerAgent extends DRP_Client_Browser {
     constructor(vdmClient) {
         super();
 
@@ -616,7 +612,9 @@ class VDMServerAgent extends DRP_Client {
         let thisVDMServerAgent = this;
         console.log("VDM Client to server [" + thisVDMServerAgent.wsTarget + "] opened");
 
-        let response = await thisVDMServerAgent.SendCmd(thisVDMServerAgent.wsConn, "DRP", "hello", {
+        this.wsConn = wsConn;
+
+        let response = await thisVDMServerAgent.SendCmd("DRP", "hello", {
             platform: this.platform,
             userAgent: this.userAgent,
             URL: this.URL
@@ -629,7 +627,7 @@ class VDMServerAgent extends DRP_Client {
         thisVDMServerAgent.vdmClient.vdmDesktop.changeLEDColor('green');
     }
 
-    async CloseHandler(wsConn, closeCode) {
+    async CloseHandler(closeCode) {
         //console.log("Broker to Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
         let thisVDMServerAgent = this;
         thisVDMServerAgent.Disconnect();
@@ -637,6 +635,10 @@ class VDMServerAgent extends DRP_Client {
 
     async ErrorHandler(wsConn, error) {
         console.log("Consumer to Broker client encountered error [" + error + "]");
+    }
+
+    Close() {
+        this.wsConn.close();
     }
 
     Disconnect(isGraceful) {

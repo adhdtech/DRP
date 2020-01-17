@@ -31,17 +31,17 @@ class DRP_ConsumerClient extends DRP_Client {
         this.postOpenCallback = callback;
     }
 
-    async OpenHandler(wsConn, req) {
+    async OpenHandler() {
         let thisNodeClient = this;
-        await thisNodeClient.SendCmd(null, "DRP", "hello", { "userAgent": "nodejs" }, true, null); 
+        await thisNodeClient.SendCmd("DRP", "hello", { "userAgent": "nodejs" }, true, null); 
         thisNodeClient.postOpenCallback();
     }
 
-    async CloseHandler(wsConn, closeCode) {
-        console.log("Consumer to Node client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
+    async CloseHandler(closeCode) {
+        console.log("Consumer to Node client [" + this.RemoteAddress() + ":" + this.RemotePort() + "] closed with code [" + closeCode + "]");
     }
 
-    async ErrorHandler(wsConn, error) {
+    async ErrorHandler(error) {
         console.log("Consumer to Node client encountered error [" + error + "]");
     }
 }

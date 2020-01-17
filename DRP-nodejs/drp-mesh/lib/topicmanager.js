@@ -1,5 +1,19 @@
 'use strict';
 
+class DRP_TopicSubscription {
+    /**
+     * 
+     * @param {DRP_Endpoint} endpoint DRP Endpoint
+     * @param {string} token Subscription token
+     * @param {Object} filter Subscription filter
+     */
+    constructor(endpoint, token, filter) {
+        this.endpoint = endpoint;
+        this.token = token;
+        this.filter = filter;
+    }
+}
+
 class DRP_TopicManager {
     /**
      * 
@@ -19,22 +33,25 @@ class DRP_TopicManager {
         this.drpNode.log("Created topic [" + topicName + "]", "TopicManager");
     }
 
-    SubscribeToTopic(topicName, conn, token, filter) {
+    /**
+     * 
+     * @param {string} topicName Topic Name
+     * @param {DRP_Endpoint} endpoint DRP Endpoint
+     * @param {string} token Subscription token
+     * @param {Object} filter Subscription Filter
+     */
+    SubscribeToTopic(topicName, endpoint, token, filter) {
         // If topic doesn't exist, create it
         if (!this.Topics[topicName]) {
             this.CreateTopic(topicName);
         }
 
-        this.Topics[topicName].Subscribers.push({
-            conn: conn,
-            token: token,
-            filter: filter
-        });
+        this.Topics[topicName].Subscribers.push(new DRP_TopicSubscription(endpoint, token, filter));
 
         this.drpNode.log("Subscribed to topic [" + topicName + "] with token [" + token + "]");
     }
 
-    UnsubscribeFromTopic(topicName, conn, token, filter) {
+    UnsubscribeFromTopic(topicName, endpoint, token, filter) {
         // If topic doesn't exist, create it
         if (this.Topics[topicName]) {
             let thisTopic = this.Topics[topicName];
@@ -42,7 +59,7 @@ class DRP_TopicManager {
             let i = thisTopic.Subscribers.length;
             while (i--) {
                 let thisSubscriberObj = thisTopic.Subscribers[i];
-                if (thisSubscriberObj.conn === conn && thisSubscriberObj.token === token) {
+                if (thisSubscriberObj.endpoint === endpoint && thisSubscriberObj.token === token) {
                     thisTopic.Subscribers.splice(i, 1);
                     //console.log("Subscription client[" + i + "] removed gracefully");
                     break;
@@ -51,11 +68,11 @@ class DRP_TopicManager {
         }
     }
 
-    UnsubscribeFromAll(conn, token) {
+    UnsubscribeFromAll(endpoint, token) {
         let thisTopicManager = this;
         let topicKeys = Object.keys(thisTopicManager.Topics);
         for (let i = 0; i < topicKeys.length; i++) {
-            thisTopicManager.UnsubscribeFromTopic(topicKeys[i], conn, token);
+            thisTopicManager.UnsubscribeFromTopic(topicKeys[i], endpoint, token);
         }
     }
 
@@ -97,20 +114,11 @@ class DRP_TopicManager_Topic {
         // Set Topic Manager
         this.TopicManager = topicManager;
         this.TopicName = topicName;
+        /** @type DRP_TopicSubscription[] */
         this.Subscribers = [];
         this.ReceivedMessages = 0;
         this.SentMessages = 0;
         this.LastTen = [];
-
-        /*
-        Subscribers: [
-            {
-                clientObj : {clientObj},
-                token: {subscriberToken},
-                filter: {filter}
-            }
-        ]
-        */
     }
 
     Send(message) {
@@ -126,7 +134,7 @@ class DRP_TopicManager_Topic {
         let i = thisTopic.Subscribers.length;
         while (i--) {
             let thisSubscriberObj = thisTopic.Subscribers[i];
-            let sendFailed = thisTopic.TopicManager.drpNode.RouteHandler.SendStream(thisSubscriberObj.conn, thisSubscriberObj.token, 2, message);
+            let sendFailed = thisSubscriberObj.endpoint.SendStream(thisSubscriberObj.token, 2, message);
             if (sendFailed) {
                 thisTopic.Subscribers.splice(i, 1);
                 thisTopic.TopicManager.drpNode.log("Subscription client[" + i + "] removed forcefully");

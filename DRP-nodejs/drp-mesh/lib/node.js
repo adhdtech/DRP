@@ -88,6 +88,7 @@ class DRP_Node {
         this.NodeDeclarations = {};
         /** @type {{string:DRP_NodeClient}} */
         this.NodeEndpoints = {};
+        /** @type {{string:DRP_NodeClient}} */
         this.ConsumerEndpoints = {};
         //this.ServiceCommandTracking = {
         /*
@@ -406,11 +407,11 @@ class DRP_Node {
 
                         // Need to send command to consumer with remaining tree data
                         params.pathList = remainingChildPath;
-                        let thisConsumerConn = await thisNode.VerifyConsumerConnection(agentID);
+                        let targetEndpoint = await thisNode.VerifyConsumerConnection(agentID);
 
-                        if (thisConsumerConn) {
+                        if (targetEndpoint) {
                             // Await for command from consumer
-                            let results = await thisNode.RouteHandler.SendCmd(thisConsumerConn, "DRP", params.method, params, true, null);
+                            let results = await targetEndpoint.SendCmd(targetEndpoint, "DRP", params.method, params, true, null);
                             if (results && results.payload && results.payload) {
                                 oReturnObject = results.payload;
                             }
@@ -720,7 +721,7 @@ class DRP_Node {
             /** @type DRP_NodeClient */
             let thisRegistryNodeEndpoint = thisNode.NodeEndpoints[registryNodeIDList[i]];
             if (thisRegistryNodeEndpoint) {
-                thisRegistryNodeEndpoint.SendCmd(null, "DRP", cmd, params, false, null);
+                thisRegistryNodeEndpoint.SendCmd("DRP", cmd, params, false, null);
             }
         }
     }
@@ -728,7 +729,7 @@ class DRP_Node {
     /**
      * 
      * @param {string} remoteNodeID NodeID to connect to
-     * @returns {DRP_NodeClient} DRP Node Client
+     * @returns {DRP_Endpoint} DRP Node Endpoint
      */
     async VerifyNodeConnection(remoteNodeID) {
 
@@ -748,14 +749,13 @@ class DRP_Node {
             // If we have a valid target URL, wait a few seconds for connection to initiate
             if (targetNodeURL) {
                 thisNode.log(`Connecting to Node [${remoteNodeID}] @ '${targetNodeURL}'`);
-                thisNodeEndpoint = new DRP_NodeClient(thisNode, targetNodeURL, false, thisNode.webProxyURL);
+                thisNodeEndpoint = new DRP_NodeClient(targetNodeURL, thisNode.webProxyURL, thisNode, remoteNodeID);
                 thisNode.NodeEndpoints[remoteNodeID] = thisNodeEndpoint;
-                thisNode.NodeEndpoints[remoteNodeID].wsConn.nodeID = remoteNodeID;
 
                 for (let i = 0; i < 50; i++) {
 
                     // Are we still trying?
-                    if (!thisNodeEndpoint.wsConn.readyState) {
+                    if (thisNodeEndpoint.IsConnecting()) {
                         // Yes - wait
                         await sleep(100);
                     } else {
@@ -767,7 +767,7 @@ class DRP_Node {
         }
 
         // Try sending a back connection request to the remote node via the registry
-        if (!thisNodeEndpoint || thisNodeEndpoint.wsConn.readyState !== 1) {
+        if (!thisNodeEndpoint || !thisNodeEndpoint.IsReady()) {
 
             thisNode.log("Sending back request...");
             // Let's try having the Provider call us; send command through Registry
@@ -777,7 +777,7 @@ class DRP_Node {
                 for (let i = 0; i < registryNodeIDList.length; i++) {
                     /** @type DRP_NodeClient */
                     let registryNodeEndpoint = thisNode.NodeEndpoints[registryNodeIDList[i]];
-                    registryNodeEndpoint.SendCmd(null, "DRP", "connectToNode", { "targetNodeID": remoteNodeID, "sourceNodeID": thisNode.nodeID, "wsTarget": thisNode.nodeURL }, false, null);
+                    registryNodeEndpoint.SendCmd("DRP", "connectToNode", { "targetNodeID": remoteNodeID, "sourceNodeID": thisNode.nodeID, "wsTarget": thisNode.nodeURL }, false, null);
                     break;
                 }
             } catch (err) {
@@ -789,7 +789,7 @@ class DRP_Node {
             for (let i = 0; i < 50; i++) {
 
                 // Are we still trying?
-                if (!thisNode.NodeEndpoints[remoteNodeID] || thisNode.NodeEndpoints[remoteNodeID].wsConn.readyState !== 1) {
+                if (!thisNode.NodeEndpoints[remoteNodeID] || !thisNode.NodeEndpoints[remoteNodeID].IsReady()) {
                     // Yes - wait
                     await sleep(100);
                 } else {
@@ -800,7 +800,7 @@ class DRP_Node {
             }
 
             // If still not successful, return DRP_NodeClient
-            if (!thisNode.NodeEndpoints[remoteNodeID] || thisNode.NodeEndpoints[remoteNodeID].wsConn.readyState !== 1) {
+            if (!thisNode.NodeEndpoints[remoteNodeID] || !thisNode.NodeEndpoints[remoteNodeID].IsReady()) {
                 thisNode.log(`Could not open connection to Node [${remoteNodeID}]`);
                 if (thisNode.NodeEndpoints[remoteNodeID]) {
                     delete thisNode.NodeEndpoints[remoteNodeID];
@@ -815,7 +815,7 @@ class DRP_Node {
             thisNodeEndpoint.drpNode = thisNode;
             thisNodeEndpoint.closeCallback = () => {
                 // See if this endpoints was referenced in any subscriptions
-                let remoteNodeID = thisNodeEndpoint.wsConn.nodeID;
+                let remoteNodeID = thisNodeEndpoint.EndpointID;
                 let subscriptionList = Object.keys(thisNode.Subscriptions);
                 for (let i = 0; i < subscriptionList.length; i++) {
                     /** @type {DRP_Subscription} */
@@ -831,16 +831,21 @@ class DRP_Node {
         return thisNodeEndpoint;
     }
 
+    /**
+     *
+     * @param {string} consumerID Consumer ID to connect to
+     * @returns {DRP_Endpoint} DRP Consumer Endpoint
+     */
     async VerifyConsumerConnection(consumerID) {
 
         let thisNode = this;
 
-        let thisConsumerWS = null;
+        let thisConsumerEndpoint = null;
 
         // Make sure the consumer session is active
-        if (thisNode.ConsumerEndpoints[consumerID] && thisNode.ConsumerEndpoints[consumerID].wsConn.readyState === 1) thisConsumerWS = thisNode.ConsumerEndpoints[consumerID].wsConn;
+        if (thisNode.ConsumerEndpoints[consumerID] && thisNode.ConsumerEndpoints[consumerID].IsReady()) thisConsumerEndpoint = thisNode.ConsumerEndpoints[consumerID];
 
-        return thisConsumerWS;
+        return thisConsumerEndpoint;
     }
 
     /**
@@ -910,11 +915,11 @@ class DRP_Node {
 
     /**
      * @param {DRP_Command} cmdObj Command object
-     * @param {object} wsConn Websocket connection object
+     * @param {DRP_Endpoint} drpEndpoint Requesting Endpoint
      * @param {string} token Reply token
      * @return {object} Response
     */
-    async LocalServiceCommand(cmdObj, wsConn, token) {
+    async LocalServiceCommand(cmdObj, drpEndpoint, token) {
         let thisNode = this;
         let baseMsg = "ERR executing ServiceCommand:";
         if (!cmdObj) {
@@ -937,16 +942,16 @@ class DRP_Node {
             thisNode.log(`${baseMsg} service ${cmdObj.serviceName} does not have method ${cmdObj.cmd}`);
             return null;
         }
-        return await thisNode.Services[cmdObj.serviceName].ClientCmds[cmdObj.cmd](cmdObj.params, wsConn);
+        return await thisNode.Services[cmdObj.serviceName].ClientCmds[cmdObj.cmd](cmdObj.params, drpEndpoint);
     }
 
     /**
      * @param {DRP_Command} cmdObj Command object
-     * @param {object} wsConn Websocket connection object
+     * @param {DRP_Endpoint} sourceEndpoint Requesting Endpoint
      * @param {string} token Reply token
      * @return {object} Response
     */
-    async ServiceCommand(cmdObj, wsConn, token) {
+    async ServiceCommand(cmdObj, sourceEndpoint, token) {
         let thisNode = this;
 
         let baseMsg = "ERR executing ServiceCommand:";
@@ -965,7 +970,7 @@ class DRP_Node {
 
         // Do we offer this service?
         if (thisNode.Services[cmdObj.serviceName]) {
-            let results = await thisNode.LocalServiceCommand(cmdObj, wsConn);
+            let results = await thisNode.LocalServiceCommand(cmdObj, sourceEndpoint);
             return results;
         } else {
 
@@ -1030,7 +1035,7 @@ class DRP_Node {
                     if (thisNodeClient) {
                         // Await for command from remote node
                         let returnObj = null;
-                        let results = await thisNodeClient.SendCmd(thisNodeClient.wsConn, cmdObj.serviceName, cmdObj.cmd, cmdObj.params, true, null);
+                        let results = await thisNodeClient.SendCmd(cmdObj.serviceName, cmdObj.cmd, cmdObj.params, true, null);
                         if (results && results.payload && results.payload) {
                             returnObj = results.payload;
                         }
@@ -1047,11 +1052,11 @@ class DRP_Node {
     /**
     * 
     * @param {DRP_NodeDeclaration} declaration DRP Node Declaration
-    * @param {WebSocket} wsConn Source websocket conn
+    * @param {DRP_Endpoint} sourceEndpoint Source DRP endpoint
     * @param {any} token Reply token
     * @returns {object} Unsure
     */
-    async Hello(declaration, wsConn, token) {
+    async Hello(declaration, sourceEndpoint, token) {
         let thisNode = this;
 
         let results = null;
@@ -1067,7 +1072,7 @@ class DRP_Node {
                 if (!declaration.DomainKey || declaration.DomainKey !== thisNode.DomainKey) {
                     // The remote node did not offer a DomainKey or the key does not match
                     thisNode.log(`Node [${declaration.NodeID}] DomainKey is not correct: ${declaration.DomainKey}`);
-                    wsConn.close();
+                    sourceEndpoint.Close();
                 }
             }
 
@@ -1085,20 +1090,15 @@ class DRP_Node {
             if (!declaration.NodeID) {
                 // Invalid NodeID
                 thisNode.log("Declaration did not include a valid NodeID");
-                wsConn.close();
+                sourceEndpoint.Close();
             } else if (!thisNode.IsRegistry() && !thisNode.NodeDeclarations[declaration.NodeID]) {
                 // This host isn't a registry and doesn't recognize the provided NodeID
                 thisNode.log(`Node [${declaration.NodeID}] tried to register to a non-registry Broker`);
-                wsConn.close();
+                sourceEndpoint.Close();
             } else {
                 // Allow the registration
-                wsConn.nodeID = declaration.NodeID;
-                thisNode.NodeEndpoints[declaration.NodeID] = new DRP_Endpoint(wsConn, thisNode);
-                thisNode.NodeEndpoints[declaration.NodeID].nodeID = declaration.NodeID;
-                //let peername = await thisNode.AwaitSocketPeername(wsConn._socket);
-                //declaration.family = peername.family;
-                //declaration.address = peername.address;
-                //declaration.port = peername.port;
+                sourceEndpoint.EndpointID = declaration.NodeID;
+                thisNode.NodeEndpoints[declaration.NodeID] = sourceEndpoint;
                 thisNode.RegisterNode(declaration);
             }
         } else if (declaration.userAgent) {
@@ -1107,47 +1107,20 @@ class DRP_Node {
             // Moved from wsOpen handler
             if (!thisNode.ConsumerConnectionID) thisNode.ConsumerConnectionID = 1;
             // Assign ID using simple counter for now
-            wsConn.id = thisNode.ConsumerConnectionID;
+            let remoteEndpointID = thisNode.ConsumerConnectionID;
             thisNode.ConsumerConnectionID++;
 
-            thisNode.ConsumerEndpoints[wsConn.id] = new DRP_Endpoint(wsConn, thisNode);
-            thisNode.ConsumerEndpoints[wsConn.id].ConsumerID = wsConn.id;
-            thisNode.ConsumerEndpoints[wsConn.id].drpNode = thisNode;
-            //let peername = await thisNode.AwaitSocketPeername(wsConn._socket);
-            //declaration.family = peername.family;
-            //declaration.address = peername.address;
-            //declaration.port = peername.port;
-            //thisNode.ConsumerDeclarations[wsConn.id] = declaration;
+            sourceEndpoint.EndpointID = remoteEndpointID;
+            thisNode.ConsumerEndpoints[remoteEndpointID] = sourceEndpoint;
         }
         else results = "INVALID DECLARATION";
 
         return results;
     }
 
-    /*
-    async AwaitSocketPeername(socket) {
-        let response = {};
-        let interval = 1000;
-        let iterations = 5;
-        for (let i = 0; i < iterations; i++) {
-            if (socket._peername) {
-                response.family = socket._peername.family;
-                response.address = socket._peername.address;
-                response.port = socket._peername.port;
-                i = iterations;
-            } else {
-                await sleep(interval);
-            } 
-        }
-        return response;
-    }
-    */
-
     /**
      * 
      * @param {DRP_NodeDeclaration} declaration DRP Node Declaration
-     * @param {any} wsConn Source websocket conn
-     * @param {any} token Reply token
      * @returns {object} Unsure
      */
     async RegisterNode(declaration) {
@@ -1218,30 +1191,30 @@ class DRP_Node {
 
                             if (declaration.NodeID === thisNode.nodeID) {
                                 // The client needs to subscribe to the local Node
-                                thisNode.TopicManager.SubscribeToTopic(thisSubscription.topicName, thisEndpoint.wsConn, thisSubscription.streamToken, thisSubscription.filter);
+                                thisNode.TopicManager.SubscribeToTopic(thisSubscription.topicName, thisEndpoint, thisSubscription.streamToken, thisSubscription.filter);
                             } else {
                                 // The client needs to subscribe to a remote Node
-                                let thisNodeClient = await thisNode.VerifyNodeConnection(declaration.NodeID);
+                                let targetEndpoint = await thisNode.VerifyNodeConnection(declaration.NodeID);
 
                                 // Subscribe on behalf of the Consumer
-                                let providerStreamToken = thisNode.RouteHandler.AddStreamHandler(thisNodeClient.wsConn, async function (response) {
+                                let providerStreamToken = targetEndpoint.AddStreamHandler(async function (response) {
                                     let sendFailed = false;
                                     if (!thisEndpoint.Subscriptions[thisSubscription.streamToken]) {
                                         sendFailed = true;
                                     } else {
-                                        sendFailed = thisNode.RouteHandler.SendStream(thisEndpoint.wsConn, thisSubscription.streamToken, 2, response.payload);
+                                        sendFailed = thisEndpoint.SendStream(thisSubscription.streamToken, 2, response.payload);
                                     }
                                     if (sendFailed) {
                                         // Client disconnected
-                                        if (thisNodeClient.wsConn.StreamHandlerQueue[response.token]) {
-                                            thisNodeClient.DeleteStreamHandler(thisNodeClient.wsConn, response.token);
+                                        if (targetEndpoint.StreamHandlerQueue[response.token]) {
+                                            targetEndpoint.DeleteStreamHandler(response.token);
                                         }
-                                        let unsubResults = await thisNodeClient.SendCmd(thisNodeClient.wsConn, "DRP", "unsubscribe", { "topicName": thisSubscription.topicName, "streamToken": response.token }, true, null);
+                                        let unsubResults = await targetEndpoint.SendCmd("DRP", "unsubscribe", { "topicName": thisSubscription.topicName, "streamToken": response.token }, true, null);
                                     }
                                 });
 
                                 // Await for command from provider
-                                let subResults = await thisNodeClient.SendCmd(thisNodeClient.wsConn, "DRP", "subscribe", { "topicName": thisSubscription.topicName, "streamToken": providerStreamToken }, true, null);
+                                let subResults = await targetEndpoint.SendCmd("DRP", "subscribe", { "topicName": thisSubscription.topicName, "streamToken": providerStreamToken }, true, null);
                             }
                         }
                     }
@@ -1258,14 +1231,14 @@ class DRP_Node {
                 let nodeEndpointList = Object.keys(thisNode.NodeEndpoints);
                 for (let j = 0; j < nodeEndpointList.length; j++) {
                     /** @type {DRP_Endpoint} */
-                    let thisEndpoint = thisNode.NodeEndpoints[nodeEndpointList[j]];
+                    let targetEndpoint = thisNode.NodeEndpoints[nodeEndpointList[j]];
 
                     // Loop over client subscriptions
-                    let subscriptionTokens = Object.keys(thisEndpoint.Subscriptions);
+                    let subscriptionTokens = Object.keys(targetEndpoint.Subscriptions);
                     for (let k = 0; k < subscriptionTokens.length; k++) {
 
                         /** @type {DRP_Subscription} */
-                        let thisSubscription = thisEndpoint.Subscriptions[subscriptionTokens[k]];
+                        let thisSubscription = targetEndpoint.Subscriptions[subscriptionTokens[k]];
 
                         // Are we already subscribed?
                         if (thisSubscription.subscribedTo.indexOf(declaration.NodeID) >= 0) continue;
@@ -1282,30 +1255,30 @@ class DRP_Node {
 
                             if (declaration.NodeID === thisNode.nodeID) {
                                 // The client needs to subscribe to the local Node
-                                thisNode.TopicManager.SubscribeToTopic(thisSubscription.topicName, thisEndpoint.wsConn, thisSubscription.streamToken, thisSubscription.filter);
+                                thisNode.TopicManager.SubscribeToTopic(thisSubscription.topicName, targetEndpoint, thisSubscription.streamToken, thisSubscription.filter);
                             } else {
                                 // The client needs to subscribe to a remote Node
-                                let thisNodeClient = await thisNode.VerifyNodeConnection(declaration.NodeID);
+                                let targetEndpoint = await thisNode.VerifyNodeConnection(declaration.NodeID);
 
                                 // Subscribe on behalf of the Node
-                                let providerStreamToken = thisNode.RouteHandler.AddStreamHandler(thisNodeClient.wsConn, async function (response) {
+                                let providerStreamToken = targetEndpoint.AddStreamHandler(async function (response) {
                                     let sendFailed = false;
-                                    if (!thisEndpoint.Subscriptions[thisSubscription.streamToken]) {
+                                    if (!targetEndpoint.Subscriptions[thisSubscription.streamToken]) {
                                         sendFailed = true;
                                     } else {
-                                        sendFailed = thisNode.RouteHandler.SendStream(thisEndpoint.wsConn, thisSubscription.streamToken, 2, response.payload);
+                                        sendFailed = targetEndpoint.SendStream(thisSubscription.streamToken, 2, response.payload);
                                     }
                                     if (sendFailed) {
                                         // Client disconnected
-                                        if (thisNodeClient.wsConn.StreamHandlerQueue[response.token]) {
-                                            thisNodeClient.DeleteStreamHandler(thisNodeClient.wsConn, response.token);
+                                        if (targetEndpoint.StreamHandlerQueue[response.token]) {
+                                            targetEndpoint.DeleteStreamHandler(response.token);
                                         }
-                                        let unsubResults = await thisNodeClient.SendCmd(thisNodeClient.wsConn, "DRP", "unsubscribe", { "topicName": thisSubscription.topicName, "streamToken": response.token }, true, null);
+                                        let unsubResults = await targetEndpoint.SendCmd("DRP", "unsubscribe", { "topicName": thisSubscription.topicName, "streamToken": response.token }, true, null);
                                     }
                                 });
 
                                 // Await for command from provider
-                                let subResults = await thisNodeClient.SendCmd(thisNodeClient.wsConn, "DRP", "subscribe", { "topicName": thisSubscription.topicName, "streamToken": providerStreamToken }, true, null);
+                                let subResults = await targetEndpoint.SendCmd("DRP", "subscribe", { "topicName": thisSubscription.topicName, "streamToken": providerStreamToken }, true, null);
                             }
                         }
                     }
@@ -1380,18 +1353,18 @@ class DRP_Node {
     async ConnectToRegistry(registryURL, openCallback) {
         let thisNode = this;
         // Initiate Registry Connection
-        let nodeClient = new DRP_NodeClient(thisNode, registryURL, true, thisNode.webProxyURL, async function (response) {
+        let nodeClient = new DRP_NodeClient(registryURL, thisNode.webProxyURL, thisNode, null, true, async function (response) {
 
             // Get peer info
-            let getDeclarationResponse = await nodeClient.SendCmd(null, "DRP", "getNodeDeclaration", null, true, null);
+            let getDeclarationResponse = await nodeClient.SendCmd("DRP", "getNodeDeclaration", null, true, null);
             if (getDeclarationResponse && getDeclarationResponse.payload && getDeclarationResponse.payload.NodeID) {
                 let registryNodeID = getDeclarationResponse.payload.NodeID;
+                nodeClient.EndpointID = registryNodeID;
                 thisNode.NodeEndpoints[registryNodeID] = nodeClient;
-                thisNode.NodeEndpoints[registryNodeID].wsConn.nodeID = registryNodeID;
             }
 
             // Get Registry
-            let getRegistryResponse = await nodeClient.SendCmd(null, "DRP", "getRegistry", null, true, null);
+            let getRegistryResponse = await nodeClient.SendCmd("DRP", "getRegistry", null, true, null);
             thisNode.NodeDeclarations = getRegistryResponse.payload;
             if (openCallback && typeof openCallback === 'function') {
                 openCallback(response);
@@ -1494,9 +1467,10 @@ class DRP_Node {
         }
     }
 
-    async ConnectToNode(params, wsConn, token) {
+    async ConnectToNode(params) {
         let thisNode = this;
         let returnCode = 0;
+        // Is the message meant for this Node?
         if (params.targetNodeID === thisNode.nodeID) {
             // Initiate Node Connection
             if (thisNode.NodeEndpoints[params.sourceNodeID]) {
@@ -1505,8 +1479,7 @@ class DRP_Node {
                 thisNode.log(`Received back request, already have NodeEndpoints[${params.sourceNodeID}]`);
             } else {
                 thisNode.log(`Received back request, connecting to [${params.sourceNodeID}] @ ${params.wsTarget}`);
-                let nodeClient = new DRP_NodeClient(thisNode, params.wsTarget, false, thisNode.webProxyURL, null);
-                thisNode.NodeEndpoints[params.sourceNodeID] = nodeClient;
+                thisNode.NodeEndpoints[params.sourceNodeID] = new DRP_NodeClient(params.wsTarget, thisNode.webProxyURL, thisNode, params.sourceNodeID, false);
             }
         } else {
             // Are we connected to the target node?  If so, relay
@@ -1604,18 +1577,14 @@ class DRP_Node {
             consumerClients: {}
         };
 
-        let currentTime = new Date().getTime();
-
         // Loop over NodeEndpoints
         let nodeIDList = Object.keys(thisNode.NodeEndpoints);
         for (let i = 0; i < nodeIDList.length; i++) {
             let nodeID = nodeIDList[i];
+            /** @type DRP_Endpoint */
             let thisEndpoint = thisNode.NodeEndpoints[nodeID];
-            if (thisEndpoint.wsConn._isServer) {
-                nodeClientConnections.nodeClients[nodeID] = {
-                    pingTimeMs: thisEndpoint.wsConn.pingTimeMs,
-                    uptimeSeconds: Math.floor((currentTime - thisEndpoint.wsConn.openTime) / 1000)
-                };
+            if (thisEndpoint.IsServer()) {
+                nodeClientConnections.nodeClients[nodeID] = thisEndpoint.ConnectionStats();
             }
         }
 
@@ -1623,11 +1592,9 @@ class DRP_Node {
         let consumerIDList = Object.keys(thisNode.ConsumerEndpoints);
         for (let i = 0; i < consumerIDList.length; i++) {
             let consumerID = consumerIDList[i];
+            /** @type DRP_Endpoint */
             let thisEndpoint = thisNode.ConsumerEndpoints[consumerID];
-            nodeClientConnections.consumerClients[consumerID] = {
-                pingTimeMs: thisEndpoint.wsConn.pingTimeMs,
-                uptimeSeconds: Math.floor((currentTime - thisEndpoint.wsConn.openTime) / 1000)
-            };
+            nodeClientConnections.consumerClients[consumerID] = thisEndpoint.ConnectionStats();
         }
 
         return nodeClientConnections;
@@ -1636,28 +1603,29 @@ class DRP_Node {
 
 class DRP_NodeClient extends DRP_Client {
     /**
-    * @param {DRP_Node} drpNode Local Node
     * @param {string} wsTarget Remote Node WS target
-    * @param {boolean} retryOnClose Do we retry on close
     * @param {string} proxy Web proxy
+    * @param {DRP_Node} drpNode Local Node
+    * @param {string} endpointID Remote Endpoint ID
+    * @param {boolean} retryOnClose Do we retry on close
     * @param {function} openCallback Execute after connection is established
     * @param {function} closeCallback Execute after connection is terminated
     */
-    constructor(drpNode, wsTarget, retryOnClose, proxy, openCallback, closeCallback) {
-        super(wsTarget, proxy, drpNode);
+    constructor(wsTarget, proxy, drpNode, endpointID, retryOnClose, openCallback, closeCallback) {
+        super(wsTarget, proxy, drpNode, endpointID);
         this.retryOnClose = retryOnClose;
         this.proxy = proxy;
         this.openCallback = openCallback;
         this.closeCallback = closeCallback;
         // Register Endpoint commands
-        // (methods should return output and optionally accept [params, wsConn, token] for streaming)
+        // (methods should return output and optionally accept [params, token] for streaming)
 
         this.RegisterCmd("subscribe", "Subscribe");
         this.RegisterCmd("unsubscribe", "Unsubscribe");
         this.RegisterCmd("registerNode", "RegisterNode");
         this.RegisterCmd("unregisterNode", "UnregisterNode");
         this.RegisterCmd("getNodeDeclaration", "GetNodeDeclaration");
-        this.RegisterCmd("pathCmd", async function (params, wsConn, token) {
+        this.RegisterCmd("pathCmd", async function (params, token) {
             return await drpNode.GetObjFromPath(params, drpNode.GetBaseObj());
         });
         this.RegisterCmd("connectToNode", async function (...args) {
@@ -1669,28 +1637,23 @@ class DRP_NodeClient extends DRP_Client {
         this.RegisterCmd("listClientConnections", function (...args) {
             return drpNode.ListClientConnections(...args);
         });
-        this.RegisterCmd("sendToTopic", function (params, wsConn, token) {
+        this.RegisterCmd("sendToTopic", function (params) {
             drpNode.TopicManager.SendToTopic(params.topicName, params.topicData);
         });
     }
 
     // Define Handlers
-    async OpenHandler(wsConn, req) {
-        this.drpNode.log("Node client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] opened");
-        let response = await this.SendCmd(this.wsConn, "DRP", "hello", this.drpNode.NodeDeclaration, true, null);
+    async OpenHandler() {
+        this.drpNode.log("Node client [" + this.RemoteAddress() + ":" + this.RemotePort() + "] opened");
+        let response = await this.SendCmd("DRP", "hello", this.drpNode.NodeDeclaration, true, null);
         if (this.openCallback && typeof this.openCallback === 'function') {
             this.openCallback(response);
         }
     }
 
-    async CloseHandler(wsConn, closeCode) {
-        let remoteAddress = null;
-        let remotePort = null;
-        if (wsConn._socket) {
-            remoteAddress = wsConn._socket.remoteAddress;
-            remotePort = wsConn._socket.remotePort;
-        }
-        this.drpNode.log("Node client [" + remoteAddress + ":" + remotePort + "] closed with code [" + closeCode + "]");
+    async CloseHandler(closeCode) {
+        let thisEndpoint = this;
+        this.log("Node client [" + thisEndpoint.RemoteAddress() + ":" + thisEndpoint.RemotePort() + "] closed with code [" + closeCode + "]");
         if (this.closeCallback && typeof this.closeCallback === 'function') {
             this.closeCallback();
         }
@@ -1700,64 +1663,63 @@ class DRP_NodeClient extends DRP_Client {
         }
     }
 
-    async ErrorHandler(wsConn, error) {
+    async ErrorHandler(error) {
         this.drpNode.log("Node client encountered error [" + error + "]");
     }
 
-    async Subscribe(params, wsConn, customRelayHandler) {
-        let thisNodeClient = this;
+    async Subscribe(params, customRelayHandler) {
+        let thisEndpoint = this;
         let results = {};
         // Register the declaration for future reference
         let subscriberStreamToken = params.streamToken;
-        if (!wsConn.Subscriptions) wsConn.Subscriptions = {};
-        wsConn.Subscriptions[subscriberStreamToken] = params.topicName;
+        thisEndpoint.Subscriptions[subscriberStreamToken] = params.topicName;
 
         let subScope = params.scope || "local";
 
         switch (subScope) {
             case "local":
-                results[thisNodeClient.drpNode.nodeID] = thisNodeClient.drpNode.TopicManager.SubscribeToTopic(params.topicName, wsConn, params.streamToken, params.filter);
+                results[thisEndpoint.drpNode.nodeID] = thisEndpoint.drpNode.TopicManager.SubscribeToTopic(params.topicName, thisEndpoint, params.streamToken, params.filter);
                 break;
             case "global":
                 // Find anyone who provides this data and subscribe on the consumer's behalf
-                let sourceNodeIDList = Object.keys(thisNodeClient.drpNode.NodeDeclarations);
+                let sourceNodeIDList = Object.keys(thisEndpoint.drpNode.NodeDeclarations);
                 for (let i = 0; i < sourceNodeIDList.length; i++) {
                     let sourceNodeID = sourceNodeIDList[i];
-                    let thisNodeDeclaration = thisNodeClient.drpNode.NodeDeclarations[sourceNodeID];
+                    let thisNodeDeclaration = thisEndpoint.drpNode.NodeDeclarations[sourceNodeID];
                     if (thisNodeDeclaration.Streams && thisNodeDeclaration.Streams[params.topicName]) {
                         // This source node offers the desired stream
 
                         // Is it this node?
-                        if (sourceNodeID === thisNodeClient.drpNode.nodeID) {
-                            results[sourceNodeID] = thisNodeClient.drpNode.TopicManager.SubscribeToTopic(params.topicName, wsConn, params.streamToken, params.filter);
+                        if (sourceNodeID === thisEndpoint.drpNode.nodeID) {
+                            results[sourceNodeID] = thisEndpoint.drpNode.TopicManager.SubscribeToTopic(params.topicName, thisEndpoint, params.streamToken, params.filter);
                         } else {
                             /**
                             * @type {DRP_NodeClient} DRP Node Client
                             */
 
-                            let thisNodeEndpoint = await thisNodeClient.drpNode.VerifyNodeConnection(sourceNodeID);
+                            let thisNodeEndpoint = await thisEndpoint.drpNode.VerifyNodeConnection(sourceNodeID);
 
                             // Subscribe on behalf of the Consumer
-                            let sourceStreamToken = thisNodeClient.AddStreamHandler(thisNodeEndpoint.wsConn, async function (response) {
+                            let sourceStreamToken = thisNodeEndpoint.AddStreamHandler(async function (response) {
                                 let sendFailed = false;
-                                if (!wsConn.Subscriptions[subscriberStreamToken]) {
+                                if (!thisNodeEndpoint.Subscriptions[subscriberStreamToken]) {
                                     sendFailed = true;
                                 } else if (customRelayHandler && typeof customRelayHandler === 'function') {
-                                    sendFailed = customRelayHandler(wsConn, subscriberStreamToken, 2, response.payload);
+                                    sendFailed = customRelayHandler(subscriberStreamToken, 2, response.payload);
                                 } else {
-                                    sendFailed = thisNodeClient.SendStream(wsConn, subscriberStreamToken, 2, response.payload);
+                                    sendFailed = thisEndpoint.SendStream(subscriberStreamToken, 2, response.payload);
                                 }
                                 if (sendFailed) {
                                     // Client disconnected
-                                    if (thisNodeEndpoint.wsConn.StreamHandlerQueue[response.token]) {
-                                        thisNodeEndpoint.DeleteStreamHandler(thisNodeEndpoint.wsConn, response.token);
+                                    if (thisNodeEndpoint.StreamHandlerQueue[response.token]) {
+                                        thisNodeEndpoint.DeleteStreamHandler(response.token);
                                     }
-                                    let unsubResults = await thisNodeEndpoint.SendCmd(thisNodeEndpoint.wsConn, "DRP", "unsubscribe", { "topicName": params.topicName, "streamToken": response.token }, true, null);
+                                    let unsubResults = await thisNodeEndpoint.SendCmd("DRP", "unsubscribe", { "topicName": params.topicName, "streamToken": response.token }, true, null);
                                 }
                             });
 
                             // Await for command from source node
-                            results[sourceNodeID] = await thisNodeEndpoint.SendCmd(thisNodeEndpoint.wsConn, "DRP", "subscribe", { "topicName": params.topicName, "streamToken": sourceStreamToken }, true, null);
+                            results[sourceNodeID] = await thisNodeEndpoint.SendCmd("DRP", "subscribe", { "topicName": params.topicName, "streamToken": sourceStreamToken }, true, null);
                         }
                     }
                 }
@@ -1769,14 +1731,14 @@ class DRP_NodeClient extends DRP_Client {
         return results;
     }
 
-    async Unsubscribe(params, wsConn, token) {
+    async Unsubscribe(params, token) {
         let thisNodeClient = this;
         let subscriberStreamToken = params.streamToken;
-        if (wsConn.Subscriptions && wsConn.Subscriptions[subscriberStreamToken]) {
-            delete wsConn.Subscriptions[subscriberStreamToken];
+        if (thisEndpoint.Subscriptions[subscriberStreamToken]) {
+            delete thisEndpoint.Subscriptions[subscriberStreamToken];
 
             // Dirty workaround - try removing locally on each call
-            thisNodeClient.drpNode.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, params.streamToken, params.filter);
+            thisNodeClient.drpNode.TopicManager.UnsubscribeFromTopic(params.topicName, thisEndpoint, params.streamToken, params.filter);
         }
         return null;
     }
@@ -1785,12 +1747,12 @@ class DRP_NodeClient extends DRP_Client {
         return this.drpNode.NodeDeclaration;
     }
 
-    async RegisterNode(params, wsConn, token) {
-        return this.drpNode.RegisterNode(params, wsConn, token);
+    async RegisterNode(params) {
+        return this.drpNode.RegisterNode(params);
     }
 
-    async UnregisterNode(params, wsConn, token) {
-        return this.drpNode.UnregisterNode(params, wsConn, token);
+    async UnregisterNode(params) {
+        return this.drpNode.UnregisterNode(params);
     }
 
 }

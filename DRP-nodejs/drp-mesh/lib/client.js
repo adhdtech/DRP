@@ -13,9 +13,10 @@ class DRP_Client extends DRP_Endpoint {
      * @param {string} wsTarget WebSocket target
      * @param {string} proxy Proxy URL
      * @param {DRP_Node} drpNode DRP Node
+     * @param {string} endpointID Remote Endpoint ID
      */
-    constructor(wsTarget, proxy, drpNode) {
-        super(null, drpNode);
+    constructor(wsTarget, proxy, drpNode, endpointID) {
+        super(null, drpNode, endpointID);
         this.wsTarget = wsTarget;
         this.proxy = proxy;
         let thisClient = this;
@@ -37,17 +38,17 @@ class DRP_Client extends DRP_Endpoint {
             setInterval(function ping() {
                 wsConn.ping(function () { });
             }, 30000);
-            thisClient.OpenHandler(wsConn);
+            thisClient.OpenHandler();
         });
 
         wsConn.on("message", function (message) {
             // Process command
-            thisClient.ReceiveMessage(wsConn, message);
+            thisClient.ReceiveMessage(message);
         });
 
-        wsConn.on("close", function (closeCode) { thisClient.CloseHandler(wsConn, closeCode); });
+        wsConn.on("close", function (closeCode) { thisClient.CloseHandler(closeCode); });
 
-        wsConn.on("error", function (error) { thisClient.ErrorHandler(wsConn, error); });
+        wsConn.on("error", function (error) { thisClient.ErrorHandler(error); });
     }
 
     async RetryConnection() {
@@ -60,23 +61,23 @@ class DRP_Client extends DRP_Endpoint {
         } else {
             wsConn = new WebSocket(thisClient.wsTarget, "drp");
         }
-        this.wsConn = wsConn;
+        thisClient.wsConn = wsConn;
 
         wsConn.on('open', function () {
             setInterval(function ping() {
                 wsConn.ping(function () { });
             }, 30000);
-            thisClient.OpenHandler(wsConn);
+            thisClient.OpenHandler();
         });
 
         wsConn.on("message", function (message) {
             // Process command
-            thisClient.ReceiveMessage(wsConn, message);
+            thisClient.ReceiveMessage(message);
         });
 
-        wsConn.on("close", function (closeCode) { thisClient.CloseHandler(wsConn, closeCode); });
+        wsConn.on("close", function (closeCode) { thisClient.CloseHandler(closeCode); });
 
-        wsConn.on("error", function (error) { thisClient.ErrorHandler(wsConn, error); });
+        wsConn.on("error", function (error) { thisClient.ErrorHandler(error); });
     }
 }
 

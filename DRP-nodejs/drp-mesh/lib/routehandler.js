@@ -4,8 +4,72 @@ const DRP_Node = require("./node");
 const DRP_Endpoint = require("./endpoint");
 const DRP_Subscription = require('./subscription');
 
+class DRP_Endpoint_Server extends DRP_Endpoint {
+    /**
+     * 
+     * @param {WebSocket} wsConn Websocket connection
+     * @param {DRP_Node} drpNode DRP Node
+     * @param {string} endpointID Remote Endpoint ID
+     */
+    constructor(wsConn, drpNode, endpointID) {
+        super(wsConn, drpNode, endpointID);
+        let thisEndpoint = this;
+
+        this.RegisterCmd("hello", async function (...args) {
+            return drpNode.Hello(...args);
+        });
+        this.RegisterCmd("registerNode", async function (...args) {
+            return drpNode.RegisterNode(...args);
+        });
+        this.RegisterCmd("unregisterNode", async function (...args) {
+            return drpNode.UnregisterNode(...args);
+        });
+        this.RegisterCmd("getNodeDeclaration", async function (...args) {
+            return drpNode.NodeDeclaration;
+        });
+        this.RegisterCmd("subscribe", "Subscribe");
+        this.RegisterCmd("unsubscribe", "Unsubscribe");
+        this.RegisterCmd("pathCmd", async function (params, wsConn, token) {
+            return await thisEndpoint.drpNode.GetObjFromPath(params, thisWebServerRoute.drpNode.GetBaseObj());
+        });
+        this.RegisterCmd("connectToNode", async function (...args) {
+            return await thisEndpoint.drpNode.ConnectToNode(...args);
+        });
+        this.RegisterCmd("getRegistry", function () {
+            return thisEndpoint.drpNode.NodeDeclarations;
+        });
+
+        this.RegisterCmd("getClassRecords", async function (...args) {
+            return await thisEndpoint.drpNode.GetClassRecords(...args);
+        });
+
+        this.RegisterCmd("listClassInstances", function () {
+            return thisEndpoint.drpNode.ListClassInstances();
+        });
+
+        this.RegisterCmd("listServiceInstances", function () {
+            return thisEndpoint.drpNode.ListServiceInstances();
+        });
+
+        this.RegisterCmd("getClassDefinitions", function () {
+            return thisEndpoint.drpNode.GetClassDefinitions();
+        });
+
+        this.RegisterCmd("sendToTopic", function (params, wsConn, token) {
+            thisEndpoint.drpNode.TopicManager.SendToTopic(params.topicName, params.topicData);
+        });
+
+        this.RegisterCmd("getTopology", async function (...args) {
+            return await thisEndpoint.drpNode.GetTopology(...args);
+        });
+        this.RegisterCmd("listClientConnections", function (...args) {
+            return thisEndpoint.drpNode.ListClientConnections(...args);
+        });
+    }
+}
+
 // Handles incoming DRP connections
-class DRP_RouteHandler extends DRP_Endpoint {
+class DRP_RouteHandler {
     /**
      * 
      * @param {DRP_Node} drpNode DRP Node Object
@@ -32,13 +96,16 @@ class DRP_RouteHandler extends DRP_Endpoint {
 
         drpNode.WebServer.expressApp.ws(route, async function drpWebsocketHandler(wsConn, req) {
 
-            await thisWebServerRoute.OpenHandler(wsConn, req);
-            //let remoteAddress = wsConn._socket.remoteAddress;
-            //let remotePort = wsConn._socket.remotePort;
+            // A new Websocket client has connected - create a DRP_Endpoint and assign the wsConn
+            let remoteEndpoint = new DRP_Endpoint_Server(wsConn, drpNode, null);
+
+            // We're missing the default commands; just add hello?
+
+            await remoteEndpoint.OpenHandler(req);
 
             wsConn.on("message", function (message) {
                 // Process command
-                thisWebServerRoute.ReceiveMessage(wsConn, message);
+                remoteEndpoint.ReceiveMessage(message);
             });
 
             wsConn.on("pong", function (message) {
@@ -60,12 +127,12 @@ class DRP_RouteHandler extends DRP_Endpoint {
             });
 
             wsConn.on("close", function (closeCode, reason) {
-                thisWebServerRoute.CloseHandler(wsConn, closeCode);
+                remoteEndpoint.CloseHandler(closeCode);
                 clearInterval(thisRollingPing);
             });
 
             wsConn.on("error", function (error) {
-                thisWebServerRoute.ErrorHandler(wsConn, error);
+                remoteEndpoint.ErrorHandler(error);
             });
 
             // Note connection open time
@@ -84,49 +151,6 @@ class DRP_RouteHandler extends DRP_Endpoint {
             // Run wsPing now to get initial value
             thisWebServerRoute.SendWsPing(wsConn, thisRollingPing);
         });
-
-        this.RegisterCmd("hello", "Hello");
-        this.RegisterCmd("registerNode", "RegisterNode");
-        this.RegisterCmd("unregisterNode", "UnregisterNode");
-        this.RegisterCmd("getNodeDeclaration", "GetNodeDeclaration");
-        this.RegisterCmd("subscribe", "Subscribe");
-        this.RegisterCmd("unsubscribe", "Unsubscribe");
-        this.RegisterCmd("pathCmd", async function (params, wsConn, token) {
-            return await thisWebServerRoute.drpNode.GetObjFromPath(params, thisWebServerRoute.drpNode.GetBaseObj());
-        });
-        this.RegisterCmd("connectToNode", async function (...args) {
-            return await thisWebServerRoute.drpNode.ConnectToNode(...args);
-        });
-        this.RegisterCmd("getRegistry", function () {
-            return thisWebServerRoute.drpNode.NodeDeclarations;
-        });
-
-        this.RegisterCmd("getClassRecords", async function (...args) {
-            return await thisWebServerRoute.drpNode.GetClassRecords(...args);
-        });
-
-        this.RegisterCmd("listClassInstances", function () {
-            return thisWebServerRoute.drpNode.ListClassInstances();
-        });
-
-        this.RegisterCmd("listServiceInstances", function () {
-            return thisWebServerRoute.drpNode.ListServiceInstances();
-        });
-
-        this.RegisterCmd("getClassDefinitions", function () {
-            return thisWebServerRoute.drpNode.GetClassDefinitions();
-        });
-
-        this.RegisterCmd("sendToTopic", function (params, wsConn, token) {
-            thisWebServerRoute.drpNode.TopicManager.SendToTopic(params.topicName, params.topicData);
-        });
-
-        this.RegisterCmd("getTopology", async function (...args) {
-            return await thisWebServerRoute.drpNode.GetTopology(...args);
-        });
-        this.RegisterCmd("listClientConnections", function (...args) {
-            return thisWebServerRoute.drpNode.ListClientConnections(...args);
-        });
     }
 
     SendWsPing(wsConn, intervalObj) {
@@ -139,46 +163,15 @@ class DRP_RouteHandler extends DRP_Endpoint {
                     wsConn.pingTimes.shift();
                 }
                 wsConn.pingTimes.push(null);
-                if (wsConn.drpEndpoint && wsConn.drpEndpoint.drpNode) {
-                    if (wsConn.nodeID) {
-                        wsConn.drpEndpoint.drpNode.log(`wsPing timed out to Node ${wsConn.nodeID}`);
-                    } else if (wsConn.id) {
-                        wsConn.drpEndpoint.drpNode.log(`wsPing timed out to Consumer ${wsConn.id}`);
-                    }
-                }
+
+                wsConn.drpEndpoint.log(`wsPing timed out to Endpoint ${wsConn.drpEndpoint.EndpointID}`);
             }
             wsConn.pingSentTime = new Date().getTime();
             wsConn.pongRecvdTime = null;
             wsConn.ping();
         } catch (ex) {
-            if (wsConn.drpEndpoint && wsConn.drpEndpoint.drpNode) {
-                if (wsConn.nodeID) {
-                    wsConn.drpEndpoint.drpNode.log(`Error sending wsPing to Node ${wsConn.nodeID}: ${ex}`);
-                } else if (wsConn.id) {
-                    wsConn.drpEndpoint.drpNode.log(`Error sending wsPing to Consumer ${wsConn.id}: ${ex}`);
-                }
-            }
+            wsConn.drpEndpoint.log(`Error sending wsPing to Endpoint ${wsConn.drpEndpoint.EndpointID}: ${ex}`);
         }
-    }
-
-    async Hello(params, wsConn, token) {
-        return this.drpNode.Hello(params, wsConn, token);
-    }
-
-    async RegisterNode(params, wsConn, token) {
-        return this.drpNode.RegisterNode(params, wsConn, token);
-    }
-
-    async UnregisterNode(params, wsConn, token) {
-        return this.drpNode.UnregisterNode(params, wsConn, token);
-    }
-
-    /**
-    * @returns {{string:DRP_NodeDeclaration}} Node Declarations
-    */
-
-    async GetNodeDeclaration() {
-        return this.drpNode.NodeDeclaration;
     }
 
     /*
@@ -235,7 +228,7 @@ class DRP_RouteHandler extends DRP_Endpoint {
 
         switch (thisSubscription.scope) {
             case "local":
-                results[thisRouteServer.drpNode.nodeID] = thisRouteServer.drpNode.TopicManager.SubscribeToTopic(thisSubscription.topicName, wsConn, thisSubscription.streamToken, thisSubscription.filter);
+                results[thisRouteServer.drpNode.nodeID] = thisRouteServer.drpNode.TopicManager.SubscribeToTopic(thisSubscription.topicName, remoteEndpoint, thisSubscription.streamToken, thisSubscription.filter);
                 break;
             case "global":
                 // Find anyone who provides this data and subscribe on the consumer's behalf
@@ -249,7 +242,7 @@ class DRP_RouteHandler extends DRP_Endpoint {
 
                         // Is it this node?
                         if (sourceNodeID === thisRouteServer.drpNode.nodeID) {
-                            results[sourceNodeID] = thisRouteServer.drpNode.TopicManager.SubscribeToTopic(thisSubscription.topicName, wsConn, thisSubscription.streamToken, thisSubscription.filter);
+                            results[sourceNodeID] = thisRouteServer.drpNode.TopicManager.SubscribeToTopic(thisSubscription.topicName, remoteEndpoint, thisSubscription.streamToken, thisSubscription.filter);
                         } else {
                             /**
                             * @type {DRP_NodeClient} DRP Node Client
@@ -259,7 +252,7 @@ class DRP_RouteHandler extends DRP_Endpoint {
 
                             // Subscribe on behalf of the Consumer
                             //console.log(`Subscribing to stream [${params.topicName}] for client from node [${sourceNodeID}] using streamToken [${subscriberStreamToken}]`);
-                            let sourceStreamToken = thisRouteServer.AddStreamHandler(thisNodeEndpoint.wsConn, async function (response) {
+                            let sourceStreamToken = thisNodeEndpoint.AddStreamHandler(null, async function (response) {
                                 //console.log(`... stream data ... streamToken[${subscriberStreamToken}]`);
                                 //console.dir(response);
                                 let sendFailed = false;
