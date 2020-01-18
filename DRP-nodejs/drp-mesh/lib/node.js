@@ -242,7 +242,7 @@ class DRP_Node {
             sendParams.pathList = recordPath;
             let brokerNodeID = thisNode.FindBroker();
             let brokerNodeClient = await thisNode.VerifyNodeConnection(brokerNodeID);
-            let cmdResponse = await brokerNodeClient.SendCmd(null, "DRP", "pathCmd", sendParams, true, null);
+            let cmdResponse = await brokerNodeClient.SendCmd("DRP", "pathCmd", sendParams, true, null);
 
             results[className] = cmdResponse.payload.pathItem;
             //let classDefinition = await thisNode.GetObjFromPath({ method: "cliGetPath", pathList: recordPath, listOnly: false }, thisNode.GetBaseObj());
@@ -345,7 +345,7 @@ class DRP_Node {
             sendParams.pathList = recordPath;
             let brokerNodeID = thisNode.FindBroker();
             let brokerNodeClient = await thisNode.VerifyNodeConnection(brokerNodeID);
-            let cmdResponse = await brokerNodeClient.SendCmd(null, "DRP", "pathCmd", sendParams, true, null);
+            let cmdResponse = await brokerNodeClient.SendCmd("DRP", "pathCmd", sendParams, true, null);
 
             results[serviceName] = cmdResponse.payload.pathItem;
 
@@ -377,7 +377,7 @@ class DRP_Node {
 
                         if (thisNodeEndpoint) {
                             // Await for command from remote node
-                            let cmdResponse = await thisNodeEndpoint.SendCmd(null, "DRP", "pathCmd", params, true, null);
+                            let cmdResponse = await thisNodeEndpoint.SendCmd("DRP", "pathCmd", params, true, null);
                             if (cmdResponse.payload) {
                                 oReturnObject = cmdResponse.payload;
                             }
@@ -457,7 +457,7 @@ class DRP_Node {
                                 // The target NodeID is remote
                                 let targetNodeObj = await thisNode.VerifyNodeConnection(targetNodeID);
                                 if (targetNodeObj) {
-                                    let cmdResponse = await targetNodeObj.SendCmd(null, "DRP", "pathCmd", params, true, null);
+                                    let cmdResponse = await targetNodeObj.SendCmd("DRP", "pathCmd", params, true, null);
                                     if (cmdResponse.payload) {
                                         oReturnObject = cmdResponse.payload;
                                     }
@@ -523,7 +523,7 @@ class DRP_Node {
                             // TODO - Add support for routing through Broker (copy from ServiceCommand logic?)
                             let targetNodeObj = await thisNode.VerifyNodeConnection(targetNodeID);
                             if (targetNodeObj) {
-                                let cmdResponse = await targetNodeObj.SendCmd(null, "DRP", "pathCmd", params, true, null);
+                                let cmdResponse = await targetNodeObj.SendCmd("DRP", "pathCmd", params, true, null);
                                 if (cmdResponse.payload) {
                                     oReturnObject = cmdResponse.payload;
                                 }
@@ -1065,6 +1065,7 @@ class DRP_Node {
 
         if (isDeclarationValid) {
             // This is a node declaration
+            sourceEndpoint.EndpointType = "Node";
             thisNode.log(`Remote node client sent Hello [${declaration.NodeID}]`);
 
             // If this Node has a domain key, the remote node needs to match
@@ -1103,7 +1104,7 @@ class DRP_Node {
             }
         } else if (declaration.userAgent) {
             // This is a consumer declaration
-
+            sourceEndpoint.EndpointType = "Consumer";
             // Moved from wsOpen handler
             if (!thisNode.ConsumerConnectionID) thisNode.ConsumerConnectionID = 1;
             // Assign ID using simple counter for now
@@ -1312,7 +1313,7 @@ class DRP_Node {
         let thisNode = this;
         let nodeIDList = Object.keys(thisNode.NodeEndpoints);
         for (let i = 0; i < nodeIDList.length; i++) {
-            thisNode.NodeEndpoints[nodeIDList[i]].SendCmd(null, "DRP", cmd, params, false, null);
+            thisNode.NodeEndpoints[nodeIDList[i]].SendCmd("DRP", cmd, params, false, null);
             thisNode.log(`Relayed to node: [${nodeIDList[i]}]`);
         }
     }
@@ -1485,7 +1486,7 @@ class DRP_Node {
             // Are we connected to the target node?  If so, relay
             if (thisNode.NodeEndpoints[params.targetNodeID]) {
                 thisNode.log(`Received back request from [${params.sourceNodeID}] @ ${params.wsTarget}, relaying to [${params.targetNodeID}]`);
-                thisNode.NodeEndpoints[params.targetNodeID].SendCmd(null, "DRP", "connectToNode", params, false, null);
+                thisNode.NodeEndpoints[params.targetNodeID].SendCmd("DRP", "connectToNode", params, false, null);
             } else {
                 // We are not connected to the target (FUTURE - Add node routing table)
                 thisNode.log(`Received back request from [${params.sourceNodeID}] @ ${params.wsTarget}, not connected to [${params.targetNodeID}]`);
@@ -1553,7 +1554,7 @@ class DRP_Node {
             } else {
                 // Send a command to each node to get the list of client connections
                 let nodeConnection = await thisNode.VerifyNodeConnection(nodeID);
-                let cmdResponse = await nodeConnection.SendCmd(null, "DRP", "listClientConnections", null, true, null);
+                let cmdResponse = await nodeConnection.SendCmd("DRP", "listClientConnections", null, true, null);
                 topologyNode = cmdResponse.payload;
             }
 

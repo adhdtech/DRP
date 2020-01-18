@@ -77,12 +77,12 @@ class DRP_Endpoint_Browser {
         }
 
         let sendCmd = new DRP_Cmd(serviceName, cmd, params, replyToken);
-        this.wsConn.send(JSON.stringify(sendCmd));
+        thisEndpoint.wsConn.send(JSON.stringify(sendCmd));
         //console.log("SEND -> " + JSON.stringify(sendCmd));
         return returnVal;
     }
 
-    SendCmd_StreamHandler(wsConn, serviceName, cmd, params, callback, sourceApplet) {
+    SendCmd_StreamHandler(serviceName, cmd, params, callback, sourceApplet) {
         let thisEndpoint = this;
         let returnVal = null;
         let replyToken = null;
@@ -102,7 +102,7 @@ class DRP_Endpoint_Browser {
         });
 
         let sendCmd = new DRP_Cmd(serviceName, cmd, params, replyToken);
-        wsConn.send(JSON.stringify(sendCmd));
+        thisEndpoint.wsConn.send(JSON.stringify(sendCmd));
         //console.log("SEND -> " + JSON.stringify(sendCmd));
 
         return returnVal;
@@ -119,7 +119,7 @@ class DRP_Endpoint_Browser {
         }
     }
 
-    SendStream(token, status, payload) {
+    SendStream(wsConn, token, status, payload) {
         if (wsConn.readyState === WebSocket.OPEN) {
             let streamCmd = new DRP_Stream(token, status, payload);
             wsConn.send(JSON.stringify(streamCmd));
@@ -141,7 +141,7 @@ class DRP_Endpoint_Browser {
         if (typeof thisEndpoint.EndpointCmds[message.cmd] === 'function') {
             // Execute method
             try {
-                cmdResults.output = await thisEndpoint.EndpointCmds[message.cmd](message.params, thisEndpoint.wsConn, message.replytoken);
+                cmdResults.output = await thisEndpoint.EndpointCmds[message.cmd](message.params, wsConn, message.replytoken);
                 cmdResults.status = 1;
             } catch (err) {
                 cmdResults.output = err.message;
@@ -154,7 +154,7 @@ class DRP_Endpoint_Browser {
 
         // Reply with results
         if (typeof message.replytoken !== "undefined" && message.replytoken !== null) {
-            thisEndpoint.SendReply(message.replytoken, cmdResults.status, cmdResults.output);
+            thisEndpoint.SendReply(wsConn, message.replytoken, cmdResults.status, cmdResults.output);
         }
     }
 
@@ -164,12 +164,12 @@ class DRP_Endpoint_Browser {
         //console.dir(message, {"depth": 10})
 
         // Yes - do we have the token?
-        if (wsConn.hasOwnProperty("ReplyHandlerQueue") && wsConn.ReplyHandlerQueue.hasOwnProperty(message.token)) {
+        if (thisEndpoint.ReplyHandlerQueue.hasOwnProperty(message.token)) {
 
             // We have the token - execute the reply callback
-            wsConn.ReplyHandlerQueue[message.token](message);
+            thisEndpoint.ReplyHandlerQueue[message.token](message);
 
-            delete wsConn.ReplyHandlerQueue[message.token];
+            delete thisEndpoint.ReplyHandlerQueue[message.token];
 
         } else {
             // We do not have the token - tell the sender we do not honor this token
@@ -185,7 +185,7 @@ class DRP_Endpoint_Browser {
         if (thisEndpoint.StreamHandlerQueue.hasOwnProperty(message.token)) {
 
             // We have the token - execute the reply callback
-            wsConn.StreamHandlerQueue[message.token](message);
+            thisEndpoint.StreamHandlerQueue[message.token](message);
 
             // Is this the last item in the stream?
             if (message.status < 2) {
@@ -377,7 +377,7 @@ class DRP_Client_Browser extends DRP_Endpoint_Browser {
 
         wsConn.onmessage = function (message) { thisClient.ReceiveMessage(wsConn, message.data); };
 
-        wsConn.onclose = function (closeCode) { thisClient.CloseHandler(closeCode); };
+        wsConn.onclose = function (closeCode) { thisClient.CloseHandler(wsConn, closeCode); };
 
         wsConn.onerror = function (error) { thisClient.ErrorHandler(wsConn, error); };
 
@@ -565,7 +565,7 @@ class rSageApplet extends VDMApplet {
         let returnData = null;
         let wsConn = thisApplet.vdmClient.vdmServerAgent.wsConn;
 
-        let response = await thisApplet.vdmClient.vdmServerAgent.SendCmd(wsConn, serviceName, cmdName, cmdData, awaitResponse, null);
+        let response = await thisApplet.vdmClient.vdmServerAgent.SendCmd(serviceName, cmdName, cmdData, awaitResponse, null);
         if (response) returnData = response.payload;
 
         return returnData;
@@ -576,7 +576,7 @@ class rSageApplet extends VDMApplet {
         let returnData = null;
         let wsConn = thisApplet.vdmClient.vdmServerAgent.wsConn;
 
-        let response = await thisApplet.vdmClient.vdmServerAgent.SendCmd_StreamHandler(wsConn, serviceName, cmdName, cmdData, callback, thisApplet);
+        let response = await thisApplet.vdmClient.vdmServerAgent.SendCmd_StreamHandler(serviceName, cmdName, cmdData, callback, thisApplet);
         if (response) returnData = response.payload;
         //console.log("Received response from stream subscription...");
         //console.dir(response);
@@ -594,15 +594,15 @@ class VDMServerAgent extends DRP_Client_Browser {
         this.wsConn = '';
         this.sessionID = vdmClient.getLastSessionID();
         this.vdmClient = vdmClient;
-		
-		// This allows the client's document object to be viewed remotely via DRP
+
+        // This allows the client's document object to be viewed remotely via DRP
         this.HTMLDocument = vdmClient.vdmDesktop.vdmDiv.ownerDocument;
         this.URL = this.HTMLDocument.baseURI;
         this.wsTarget = null;
         this.platform = this.HTMLDocument.defaultView.navigator.platform;
         this.userAgent = this.HTMLDocument.defaultView.navigator.userAgent;
-		
-		// This is a test function for RickRolling users remotely via DRP
+
+        // This is a test function for RickRolling users remotely via DRP
         this.RickRoll = function () {
             vdmClient.vdmDesktop.openApp("RickRoll", null);
         };
@@ -635,10 +635,6 @@ class VDMServerAgent extends DRP_Client_Browser {
 
     async ErrorHandler(wsConn, error) {
         console.log("Consumer to Broker client encountered error [" + error + "]");
-    }
-
-    Close() {
-        this.wsConn.close();
     }
 
     Disconnect(isGraceful) {

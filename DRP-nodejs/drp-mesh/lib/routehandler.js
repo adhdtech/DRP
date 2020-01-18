@@ -66,6 +66,129 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
             return thisEndpoint.drpNode.ListClientConnections(...args);
         });
     }
+
+    // Define Endpoints commands
+    async Subscribe(params, wsConn, token, customRelayHandler) {
+        let thisEndpoint = this;
+        let results = {};
+
+        // Register the declaration for future reference
+        let subscriberStreamToken = params.streamToken;
+
+        // Create subscription object from paramaters
+        let thisSubscription = new DRP_Subscription(params.streamToken, params.topicName, params.scope, params.filter);
+
+        // Assign the subscription object to the Endpoint (used to be wsConn)
+        thisEndpoint.Subscriptions[subscriberStreamToken] = thisSubscription;
+
+        switch (thisSubscription.scope) {
+            case "local":
+                results[thisEndpoint.drpNode.nodeID] = thisEndpoint.drpNode.TopicManager.SubscribeToTopic(thisSubscription.topicName, thisEndpoint, thisSubscription.streamToken, thisSubscription.filter);
+                break;
+            case "global":
+                // Find anyone who provides this data and subscribe on the consumer's behalf
+                let sourceNodeIDList = Object.keys(thisEndpoint.drpNode.NodeDeclarations);
+                for (let i = 0; i < sourceNodeIDList.length; i++) {
+                    let sourceNodeID = sourceNodeIDList[i];
+                    //console.log(`Checking for stream [${params.topicName}] for client on node [${sourceNodeID}]`);
+                    let thisNodeDeclaration = thisEndpoint.drpNode.NodeDeclarations[sourceNodeID];
+                    if (thisNodeDeclaration.Streams && thisNodeDeclaration.Streams[thisSubscription.topicName]) {
+                        // This source node offers the desired stream
+
+                        // Is it this node?
+                        if (sourceNodeID === thisEndpoint.drpNode.nodeID) {
+                            results[sourceNodeID] = thisEndpoint.drpNode.TopicManager.SubscribeToTopic(thisSubscription.topicName, thisEndpoint, thisSubscription.streamToken, thisSubscription.filter);
+                        } else {
+                            /**
+                            * @type {DRP_NodeClient} DRP Node Client
+                            */
+
+                            let thisNodeEndpoint = await thisEndpoint.drpNode.VerifyNodeConnection(sourceNodeID);
+
+                            // Subscribe on behalf of the Consumer
+                            //console.log(`Subscribing to stream [${params.topicName}] for client from node [${sourceNodeID}] using streamToken [${subscriberStreamToken}]`);
+                            let sourceStreamToken = thisNodeEndpoint.AddStreamHandler(null, async function (response) {
+                                //console.log(`... stream data ... streamToken[${subscriberStreamToken}]`);
+                                //console.dir(response);
+                                let sendFailed = false;
+                                if (!thisEndpoint.Subscriptions[subscriberStreamToken]) {
+                                    sendFailed = true;
+                                } else if (customRelayHandler && typeof customRelayHandler === 'function') {
+                                    sendFailed = customRelayHandler(wsConn, subscriberStreamToken, 2, response.payload);
+                                } else {
+                                    sendFailed = thisEndpoint.SendStream(wsConn, subscriberStreamToken, 2, response.payload);
+                                    //console.log(`Stream to consumer token[${subscriberStreamToken}]`);
+                                }
+                                if (sendFailed) {
+                                    // Client disconnected
+                                    if (thisNodeEndpoint.wsConn.StreamHandlerQueue[response.token]) {
+                                        thisNodeEndpoint.DeleteStreamHandler(thisNodeEndpoint.wsConn, response.token);
+                                        //console.log("Stream handler removed forcefully");
+                                    }
+                                    let unsubResults = await thisNodeEndpoint.SendCmd(thisNodeEndpoint.wsConn, "DRP", "unsubscribe", { "topicName": thisSubscription.topicName, "streamToken": response.token }, true, null);
+                                    //console.log("Unsubscribe from orphaned stream");
+                                    //console.dir(unsubResults);
+                                }
+                            });
+
+                            // Await for command from source node
+                            results[sourceNodeID] = await thisNodeEndpoint.SendCmd(thisNodeEndpoint.wsConn, "DRP", "subscribe", { "topicName": thisSubscription.topicName, "streamToken": sourceStreamToken }, true, null);
+                        }
+                    }
+                }
+                break;
+            default:
+
+        }
+
+        return results;
+    }
+
+    async Unsubscribe(params, wsConn, token) {
+        let thisEndpoint = this;
+        let subscriberStreamToken = params.streamToken;
+
+        /** @type {DRP_Endpoint} */
+        let remoteEndpoint = wsConn.drpEndpoint;
+
+        // If this wsConn isn't a Node or Consumer, return null
+        if (!remoteEndpoint) return null;
+
+        //console.dir(wsConn.OutboundStreams);
+        if (remoteEndpoint.Subscriptions[subscriberStreamToken]) {
+            delete remoteEndpoint.Subscriptions[subscriberStreamToken];
+
+            // Dirty workaround - try removing locally on each call
+            thisEndpoint.drpNode.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, subscriberStreamToken, params.filter);
+        }
+        return null;
+    }
+
+    async OpenHandler(req) {
+        // Moved logic for assigning ConsumerIDs; before, ALL connections were getting them
+    }
+
+    async CloseHandler(closeCode) {
+        let thisEndpoint = this;
+
+        switch (thisEndpoint.EndpointType) {
+            case "Node":
+                thisEndpoint.drpNode.UnregisterNode(thisEndpoint.EndpointID);
+                break;
+            case "Consumer":
+                thisEndpoint.drpNode.ConsumerEndpoints[thisEndpoint.EndpointID];
+                break;
+            default:
+        }
+
+        if (this.closeCallback && typeof this.closeCallback === 'function') {
+            this.closeCallback();
+        }
+    }
+
+    async ErrorHandler(wsConn, error) {
+        this.drpNode.log("Node client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
+    }
 }
 
 // Handles incoming DRP connections
@@ -76,7 +199,6 @@ class DRP_RouteHandler {
      * @param {string} route URL Route
      */
     constructor(drpNode, route) {
-        super();
 
         let thisWebServerRoute = this;
         this.wsPingInterval = 10000;
@@ -177,137 +299,6 @@ class DRP_RouteHandler {
     /*
      * Will this section cause the registry to tag Node connections as clients?
      */
-
-    async OpenHandler(wsConn, req) {
-        // Moved logic for assigning ConsumerIDs; before, ALL connections were getting them
-    }
-
-    async CloseHandler(wsConn, closeCode) {
-        if (wsConn.drpEndpoint) {
-
-            // Was this a Node?
-            if (wsConn.drpEndpoint.nodeID) {
-
-                this.drpNode.UnregisterNode(wsConn.drpEndpoint.nodeID);
-            }
-
-            // Was this a Consumer?
-            if (wsConn.drpEndpoint.ConsumerID) {
-                delete this.drpNode.ConsumerEndpoints[wsConn.drpEndpoint.ConsumerID];
-            }
-
-            if (this.closeCallback && typeof this.closeCallback === 'function') {
-                this.closeCallback();
-            }
-        }
-    }
-
-    async ErrorHandler(wsConn, error) {
-        this.drpNode.log("Node client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
-    }
-
-    // Define Endpoints commands
-    async Subscribe(params, wsConn, token, customRelayHandler) {
-        let thisRouteServer = this;
-        let results = {};
-
-        /** @type {DRP_Endpoint} */
-        let remoteEndpoint = wsConn.drpEndpoint;
-
-        // If this wsConn isn't a Node or Consumer, return null
-        if (!remoteEndpoint) return null;
-
-        // Register the declaration for future reference
-        let subscriberStreamToken = params.streamToken;
-
-        // Create subscription object from paramaters
-        let thisSubscription = new DRP_Subscription(params.streamToken, params.topicName, params.scope, params.filter);
-
-        // Assign the subscription object to the Endpoint (used to be wsConn)
-        remoteEndpoint.Subscriptions[subscriberStreamToken] = thisSubscription;
-
-        switch (thisSubscription.scope) {
-            case "local":
-                results[thisRouteServer.drpNode.nodeID] = thisRouteServer.drpNode.TopicManager.SubscribeToTopic(thisSubscription.topicName, remoteEndpoint, thisSubscription.streamToken, thisSubscription.filter);
-                break;
-            case "global":
-                // Find anyone who provides this data and subscribe on the consumer's behalf
-                let sourceNodeIDList = Object.keys(thisRouteServer.drpNode.NodeDeclarations);
-                for (let i = 0; i < sourceNodeIDList.length; i++) {
-                    let sourceNodeID = sourceNodeIDList[i];
-                    //console.log(`Checking for stream [${params.topicName}] for client on node [${sourceNodeID}]`);
-                    let thisNodeDeclaration = thisRouteServer.drpNode.NodeDeclarations[sourceNodeID];
-                    if (thisNodeDeclaration.Streams && thisNodeDeclaration.Streams[thisSubscription.topicName]) {
-                        // This source node offers the desired stream
-
-                        // Is it this node?
-                        if (sourceNodeID === thisRouteServer.drpNode.nodeID) {
-                            results[sourceNodeID] = thisRouteServer.drpNode.TopicManager.SubscribeToTopic(thisSubscription.topicName, remoteEndpoint, thisSubscription.streamToken, thisSubscription.filter);
-                        } else {
-                            /**
-                            * @type {DRP_NodeClient} DRP Node Client
-                            */
-
-                            let thisNodeEndpoint = await thisRouteServer.drpNode.VerifyNodeConnection(sourceNodeID);
-
-                            // Subscribe on behalf of the Consumer
-                            //console.log(`Subscribing to stream [${params.topicName}] for client from node [${sourceNodeID}] using streamToken [${subscriberStreamToken}]`);
-                            let sourceStreamToken = thisNodeEndpoint.AddStreamHandler(null, async function (response) {
-                                //console.log(`... stream data ... streamToken[${subscriberStreamToken}]`);
-                                //console.dir(response);
-                                let sendFailed = false;
-                                if (!remoteEndpoint.Subscriptions[subscriberStreamToken]) {
-                                    sendFailed = true;
-                                } else if (customRelayHandler && typeof customRelayHandler === 'function') {
-                                    sendFailed = customRelayHandler(wsConn, subscriberStreamToken, 2, response.payload);
-                                } else {
-                                    sendFailed = thisRouteServer.SendStream(wsConn, subscriberStreamToken, 2, response.payload);
-                                    //console.log(`Stream to consumer token[${subscriberStreamToken}]`);
-                                }
-                                if (sendFailed) {
-                                    // Client disconnected
-                                    if (thisNodeEndpoint.wsConn.StreamHandlerQueue[response.token]) {
-                                        thisNodeEndpoint.DeleteStreamHandler(thisNodeEndpoint.wsConn, response.token);
-                                        //console.log("Stream handler removed forcefully");
-                                    }
-                                    let unsubResults = await thisNodeEndpoint.SendCmd(thisNodeEndpoint.wsConn, "DRP", "unsubscribe", { "topicName": thisSubscription.topicName, "streamToken": response.token }, true, null);
-                                    //console.log("Unsubscribe from orphaned stream");
-                                    //console.dir(unsubResults);
-                                }
-                            });
-
-                            // Await for command from source node
-                            results[sourceNodeID] = await thisNodeEndpoint.SendCmd(thisNodeEndpoint.wsConn, "DRP", "subscribe", { "topicName": thisSubscription.topicName, "streamToken": sourceStreamToken }, true, null);
-                        }
-                    }
-                }
-                break;
-            default:
-
-        }
-
-        return results;
-    }
-
-    async Unsubscribe(params, wsConn, token) {
-        let thisRouteServer = this;
-        let subscriberStreamToken = params.streamToken;
-
-        /** @type {DRP_Endpoint} */
-        let remoteEndpoint = wsConn.drpEndpoint;
-
-        // If this wsConn isn't a Node or Consumer, return null
-        if (!remoteEndpoint) return null;
-
-        //console.dir(wsConn.OutboundStreams);
-        if (remoteEndpoint.Subscriptions[subscriberStreamToken]) {
-            delete remoteEndpoint.Subscriptions[subscriberStreamToken];
-
-            // Dirty workaround - try removing locally on each call
-            thisRouteServer.drpNode.TopicManager.UnsubscribeFromTopic(params.topicName, wsConn, subscriberStreamToken, params.filter);
-        }
-        return null;
-    }
 }
 
 module.exports = DRP_RouteHandler;

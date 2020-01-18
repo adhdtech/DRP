@@ -12,8 +12,9 @@ class DRP_Endpoint {
      * @param {Websocket} wsConn Websocket connection
      * @param {DRP_Node} drpNode DRP Node
      * @param {string} endpointID Remote Endpoint ID
+     * @param {string} endpointType Remote Endpoint Type
      */
-    constructor(wsConn, drpNode, endpointID) {
+    constructor(wsConn, drpNode, endpointID, endpointType) {
         let thisEndpoint = this;
         /** @type {WebSocket} */
         this.wsConn = wsConn || null;
@@ -23,10 +24,9 @@ class DRP_Endpoint {
             this.wsConn.drpEndpoint = this;
         }
         this.EndpointID = endpointID || null;
+        this.EndpointType = endpointType || null;
         this.EndpointCmds = {};
 
-        /** @type WebSocket */
-        this.wsConn = null;
         /** @type Object<string,function> */
         this.ReplyHandlerQueue = {};
         /** @type Object<string,function> */
@@ -167,7 +167,7 @@ class DRP_Endpoint {
                 if (typeof thisEndpoint.EndpointCmds[message.cmd] === 'function') {
                     // Execute method
                     try {
-                        cmdResults.output = await thisEndpoint.EndpointCmds[message.cmd](message.params, message.replytoken);
+                        cmdResults.output = await thisEndpoint.EndpointCmds[message.cmd](message.params, thisEndpoint, message.replytoken);
                         cmdResults.status = 1;
                     } catch (err) {
                         cmdResults.output = err.message;
