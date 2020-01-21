@@ -30,7 +30,7 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
         this.RegisterCmd("subscribe", "Subscribe");
         this.RegisterCmd("unsubscribe", "Unsubscribe");
         this.RegisterCmd("pathCmd", async function (params, wsConn, token) {
-            return await thisEndpoint.drpNode.GetObjFromPath(params, thisWebServerRoute.drpNode.GetBaseObj());
+            return await thisEndpoint.drpNode.GetObjFromPath(params, thisEndpoint.drpNode.GetBaseObj());
         });
         this.RegisterCmd("connectToNode", async function (...args) {
             return await thisEndpoint.drpNode.ConnectToNode(...args);
@@ -68,7 +68,7 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
     }
 
     // Define Endpoints commands
-    async Subscribe(params, wsConn, token, customRelayHandler) {
+    async Subscribe(params, sourceEndpoint, token, customRelayHandler) {
         let thisEndpoint = this;
         let results = {};
 
@@ -114,9 +114,9 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
                                 if (!thisEndpoint.Subscriptions[subscriberStreamToken]) {
                                     sendFailed = true;
                                 } else if (customRelayHandler && typeof customRelayHandler === 'function') {
-                                    sendFailed = customRelayHandler(wsConn, subscriberStreamToken, 2, response.payload);
+                                    sendFailed = customRelayHandler(subscriberStreamToken, 2, response.payload);
                                 } else {
-                                    sendFailed = thisEndpoint.SendStream(wsConn, subscriberStreamToken, 2, response.payload);
+                                    sendFailed = thisEndpoint.SendStream(subscriberStreamToken, 2, response.payload);
                                     //console.log(`Stream to consumer token[${subscriberStreamToken}]`);
                                 }
                                 if (sendFailed) {

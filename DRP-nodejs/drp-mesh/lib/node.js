@@ -1613,7 +1613,7 @@ class DRP_NodeClient extends DRP_Client {
     * @param {function} closeCallback Execute after connection is terminated
     */
     constructor(wsTarget, proxy, drpNode, endpointID, retryOnClose, openCallback, closeCallback) {
-        super(wsTarget, proxy, drpNode, endpointID);
+        super(wsTarget, proxy, drpNode, endpointID, "Node");
         this.retryOnClose = retryOnClose;
         this.proxy = proxy;
         this.openCallback = openCallback;
@@ -1655,6 +1655,17 @@ class DRP_NodeClient extends DRP_Client {
     async CloseHandler(closeCode) {
         let thisEndpoint = this;
         this.log("Node client [" + thisEndpoint.RemoteAddress() + ":" + thisEndpoint.RemotePort() + "] closed with code [" + closeCode + "]");
+
+        switch (thisEndpoint.EndpointType) {
+            case "Node":
+                thisEndpoint.drpNode.UnregisterNode(thisEndpoint.EndpointID);
+                break;
+            case "Consumer":
+                thisEndpoint.drpNode.ConsumerEndpoints[thisEndpoint.EndpointID];
+                break;
+            default:
+        }
+
         if (this.closeCallback && typeof this.closeCallback === 'function') {
             this.closeCallback();
         }

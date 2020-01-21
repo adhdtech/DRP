@@ -14,9 +14,10 @@ class DRP_Client extends DRP_Endpoint {
      * @param {string} proxy Proxy URL
      * @param {DRP_Node} drpNode DRP Node
      * @param {string} endpointID Remote Endpoint ID
+     * @param {string} endpointType Remote Endpoint Type
      */
-    constructor(wsTarget, proxy, drpNode, endpointID) {
-        super(null, drpNode, endpointID);
+    constructor(wsTarget, proxy, drpNode, endpointID, endpointType) {
+        super(null, drpNode, endpointID, endpointType);
         this.wsTarget = wsTarget;
         this.proxy = proxy;
         let thisClient = this;

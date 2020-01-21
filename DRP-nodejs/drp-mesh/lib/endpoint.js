@@ -82,7 +82,17 @@ class DRP_Endpoint {
         }
     }
 
-    SendCmd(serviceName, cmd, params, promisify, callback) {
+    /**
+     * 
+     * @param {string} serviceName DRP Service Name
+     * @param {string} cmd Service Method
+     * @param {Object} params Method Parameters
+     * @param {boolean} promisify Should we promisify?
+     * @param {function} callback Callback function
+     * @param {DRP_RouteOptions} routeOptions Route Options
+     * @return {Promise} Returned promise
+     */
+    SendCmd(serviceName, cmd, params, promisify, callback, routeOptions) {
         let thisEndpoint = this;
         let returnVal = null;
         let replyToken = null;
@@ -103,7 +113,7 @@ class DRP_Endpoint {
             // We don't expect a response; leave replyToken null
         }
 
-        let sendCmd = new DRP_Cmd(serviceName, cmd, params, replyToken);
+        let sendCmd = new DRP_Cmd(serviceName, cmd, params, replyToken, routeOptions);
         thisEndpoint.wsConn.send(JSON.stringify(sendCmd));
         return returnVal;
     }
@@ -159,7 +169,7 @@ class DRP_Endpoint {
             output: null
         };
 
-        if (!message.tgtNodeID || message.tgtNodeID === thisEndpoint.drpNode.nodeID) {
+        if (!message.routeOptions || message.routeOptions.tgtNodeID === thisEndpoint.drpNode.nodeID) {
             // Execute locally
 
             // Is the message meant for the default DRP service?
@@ -190,8 +200,8 @@ class DRP_Endpoint {
 
             try {
                 /** @type DRP_Endpoint */
-                let targetNodeEndpoint = await thisEndpoint.drpNode.VerifyNodeConnection(sourceNodeID);
-                let cmdResponse = await targetNodeEndpoint.SendCmd(message.serviceName, message.cmd, message.params, true, null);
+                let targetNodeEndpoint = await thisEndpoint.drpNode.VerifyNodeConnection(message.routeOptions.tgtNodeID);
+                cmdResults.output = await targetNodeEndpoint.SendCmd(message.serviceName, message.cmd, message.params, true, null);
             } catch (ex) {
                 // Either could not get connection to node or command send attempt errored out
             }
@@ -391,14 +401,21 @@ class DRP_Endpoint {
 }
 
 class DRP_Cmd {
-    constructor(serviceName, cmd, params, replytoken, srcNodeID, tgtNodeID) {
+    /**
+     * 
+     * @param {string} serviceName DRP Service Name
+     * @param {string} cmd Service Method
+     * @param {Object} params Method Parameters
+     * @param {string} replytoken Reply Token
+     * @param {DRP_RouteOptions} routeOptions Route Options
+     */
+    constructor(serviceName, cmd, params, replytoken, routeOptions) {
         this.type = "cmd";
         this.cmd = cmd;
         this.params = params;
         this.serviceName = serviceName;
         this.replytoken = replytoken;
-        this.srcNodeID = srcNodeID;
-        this.tgtNodeID = tgtNodeID;
+        this.routeOptions = routeOptions;
     }
 }
 
@@ -421,6 +438,20 @@ class DRP_Stream {
         this.payload = payload;
         this.srcNodeID = srcNodeID;
         this.tgtNodeID = tgtNodeID;
+    }
+}
+
+class DRP_RouteOptions {
+    /**
+     * 
+     * @param {string} srcNodeID Source Node ID
+     * @param {string} tgtNodeID Target Node ID
+     * @param {string[]} routePath List of Nodes used as proxies; could be used to calculate TTL
+     */
+    constructor(srcNodeID, tgtNodeID, routePath) {
+        this.srcNodeID = srcNodeID;
+        this.tgtNodeID = tgtNodeID;
+        this.routeHistory = routeHistory;
     }
 }
 
