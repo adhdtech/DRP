@@ -29,7 +29,7 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
         });
         this.RegisterCmd("subscribe", "Subscribe");
         this.RegisterCmd("unsubscribe", "Unsubscribe");
-        this.RegisterCmd("pathCmd", async function (params, wsConn, token) {
+        this.RegisterCmd("pathCmd", async function (params, srcEndpoint, token) {
             return await thisEndpoint.drpNode.GetObjFromPath(params, thisEndpoint.drpNode.GetBaseObj());
         });
         this.RegisterCmd("connectToNode", async function (...args) {
@@ -55,7 +55,7 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
             return thisEndpoint.drpNode.GetClassDefinitions();
         });
 
-        this.RegisterCmd("sendToTopic", function (params, wsConn, token) {
+        this.RegisterCmd("sendToTopic", function (params, srcEndpoint, token) {
             thisEndpoint.drpNode.TopicManager.SendToTopic(params.topicName, params.topicData);
         });
 
@@ -78,7 +78,7 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
         // Create subscription object from paramaters
         let thisSubscription = new DRP_Subscription(params.streamToken, params.topicName, params.scope, params.filter);
 
-        // Assign the subscription object to the Endpoint (used to be wsConn)
+        // Assign the subscription object to the Endpoint
         thisEndpoint.Subscriptions[subscriberStreamToken] = thisSubscription;
 
         switch (thisSubscription.scope) {
@@ -100,14 +100,19 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
                             results[sourceNodeID] = thisEndpoint.drpNode.TopicManager.SubscribeToTopic(thisSubscription.topicName, thisEndpoint, thisSubscription.streamToken, thisSubscription.filter);
                         } else {
                             /**
-                            * @type {DRP_NodeClient} DRP Node Client
+                            * @type {DRP_Endpoint} DRP Node Client
                             */
-
                             let thisNodeEndpoint = await thisEndpoint.drpNode.VerifyNodeConnection(sourceNodeID);
+
+                            // FOUND DOUBLE SUB ERROR - The VerifyNodeConnection will eval subscriptions!
+                            // If already connected, we need to send the subscription request
+                            // If this causes a connection, the subscription request will be auto-created
+                            //
+                            // TO DO - Figure out how to solve this
 
                             // Subscribe on behalf of the Consumer
                             //console.log(`Subscribing to stream [${params.topicName}] for client from node [${sourceNodeID}] using streamToken [${subscriberStreamToken}]`);
-                            let sourceStreamToken = thisNodeEndpoint.AddStreamHandler(null, async function (response) {
+                            let sourceStreamToken = thisNodeEndpoint.AddStreamHandler(async function (response) {
                                 //console.log(`... stream data ... streamToken[${subscriberStreamToken}]`);
                                 //console.dir(response);
                                 let sendFailed = false;
@@ -121,18 +126,18 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
                                 }
                                 if (sendFailed) {
                                     // Client disconnected
-                                    if (thisNodeEndpoint.wsConn.StreamHandlerQueue[response.token]) {
-                                        thisNodeEndpoint.DeleteStreamHandler(thisNodeEndpoint.wsConn, response.token);
+                                    if (thisNodeEndpoint.StreamHandlerQueue[response.token]) {
+                                        thisNodeEndpoint.DeleteStreamHandler(response.token);
                                         //console.log("Stream handler removed forcefully");
                                     }
-                                    let unsubResults = await thisNodeEndpoint.SendCmd(thisNodeEndpoint.wsConn, "DRP", "unsubscribe", { "topicName": thisSubscription.topicName, "streamToken": response.token }, true, null);
+                                    let unsubResults = await thisNodeEndpoint.SendCmd("DRP", "unsubscribe", { "topicName": thisSubscription.topicName, "streamToken": response.token }, true, null);
                                     //console.log("Unsubscribe from orphaned stream");
                                     //console.dir(unsubResults);
                                 }
                             });
 
                             // Await for command from source node
-                            results[sourceNodeID] = await thisNodeEndpoint.SendCmd(thisNodeEndpoint.wsConn, "DRP", "subscribe", { "topicName": thisSubscription.topicName, "streamToken": sourceStreamToken }, true, null);
+                            results[sourceNodeID] = await thisNodeEndpoint.SendCmd("DRP", "subscribe", { "topicName": thisSubscription.topicName, "streamToken": sourceStreamToken }, true, null);
                         }
                     }
                 }
