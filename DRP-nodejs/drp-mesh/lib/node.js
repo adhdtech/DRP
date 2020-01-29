@@ -1320,7 +1320,7 @@ class DRP_Node {
 
     async PingDomainRegistries(domainName) {
         let thisNode = this;
-        let recordList = await dns.resolveSrv(`_drp._tcp.${domainName}`);
+        let recordList = await dns.resolveSrv(`_drp.${domainName}`);
 
         let srvHash = recordList.reduce((map, srvRecord) => {
             let key = `${srvRecord.name}-${srvRecord.port}`;
