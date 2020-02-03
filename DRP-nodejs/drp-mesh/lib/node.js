@@ -1351,6 +1351,11 @@ class DRP_Node {
         );
     }
 
+    /**
+     * 
+     * @param {string} registryURL DRP Domain FQDN
+     * @param {function} openCallback Callback after open
+     */
     async ConnectToRegistry(registryURL, openCallback) {
         let thisNode = this;
         // Initiate Registry Connection
@@ -1389,6 +1394,11 @@ class DRP_Node {
         });
     }
 
+    /**
+     * 
+     * @param {string} domainName DRP Domain FQDN
+     * @param {function} openCallback Callback after open
+     */
     async ConnectToRegistryByDomain(domainName, openCallback) {
         let thisNode = this;
         // Look up SRV records for DNS

@@ -8,13 +8,30 @@ class DRP_Service {
      * 
      * @param {string} serviceName Service Name
      * @param {DRP_Node} drpNode DRP Node
+     * @param {string} type Service Type
+     * @param {string} instanceID Instance ID
+     * @param {boolean} persistence Stickiness
+     * @param {number} priority Lower better
+     * @param {number} weight Higher better
+     * @param {string} zone Declared zone
+     * @param {string} scope Availability Local|Zone|Global
+     * @param {string[]} dependencies Peer service dependencies
      */
-    constructor(serviceName, drpNode) {
+    constructor(serviceName, drpNode, type, instanceID, persistence, priority, weight, zone, scope, dependencies) {
         this.serviceName = serviceName;
         this.drpNode = drpNode;
         this.ClientCmds = {};
         /** @type Object.<string,UMLClass> */
         this.Classes = {};
+        this.Type = type;
+        this.InstanceID = instanceID;
+        this.Persistence = persistence;
+        this.Priority = priority;
+        this.Weight = weight;
+        this.Zone = zone;
+        this.Scope = scope || "zone";
+        this.Dependencies = dependencies || [];
+        this.Status = 0;
         this.isCacheable = false;
         this.lastSnapTime = null;
         this.snapIsRunning = false;
