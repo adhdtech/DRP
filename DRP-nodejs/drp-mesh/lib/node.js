@@ -61,7 +61,7 @@ class DRP_NodeDeclaration {
 class DRP_Node {
     /**
      * 
-     * @param {string[]} nodeRoles List of Roles: Broker, Provider, Registry
+     * @param {string[]} nodeRoles List of Roles: Broker, Provider, Registry 
      * @param {DRP_WebServer} webServer Web server (optional)
      * @param {string} drpRoute DRP WS Route (optional)
      * @param {string} nodeURL Node WS URL (optional)
@@ -1701,6 +1701,58 @@ class DRP_NodeClient extends DRP_Client {
         return this.drpNode.UnregisterNode(params);
     }
 
+}
+
+class DRP_RouteTableEntry {
+    constructor() {
+        this.nextHopNode = "";
+        this.originNode = "";
+        this.serviceName = "";
+        this.serviceType = "";
+        this.serviceZone = "";
+        this.serviceScope = "";
+
+        this.serviceName = serviceName;
+        this.Type = type;
+        this.InstanceID = instanceID;
+        this.Persistence = persistence;
+        this.Priority = priority;
+        this.Weight = weight;
+        this.Zone = zone;
+        this.Scope = scope || "zone";
+        this.Dependencies = dependencies || [];
+        this.Status = 0;
+    }
+}
+
+class DRP_RouteTable {
+    constructor() {
+        /** @type Object.<string,DRP_RouteTableEntry> */
+        this.RouteEntries = {};
+        // Set timeout in seconds
+        this.Timeout = 10;
+        // Start watchdog timer
+        this.WatchDogTimer = setInterval(async () => {
+            this.WatchDog();
+        }, this.Timeout);
+    }
+
+    WatchDog() {
+        // Pings from DRP Endpoints reset timers on services advertised by those endpoints
+        // In a perfect world we wouldn't need the watchdog; the entries would be removed
+        // on DRP Endpoint "onClose" events.  However, we need to account for cases where
+        // the remote node becomes unresponsive.
+
+        // Loop over RouteEntries
+
+            // Has entry timed out?
+
+                // Yes
+
+                    // Remove from table
+
+                    // Relay to non-ingress DRP Endpoint connections
+    }
 }
 
 module.exports = DRP_Node;
