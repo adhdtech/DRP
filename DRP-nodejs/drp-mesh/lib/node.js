@@ -1396,10 +1396,9 @@ class DRP_Node {
 
     /**
      * 
-     * @param {string} domainName DRP Domain FQDN
      * @param {function} openCallback Callback after open
      */
-    async ConnectToRegistryByDomain(domainName, openCallback) {
+    async ConnectToRegistryByDomain(openCallback) {
         let thisNode = this;
         // Look up SRV records for DNS
         try {
@@ -1703,8 +1702,15 @@ class DRP_NodeClient extends DRP_Client {
 
 }
 
-class DRP_RouteTableEntry {
+class DRP_ServiceTableEntry {
+    /**
+     * @property {string} nextHopNode Next DRP Node
+     */
     constructor() {
+        /**
+        * Next DRP Node to reach service
+        * @type {string}
+        */
         this.nextHopNode = "";
         this.originNode = "";
         this.serviceName = "";
@@ -1725,10 +1731,10 @@ class DRP_RouteTableEntry {
     }
 }
 
-class DRP_RouteTable {
+class DRP_ServiceTable {
     constructor() {
-        /** @type Object.<string,DRP_RouteTableEntry> */
-        this.RouteEntries = {};
+        /** @type Object.<string,DRP_ServiceTableEntry> */
+        this.ServiceEntries = {};
         // Set timeout in seconds
         this.Timeout = 10;
         // Start watchdog timer
@@ -1743,7 +1749,7 @@ class DRP_RouteTable {
         // on DRP Endpoint "onClose" events.  However, we need to account for cases where
         // the remote node becomes unresponsive.
 
-        // Loop over RouteEntries
+        // Loop over ServiceEntries
 
             // Has entry timed out?
 
