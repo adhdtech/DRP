@@ -22,6 +22,7 @@
     "drp-mesh": "./drp-mesh",
     "drp-service-cache": "./drp-service-cache",
     "drp-service-docmgr": "./drp-service-docmgr",
-    "drp-service-rsage": "./drp-service-rsage"
+    "drp-service-rsage": "./drp-service-rsage",
+    "tcp-ping": "^0.1.1"
   }
 }

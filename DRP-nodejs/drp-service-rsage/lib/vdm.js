@@ -56,7 +56,7 @@ class VDMServer extends DRP_Service {
      * @param {function} asyncAuthorizer Async Authorizer
      */
     constructor(serviceName, drpNode, clientDirectory, asyncAuthorizer) {
-        super(serviceName, drpNode);
+        super(serviceName, drpNode, "VDM", `${drpNode.nodeID}-${serviceName}`, true, 10, 10, drpNode.Zone, "local", null, 1);
 
         this.expressApp = drpNode.WebServer.expressApp;
 
@@ -77,7 +77,12 @@ class VDMServer extends DRP_Service {
         else {
             this.expressApp.route('/')
                 .get((req, res) => {
-                    res.sendFile("client.html", { "root": clientDirectory });
+                    let userAgentString = req.headers['user-agent'];
+                    if (userAgentString.includes(" Quest")) {
+                        res.sendFile("oculus.html", { "root": clientDirectory });
+                    } else {
+                        res.sendFile("client.html", { "root": clientDirectory });
+                    }
                     //res.redirect('client.html');
                     return;
                 });

@@ -83,6 +83,26 @@ class DRP_Endpoint {
     }
 
     /**
+     * Send serialized packet data
+     * @param {string} drpPacketString JSON string
+     * @returns {number} Error code (0 good, 1 wsConn not open, 2 send error)
+     */
+    SendPacketString(drpPacketString) {
+        let thisEndpoint = this;
+
+        if (thisEndpoint.wsConn.readyState !== WebSocket.OPEN)
+            //return "wsConn not OPEN";
+            return 1;
+        try {
+            thisEndpoint.wsConn.send(drpPacketString);
+            return 0;
+        } catch (e) {
+            //return e;
+            return 2;
+        }
+    }
+
+    /**
      * 
      * @param {string} serviceName DRP Service Name
      * @param {string} cmd Service Method
@@ -107,170 +127,236 @@ class DRP_Endpoint {
         } else if (typeof callback === 'function') {
             // We expect a response, using callback; add callback to queue
             replyToken = thisEndpoint.AddReplyHandler(callback);
-            //replyToken = thisEndpoint.GetToken(wsConn);
-            //wsConn.ReturnCmdQueue[replyToken] = callback;
         } else {
             // We don't expect a response; leave replyToken null
         }
-
-        let sendCmd = new DRP_Cmd(serviceName, cmd, params, replyToken, routeOptions);
-        thisEndpoint.wsConn.send(JSON.stringify(sendCmd));
+        let packetObj = new DRP_Cmd(serviceName, cmd, params, replyToken, routeOptions);
+        let packetString = JSON.stringify(packetObj);
+        thisEndpoint.SendPacketString(packetString);
         return returnVal;
     }
 
-    SendReply(token, status, payload) {
-        if (this.wsConn.readyState === WebSocket.OPEN) {
-            let replyString = null;
-            try {
-                replyString = JSON.stringify(new DRP_Reply(token, status, payload));
-            } catch (e) {
-                replyString = JSON.stringify(new DRP_Reply(token, 2, `Failed to stringify response: ${e}`));
-            }
-            this.wsConn.send(replyString);
-            return 0;
-        } else {
-            return 1;
-        }
-    }
+    /**
+     * Send reply to received command
+     * @param {string} token Reply token
+     * @param {number} status Reply status
+     * @param {any} payload Payload to send
+     * @param {DRP_RouteOptions} routeOptions Route options
+     * @returns {number} Error string
+     */
+    SendReply(token, status, payload, routeOptions) {
+        let thisEndpoint = this;
+        let packetString = null;
+        let packetObj = null;
 
-    SendStream(token, status, payload) {
-        if (this.wsConn.readyState === WebSocket.OPEN) {
-            let streamCmd = new DRP_Stream(token, status, payload);
-            this.wsConn.send(JSON.stringify(streamCmd));
-            return 0;
-        } else {
-            return 1;
+        try {
+            packetObj = new DRP_Reply(token, status, payload, routeOptions);
+            packetString = JSON.stringify(packetObj);
+        } catch (e) {
+            packetObj = new DRP_Reply(token, 2, `Failed to stringify response: ${e}`);
+            packetString = JSON.stringify(packetObj);
         }
+        return thisEndpoint.SendPacketString(packetString);
+    }
+    /**
+     * Send streaming data
+     * @param {string} token Stream token
+     * @param {number} status Stream status (1 continue, 2 end)?
+     * @param {any} payload Payload to send
+     * @param {DRP_RouteOptions} routeOptions Route options
+     * @returns {number} Error status
+     */
+    SendStream(token, status, payload, routeOptions) {
+        let thisEndpoint = this;
+        let packetObj = new DRP_Stream(token, status, payload, routeOptions);
+        let packetString = JSON.stringify(packetObj);
+        return thisEndpoint.SendPacketString(packetString);
     }
 
     /**
-     * 
-     * @param {DRP_Cmd} message DRP Command
+     * Process inbound DRP Command
+     * @param {DRP_Cmd} drpPacket DRP Command
      */
-    async ProcessCmd(message) {
+    async ProcessCmd(drpPacket) {
         let thisEndpoint = this;
-
-        // TODO - Add logic to support the .srcNodeID & .tgtNodeID attributes for command routing
-
-        /**
-         * Possible conditions:
-         *      .tgtNodeID is NULL/undef || .tgtNodeID === thisEndpoint.drpNode.nodeID
-         *          -> Execute locally
-         *          
-         *      .tgtNodeID exists && is a recognized node
-         *          -> VerifyConnection & route command to target
-         *          
-         *       ELSE
-         *          -> No path to .tgtNodeID
-         **/
 
         var cmdResults = {
             status: 0,
             output: null
         };
 
-        if (!message.routeOptions || message.routeOptions.tgtNodeID === thisEndpoint.drpNode.nodeID) {
-            // Execute locally
+        // Is the message meant for the default DRP service?
+        if (!drpPacket.serviceName || drpPacket.serviceName === "DRP") {
 
-            // Is the message meant for the default DRP service?
-            if (!message.serviceName || message.serviceName === "DRP") {
-                if (typeof thisEndpoint.EndpointCmds[message.cmd] === 'function') {
-                    // Execute method
-                    try {
-                        cmdResults.output = await thisEndpoint.EndpointCmds[message.cmd](message.params, thisEndpoint, message.replytoken);
-                        cmdResults.status = 1;
-                    } catch (err) {
-                        cmdResults.output = err.message;
-                    }
-                } else {
-                    cmdResults.output = "Endpoint does not have method";
-                    thisEndpoint.log(`Remote endpoint tried to execute invalid method '${message.cmd}'`);
-                }
-            } else {
+            // Yes - execute as a DRP command
+            if (typeof thisEndpoint.EndpointCmds[drpPacket.cmd] === 'function') {
+                // Execute method
                 try {
-                    cmdResults.output = await thisEndpoint.drpNode.ServiceCommand(message, thisEndpoint);
+                    cmdResults.output = await thisEndpoint.EndpointCmds[drpPacket.cmd](drpPacket.params, thisEndpoint, drpPacket.replytoken);
                     cmdResults.status = 1;
                 } catch (err) {
                     cmdResults.output = err.message;
                 }
+            } else {
+                cmdResults.output = "Endpoint does not have method";
+                thisEndpoint.log(`Remote endpoint tried to execute invalid method '${drpPacket.cmd}'`);
             }
 
+            // No - execute as a local service command
         } else {
-            // This message is meant for a remote node
-
             try {
-                /** @type DRP_Endpoint */
-                let targetNodeEndpoint = await thisEndpoint.drpNode.VerifyNodeConnection(message.routeOptions.tgtNodeID);
-                cmdResults.output = await targetNodeEndpoint.SendCmd(message.serviceName, message.cmd, message.params, true, null);
-            } catch (ex) {
-                // Either could not get connection to node or command send attempt errored out
+                cmdResults.output = await thisEndpoint.drpNode.ServiceCommand(drpPacket, thisEndpoint);
+                cmdResults.status = 1;
+            } catch (err) {
+                cmdResults.output = err.message;
             }
         }
 
         // Reply with results
-        if (typeof message.replytoken !== "undefined" && message.replytoken !== null) {
-            thisEndpoint.SendReply(message.replytoken, cmdResults.status, cmdResults.output);
+        if (typeof drpPacket.replytoken !== "undefined" && drpPacket.replytoken !== null) {
+            let routeOptions = null;
+            if (drpPacket.routeOptions && drpPacket.routeOptions.tgtNodeID === thisEndpoint.drpNode.nodeID) {
+                routeOptions = new DRP_RouteOptions(thisEndpoint.drpNode.nodeID, drpPacket.routeOptions.srcNodeID);
+            }
+            thisEndpoint.SendReply(drpPacket.replytoken, cmdResults.status, cmdResults.output, routeOptions);
         }
     }
 
-    async ProcessReply(message) {
+    /**
+    * Process inbound DRP Reply
+    * @param {DRP_Reply} drpPacket DRP Reply Packet
+    */
+    async ProcessReply(drpPacket) {
         let thisEndpoint = this;
 
         //console.dir(message, {"depth": 10})
 
         // Yes - do we have the token?
-        if (thisEndpoint.ReplyHandlerQueue.hasOwnProperty(message.token)) {
+        if (thisEndpoint.ReplyHandlerQueue.hasOwnProperty(drpPacket.token)) {
 
             // We have the token - execute the reply callback
-            thisEndpoint.ReplyHandlerQueue[message.token](message);
+            thisEndpoint.ReplyHandlerQueue[drpPacket.token](drpPacket);
 
-            delete thisEndpoint.ReplyHandlerQueue[message.token];
+            delete thisEndpoint.ReplyHandlerQueue[drpPacket.token];
 
         } else {
             // We do not have the token - tell the sender we do not honor this token
         }
     }
 
-    async ProcessStream(message) {
+    /**
+    * Process inbound DRP Stream
+    * @param {DRP_Stream} drpPacket DRP Stream Packet
+    */
+    async ProcessStream(drpPacket) {
         let thisEndpoint = this;
 
         //console.dir(message, {"depth": 10})
 
         // Yes - do we have the token?
-        if (thisEndpoint.StreamHandlerQueue.hasOwnProperty(message.token)) {
+        if (thisEndpoint.StreamHandlerQueue.hasOwnProperty(drpPacket.token)) {
 
             // We have the token - execute the reply callback
-            thisEndpoint.StreamHandlerQueue[message.token](message);
+            thisEndpoint.StreamHandlerQueue[drpPacket.token](drpPacket);
 
         } else {
             // We do not have the token - tell the sender we do not honor this token
         }
+    }
+
+    /**
+    * Check whether or not to relay the packet
+    * @param {DRP_Packet} drpPacket DRP Packet
+    * @returns {boolean} Should the packet be relayed?
+    */
+    ShouldRelay(drpPacket) {
+        let thisEndpoint = this;
+        if (drpPacket.routeOptions && drpPacket.routeOptions.tgtNodeID && drpPacket.routeOptions.tgtNodeID !== thisEndpoint.drpNode.nodeID)
+            return true;
+        else
+            return false;
     }
 
     async ReceiveMessage(rawMessage) {
         let thisEndpoint = this;
-        let message;
+        /** @type {DRP_Packet} */
+        let drpPacket;
         try {
-            message = JSON.parse(rawMessage);
+            drpPacket = JSON.parse(rawMessage);
         } catch (e) {
             thisEndpoint.log("Received non-JSON message, disconnecting client... %s", wsConn._socket.remoteAddress);
             thisEndpoint.wsConn.close();
             return;
         }
-        //console.log("RECV <- " + rawMessage);
 
-        switch (message.type) {
+        // Should we relay the packet?
+        if (thisEndpoint.ShouldRelay(drpPacket)) {
+            // This is meant for another node
+            thisEndpoint.RelayPacket(drpPacket);
+            return;
+        }
+
+        // Process locally
+        switch (drpPacket.type) {
             case 'cmd':
-                thisEndpoint.ProcessCmd(message);
+                thisEndpoint.ProcessCmd(drpPacket);
                 break;
             case 'reply':
-                thisEndpoint.ProcessReply(message);
+                thisEndpoint.ProcessReply(drpPacket);
                 break;
             case 'stream':
-                thisEndpoint.ProcessStream(message);
+                thisEndpoint.ProcessStream(drpPacket);
                 break;
             default:
                 thisEndpoint.log("Invalid message.type; here's the JSON data..." + rawMessage);
+        }
+    }
+
+    /**
+     * Relay DRP Packet
+     * @param {DRP_Packet} drpPacket Packet to relay
+     */
+    async RelayPacket(drpPacket) {
+        let thisEndpoint = this;
+        try {
+            // Validate sending endpoint
+            if (!thisEndpoint.EndpointID) {
+                // Sending endpoint has not authenticated
+                throw `sending endpoint has not authenticated`;
+            }
+
+            // Validate source node
+            if (!thisEndpoint.drpNode.TopologyTracker.ValidateNodeID(drpPacket.routeOptions.srcNodeID)) {
+                // Source NodeID is invalid
+                throw `srcNodeID ${drpPacket.routeOptions.srcNodeID} not found`;
+            }
+
+            // Validate destination node
+            if (!thisEndpoint.drpNode.TopologyTracker.ValidateNodeID(drpPacket.routeOptions.tgtNodeID)) {
+                // Target NodeID is invalid
+                throw `tgtNodeID ${drpPacket.routeOptions.tgtNodeID} not found`;
+            }
+
+            // Verify whether or not we SHOULD relay the node
+            // if (thisEndpoint.drpNode.IsRegistry() || thisEndpoint.drpNode.IsRelay())
+
+            let nextHopNodeID = thisEndpoint.drpNode.TopologyTracker.GetNextHop(drpPacket.routeOptions.tgtNodeID);
+
+            /** @type DRP_Endpoint */
+            let targetNodeEndpoint = await thisEndpoint.drpNode.VerifyNodeConnection(nextHopNodeID);
+
+            // Add this node to the routing history
+            drpPacket.routeOptions.routeHistory.push(thisEndpoint.drpNode.nodeID);
+
+            // We do not need to await the results; any target replies will automatically be routed
+            targetNodeEndpoint.SendPacketString(JSON.stringify(drpPacket));
+            thisEndpoint.drpNode.PacketRelayCount++;
+            //thisEndpoint.drpNode.log(`Relaying packet...`);
+            //console.dir(drpPacket);
+
+        } catch (ex) {
+            // Either could not get connection to node or command send attempt errored out
+            thisEndpoint.drpNode.log(`Could not relay message: ${ex}`);
         }
     }
 
@@ -400,7 +486,14 @@ class DRP_Endpoint {
     }
 }
 
-class DRP_Cmd {
+class DRP_Packet {
+    constructor(type, routeOptions) {
+        this.type = type;
+        this.routeOptions = routeOptions || null;
+    }
+}
+
+class DRP_Cmd extends DRP_Packet {
     /**
      * 
      * @param {string} serviceName DRP Service Name
@@ -410,7 +503,7 @@ class DRP_Cmd {
      * @param {DRP_RouteOptions} routeOptions Route Options
      */
     constructor(serviceName, cmd, params, replytoken, routeOptions) {
-        this.type = "cmd";
+        super("cmd", routeOptions);
         this.cmd = cmd;
         this.params = params;
         this.serviceName = serviceName;
@@ -419,25 +512,23 @@ class DRP_Cmd {
     }
 }
 
-class DRP_Reply {
-    constructor(token, status, payload, srcNodeID, tgtNodeID) {
-        this.type = "reply";
+class DRP_Reply extends DRP_Packet {
+    constructor(token, status, payload, routeOptions) {
+        super("reply", routeOptions);
         this.token = token;
         this.status = status;
         this.payload = payload;
-        this.srcNodeID = srcNodeID;
-        this.tgtNodeID = tgtNodeID;
+        this.routeOptions = routeOptions;
     }
 }
 
-class DRP_Stream {
-    constructor(token, status, payload, srcNodeID, tgtNodeID) {
-        this.type = "stream";
+class DRP_Stream extends DRP_Packet {
+    constructor(token, status, payload, routeOptions) {
+        super("stream", routeOptions);
         this.token = token;
         this.status = status;
         this.payload = payload;
-        this.srcNodeID = srcNodeID;
-        this.tgtNodeID = tgtNodeID;
+        this.routeOptions = routeOptions;
     }
 }
 
@@ -446,12 +537,12 @@ class DRP_RouteOptions {
      * 
      * @param {string} srcNodeID Source Node ID
      * @param {string} tgtNodeID Target Node ID
-     * @param {string[]} routePath List of Nodes used as proxies; could be used to calculate TTL
+     * @param {string[]} routeHistory List of Nodes used as proxies; could be used to calculate TTL
      */
-    constructor(srcNodeID, tgtNodeID, routePath) {
+    constructor(srcNodeID, tgtNodeID, routeHistory) {
         this.srcNodeID = srcNodeID;
         this.tgtNodeID = tgtNodeID;
-        this.routeHistory = routeHistory;
+        this.routeHistory = routeHistory || [];
     }
 }
 

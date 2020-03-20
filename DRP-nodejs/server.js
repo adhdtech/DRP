@@ -12,8 +12,13 @@ if (process.env.SSL_ENABLED) {
     protocol = "wss";
 }
 var port = process.env.PORT || 8080;
-var hostname = process.env.HOSTNAME || os.hostname();
-var registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
+let hostname = process.env.HOSTNAME || os.hostname();
+let hostID = process.env.HOSTID || os.hostname();
+let domainName = process.env.DOMAINNAME || null;
+let domainKey = process.env.DOMAINKEY || null;
+let zoneName = process.env.ZONENAME || "MyZone";
+//let registryURL = process.env.REGISTRYURL || null;
+let registryURL = null;
 
 let drpWSRoute = "";
 
@@ -32,9 +37,12 @@ let myServerConfig = {
 let myWebServer = new DRP_WebServer(myServerConfig);
 myWebServer.start();
 
+// Set Roles
+let roleList = ["Broker", "Registry"];
+
 // Create Node
 console.log(`Starting DRP Node...`);
-let myNode = new DRP_Node(["Broker", "Registry"], myWebServer, drpWSRoute, myServerConfig.NodeURL);
+let myNode = new DRP_Node(roleList, hostID, myWebServer, drpWSRoute, myServerConfig.NodeURL, null, domainName, domainKey, zoneName);
 
 // Declare VDM Authorization function
 /*

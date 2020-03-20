@@ -8,8 +8,7 @@
     <ScriptArguments>
     </ScriptArguments>
     <NodeExeArguments>--max-old-space-size=4096</NodeExeArguments>
-    <Environment>
-    </Environment>
+    <Environment>REGISTRYURL=ws://localhost:8082</Environment>
     <NodejsPort>8080</NodejsPort>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
@@ -18,7 +17,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>ba4b474a-fa17-4e27-bcda-500a68bbbb3a</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>server.js</StartupFile>
+    <StartupFile>drpBroker.js</StartupFile>
     <StartWebBrowser>False</StartWebBrowser>
     <SearchPath>
     </SearchPath>
@@ -65,6 +64,7 @@
     <Content Include="drpProvider-Cache.js" />
     <Content Include="drpProvider-JSONDocMgr.js" />
     <Content Include="drpProvider-Hive.js" />
+    <Content Include="drpProvider-Test-PublicDirectory.js" />
     <Content Include="jsondocs\test.json">
       <SubType>Code</SubType>
     </Content>
@@ -87,6 +87,8 @@
     <Content Include="webroot\assets\rsage-vdm\js\vdmCore.js" />
     <Content Include="webroot\client.html" />
     <Content Include="webroot\favicon.ico" />
+    <Content Include="webroot\oculus.html" />
+    <Content Include="webroot\oculus.js" />
     <Content Include="webroot\vdmapp.js" />
     <Content Include="webroot\vdmapplets\vdm-app-Blank.js" />
     <Content Include="webroot\vdmapplets\vdm-app-CommandTesting.js" />

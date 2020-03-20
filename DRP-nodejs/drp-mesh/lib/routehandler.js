@@ -18,11 +18,16 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
         this.RegisterCmd("hello", async function (...args) {
             return drpNode.Hello(...args);
         });
+        /*
         this.RegisterCmd("registerNode", async function (...args) {
             return drpNode.RegisterNode(...args);
         });
         this.RegisterCmd("unregisterNode", async function (...args) {
             return drpNode.UnregisterNode(...args);
+        });
+        */
+        this.RegisterCmd("topologyUpdate", async function (...args) {
+            return drpNode.TopologyUpdate(...args);
         });
         this.RegisterCmd("getNodeDeclaration", async function (...args) {
             return drpNode.NodeDeclaration;
@@ -35,8 +40,9 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
         this.RegisterCmd("connectToNode", async function (...args) {
             return await thisEndpoint.drpNode.ConnectToNode(...args);
         });
-        this.RegisterCmd("getRegistry", function () {
-            return thisEndpoint.drpNode.NodeDeclarations;
+
+        this.RegisterCmd("getRegistry", function (params, srcEndpoint, token) {
+            return thisEndpoint.drpNode.TopologyTracker.GetRegistry(params.reqNodeID);
         });
 
         this.RegisterCmd("getClassRecords", async function (...args) {

@@ -12,7 +12,7 @@ class JSONDocManager extends DRP_Service {
      * @param {string} basePath Base path
      */
     constructor(serviceName, drpNode, basePath) {
-        super(serviceName, drpNode);
+        super(serviceName, drpNode, "VDM", `${drpNode.nodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "zone", null, 1);
         var thisDocMgr = this;
         this.basePath = basePath;
 

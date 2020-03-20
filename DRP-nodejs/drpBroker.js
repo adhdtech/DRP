@@ -10,9 +10,13 @@ var protocol = "ws";
 if (process.env.SSL_ENABLED) {
     protocol = "wss";
 }
-var port = process.env.PORT || 8082;
-var hostname = process.env.HOSTNAME || os.hostname();
-var registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
+let port = process.env.PORT || 8082;
+let hostname = process.env.HOSTNAME || os.hostname();
+let hostID = process.env.HOSTID || os.hostname();
+let domainName = process.env.DOMAINNAME || null;
+let domainKey = process.env.DOMAINKEY || null;
+let zoneName = process.env.ZONENAME || "MyZone";
+let registryURL = process.env.REGISTRYURL || null;
 
 let drpWSRoute = "";
 
@@ -31,9 +35,15 @@ let myServerConfig = {
 let myWebServer = new DRP_WebServer(myServerConfig);
 myWebServer.start();
 
+// Set Roles
+let roleList = ["Broker"];
+
+// If we haven't specified a Registry, make this one
+if (!registryURL) roleList.push("Registry");
+
 // Create Node
 console.log(`Starting DRP Node...`);
-let myNode = new DRP_Node(["Broker"], myWebServer, drpWSRoute, myServerConfig.NodeURL);
+let myNode = new DRP_Node(roleList, hostID, myWebServer, drpWSRoute, myServerConfig.NodeURL, null, null, null, zoneName);
 
 // Create VDM Server on node
 let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot);
@@ -45,4 +55,7 @@ myNode.EnableREST("/Mesh", "Mesh");
 if (myNode.nodeURL) {
     myNode.log(`Listening at: ${myNode.nodeURL}`);
 }
-myNode.ConnectToRegistry(registryURL);
+
+if (registryURL) {
+    myNode.ConnectToRegistry(registryURL);
+}
