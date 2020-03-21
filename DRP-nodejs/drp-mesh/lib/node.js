@@ -867,15 +867,12 @@ class DRP_Node {
         if (serviceName && thisNode.NodeDeclaration.Services[serviceName]) {
             delete this.NodeDeclaration.Services[serviceName];
         }
-
-        //thisNode.SendToRegistries("registerNode", thisNode.NodeDeclaration);
     }
 
     AddStream(streamName, streamDescription) {
         let thisNode = this;
         if (streamName && streamDescription) {
             //thisNode.NodeDeclaration.Streams[streamName] = streamDescription;
-            //thisNode.SendToRegistries("registerNode", thisNode.NodeDeclaration);
         }
     }
 
@@ -1015,7 +1012,7 @@ class DRP_Node {
      * @param {DRP_NodeDeclaration} declaration Node declaration to check
      * @returns {boolean} Successful [true/false]
      */
-    async ValidateNodeDeclaration(declaration) {
+    ValidateNodeDeclaration(declaration) {
         let thisNode = this;
         let returnVal = false;
 
@@ -1026,6 +1023,7 @@ class DRP_Node {
             // Do the domain keys match?
             if (!thisNode.DomainKey && !declaration.DomainKey || thisNode.DomainKey === declaration.DomainKey) {
                 // Yes - allow the remote node to connect
+                returnVal = true;
             }
         }
 
@@ -1052,7 +1050,7 @@ class DRP_Node {
             thisNode.log(`Remote node client sent Hello [${declaration.NodeID}]`);
 
             // Validate the remote node's domain and key (if applicable)
-            if (!thisNode.ValidateNodeDeclaration(declaration)) {
+            if (! thisNode.ValidateNodeDeclaration(declaration)) {
                 // The remote node did not offer a DomainKey or the key does not match
                 thisNode.log(`Node [${declaration.NodeID}] declaration could not be validated`);
                 sourceEndpoint.Close();
@@ -1629,8 +1627,6 @@ class DRP_NodeClient extends DRP_Client {
 
         this.RegisterCmd("subscribe", "Subscribe");
         this.RegisterCmd("unsubscribe", "Unsubscribe");
-        //this.RegisterCmd("registerNode", "RegisterNode");
-        //this.RegisterCmd("unregisterNode", "UnregisterNode");
         this.RegisterCmd("topologyUpdate", async function (...args) {
             drpNode.TopologyUpdate(...args);
         });
@@ -1673,7 +1669,7 @@ class DRP_NodeClient extends DRP_Client {
                 thisEndpoint.drpNode.UnregisterNode(thisEndpoint.EndpointID);
                 break;
             case "Consumer":
-                thisEndpoint.drpNode.ConsumerEndpoints[thisEndpoint.EndpointID];
+                delete thisEndpoint.drpNode.ConsumerEndpoints[thisEndpoint.EndpointID];
                 break;
             default:
         }
@@ -1693,14 +1689,6 @@ class DRP_NodeClient extends DRP_Client {
 
     async GetNodeDeclaration() {
         return this.drpNode.NodeDeclaration;
-    }
-
-    async RegisterNode(params) {
-        return this.drpNode.RegisterNode(params);
-    }
-
-    async UnregisterNode(params) {
-        return this.drpNode.UnregisterNode(params);
     }
 
 }

@@ -43,7 +43,7 @@ if (!registryURL) roleList.push("Registry");
 
 // Create Node
 console.log(`Starting DRP Node...`);
-let myNode = new DRP_Node(roleList, hostID, myWebServer, drpWSRoute, myServerConfig.NodeURL, null, null, null, zoneName);
+let myNode = new DRP_Node(roleList, hostID, myWebServer, drpWSRoute, myServerConfig.NodeURL, null, domainName, domainKey, zoneName);
 
 // Create VDM Server on node
 let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot);
