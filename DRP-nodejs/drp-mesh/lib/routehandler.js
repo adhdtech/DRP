@@ -18,14 +18,6 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
         this.RegisterCmd("hello", async function (...args) {
             return drpNode.Hello(...args);
         });
-        /*
-        this.RegisterCmd("registerNode", async function (...args) {
-            return drpNode.RegisterNode(...args);
-        });
-        this.RegisterCmd("unregisterNode", async function (...args) {
-            return drpNode.UnregisterNode(...args);
-        });
-        */
         this.RegisterCmd("topologyUpdate", async function (...args) {
             return drpNode.TopologyUpdate(...args);
         });
@@ -182,19 +174,7 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
     async CloseHandler(closeCode) {
         let thisEndpoint = this;
 
-        switch (thisEndpoint.EndpointType) {
-            case "Node":
-                thisEndpoint.drpNode.UnregisterNode(thisEndpoint.EndpointID);
-                break;
-            case "Consumer":
-                thisEndpoint.drpNode.ConsumerEndpoints[thisEndpoint.EndpointID];
-                break;
-            default:
-        }
-
-        if (this.closeCallback && typeof this.closeCallback === 'function') {
-            this.closeCallback();
-        }
+        thisEndpoint.drpNode.RemoveEndpoint(thisEndpoint, thisEndpoint.closeCallback );
     }
 
     async ErrorHandler(wsConn, error) {

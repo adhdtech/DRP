@@ -132,7 +132,6 @@ class DRP_Node {
         // If this is a Registry, seed the Registry with it's own declaration
         if (thisNode.IsRegistry()) {
             this.AddStream("RegistryUpdate", "Registry updates");
-            //this.RegisterNode(this.NodeDeclaration);
 
             if (this.DomainName) {
                 // A domain name was provided; attempt to cluster with other registry hosts
@@ -424,7 +423,7 @@ class DRP_Node {
 
                         if (targetEndpoint) {
                             // Await for command from consumer
-                            let results = await targetEndpoint.SendCmd(targetEndpoint, "DRP", params.method, params, true, null);
+                            let results = await targetEndpoint.SendCmd("DRP", params.method, params, true, null);
                             if (results && results.payload && results.payload) {
                                 oReturnObject = results.payload;
                             }
@@ -676,33 +675,6 @@ class DRP_Node {
         }
 
         return oReturnObject;
-    }
-
-    GetRegistryNodeIDs() {
-        let thisNode = this;
-        let registryNodeIDList = [];
-        let nodeIDlist = Object.keys(thisNode.NodeDeclarations);
-        for (let i = 0; i < nodeIDlist.length; i++) {
-            let thisNodeID = nodeIDlist[i];
-            /** @type DRP_NodeDeclaration */
-            let thisNodeDeclaration = thisNode.NodeDeclarations[thisNodeID];
-            if (thisNodeDeclaration.NodeRoles.indexOf("Registry") >= 0) {
-                registryNodeIDList.push(thisNodeID);
-            }
-        }
-        return registryNodeIDList;
-    }
-
-    async SendToRegistries(cmd, params) {
-        let thisNode = this;
-        let registryNodeIDList = thisNode.GetRegistryNodeIDs();
-        for (let i = 0; i < registryNodeIDList.length; i++) {
-            /** @type DRP_NodeClient */
-            let thisRegistryNodeEndpoint = thisNode.NodeEndpoints[registryNodeIDList[i]];
-            if (thisRegistryNodeEndpoint) {
-                thisRegistryNodeEndpoint.SendCmd("DRP", cmd, params, false, null);
-            }
-        }
     }
 
     /**
@@ -1050,7 +1022,7 @@ class DRP_Node {
             thisNode.log(`Remote node client sent Hello [${declaration.NodeID}]`);
 
             // Validate the remote node's domain and key (if applicable)
-            if (! thisNode.ValidateNodeDeclaration(declaration)) {
+            if (!thisNode.ValidateNodeDeclaration(declaration)) {
                 // The remote node did not offer a DomainKey or the key does not match
                 thisNode.log(`Node [${declaration.NodeID}] declaration could not be validated`);
                 sourceEndpoint.Close();
@@ -1070,8 +1042,6 @@ class DRP_Node {
 
             thisNode.TopologyTracker.ProcessNodeConnect(sourceEndpoint, declaration, localNodeIsProxy);
 
-            //thisNode.RegisterNode(declaration);
-
         } else if (declaration.userAgent) {
             // This is a consumer declaration
             sourceEndpoint.EndpointType = "Consumer";
@@ -1088,6 +1058,9 @@ class DRP_Node {
 
         return results;
     }
+
+    // TODO - The "RegisterNode" function was responsible for evaluating newly recognized sources against client subscriptions.
+    //        Move these to functions that get triggered on TopologyManager changes?
 
     /**
      * 
@@ -1107,12 +1080,6 @@ class DRP_Node {
 
         // Send to topic manager for debugging
         thisNode.TopicManager.SendToTopic("RegistryUpdate", { "action": "register", "nodeID": declaration.NodeID, "declaration": declaration });
-
-        /*
-        if (thisNode.IsRegistry()) {
-            thisNode.RelayNodeChange("registerNode", declaration);
-        }
-        */
 
         // If this Node has subscriptions, check against the new Node
         let providerStreamNames = Object.keys(declaration.Streams);
@@ -1260,14 +1227,6 @@ class DRP_Node {
 
     }
 
-    async UnregisterNode(nodeID) {
-        // Delete node
-        let thisNode = this;
-        thisNode.log(`Unregistering node [${nodeID}]`);
-        delete thisNode.NodeEndpoints[nodeID];
-        thisNode.TopologyTracker.ProcessNodeDisconnect(nodeID);
-    }
-
     /**
      * 
      * @param {DRP_TopologyPacket} topologyPacket DRP Topology Packet
@@ -1334,13 +1293,6 @@ class DRP_Node {
 
             // Get Registry
             thisNode.TopologyTracker.ProcessNodeConnect(nodeClient, getDeclarationResponse.payload);
-            /*
-            let getRegistryResponse = await nodeClient.SendCmd("DRP", "getRegistry", null, true, null);
-            thisNode.NodeDeclarations = getRegistryResponse.payload;
-            if (openCallback && typeof openCallback === 'function') {
-                openCallback(response);
-            }
-            */
 
             // If this Node has subscriptions, contact Providers
             let subscriptionNameList = Object.keys(thisNode.Subscriptions);
@@ -1604,6 +1556,26 @@ class DRP_Node {
 
         return nodeClientConnections;
     }
+
+    RemoveEndpoint(staleEndpoint, callback) {
+        let thisNode = this;
+        let staleNodeID = staleEndpoint.EndpointID;
+        switch (staleEndpoint.EndpointType) {
+            case "Node":
+                thisNode.log(`Removing disconnected node [${staleNodeID}]`);
+                delete thisNode.NodeEndpoints[staleNodeID];
+                thisNode.TopologyTracker.ProcessNodeDisconnect(staleNodeID);
+
+                break;
+            case "Consumer":
+                delete thisNode.ConsumerEndpoints[staleNodeID];
+                break;
+            default:
+        }
+        if (callback && typeof callback === 'function') {
+            callback();
+        }
+    }
 }
 
 class DRP_NodeClient extends DRP_Client {
@@ -1664,19 +1636,8 @@ class DRP_NodeClient extends DRP_Client {
         let thisEndpoint = this;
         this.log("Node client [" + thisEndpoint.RemoteAddress() + ":" + thisEndpoint.RemotePort() + "] closed with code [" + closeCode + "]");
 
-        switch (thisEndpoint.EndpointType) {
-            case "Node":
-                thisEndpoint.drpNode.UnregisterNode(thisEndpoint.EndpointID);
-                break;
-            case "Consumer":
-                delete thisEndpoint.drpNode.ConsumerEndpoints[thisEndpoint.EndpointID];
-                break;
-            default:
-        }
+        thisEndpoint.drpNode.RemoveEndpoint(thisEndpoint, thisEndpoint.closeCallback);
 
-        if (this.closeCallback && typeof this.closeCallback === 'function') {
-            this.closeCallback();
-        }
         if (this.retryOnClose) {
             await sleep(5000);
             this.RetryConnection();
