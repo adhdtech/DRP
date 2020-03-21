@@ -8,7 +8,10 @@
     <ScriptArguments>
     </ScriptArguments>
     <NodeExeArguments>--max-old-space-size=4096</NodeExeArguments>
-    <Environment>REGISTRYURL=ws://localhost:8082</Environment>
+    <Environment>REGISTRYURL=ws://localhost:8082
+DOMAINNAME=mydomain.xyz
+DOMAINKEY=supersecretkey
+DEBUG=true</Environment>
     <NodejsPort>8080</NodejsPort>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
@@ -85,6 +88,15 @@
     <Content Include="webroot\assets\rsage-vdm\img\pattern12.png" />
     <Content Include="webroot\assets\rsage-vdm\js\vdmClient.js" />
     <Content Include="webroot\assets\rsage-vdm\js\vdmCore.js" />
+    <Content Include="webroot\assets\webxr\sounds\jg-032316-sfx-sub-pulse.mp3" />
+    <Content Include="webroot\assets\webxr\textures\earth2-normal.jpg" />
+    <Content Include="webroot\assets\webxr\textures\earthbump.jpg" />
+    <Content Include="webroot\assets\webxr\textures\skybox02_ax.png" />
+    <Content Include="webroot\assets\webxr\textures\skybox02_ay.png" />
+    <Content Include="webroot\assets\webxr\textures\skybox02_az.png" />
+    <Content Include="webroot\assets\webxr\textures\skybox02_px.png" />
+    <Content Include="webroot\assets\webxr\textures\skybox02_py.png" />
+    <Content Include="webroot\assets\webxr\textures\skybox02_pz.png" />
     <Content Include="webroot\client.html" />
     <Content Include="webroot\favicon.ico" />
     <Content Include="webroot\oculus.html" />
@@ -115,6 +127,9 @@
     <Folder Include="webroot\assets\rsage-vdm\css\" />
     <Folder Include="webroot\assets\rsage-vdm\img\" />
     <Folder Include="webroot\assets\rsage-vdm\js\" />
+    <Folder Include="webroot\assets\webxr\" />
+    <Folder Include="webroot\assets\webxr\sounds\" />
+    <Folder Include="webroot\assets\webxr\textures\" />
     <Folder Include="webroot\vdmapplets\" />
   </ItemGroup>
   <Import Project="$(VSToolsPath)\Node.js Tools\Microsoft.NodejsToolsV2.targets" />

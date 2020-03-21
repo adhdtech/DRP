@@ -13,6 +13,7 @@ let domainName = process.env.DOMAINNAME || null;
 let domainKey = process.env.DOMAINKEY || null;
 let zoneName = process.env.ZONENAME || "MyZone";
 let registryURL = process.env.REGISTRYURL || null;
+let debug = process.env.DEBUG || false;
 
 // Create test service class
 class TestService extends DRP_Service {
@@ -73,7 +74,7 @@ class TestService extends DRP_Service {
 // Create Node
 console.log(`Starting DRP Node...`);
 let roleList = ["Provider"];
-let myNode = new DRP_Node(roleList, hostID, null, null, null, null, domainName, domainKey, zoneName);
+let myNode = new DRP_Node(roleList, hostID, null, null, null, null, domainName, domainKey, zoneName, debug);
 
 // Declare dummy stream
 myNode.AddStream("dummy", "Test stream");

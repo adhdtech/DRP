@@ -17,6 +17,7 @@ let domainName = process.env.DOMAINNAME || null;
 let domainKey = process.env.DOMAINKEY || null;
 let zoneName = process.env.ZONENAME || "MyZone";
 let registryURL = process.env.REGISTRYURL || null;
+let debug = process.env.DEBUG || false;
 
 let drpWSRoute = "";
 
@@ -43,7 +44,7 @@ if (!registryURL) roleList.push("Registry");
 
 // Create Node
 console.log(`Starting DRP Node...`);
-let myNode = new DRP_Node(roleList, hostID, myWebServer, drpWSRoute, myServerConfig.NodeURL, null, domainName, domainKey, zoneName);
+let myNode = new DRP_Node(roleList, hostID, myWebServer, drpWSRoute, myServerConfig.NodeURL, null, domainName, domainKey, zoneName, debug);
 
 // Create VDM Server on node
 let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot);

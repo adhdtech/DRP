@@ -24,8 +24,6 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
         this.RegisterCmd("getNodeDeclaration", async function (...args) {
             return drpNode.NodeDeclaration;
         });
-        this.RegisterCmd("subscribe", "Subscribe");
-        this.RegisterCmd("unsubscribe", "Unsubscribe");
         this.RegisterCmd("pathCmd", async function (params, srcEndpoint, token) {
             return await thisEndpoint.drpNode.GetObjFromPath(params, thisEndpoint.drpNode.GetBaseObj());
         });
@@ -277,13 +275,13 @@ class DRP_RouteHandler {
                 }
                 wsConn.pingTimes.push(null);
 
-                wsConn.drpEndpoint.log(`wsPing timed out to Endpoint ${wsConn.drpEndpoint.EndpointID}`);
+                wsConn.drpEndpoint.drpNode.log(`wsPing timed out to Endpoint ${wsConn.drpEndpoint.EndpointID}`);
             }
             wsConn.pingSentTime = new Date().getTime();
             wsConn.pongRecvdTime = null;
             wsConn.ping();
         } catch (ex) {
-            wsConn.drpEndpoint.log(`Error sending wsPing to Endpoint ${wsConn.drpEndpoint.EndpointID}: ${ex}`);
+            wsConn.drpEndpoint.drpNode.log(`Error sending wsPing to Endpoint ${wsConn.drpEndpoint.EndpointID}: ${ex}`);
         }
     }
 
