@@ -27,7 +27,7 @@
 
                 myApp.appVars.svcDictionary = {};
 
-                let svcListResponse = await myApp.sendCmd("DRP", "listServiceInstances", null, true);
+                let svcListResponse = await myApp.sendCmd("DRP", "getServiceDefinitions", null, true);
                 if (svcListResponse) {
                     myApp.appVars.svcDictionary = svcListResponse;
 

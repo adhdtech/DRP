@@ -3,6 +3,7 @@
 // Had to remove this so we don't have a circular eval problem
 //const DRP_Node = require('./node');
 const DRP_Subscription = require('./subscription');
+const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Stream, DRP_RouteOptions } = require('./packet');
 
 const WebSocket = require('ws');
 
@@ -110,9 +111,10 @@ class DRP_Endpoint {
      * @param {boolean} promisify Should we promisify?
      * @param {function} callback Callback function
      * @param {DRP_RouteOptions} routeOptions Route Options
+     * @param {string} runNodeID Execute on specific Node
      * @return {Promise} Returned promise
      */
-    SendCmd(serviceName, cmd, params, promisify, callback, routeOptions) {
+    SendCmd(serviceName, cmd, params, promisify, callback, routeOptions, runNodeID) {
         let thisEndpoint = this;
         let returnVal = null;
         let replyToken = null;
@@ -130,7 +132,7 @@ class DRP_Endpoint {
         } else {
             // We don't expect a response; leave replyToken null
         }
-        let packetObj = new DRP_Cmd(serviceName, cmd, params, replyToken, routeOptions);
+        let packetObj = new DRP_Cmd(serviceName, cmd, params, replyToken, routeOptions, runNodeID);
         let packetString = JSON.stringify(packetObj);
         thisEndpoint.SendPacketString(packetString);
         return returnVal;
@@ -483,66 +485,6 @@ class DRP_Endpoint {
         } else {
             console.log(logMessage);
         }
-    }
-}
-
-class DRP_Packet {
-    constructor(type, routeOptions) {
-        this.type = type;
-        this.routeOptions = routeOptions || null;
-    }
-}
-
-class DRP_Cmd extends DRP_Packet {
-    /**
-     * 
-     * @param {string} serviceName DRP Service Name
-     * @param {string} cmd Service Method
-     * @param {Object} params Method Parameters
-     * @param {string} replytoken Reply Token
-     * @param {DRP_RouteOptions} routeOptions Route Options
-     */
-    constructor(serviceName, cmd, params, replytoken, routeOptions) {
-        super("cmd", routeOptions);
-        this.cmd = cmd;
-        this.params = params;
-        this.serviceName = serviceName;
-        this.replytoken = replytoken;
-        this.routeOptions = routeOptions;
-    }
-}
-
-class DRP_Reply extends DRP_Packet {
-    constructor(token, status, payload, routeOptions) {
-        super("reply", routeOptions);
-        this.token = token;
-        this.status = status;
-        this.payload = payload;
-        this.routeOptions = routeOptions;
-    }
-}
-
-class DRP_Stream extends DRP_Packet {
-    constructor(token, status, payload, routeOptions) {
-        super("stream", routeOptions);
-        this.token = token;
-        this.status = status;
-        this.payload = payload;
-        this.routeOptions = routeOptions;
-    }
-}
-
-class DRP_RouteOptions {
-    /**
-     * 
-     * @param {string} srcNodeID Source Node ID
-     * @param {string} tgtNodeID Target Node ID
-     * @param {string[]} routeHistory List of Nodes used as proxies; could be used to calculate TTL
-     */
-    constructor(srcNodeID, tgtNodeID, routeHistory) {
-        this.srcNodeID = srcNodeID;
-        this.tgtNodeID = tgtNodeID;
-        this.routeHistory = routeHistory || [];
     }
 }
 

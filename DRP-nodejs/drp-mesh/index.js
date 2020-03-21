@@ -12,6 +12,6 @@ DRPMesh.Service = require('./lib/service');
 DRPMesh.TopicManager = require('./lib/topicmanager');
 DRPMesh.Subscription = require('./lib/subscription');
 DRPMesh.UML = require('./lib/uml');
-DRPMesh.Command = require('./lib/command');
+DRPMesh.Packet = require('./lib/packet');
 
 module.exports = DRPMesh;

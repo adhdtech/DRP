@@ -1,7 +1,7 @@
 'use strict';
 
 const UMLClass = require('./uml').Class;
-const DRP_Command = require('./command');
+const DRP_Cmd = require('./packet').DRP_Cmd;
 
 class DRP_Service {
     /**
@@ -32,6 +32,7 @@ class DRP_Service {
         this.Zone = zone;
         this.Scope = scope || "zone";
         this.Dependencies = dependencies || [];
+        this.Streams = {};
         this.Status = status || 0;
         this.isCacheable = false;
         this.lastSnapTime = null;
@@ -47,6 +48,25 @@ class DRP_Service {
      */
     AddClass(umlClass) {
         this.Classes[umlClass.Name] = umlClass;
+    }
+
+    GetDefinition() {
+        let thisService = this;
+        let serviceDefinition = {
+            Name: thisService.serviceName,
+            Type: thisService.Type,
+            Classes: {},
+            ClientCmds: Object.keys(thisService.ClientCmds),
+            Streams: Object.keys(thisService.Streams)
+        };
+
+        // Loop over classes, get defs (excluding caches)
+        let classNameList = Object.keys(thisService.Classes);
+        for (let i = 0; i < classNameList.length; i++) {
+            let className = classNameList[i];
+            serviceDefinition[className] = thisService.Classes[className].GetDefinition();
+        }
+        return serviceDefinition;
     }
 
     InitiateSnap() {
@@ -104,7 +124,7 @@ class DRP_Service {
 
     async ReadClassCacheFromService(className) {
         let thisService = this;
-        let replyObj = await thisService.drpNode.ServiceCommand(new DRP_Command("CacheManager", "readClassCache", { "serviceName": thisService.serviceName, "className": className }));
+        let replyObj = await thisService.drpNode.ServiceCommand(new DRP_Cmd("CacheManager", "readClassCache", { "serviceName": thisService.serviceName, "className": className }));
         if (replyObj.err) {
             thisService.drpNode.log("Could not read cached objects for " + thisService.serviceName + "\\" + className + " -> " + replyObj.err);
             thisService.Classes[className].records = {};

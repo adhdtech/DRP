@@ -636,7 +636,7 @@ class Hive extends DRP_Service {
 
         /** @type {DRP_Node} */
         //let thisNode = thisHive.drpNode;
-        let serviceListObj = thisHive.drpNode.ListServiceInstances();
+        let serviceListObj = thisHive.drpNode.GetServiceDefinitions();
         let serviceNames = Object.keys(serviceListObj);
         for (let i = 0; i < serviceNames.length; i++) {
             let serviceName = serviceNames[i];

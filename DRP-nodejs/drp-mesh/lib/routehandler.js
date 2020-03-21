@@ -35,16 +35,20 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
             return thisEndpoint.drpNode.TopologyTracker.GetRegistry(params.reqNodeID);
         });
 
+        this.RegisterCmd("getServiceDefinition", function (params, srcEndpoint, token) {
+            return thisEndpoint.drpNode.GetServiceDefinition(params);
+        });
+
+        this.RegisterCmd("getServiceDefinitions", async function () {
+            return await thisEndpoint.drpNode.GetServiceDefinitions();
+        });
+
         this.RegisterCmd("getClassRecords", async function (...args) {
             return await thisEndpoint.drpNode.GetClassRecords(...args);
         });
 
         this.RegisterCmd("listClassInstances", function () {
             return thisEndpoint.drpNode.ListClassInstances();
-        });
-
-        this.RegisterCmd("listServiceInstances", function () {
-            return thisEndpoint.drpNode.ListServiceInstances();
         });
 
         this.RegisterCmd("getClassDefinitions", function () {

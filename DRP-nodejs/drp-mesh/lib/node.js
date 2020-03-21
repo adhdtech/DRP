@@ -11,7 +11,7 @@ const DRP_Service = require("./service");
 const DRP_TopicManager = require("./topicmanager");
 const DRP_RouteHandler = require("./routehandler");
 const DRP_Subscription = require('./subscription');
-const DRP_Command = require('./command');
+const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Stream, DRP_RouteOptions } = require('./packet');
 
 function getRandomInt(max) {
     return Math.floor(Math.random() * Math.floor(max));
@@ -307,31 +307,46 @@ class DRP_Node {
         return results;
     }
 
-    ListServiceInstances(params) {
-        let results = {};
-        let findServiceName = params;
-        let providerNames = Object.keys(this.NodeDeclarations);
-        for (let i = 0; i < providerNames.length; i++) {
-            let providerName = providerNames[i];
-            //console.log("Looping over providerName: " + providerName);
-            let thisNodeDeclaration = this.NodeDeclarations[providerName];
-            // Loop over Services
-            if (!thisNodeDeclaration.Services) continue;
-            let serviceInstanceList = Object.keys(thisNodeDeclaration.Services);
-            for (let j = 0; j < serviceInstanceList.length; j++) {
-                let serviceInstanceID = serviceInstanceList[j];
-                //console.log("Looping over sourceID: " + sourceID);
-                let serviceInstanceObj = thisNodeDeclaration.Services[serviceInstanceID];
-                if (!results[serviceInstanceID]) results[serviceInstanceID] = {
-                    providers: [],
-                    Classes: serviceInstanceObj.Classes,
-                    ClientCmds: serviceInstanceObj.ClientCmds
-                };
+    GetServiceDefinition(serviceName) {
+        /*
+         * We need to return:
+         * {
+         *    "TestService": {ClientCmds: {}, Classes:{}, Streams:{}}
+         * }
+         */
+        let thisNode = this;
+        let targetService = thisNode.Services[serviceName];
+        let serviceDefinition = targetService.GetDefinition();
+        return serviceDefinition;
+    }
 
-                results[serviceInstanceID].providers.push(providerName);
+    async GetServiceDefinitions() {
+        /*
+         * We need to return:
+         * {
+         *    "TestService": {ClientCmds: {}, Classes:{}, Streams:{}}
+         * }
+         */
+        let thisNode = this;
+        let serviceDefinitions = {};
+        let serviceNameList = thisNode.TopologyTracker.ListServices();
+        for (let i = 0; i < serviceNameList.length; i++) {
+            let serviceName = serviceNameList[i];
+            // Unlike before, we don't distribute the actual service definitions in
+            // the declarations.  We need to go out to each service and get the info
+            let bestInstance = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
+            if (bestInstance.NodeID === thisNode.nodeID) {
+                // Execute locally
+                let response = thisNode.GetServiceDefinition(serviceName);
+                serviceDefinitions[serviceName] = response;
+            } else {
+                // Execute remotely
+                let targetNodeEndpoint = await thisNode.VerifyNodeConnection(bestInstance.NodeID);
+                let response = await targetNodeEndpoint.SendCmd("DRP", "getServiceDefinition", serviceName, true, null, null);
+                serviceDefinitions[serviceName] = response.payload;
             }
         }
-        return results;
+        return serviceDefinitions;
     }
 
     async GetClassRecords(params) {
@@ -884,7 +899,7 @@ class DRP_Node {
     }
 
     /**
-     * @param {DRP_Command} cmdObj Command object
+     * @param {DRP_Cmd} cmdObj Command object
      * @param {DRP_Endpoint} drpEndpoint Requesting Endpoint
      * @param {string} token Reply token
      * @return {object} Response
@@ -916,7 +931,7 @@ class DRP_Node {
     }
 
     /**
-     * @param {DRP_Command} cmdObj Command object
+     * @param {DRP_Cmd} cmdObj Command object
      * @param {DRP_Endpoint} sourceEndpoint Requesting Endpoint
      * @param {string} token Reply token
      * @return {object} Response
@@ -936,6 +951,12 @@ class DRP_Node {
         if (!cmdObj.cmd) {
             this.log(`${baseMsg} cmdObj.cmd not supplied`, true);
             return null;
+        }
+
+        // Are we being asked to execute locally?
+        if (cmdObj.runNodeID && cmdObj.runNodeID === thisNode.nodeID) {
+            let results = await thisNode.LocalServiceCommand(cmdObj, sourceEndpoint);
+            return results;
         }
 
         // Update to use the DRP_TopologyTracker object
@@ -980,7 +1001,7 @@ class DRP_Node {
             if (thisNodeClient) {
                 // Await for command from remote node
                 let returnObj = null;
-                let results = await thisNodeClient.SendCmd(cmdObj.serviceName, cmdObj.cmd, cmdObj.params, true, null);
+                let results = await thisNodeClient.SendCmd(cmdObj.serviceName, cmdObj.cmd, cmdObj.params, true, null, null, targetNodeID);
                 if (results && results.payload && results.payload) {
                     returnObj = results.payload;
                 }
@@ -1594,6 +1615,12 @@ class DRP_NodeClient extends DRP_Client {
         });
         this.RegisterCmd("getRegistry", function (params, srcEndpoint, token) {
             return drpNode.TopologyTracker.GetRegistry(params.reqNodeID);
+        });
+        this.RegisterCmd("getServiceDefinition", function (params, srcEndpoint, token) {
+            return drpNode.GetServiceDefinition(params);
+        });
+        this.RegisterCmd("getServiceDefinitions", async function () {
+            return await drpNode.GetServiceDefinitions();
         });
         this.RegisterCmd("getTopology", async function (...args) {
             return await drpNode.GetTopology(...args);
