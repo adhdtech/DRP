@@ -140,6 +140,11 @@ class DRP_Node {
                 this.log(`This node is a Registry for ${this.DomainName}, attempting to contact other Registry nodes`);
                 this.ConnectToOtherRegistries();
             }
+        } else {
+            if (this.DomainName) {
+                // A domain name was provided; attempt to connect to a registry host
+                this.ConnectToRegistryByDomain();
+            }
         }
 
         // Add a route handler even if we don't have an Express server (needed for stream relays)
@@ -1314,8 +1319,11 @@ class DRP_Node {
 
     async PingDomainRegistries(domainName) {
         let thisNode = this;
+
+        // Get SRV Records for domain
         let recordList = await dns.resolveSrv(`_drp._tcp.${domainName}`);
 
+        // Prep record for looping
         let srvHash = recordList.reduce((map, srvRecord) => {
             let key = `${srvRecord.name}-${srvRecord.port}`;
             srvRecord.pingInfo = null;
@@ -1356,45 +1364,59 @@ class DRP_Node {
     }
 
     /**
-     * 
-     * @param {string} registryURL DRP Domain FQDN
+     * Handle connection to Registry Node (post Hello)
+     * @param {DRP_NodeClient} nodeClient Node client to Registry
      */
-    async ConnectToRegistry(registryURL) {
+    async RegistryClientHandler(nodeClient) {
         let thisNode = this;
-        // Initiate Registry Connection
-        let nodeClient = new DRP_NodeClient(registryURL, thisNode.webProxyURL, thisNode, null, true, async function (response) {
+        // Get peer info
+        let getDeclarationResponse = await nodeClient.SendCmd("DRP", "getNodeDeclaration", null, true, null);
+        if (getDeclarationResponse && getDeclarationResponse.payload && getDeclarationResponse.payload.NodeID) {
+            let registryNodeID = getDeclarationResponse.payload.NodeID;
+            nodeClient.EndpointID = registryNodeID;
+            thisNode.NodeEndpoints[registryNodeID] = nodeClient;
+        } else return;
 
-            // This is the callback which occurs after our Hello packet has been accepted
+        // Get Registry
+        thisNode.TopologyTracker.ProcessNodeConnect(nodeClient, getDeclarationResponse.payload);
 
-            // Get peer info
-            let getDeclarationResponse = await nodeClient.SendCmd("DRP", "getNodeDeclaration", null, true, null);
-            if (getDeclarationResponse && getDeclarationResponse.payload && getDeclarationResponse.payload.NodeID) {
-                let registryNodeID = getDeclarationResponse.payload.NodeID;
-                nodeClient.EndpointID = registryNodeID;
-                thisNode.NodeEndpoints[registryNodeID] = nodeClient;
-            } else return;
-
-            // Get Registry
-            thisNode.TopologyTracker.ProcessNodeConnect(nodeClient, getDeclarationResponse.payload);
-
-            // If this Node has subscriptions, contact Providers
-            let subscriptionNameList = Object.keys(thisNode.Subscriptions);
-            for (let i = 0; i < subscriptionNameList.length; i++) {
-                /** @type {DRP_Subscription} */
-                let subscriptionObject = thisNode.Subscriptions[subscriptionNameList[i]];
-                let providerList = thisNode.FindProvidersForStream(subscriptionObject.topicName);
-                for (let j = 0; j < providerList.length; j++) {
-                    // Subscribe to provider
-                    let providerID = providerList[j];
-                    let providerConn = await thisNode.VerifyNodeConnection(providerID);
-                    if (providerConn && subscriptionObject.subscribedTo.indexOf(providerID) < 0) {
-                        providerConn.RegisterSubscription(subscriptionObject);
-                    }
+        // If this Node has subscriptions, contact Providers
+        let subscriptionNameList = Object.keys(thisNode.Subscriptions);
+        for (let i = 0; i < subscriptionNameList.length; i++) {
+            /** @type {DRP_Subscription} */
+            let subscriptionObject = thisNode.Subscriptions[subscriptionNameList[i]];
+            let providerList = thisNode.FindProvidersForStream(subscriptionObject.topicName);
+            for (let j = 0; j < providerList.length; j++) {
+                // Subscribe to provider
+                let providerID = providerList[j];
+                let providerConn = await thisNode.VerifyNodeConnection(providerID);
+                if (providerConn && subscriptionObject.subscribedTo.indexOf(providerID) < 0) {
+                    providerConn.RegisterSubscription(subscriptionObject);
                 }
             }
-        });
+        }
     }
 
+    /**
+    * Connect to a Registry node with retry on fail (for non-Registry nodes)
+    * @param {string} registryURL DRP Domain FQDN
+    * @param {function} callback Callback on connection close (Optional)
+    */
+    async ConnectToRegistry(registryURL, callback) {
+        let thisNode = this;
+        let retryOnClose = true;
+        if (callback && typeof callback === 'function') {
+            retryOnClose = false;
+        } else callback = () => { };
+        // Initiate Registry Connection
+        let nodeClient = new DRP_NodeClient(registryURL, thisNode.webProxyURL, thisNode, null, retryOnClose, async () => {
+
+            // This is the callback which occurs after our Hello packet has been accepted
+            thisNode.RegistryClientHandler(nodeClient);
+        }, callback);
+    }
+
+    // This is for non-Registry nodes
     async ConnectToRegistryByDomain() {
         let thisNode = this;
         // Look up SRV records for DNS
@@ -1423,7 +1445,17 @@ class DRP_Node {
 
                 // Connect to target
                 let registryURL = `${protocol}://${closestRegistry.name}:${closestRegistry.port}`;
-                thisNode.ConnectToRegistry(registryURL);
+
+                let nodeClient = new DRP_NodeClient(registryURL, thisNode.webProxyURL, thisNode, null, false, async () => {
+
+                    // This is the callback which occurs after our Hello packet has been accepted
+                    thisNode.RegistryClientHandler(nodeClient);
+
+                }, async () => {
+                    // Disconnect Callback; try again
+                    thisNode.ConnectToRegistryByDomain();
+                });
+
             } else {
                 thisNode.log(`Could not find active registry`);
             }
@@ -1462,7 +1494,16 @@ class DRP_Node {
                     }
                     // Connect to target
                     let registryURL = `${protocol}://${checkRegistry.name}:${checkRegistry.port}`;
-                    thisNode.ConnectToRegistry(registryURL);
+
+                    let registryDisconnectCallback = async () => {
+                        // On failure, wait 10 seconds, see if the remote registry is connected back then try again
+                        await sleep(10000);
+                        if (!thisNode.TopologyTracker.GetNodeWithURL(registryURL)) {
+                            thisNode.ConnectToRegistry(registryURL, registryDisconnectCallback);
+                        }
+                    };
+
+                    thisNode.ConnectToRegistry(registryURL, registryDisconnectCallback);
                 }
             }
 
@@ -1538,7 +1579,7 @@ class DRP_Node {
      */
     IsProxyFor(checkNodeID) {
         let thisNode = this;
-        let isProxy = true;
+        let isProxy = false;
         let checkNodeEntry = thisNode.TopologyTracker.NodeTable[checkNodeID];
         if (checkNodeEntry && checkNodeEntry.ProxyNodeID === thisNode.nodeID) {
             isProxy = true;
@@ -1872,7 +1913,7 @@ class DRP_TopologyTracker {
             //  * We are a Registry, the packet WAS received from a Registry and the checkNode IS NOT a Registry 
 
             switch (true) {
-                case srcNodeID === thisNode.nodeID && !thisNode.IsRegistry() && checkNodeEntry.IsRegistry():
+                case srcNodeID === thisNode.nodeID: //&& !thisNode.IsRegistry() && checkNodeEntry.IsRegistry():
                     relayPacket = true;
                     break;
                 case thisNode.IsProxyFor(srcNodeID) && checkNodeEntry.IsRegistry():
@@ -1884,7 +1925,7 @@ class DRP_TopologyTracker {
                 case thisNode.IsRegistry() && !sourceNodeEntry.IsRegistry():
                     relayPacket = true;
                     break;
-                case thisNode.IsRegistry() && sourceNodeEntry.IsRegistry() && !checkNode.IsRegistry():
+                case thisNode.IsRegistry() && sourceNodeEntry.IsRegistry() && !checkNodeEntry.IsRegistry():
                     relayPacket = true;
                     break;
             }
@@ -2119,6 +2160,17 @@ class DRP_TopologyTracker {
             return true;
         else
             return false;
+    }
+
+    GetNodeWithURL(checkNodeURL) {
+        let thisTopologyTracker = this;
+        let nodeIDList = Object.keys(thisTopologyTracker.NodeTable);
+        for (let i = 0; i < nodeIDList.length; i++) {
+            let checkNodeID = nodeIDList[i];
+            let thisNodeEntry = thisTopologyTracker.NodeTable[checkNodeID];
+            if (thisNodeEntry.NodeURL && thisNodeEntry.NodeURL === checkNodeURL) return checkNodeID;
+        }
+        return null;
     }
 }
 

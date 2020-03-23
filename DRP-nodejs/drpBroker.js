@@ -40,7 +40,7 @@ myWebServer.start();
 let roleList = ["Broker"];
 
 // If we haven't specified a Registry, make this one
-if (!registryURL) roleList.push("Registry");
+//if (!registryURL) roleList.push("Registry");
 
 // Create Node
 console.log(`Starting DRP Node...`);
@@ -57,6 +57,9 @@ if (myNode.nodeURL) {
     myNode.log(`Listening at: ${myNode.nodeURL}`);
 }
 
-if (registryURL) {
-    myNode.ConnectToRegistry(registryURL);
+// Connect to Registry manually if no domainName was specified
+if (!domainName && registryURL) {
+    myNode.ConnectToRegistry(registryURL, async () => {
+        myNode.log("Connected to Registry");
+    });
 }

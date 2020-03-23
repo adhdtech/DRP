@@ -12,7 +12,7 @@
 DOMAINNAME=mydomain.xyz
 DOMAINKEY=supersecretkey
 DEBUG=true</Environment>
-    <NodejsPort>8080</NodejsPort>
+    <NodejsPort>8083</NodejsPort>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -20,7 +20,7 @@ DEBUG=true</Environment>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>ba4b474a-fa17-4e27-bcda-500a68bbbb3a</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>drpBroker.js</StartupFile>
+    <StartupFile>drpRegistry.js</StartupFile>
     <StartWebBrowser>False</StartWebBrowser>
     <SearchPath>
     </SearchPath>

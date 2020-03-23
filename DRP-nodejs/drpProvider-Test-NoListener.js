@@ -82,16 +82,12 @@ myNode.AddStream("dummy", "Test stream");
 // Add a test service
 myNode.AddService(new TestService("TestService", myNode));
 
-// Connect to Registry
-myNode.ConnectToRegistry(registryURL, async () => {
-    myNode.log("Connected to Registry");
-});
-
-/*
-myNode.ConnectToRegistryByDomain("rsage.io", async () => {
-    myNode.log("Connected to Registry");
-});
-*/
+// Connect to Registry manually if no domainName was specified
+if (!domainName && registryURL) {
+    myNode.ConnectToRegistry(registryURL, async () => {
+        myNode.log("Connected to Registry");
+    });
+}
 
 setInterval(function () {
     let timeStamp = new Date().getTime();
