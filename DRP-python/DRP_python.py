@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# WS server example
+# DRP Demo Endpoint
 
 import asyncio
 import websockets

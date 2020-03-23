@@ -9,13 +9,13 @@ namespace ADHDTech.DRP
 {
     public class DRP_WebsocketConn : WebSocketSharp.WebSocket
     {
-        public Dictionary<string, Action<object>> ReplyHandlerQueue;
-        public Dictionary<string, Action<object>> StreamHandlerQueue;
+        public Dictionary<string, TaskCompletionSource<object>> ReplyHandlerQueue;
+        public Dictionary<string, TaskCompletionSource<object>> StreamHandlerQueue;
         public int TokenNum;
         public DRP_WebsocketConn(string url, params string[] protocols) : base(url, protocols)
         {
-            ReplyHandlerQueue = new Dictionary<string, Action<object>>();
-            StreamHandlerQueue = new Dictionary<string, Action<object>>();
+            ReplyHandlerQueue = new Dictionary<string, TaskCompletionSource<object>>();
+            StreamHandlerQueue = new Dictionary<string, TaskCompletionSource<object>>();
             TokenNum = 1;
         }
     }
@@ -35,7 +35,7 @@ namespace ADHDTech.DRP
             return replyToken.ToString();
         }
 
-        public string AddReplyHandler(DRP_WebsocketConn wsConn, Action<object> callback)
+        public string AddReplyHandler(DRP_WebsocketConn wsConn, TaskCompletionSource<object> callback)
         {
             string replyToken = GetToken(wsConn);
             wsConn.ReplyHandlerQueue[replyToken] = callback;
@@ -47,7 +47,7 @@ namespace ADHDTech.DRP
             wsConn.ReplyHandlerQueue.Remove(token);
         }
 
-        public string AddStreamHandler(DRP_WebsocketConn wsConn, Action<object> callback)
+        public string AddStreamHandler(DRP_WebsocketConn wsConn, TaskCompletionSource<object> callback)
         {
             string replyToken = GetToken(wsConn);
             wsConn.StreamHandlerQueue[replyToken] = callback;
@@ -65,7 +65,7 @@ namespace ADHDTech.DRP
         }
 
         // Send DRP Cmd
-        public void SendCmd(DRP_WebsocketConn wsConn, string serviceName, string cmd, object @params, Action<object> callback)
+        public void SendCmd(DRP_WebsocketConn wsConn, string serviceName, string cmd, Dictionary<string, object> @params, TaskCompletionSource<object> callback)
         {
             // Get token
             string token = AddReplyHandler(wsConn, callback);
@@ -76,7 +76,7 @@ namespace ADHDTech.DRP
         }
 
         // Send DRP Cmd and wait for results
-        public JObject SendCmd(DRP_WebsocketConn wsConn, string serviceName, string cmd, object @params)
+        public JObject SendCmd(DRP_WebsocketConn wsConn, string serviceName, string cmd, object @params, int timeout)
         {
             // Define return object
             JObject returnObject = null;
@@ -88,14 +88,20 @@ namespace ADHDTech.DRP
             });
 
             // Define action to execute task
+            /*
             void returnAction()
             {
                 ReturnDataTask.Start();
             }
+            */
+
+            Console.WriteLine("Sending cmd");
 
             // Send command, wait up to 30 seconds for return
+            /*
             SendCmd(wsConn, serviceName, cmd, @params, data =>
             {
+                Console.WriteLine("Starting callback passed to SendCmd...");
                 try
                 {
                     if (data.GetType() == typeof(JObject))
@@ -108,11 +114,16 @@ namespace ADHDTech.DRP
                 {
                     Console.Error.WriteLine("Error converting message to JObject: " + ex.Message + "\r\n<<<" + data + ">>>");
                 }
-                returnAction();
+                ReturnDataTask.Start();
             });
+            */
+
+            Console.WriteLine("Starting wait");
 
             // Wait for task to complete
-            ReturnDataTask.Wait(30000);
+            ReturnDataTask.Wait(timeout);
+
+            Console.WriteLine("Received response");
 
             // Return Data
             return returnObject;
@@ -130,7 +141,8 @@ namespace ADHDTech.DRP
             if (wsConn.ReplyHandlerQueue.ContainsKey(message.token))
             {
                 // Execute callback
-                wsConn.ReplyHandlerQueue[message.token](message.payload);
+                TaskCompletionSource<object> thisTcs = wsConn.ReplyHandlerQueue[message.token];
+                thisTcs.SetResult(message.payload);
                 wsConn.ReplyHandlerQueue.Remove(message.token);
             }
             else
@@ -143,12 +155,16 @@ namespace ADHDTech.DRP
 
         public void ReceiveMessage(DRP_WebsocketConn wsConn, EventArgs e)
         {
+
             var thisEndpoint = this;
             // We received data
             WebSocketSharp.MessageEventArgs messageArgs = (WebSocketSharp.MessageEventArgs)e;
 
+            //Console.WriteLine("> " + messageArgs.Data);
+
             // See what we received
             DRP_MsgIn message = Newtonsoft.Json.JsonConvert.DeserializeObject<DRP_MsgIn>(messageArgs.Data);
+            //Console.WriteLine(messageArgs.Data);
 
             switch (message.type)
             {
@@ -175,6 +191,7 @@ namespace ADHDTech.DRP
         public bool clientConnected = false;
         public bool clientDied = false;
         public BrokerProfile brokerProfile = null;
+        public TaskCompletionSource<bool> clientReady = new TaskCompletionSource<bool>();
 
         public DRP_Client(BrokerProfile argBrokerProfile)
         {
@@ -187,7 +204,6 @@ namespace ADHDTech.DRP
             {
                 wsConn.SetProxy(brokerProfile.ProxyAddress, brokerProfile.ProxyUser, brokerProfile.ProxyPass);
             }
-            //ClientWSConn.SslConfiguration.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
 
             wsConn.OnOpen += (sender, e) =>
                 StartClientSession(wsConn, e);
@@ -200,7 +216,21 @@ namespace ADHDTech.DRP
 
             wsConn.OnClose += EndClientSession;
 
+        }
+
+        public async Task<bool> Open() {
             wsConn.Connect();
+            if (await Task.WhenAny(clientReady.Task, Task.Delay(5000)) == clientReady.Task)
+            {
+                // task completed within timeout
+                clientConnected = true;
+            }
+            else
+            {
+                // timeout logic
+                clientReady.SetResult(false);
+            }
+            return clientConnected;
         }
 
         public void CloseSession()
@@ -209,27 +239,24 @@ namespace ADHDTech.DRP
             wsConn.Close();
         }
 
-        public void StartClientSession(DRP_WebsocketConn wsConn, EventArgs e)
+        public async void StartClientSession(DRP_WebsocketConn wsConn, EventArgs e)
         {
             // We have a connection
             //Console.WriteLine("Session open!");
-            clientConnected = true;
 
             // If we have credentials, authenticate
-            if (brokerProfile.User.Length > 0) {
-                //JObject returnedData = SendCmd("hello", new Dictionary<string, object>() {
-                SendCmd("hello", new Dictionary<string, object>() {
+            JObject returnedData = await SendCmd_Async("DRP", "hello", new Dictionary<string, object>() {
                     { "userAgent", "dotnet" },
                     { "user", brokerProfile.User },
                     { "pass", brokerProfile.Pass }
                 });
-            }
+            clientReady.SetResult(true);
         }
 
         public void EndClientSession(object sender, EventArgs e)
         {
             // The session has ended
-            //WebSocketSharp.CloseEventArgs closeArgs = (WebSocketSharp.CloseEventArgs)e;
+            WebSocketSharp.CloseEventArgs closeArgs = (WebSocketSharp.CloseEventArgs)e;
             if (!clientConnected)
             {
                 clientDied = true;
@@ -237,12 +264,75 @@ namespace ADHDTech.DRP
             //Console.WriteLine("Close code: '" + closeArgs.Code + "'");
         }
 
+        public async Task<JObject> SendCmd_Async(string serviceName, string cmd, Dictionary<string, object> @params)
+        {
+            //return await Task.Run(async() =>
+            //{
+            TaskCompletionSource<object> thisTcs = new TaskCompletionSource<object>();
+            /*
+            Task<object> ReturnDataTask = new Task<JObject>(Func<JObject>() =>
+            {
+                return null;
+            });
+            */
+
+            // Get token
+            string token = AddReplyHandler(wsConn, thisTcs);
+
+            // Send command
+            DRP_Cmd sendCmd = new DRP_Cmd(serviceName, cmd, token, @params);
+            string sendCmdString = null;
+            try
+            {
+                if (cmd != "hello")
+                {
+                    //sendCmd = new DRP_Cmd("DRP", "pathCmd", "5", null);
+                }
+                sendCmdString = Newtonsoft.Json.JsonConvert.SerializeObject(sendCmd);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("Error serializing DRP_Cmd to string: " + ex.Message);
+                return null;
+            }
+            wsConn.Send(sendCmdString);
+            //Console.WriteLine("< " + sendCmdString);
+            object data = null;
+            if (await Task.WhenAny(thisTcs.Task, Task.Delay(brokerProfile.Timeout)) == thisTcs.Task)
+            {
+                // task completed within timeout
+                data = await thisTcs.Task;
+            }
+            else
+            {
+                // timeout logic
+            }
+            JObject returnObject = null;
+
+            //Console.WriteLine("Starting callback passed to SendCmd...");
+            try
+            {
+                if (data != null && data.GetType() == typeof(JObject))
+                {
+                    JObject returnData = (JObject)data;
+                    returnObject = returnData;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("Error converting message to JObject: " + ex.Message + "\r\n<<<" + data + ">>>");
+            }
+
+            return returnObject;
+            //});
+        }
+        
         // Shortcut to execute SendCmd
         public JObject SendCmd(string cmd, object @params)
         {
-            return SendCmd(wsConn, null, cmd, @params);
+            return SendCmd(wsConn, null, cmd, @params, this.brokerProfile.Timeout);
         }
-
+        /*
         public async void StartDataGathering()
         {
             while (wsConn.ReadyState != WebSocketSharp.WebSocketState.Open)
@@ -263,9 +353,11 @@ namespace ADHDTech.DRP
             StartupPlaybook.Run();
 
         }
+        */
 
 
         // Sample call - Register
+        /*
         public void GetCmds(Action nextAction)
         {
             SendCmd(wsConn, null, "getCmds", null, data =>
@@ -276,6 +368,7 @@ namespace ADHDTech.DRP
                 nextAction?.Invoke();
             });
         }
+        */
 
         public void DoneWithStartup(Action nextAction)
         {
@@ -287,12 +380,12 @@ namespace ADHDTech.DRP
     public class DRP_Cmd
     {
         public string type;
-        public string cmd;
-        public object @params;
         public string serviceName;
+        public string cmd;
+        public Dictionary<string, object> @params;
         public string replytoken;
 
-        public DRP_Cmd(string cmdName, string serviceName, string cmdToken, object sendData)
+        public DRP_Cmd(string serviceName, string cmdName, string cmdToken, Dictionary<string, object> sendData)
         {
             this.type = "cmd";
             this.cmd = cmdName;

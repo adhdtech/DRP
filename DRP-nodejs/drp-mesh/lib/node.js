@@ -137,6 +137,7 @@ class DRP_Node {
 
             if (this.DomainName) {
                 // A domain name was provided; attempt to cluster with other registry hosts
+                this.log(`This node is a Registry for ${this.DomainName}, attempting to contact other Registry nodes`);
                 this.ConnectToOtherRegistries();
             }
         }
@@ -930,6 +931,40 @@ class DRP_Node {
         return await thisNode.Services[cmdObj.serviceName].ClientCmds[cmdObj.cmd](cmdObj.params, drpEndpoint);
     }
 
+    // Easier way of execiting a command with the option of routing via the control plane
+    async RunCommand(serviceName, cmd, params, targetNodeID, useControlPlane, awaitResponse) {
+        let thisNode = this;
+        if (targetNodeID && targetNodeID === thisNode.nodeID) {
+            // The service instance is local; execute here
+            if (awaitResponse) {
+                let results = await thisNode.LocalServiceCommand(new DRP_Cmd(serviceName, cmd, params));
+                return results;
+            } else {
+                thisNode.LocalServiceCommand(new DRP_Cmd(serviceName, cmd, params));
+                return;
+            }
+        } else {
+            let routeNodeID = targetNodeID;
+            let routeOptions = null;
+
+            if (useControlPlane) {
+                // We want to use to use the control plan instead of connecting directly to the target
+                routeNodeID = thisNode.TopologyTracker.GetNextHop(targetNodeID);
+                routeOptions = new DRP_RouteOptions(thisNode.nodeID, targetNodeID);
+            }
+
+            let routeNodeConnection = await thisNode.VerifyNodeConnection(routeNodeID);
+
+            if (awaitResponse) {
+                let cmdResponse = await routeNodeConnection.SendCmd(serviceName, cmd, params, true, null, routeOptions, targetNodeID);
+                return cmdResponse.payload;
+            } else {
+                routeNodeConnection.SendCmd(serviceName, cmd, params, false, null, routeOptions, targetNodeID);
+                return;
+            }
+        }
+    }
+
     /**
      * @param {DRP_Cmd} cmdObj Command object
      * @param {DRP_Endpoint} sourceEndpoint Requesting Endpoint
@@ -1064,6 +1099,9 @@ class DRP_Node {
             sourceEndpoint.EndpointID = declaration.NodeID;
             thisNode.NodeEndpoints[declaration.NodeID] = sourceEndpoint;
 
+            // Apply all Node Endpoint commands
+            thisNode.ApplyNodeEndpointMethods(sourceEndpoint);
+
             let localNodeIsProxy = false;
 
             // If the local node is not a Registry and we do not know about the remote node, this is a proxy for that node
@@ -1084,6 +1122,11 @@ class DRP_Node {
 
             sourceEndpoint.EndpointID = remoteEndpointID;
             thisNode.ConsumerEndpoints[remoteEndpointID] = sourceEndpoint;
+
+            // Apply all Node Endpoint commands
+            thisNode.ApplyNodeEndpointMethods(sourceEndpoint);
+
+            thisNode.log(`Added ConsumerEndpoint[${sourceEndpoint.EndpointID}], type '${sourceEndpoint.EndpointType}'`);
         }
         else results = "INVALID DECLARATION";
 
@@ -1271,14 +1314,21 @@ class DRP_Node {
 
     async PingDomainRegistries(domainName) {
         let thisNode = this;
+        /*
         let recordList = await dns.resolveSrv(`_drp._tcp.${domainName}`);
-
         let srvHash = recordList.reduce((map, srvRecord) => {
             let key = `${srvRecord.name}-${srvRecord.port}`;
             srvRecord.pingInfo = null;
             map[key] = srvRecord;
             return map;
         }, {});
+        */
+        let srvHash = {
+            "localhost-8082": { "name": "localhost", "port": 8082 },
+            "localhost-8083": { "name": "localhost", "port": 8083 },
+            "localhost-8084": { "name": "localhost", "port": 8084 },
+            "localhost-8085": { "name": "localhost", "port": 8085 }
+        };
 
         let srvKeys = Object.keys(srvHash);
 
@@ -1296,18 +1346,18 @@ class DRP_Node {
                 }
                 catch (ex) {
                     // Cannot do tcpPing against host:port
-                    thisNode.log(ex);
+                    thisNode.log(`TCP Pings errored: ${ex}`);
                 }
             })
         );
+        return srvHash;
     }
 
     /**
      * 
      * @param {string} registryURL DRP Domain FQDN
-     * @param {function} openCallback Callback after open
      */
-    async ConnectToRegistry(registryURL, openCallback) {
+    async ConnectToRegistry(registryURL) {
         let thisNode = this;
         // Initiate Registry Connection
         let nodeClient = new DRP_NodeClient(registryURL, thisNode.webProxyURL, thisNode, null, true, async function (response) {
@@ -1343,18 +1393,12 @@ class DRP_Node {
         });
     }
 
-    /**
-     * 
-     * @param {function} openCallback Callback after open
-     */
-    async ConnectToRegistryByDomain(openCallback) {
+    async ConnectToRegistryByDomain() {
         let thisNode = this;
         // Look up SRV records for DNS
         try {
-
             let srvHash = await thisNode.PingDomainRegistries(thisNode.DomainName);
             let srvKeys = Object.keys(srvHash);
-
             // Find registry with lowest average ping time
             let closestRegistry = null;
             for (let i = 0; i < srvKeys.length; i++) {
@@ -1365,7 +1409,6 @@ class DRP_Node {
                     }
                 }
             }
-
             if (closestRegistry) {
                 let protocol = "ws";
 
@@ -1378,7 +1421,7 @@ class DRP_Node {
 
                 // Connect to target
                 let registryURL = `${protocol}://${closestRegistry.name}:${closestRegistry.port}`;
-                thisNode.ConnectToRegistry(registryURL, openCallback);
+                thisNode.ConnectToRegistry(registryURL);
             } else {
                 thisNode.log(`Could not find active registry`);
             }
@@ -1410,14 +1453,14 @@ class DRP_Node {
                 if (checkRegistry.pingInfo && checkRegistry.pingInfo.avg) {
                     // Dirty check to see if the port is SSL; are the last three digits 44x?
                     let protocol = "ws";
-                    let portString = closestRegistry.port.toString();
+                    let portString = checkRegistry.port.toString();
                     let checkString = portString.slice(-3, 3);
                     if (checkString === "44") {
                         protocol = "wss";
                     }
                     // Connect to target
                     let registryURL = `${protocol}://${checkRegistry.name}:${checkRegistry.port}`;
-                    thisNode.ConnectToRegistry(registryURL, openCallback);
+                    thisNode.ConnectToRegistry(registryURL);
                 }
             }
 
@@ -1505,28 +1548,37 @@ class DRP_Node {
         let thisNode = this;
         let topologyObj = {};
         // We need to get a list of all nodes from the registry
-        let nodeIDList = Object.keys(thisNode.NodeDeclarations);
+        let nodeIDList = Object.keys(thisNode.TopologyTracker.NodeTable);
         for (let i = 0; i < nodeIDList.length; i++) {
-            let nodeID = nodeIDList[i];
-            /** @type DRP_NodeDeclaration */
-            let nodeDeclaration = thisNode.NodeDeclarations[nodeID];
+            let targetNodeID = nodeIDList[i];
+            let nodeEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
             let topologyNode = {};
-            if (nodeID === thisNode.nodeID) {
+            if (targetNodeID === thisNode.nodeID) {
                 topologyNode = thisNode.ListClientConnections();
             } else {
                 // Send a command to each node to get the list of client connections
-                let nodeConnection = await thisNode.VerifyNodeConnection(nodeID);
-                let cmdResponse = await nodeConnection.SendCmd("DRP", "listClientConnections", null, true, null);
+                let useControlPlane = true;
+                let routeNodeID = targetNodeID;
+                let routeOptions = null;
+
+                if (useControlPlane) {
+                    // We want to use to use the control plan instead of connecting directly to the target
+                    routeNodeID = thisNode.TopologyTracker.GetNextHop(targetNodeID);
+                    routeOptions = new DRP_RouteOptions(thisNode.nodeID, targetNodeID);
+                }
+
+                let routeNodeConnection = await thisNode.VerifyNodeConnection(routeNodeID);
+                let cmdResponse = await routeNodeConnection.SendCmd("DRP", "listClientConnections", null, true, null, routeOptions, targetNodeID);
                 topologyNode = cmdResponse.payload;
             }
 
             // Append Roles and Listening URL
-            topologyNode.roles = nodeDeclaration.NodeRoles;
-            topologyNode.url = nodeDeclaration.NodeURL;
-            topologyNode.services = Object.keys(nodeDeclaration.Services);
+            topologyNode.roles = nodeEntry.Roles;
+            topologyNode.url = nodeEntry.NodeURL;
+            topologyNode.services = []; //Object.keys(nodeEntry.Services);
 
             // Add to hash
-            topologyObj[nodeID] = topologyNode;
+            topologyObj[targetNodeID] = topologyNode;
 
         }
 
@@ -1582,6 +1634,65 @@ class DRP_Node {
             callback();
         }
     }
+
+    /**
+     * Add Methods to Endpoint
+     * @param {DRP_Endpoint} targetEndpoint Endpoint to add methods to
+     */
+    ApplyNodeEndpointMethods(targetEndpoint) {
+        let thisNode = this;
+        targetEndpoint.RegisterCmd("topologyUpdate", async function (...args) {
+            return thisNode.TopologyUpdate(...args);
+        });
+
+        targetEndpoint.RegisterCmd("getNodeDeclaration", async function (...args) {
+            return thisNode.NodeDeclaration;
+        });
+
+        targetEndpoint.RegisterCmd("pathCmd", async function (params, srcEndpoint, token) {
+            return await thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
+        });
+
+        targetEndpoint.RegisterCmd("connectToNode", async function (...args) {
+            return await thisNode.ConnectToNode(...args);
+        });
+
+        targetEndpoint.RegisterCmd("getRegistry", function (params, srcEndpoint, token) {
+            return thisNode.TopologyTracker.GetRegistry(params.reqNodeID);
+        });
+
+        targetEndpoint.RegisterCmd("getServiceDefinition", function (params, srcEndpoint, token) {
+            return thisNode.GetServiceDefinition(params);
+        });
+
+        targetEndpoint.RegisterCmd("getServiceDefinitions", async function () {
+            return await thisNode.GetServiceDefinitions();
+        });
+
+        targetEndpoint.RegisterCmd("getClassRecords", async function (...args) {
+            return await thisNode.GetClassRecords(...args);
+        });
+
+        targetEndpoint.RegisterCmd("listClassInstances", function () {
+            return thisNode.ListClassInstances();
+        });
+
+        targetEndpoint.RegisterCmd("getClassDefinitions", function () {
+            return thisNode.GetClassDefinitions();
+        });
+
+        targetEndpoint.RegisterCmd("sendToTopic", function (params, srcEndpoint, token) {
+            thisNode.TopicManager.SendToTopic(params.topicName, params.topicData);
+        });
+
+        targetEndpoint.RegisterCmd("getTopology", async function (...args) {
+            return await thisNode.GetTopology(...args);
+        });
+
+        targetEndpoint.RegisterCmd("listClientConnections", function (...args) {
+            return thisNode.ListClientConnections(...args);
+        });
+    }
 }
 
 class DRP_NodeClient extends DRP_Client {
@@ -1603,34 +1714,7 @@ class DRP_NodeClient extends DRP_Client {
         // Register Endpoint commands
         // (methods should return output and optionally accept [params, token] for streaming)
 
-        this.RegisterCmd("topologyUpdate", async function (...args) {
-            drpNode.TopologyUpdate(...args);
-        });
-        this.RegisterCmd("getNodeDeclaration", "GetNodeDeclaration");
-        this.RegisterCmd("pathCmd", async function (params, token) {
-            return await drpNode.GetObjFromPath(params, drpNode.GetBaseObj());
-        });
-        this.RegisterCmd("connectToNode", async function (...args) {
-            drpNode.ConnectToNode(...args);
-        });
-        this.RegisterCmd("getRegistry", function (params, srcEndpoint, token) {
-            return drpNode.TopologyTracker.GetRegistry(params.reqNodeID);
-        });
-        this.RegisterCmd("getServiceDefinition", function (params, srcEndpoint, token) {
-            return drpNode.GetServiceDefinition(params);
-        });
-        this.RegisterCmd("getServiceDefinitions", async function () {
-            return await drpNode.GetServiceDefinitions();
-        });
-        this.RegisterCmd("getTopology", async function (...args) {
-            return await drpNode.GetTopology(...args);
-        });
-        this.RegisterCmd("listClientConnections", function (...args) {
-            return drpNode.ListClientConnections(...args);
-        });
-        this.RegisterCmd("sendToTopic", function (params) {
-            drpNode.TopicManager.SendToTopic(params.topicName, params.topicData);
-        });
+        drpNode.ApplyNodeEndpointMethods(this);
     }
 
     // Define Handlers
@@ -1656,10 +1740,6 @@ class DRP_NodeClient extends DRP_Client {
 
     async ErrorHandler(error) {
         this.drpNode.log("Node client encountered error [" + error + "]");
-    }
-
-    async GetNodeDeclaration() {
-        return this.drpNode.NodeDeclaration;
     }
 
 }

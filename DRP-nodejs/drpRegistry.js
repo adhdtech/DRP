@@ -38,9 +38,3 @@ let myNode = new DRP_Node(["Registry"], hostID, myWebServer, drpWSRoute, myServe
 
 myNode.log(`Listening at: ${myNode.nodeURL}`);
 myNode.log(`Node in zone: ${myNode.Zone}`);
-
-// We should offer two modes; single registry and clustered.  Clustered will require DNS SRV records.
-myNode.log(`TODO - Query DNS and connect to other registries`);
-if (domainName) {
-    // Connect to registries in other zones
-}

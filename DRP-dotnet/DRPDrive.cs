@@ -144,17 +144,14 @@ namespace ADHDTech.DRP
             }
             else
             {
-                string drpURL = pathArray[0];
+                string drpAlias = pathArray[0];
                 string[] remainingPath = pathArray.Skip(1).ToArray();
 
-                DRP_Client myDRPClient = new DRP_Client(drpURLHash[drpURL]);
-                while (myDRPClient.wsConn.ReadyState != WebSocketSharp.WebSocketState.Open)
-                {
-                    System.Threading.Thread.Sleep(100);
-                }
+                DRP_Client myDRPClient = new DRP_Client(drpURLHash[drpAlias]);
+                if (!myDRPClient.Open().GetAwaiter().GetResult()) return;
 
-                //Console.WriteLine("Connected to DRP Broker!");
-                JObject returnedData = myDRPClient.SendCmd("pathCmd", new Dictionary<string, object>() { { "method", "cliGetPath" }, { "pathList", remainingPath }, { "listOnly", false } });
+                //Console.WriteLine("Connected to DRP Broker, sending pathCmd");
+                JObject returnedData = myDRPClient.SendCmd_Async("DRP", "pathCmd", new Dictionary<string, object>() { { "method", "cliGetPath" }, { "pathList", remainingPath }, { "listOnly", false } }).GetAwaiter().GetResult();
 
                 if (returnedData != null && returnedData["pathItem"] != null)
                 {
@@ -201,12 +198,10 @@ namespace ADHDTech.DRP
                 string[] remainingPath = pathArray.Skip(1).ToArray();
 
                 DRP_Client myDRPClient = new DRP_Client(drpURLHash[drpAlias]);
-                while (myDRPClient.wsConn.ReadyState != WebSocketSharp.WebSocketState.Open)
+                while (myDRPClient.wsConn.ReadyState != WebSocketSharp.WebSocketState.Open && !myDRPClient.clientConnected)
                 {
                     System.Threading.Thread.Sleep(100);
                 }
-
-                //Console.WriteLine("Connected to DRP Broker!");
                 //JObject returnedData = myDRPClient.SendDRPCmd("cliSetItem", new List<Object> { ChunkPath(path), value });
                 JObject returnedData = myDRPClient.SendCmd("pathCmd", new Dictionary<string, object>() { { "method", "cliSetPath" }, { "pathList", remainingPath }, { "objData", value } });
 
@@ -249,16 +244,18 @@ namespace ADHDTech.DRP
                 DataTable returnTable = new DataTable();
                 returnTable.Columns.Add(new DataColumn("Alias", typeof(string)));
                 returnTable.Columns.Add(new DataColumn("URL", typeof(string)));
+                returnTable.Columns.Add(new DataColumn("User", typeof(string)));
                 returnTable.Columns.Add(new DataColumn("ProxyAddress", typeof(string)));
-                returnTable.Columns.Add(new DataColumn("ProxyUser", typeof(string)));
+                //returnTable.Columns.Add(new DataColumn("ProxyUser", typeof(string)));
 
                 foreach (string key in drpURLHash.Keys)
                 {
                     DataRow newRow = returnTable.NewRow();
                     newRow.SetField("Alias", key);
                     newRow.SetField("URL", drpURLHash[key].URL);
+                    newRow.SetField("User", drpURLHash[key].User);
                     newRow.SetField("ProxyAddress", drpURLHash[key].ProxyAddress);
-                    newRow.SetField("ProxyUser", drpURLHash[key].ProxyUser);
+                    //newRow.SetField("ProxyUser", drpURLHash[key].ProxyUser);
                     returnTable.Rows.Add(newRow);
                 }
 
@@ -273,20 +270,10 @@ namespace ADHDTech.DRP
                 string[] remainingPath = pathArray.Skip(1).ToArray();
 
                 DRP_Client myDRPClient = new DRP_Client(drpURLHash[drpAlias]);
+                if (!myDRPClient.Open().GetAwaiter().GetResult()) return;
 
-                while (myDRPClient.wsConn.ReadyState != WebSocketSharp.WebSocketState.Open)
-                {
-                    if (myDRPClient.clientDied)
-                    {
-                        // Client wasn't able to connect
-                        Console.WriteLine("Client couldn't connect to URL: {0}", drpURLHash[drpAlias]);
-                        return;
-                    }
-                    System.Threading.Thread.Sleep(100);
-                }
-
-                //Console.WriteLine("Connected to DRP Broker!");
-                JObject returnedData = myDRPClient.SendCmd("pathCmd", new Dictionary<string, object>() { { "method", "cliGetPath" }, { "pathList", remainingPath }, { "listOnly", true } });
+                //Console.WriteLine("Connected to DRP Broker, sending pathCmd");
+                JObject returnedData = myDRPClient.SendCmd_Async("DRP", "pathCmd", new Dictionary<string, object>() { { "method", "cliGetPath" }, { "pathList", remainingPath }, { "listOnly", true } }).GetAwaiter().GetResult();
 
                 if (returnedData != null && returnedData.ContainsKey("pathItemList"))
                 {

@@ -18,53 +18,6 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
         this.RegisterCmd("hello", async function (...args) {
             return drpNode.Hello(...args);
         });
-        this.RegisterCmd("topologyUpdate", async function (...args) {
-            return drpNode.TopologyUpdate(...args);
-        });
-        this.RegisterCmd("getNodeDeclaration", async function (...args) {
-            return drpNode.NodeDeclaration;
-        });
-        this.RegisterCmd("pathCmd", async function (params, srcEndpoint, token) {
-            return await thisEndpoint.drpNode.GetObjFromPath(params, thisEndpoint.drpNode.GetBaseObj());
-        });
-        this.RegisterCmd("connectToNode", async function (...args) {
-            return await thisEndpoint.drpNode.ConnectToNode(...args);
-        });
-
-        this.RegisterCmd("getRegistry", function (params, srcEndpoint, token) {
-            return thisEndpoint.drpNode.TopologyTracker.GetRegistry(params.reqNodeID);
-        });
-
-        this.RegisterCmd("getServiceDefinition", function (params, srcEndpoint, token) {
-            return thisEndpoint.drpNode.GetServiceDefinition(params);
-        });
-
-        this.RegisterCmd("getServiceDefinitions", async function () {
-            return await thisEndpoint.drpNode.GetServiceDefinitions();
-        });
-
-        this.RegisterCmd("getClassRecords", async function (...args) {
-            return await thisEndpoint.drpNode.GetClassRecords(...args);
-        });
-
-        this.RegisterCmd("listClassInstances", function () {
-            return thisEndpoint.drpNode.ListClassInstances();
-        });
-
-        this.RegisterCmd("getClassDefinitions", function () {
-            return thisEndpoint.drpNode.GetClassDefinitions();
-        });
-
-        this.RegisterCmd("sendToTopic", function (params, srcEndpoint, token) {
-            thisEndpoint.drpNode.TopicManager.SendToTopic(params.topicName, params.topicData);
-        });
-
-        this.RegisterCmd("getTopology", async function (...args) {
-            return await thisEndpoint.drpNode.GetTopology(...args);
-        });
-        this.RegisterCmd("listClientConnections", function (...args) {
-            return thisEndpoint.drpNode.ListClientConnections(...args);
-        });
     }
 
     // Define Endpoints commands

@@ -11,6 +11,7 @@
     <OutputPath>.</OutputPath>
     <Name>DRP-python</Name>
     <RootNamespace>DRP-python</RootNamespace>
+    <IsWindowsApplication>False</IsWindowsApplication>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>

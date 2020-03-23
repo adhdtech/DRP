@@ -286,7 +286,8 @@ class DRP_Endpoint {
         try {
             drpPacket = JSON.parse(rawMessage);
         } catch (e) {
-            thisEndpoint.log("Received non-JSON message, disconnecting client... %s", wsConn._socket.remoteAddress);
+            thisEndpoint.log(`Received non-JSON message, disconnecting client endpoint[${thisEndpoint.EndpointID}] @ ${thisEndpoint.wsConn._socket.remoteAddress}`);
+            thisEndpoint.log(rawMessage);
             thisEndpoint.wsConn.close();
             return;
         }
