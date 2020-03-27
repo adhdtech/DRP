@@ -17,8 +17,9 @@ let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || null;
 let domainKey = process.env.DOMAINKEY || null;
 let zoneName = process.env.ZONENAME || "MyZone";
-//let registryURL = process.env.REGISTRYURL || null;
-let registryURL = null;
+let registryURL = process.env.REGISTRYURL || null;
+let debug = process.env.DEBUG || false;
+let testMode = process.env.TESTMODE || false;
 
 let drpWSRoute = "";
 
@@ -42,7 +43,7 @@ let roleList = ["Broker", "Registry"];
 
 // Create Node
 console.log(`Starting DRP Node...`);
-let myNode = new DRP_Node(roleList, hostID, myWebServer, drpWSRoute, myServerConfig.NodeURL, null, domainName, domainKey, zoneName);
+let myNode = new DRP_Node(roleList, hostID, myWebServer, drpWSRoute, myServerConfig.NodeURL, null, domainName, domainKey, zoneName, debug, testMode);
 
 // Declare VDM Authorization function
 /*
