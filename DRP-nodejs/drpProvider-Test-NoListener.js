@@ -19,7 +19,7 @@ let testMode = process.env.TESTMODE || false;
 // Create test service class
 class TestService extends DRP_Service {
     constructor(serviceName, drpNode) {
-        super(serviceName, drpNode, "DocMgr", `${drpNode.nodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "zone", null, 1);
+        super(serviceName, drpNode, "DocMgr", `${drpNode.nodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, 1);
         this.ClientCmds = {
             sayHi: async function () { return { pathItem: `Hello from ${drpNode.nodeID}` }; },
             sayBye: async function () { return { pathItem: `Goodbye from ${drpNode.nodeID}` }; },

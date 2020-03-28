@@ -93,8 +93,8 @@ class DRP_Node {
         this.nodeRoles = nodeRoles || [];
         this.webProxyURL = webProxyURL || null;
 
-        // By default, Registry nodes are "connected" and non-Registry nodes aren't
-        this.ConnectedToRegistry = thisNode.IsRegistry();
+        // By default, Registry nodes are "connected" to the Control Plane and non-Registry nodes aren't
+        this.ConnectedToControlPlane = thisNode.IsRegistry();
 
         // Wait time for Registry reconnect attempts
         this.ReconnectWaitTimeSeconds = 0;
@@ -334,7 +334,7 @@ class DRP_Node {
         return serviceDefinition;
     }
 
-    async GetServiceDefinitions() {
+    async GetServiceDefinitions(params, callingEndpoint) {
         /*
          * We need to return:
          * {
@@ -348,17 +348,9 @@ class DRP_Node {
             let serviceName = serviceNameList[i];
             // Unlike before, we don't distribute the actual service definitions in
             // the declarations.  We need to go out to each service and get the info
-            let bestInstance = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
-            if (bestInstance.NodeID === thisNode.nodeID) {
-                // Execute locally
-                let response = thisNode.GetServiceDefinition(serviceName);
-                serviceDefinitions[serviceName] = response;
-            } else {
-                // Execute remotely
-                let targetNodeEndpoint = await thisNode.VerifyNodeConnection(bestInstance.NodeID);
-                let response = await targetNodeEndpoint.SendCmd("DRP", "getServiceDefinition", serviceName, true, null, null);
-                serviceDefinitions[serviceName] = response.payload;
-            }
+            let bestInstance = thisNode.TopologyTracker.FindInstanceOfService(serviceName, thisNode.Zone);
+            let response = await thisNode.RunCommand("DRP", "getServiceDefinition", serviceName, bestInstance.NodeID, true, true, callingEndpoint);
+            serviceDefinitions[serviceName] = response;
         }
         return serviceDefinitions;
     }
@@ -933,24 +925,38 @@ class DRP_Node {
             thisNode.log(`${baseMsg} params.method not supplied`, true);
             return null;
         }
-        if (!thisNode.Services[cmdObj.serviceName]) {
+
+        let serviceProvider = null;
+        if (cmdObj.serviceName === "DRP") {
+            serviceProvider = drpEndpoint.EndpointCmds;
+        } else {
+            if (thisNode.Services[cmdObj.serviceName]) serviceProvider = thisNode.Services[cmdObj.serviceName].ClientCmds;
+        }
+
+        if (!serviceProvider) {
             thisNode.log(`${baseMsg} service ${cmdObj.serviceName} does not exist`, true);
             return null;
         }
-        if (!thisNode.Services[cmdObj.serviceName].ClientCmds[cmdObj.cmd]) {
+
+        if (!serviceProvider[cmdObj.cmd]) {
             thisNode.log(`${baseMsg} service ${cmdObj.serviceName} does not have method ${cmdObj.cmd}`, true);
             return null;
         }
-        return await thisNode.Services[cmdObj.serviceName].ClientCmds[cmdObj.cmd](cmdObj.params, drpEndpoint);
+
+        if (cmdObj.serviceName === "DRP") {
+            return await drpEndpoint.EndpointCmds[cmdObj.cmd](cmdObj.params, drpEndpoint);
+        } else {
+            return await thisNode.Services[cmdObj.serviceName].ClientCmds[cmdObj.cmd](cmdObj.params, drpEndpoint);
+        }
     }
 
     // Easier way of execiting a command with the option of routing via the control plane
-    async RunCommand(serviceName, cmd, params, targetNodeID, useControlPlane, awaitResponse) {
+    async RunCommand(serviceName, cmd, params, targetNodeID, useControlPlane, awaitResponse, callingEndpoint) {
         let thisNode = this;
         if (targetNodeID && targetNodeID === thisNode.nodeID) {
             // The service instance is local; execute here
             if (awaitResponse) {
-                let results = await thisNode.LocalServiceCommand(new DRP_Cmd(serviceName, cmd, params));
+                let results = await thisNode.LocalServiceCommand(new DRP_Cmd(serviceName, cmd, params), callingEndpoint);
                 return results;
             } else {
                 thisNode.LocalServiceCommand(new DRP_Cmd(serviceName, cmd, params));
@@ -962,7 +968,7 @@ class DRP_Node {
 
             if (useControlPlane) {
                 // We want to use to use the control plane instead of connecting directly to the target
-                if (thisNode.ConnectedToRegistry) {
+                if (thisNode.ConnectedToControlPlane) {
                     routeNodeID = thisNode.TopologyTracker.GetNextHop(targetNodeID);
                     routeOptions = new DRP_RouteOptions(thisNode.nodeID, targetNodeID);
                 } else {
@@ -1013,7 +1019,7 @@ class DRP_Node {
         }
 
         // Update to use the DRP_TopologyTracker object
-        let targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(cmdObj.serviceName);
+        let targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(cmdObj.serviceName, thisNode.Zone);
 
         // If no match is found then return null
         if (!targetServiceRecord) return null;
@@ -1022,7 +1028,7 @@ class DRP_Node {
         let targetInstanceID = targetServiceRecord.InstanceID;
         let targetNodeID = targetServiceRecord.NodeID;
 
-        thisNode.log(`Best instance of service [${cmdObj.serviceName}] is [${targetInstanceID}] on node [${targetNodeID}]`, true);
+        if (thisNode.Debug) thisNode.log(`Best instance of service [${cmdObj.serviceName}] is [${targetInstanceID}] on node [${targetNodeID}]`, true);
 
         if (targetNodeID === thisNode.nodeID) {
             // The service instance is local; execute here
@@ -1103,7 +1109,7 @@ class DRP_Node {
         if (isDeclarationValid) {
             // This is a node declaration
             sourceEndpoint.EndpointType = "Node";
-            thisNode.log(`Remote node client sent Hello [${declaration.NodeID}]`, true);
+            if (thisNode.Debug) thisNode.log(`Remote node client sent Hello [${declaration.NodeID}]`, true);
 
             // Validate the remote node's domain and key (if applicable)
             if (!thisNode.ValidateNodeDeclaration(declaration)) {
@@ -1111,6 +1117,22 @@ class DRP_Node {
                 thisNode.log(`Node [${declaration.NodeID}] declaration could not be validated`);
                 sourceEndpoint.Close();
                 return null;
+            }
+
+            let sourceIsRegistry = declaration.NodeRoles.indexOf("Registry") >= 0;
+
+            // Should we redirect this Node to a Registry in another Zone?
+            if (thisNode.IsRegistry() && !sourceIsRegistry && declaration.Zone !== thisNode.Zone) {
+                // We are a Registry and a Node from another zone has connected to us
+                let zoneRegistryList = thisNode.TopologyTracker.FindRegistriesInZone(declaration.Zone);
+                if (zoneRegistryList.length > 0) {
+                    // Let's tell the remote Node to redirect
+                    thisNode.log(`Redirecting Node[${declaration.NodeID}] to one of these registry URLs: ${zoneRegistryList}`);
+                    await sourceEndpoint.SendCmd("DRP", "connectToRegistryInList", zoneRegistryList, true, null, null);
+                    return;
+                } else {
+                    thisNode.log(`Could not find a Registry in Zone[${declaration.Zone}] for Node[${declaration.NodeID}]`);
+                }
             }
 
             // Add to NodeEndpoints
@@ -1127,7 +1149,7 @@ class DRP_Node {
                 localNodeIsProxy = true;
             }
 
-            thisNode.TopologyTracker.ProcessNodeConnect(sourceEndpoint, declaration, localNodeIsProxy);
+            await thisNode.TopologyTracker.ProcessNodeConnect(sourceEndpoint, declaration, localNodeIsProxy);
 
         } else if (declaration.userAgent) {
             // This is a consumer declaration
@@ -1144,7 +1166,7 @@ class DRP_Node {
             // Apply all Node Endpoint commands
             thisNode.ApplyNodeEndpointMethods(sourceEndpoint);
 
-            thisNode.log(`Added ConsumerEndpoint[${sourceEndpoint.EndpointID}], type '${sourceEndpoint.EndpointType}'`);
+            if (thisNode.Debug) thisNode.log(`Added ConsumerEndpoint[${sourceEndpoint.EndpointID}], type '${sourceEndpoint.EndpointType}'`);
         }
         else results = "INVALID DECLARATION";
 
@@ -1415,26 +1437,49 @@ class DRP_Node {
     /**
     * Connect to a Registry node with retry on fail (for non-Registry nodes)
     * @param {string} registryURL DRP Domain FQDN
-    * @param {function} callback Callback on connection close (Optional)
+    * @param {function} closeCallback Callback on connection close (Optional)
     */
-    async ConnectToRegistry(registryURL, callback) {
+    async ConnectToRegistry(registryURL, closeCallback) {
         let thisNode = this;
         let retryOnClose = true;
-        if (callback && typeof callback === 'function') {
+        if (closeCallback && typeof closeCallback === 'function') {
             retryOnClose = false;
-        } else callback = () => { };
+        } else closeCallback = () => { };
         // Initiate Registry Connection
         let nodeClient = new DRP_NodeClient(registryURL, thisNode.webProxyURL, thisNode, null, retryOnClose, async () => {
 
             // This is the callback which occurs after our Hello packet has been accepted
             thisNode.RegistryClientHandler(nodeClient);
-        }, callback);
+        }, closeCallback);
+    }
+
+    /**
+    * Connect to a Registry node with retry on fail (for non-Registry nodes)
+    * @param {string} registryURL DRP Domain FQDN
+    * @param {function} openCallback Callback on connection open (Optional)
+    * @param {function} closeCallback Callback on connection close (Optional)
+    */
+    async ConnectToRegistryURL(registryURL, openCallback, closeCallback) {
+        let thisNode = this;
+
+        // Initiate Registry Connection
+        let nodeClient = new DRP_NodeClient(registryURL, thisNode.webProxyURL, thisNode, null, false, async () => {
+            if (thisNode.ConnectedToControlPlane) {
+                thisNode.log(`We are already connected to the Control Plane!  No longer need connection to ${registryURL}`);
+                //nodeClient.Close();
+                return;
+            }
+            // This is the callback which occurs after our Hello packet has been accepted
+            await thisNode.RegistryClientHandler(nodeClient);
+            openCallback();
+        }, closeCallback);
     }
 
     // This is for non-Registry nodes
     async ConnectToRegistryByDomain() {
         let thisNode = this;
         // Look up SRV records for DNS
+        thisNode.log(`Looking up a Registry Node by domain...`);
         try {
             let srvHash = await thisNode.PingDomainRegistries(thisNode.DomainName);
             let srvKeys = Object.keys(srvHash);
@@ -1468,7 +1513,8 @@ class DRP_Node {
 
                 }, async () => {
                     // Disconnect Callback; try again if we're not connected to another Registry
-                    if (!thisNode.TopologyTracker.ListConnectedRegistryNodes().length > 0) {
+                    if (!thisNode.ConnectedToControlPlane) {
+                        await sleep(5000);
                         thisNode.ConnectToRegistryByDomain();
                     }
                 });
@@ -1536,6 +1582,35 @@ class DRP_Node {
         } catch (ex) {
             thisNode.log(`Error resolving DNS: ${ex}`);
         }
+    }
+
+    /**
+    * Connect to a specific Registry URL
+    * @param {string[]} registryList DRP Domain FQDN
+    * @param {DRP_NodeClient} endpoint Callback on connection close (Optional)
+    * @returns {Promise} Returns Promise
+    */
+    ConnectToRegistryInList(registryList, endpoint) {
+        let thisNode = this;
+
+        let targetRegistryURL = registryList[Math.floor(Math.random() * registryList.length)];
+
+        // We've been asked to contact another Registry
+        thisNode.log(`We've been asked to contact another Registry in list [${registryList}], selected ${targetRegistryURL}`);
+
+        returnVal = new Promise(function (resolve, reject) {
+            thisNode.ConnectToRegistryURL(targetRegistryURL, () => {
+                // We've connected to the new Registry; close the connection to the previous one
+                endpoint.Close();
+                resolve();
+            }, () => {
+                // The connection closed; fallback to connection by domain (SRV lookup)
+                if (!thisNode.ConnectedToControlPlane) {
+                    thisNode.ConnectToRegistryByDomain();
+                }
+            });
+        });
+        return returnVal;
     }
 
     async ConnectToNode(params) {
@@ -1641,13 +1716,14 @@ class DRP_Node {
                 topologyNode = thisNode.ListClientConnections();
             } else {
                 // Send a command to each node to get the list of client connections
+                /*
                 let useControlPlane = true;
                 let routeNodeID = targetNodeID;
                 let routeOptions = null;
 
                 if (useControlPlane) {
                     // We want to use to use the control plane instead of connecting directly to the target
-                    if (thisNode.ConnectedToRegistry) {
+                    if (thisNode.ConnectedToControlPlane) {
                         routeNodeID = thisNode.TopologyTracker.GetNextHop(targetNodeID);
                         routeOptions = new DRP_RouteOptions(thisNode.nodeID, targetNodeID);
                     } else {
@@ -1658,7 +1734,9 @@ class DRP_Node {
 
                 let routeNodeConnection = await thisNode.VerifyNodeConnection(routeNodeID);
                 let cmdResponse = await routeNodeConnection.SendCmd("DRP", "listClientConnections", null, true, null, routeOptions, targetNodeID);
-                topologyNode = cmdResponse.payload;
+                */
+                let cmdResponse = await thisNode.RunCommand("DRP", "listClientConnections", null, targetNodeID, true, true);
+                topologyNode = cmdResponse;
             }
 
             // Append Roles and Listening URL
@@ -1707,17 +1785,19 @@ class DRP_Node {
     RemoveEndpoint(staleEndpoint, callback) {
         let thisNode = this;
         let staleNodeID = staleEndpoint.EndpointID;
-        switch (staleEndpoint.EndpointType) {
-            case "Node":
-                thisNode.log(`Removing disconnected node [${staleNodeID}]`, true);
-                delete thisNode.NodeEndpoints[staleNodeID];
-                thisNode.TopologyTracker.ProcessNodeDisconnect(staleNodeID);
+        if (staleNodeID) {
+            switch (staleEndpoint.EndpointType) {
+                case "Node":
+                    thisNode.log(`Removing disconnected node [${staleNodeID}]`, true);
+                    delete thisNode.NodeEndpoints[staleNodeID];
+                    thisNode.TopologyTracker.ProcessNodeDisconnect(staleNodeID);
 
-                break;
-            case "Consumer":
-                delete thisNode.ConsumerEndpoints[staleNodeID];
-                break;
-            default:
+                    break;
+                case "Consumer":
+                    delete thisNode.ConsumerEndpoints[staleNodeID];
+                    break;
+                default:
+            }
         }
         if (callback && typeof callback === 'function') {
             callback();
@@ -1754,8 +1834,8 @@ class DRP_Node {
             return thisNode.GetServiceDefinition(params);
         });
 
-        targetEndpoint.RegisterCmd("getServiceDefinitions", async function () {
-            return await thisNode.GetServiceDefinitions();
+        targetEndpoint.RegisterCmd("getServiceDefinitions", async function (params, srcEndpoint) {
+            return await thisNode.GetServiceDefinitions(params, srcEndpoint);
         });
 
         targetEndpoint.RegisterCmd("getClassRecords", async function (...args) {
@@ -1781,6 +1861,13 @@ class DRP_Node {
         targetEndpoint.RegisterCmd("listClientConnections", function (...args) {
             return thisNode.ListClientConnections(...args);
         });
+
+        if (!targetEndpoint.IsServer()) {
+            // Add this command for DRP_Client endpoints
+            targetEndpoint.RegisterCmd("connectToRegistryInList", async function (...args) {
+                return await thisNode.ConnectToRegistryInList(...args);
+            });
+        }
     }
 }
 
@@ -1808,7 +1895,7 @@ class DRP_NodeClient extends DRP_Client {
 
     // Define Handlers
     async OpenHandler() {
-        this.drpNode.log("Node client [" + this.RemoteAddress() + ":" + this.RemotePort() + "] opened");
+        if (this.drpNode.Debug) this.drpNode.log("Node client [" + this.RemoteAddress() + ":" + this.RemotePort() + "] opened");
         let response = await this.SendCmd("DRP", "hello", this.drpNode.NodeDeclaration, true, null);
         if (this.openCallback && typeof this.openCallback === 'function') {
             this.openCallback(response);
@@ -1817,7 +1904,7 @@ class DRP_NodeClient extends DRP_Client {
 
     async CloseHandler(closeCode) {
         let thisEndpoint = this;
-        this.drpNode.log("Node client [" + thisEndpoint.RemoteAddress() + ":" + thisEndpoint.RemotePort() + "] closed with code [" + closeCode + "]");
+        if (this.drpNode.Debug) this.drpNode.log("Node client [" + thisEndpoint.RemoteAddress() + ":" + thisEndpoint.RemotePort() + "] closed with code [" + closeCode + "]");
 
         thisEndpoint.drpNode.RemoveEndpoint(thisEndpoint, thisEndpoint.closeCallback);
 
@@ -1828,7 +1915,7 @@ class DRP_NodeClient extends DRP_Client {
     }
 
     async ErrorHandler(error) {
-        this.drpNode.log("Node client encountered error [" + error + "]");
+        if (this.drpNode.Debug) this.drpNode.log("Node client encountered error [" + error + "]");
     }
 
 }
@@ -1910,7 +1997,7 @@ class DRP_TopologyTracker {
             case "add":
                 if (targetTable[topologyPacket.id]) {
                     // We already know about this one
-                    thisNode.log(`We've received a topologyPacket for a record we already have: ${topologyPacket.type}[${topologyPacket.id}]`);
+                    if (thisNode.Debug) thisNode.log(`We've received a topologyPacket for a record we already have: ${topologyPacket.type}[${topologyPacket.id}]`);
 
                     // If we're a Registry and the learned entry is a Registry, ignore it
                     if (thisNodeEntry.IsRegistry() && advertisedNodeEntry.IsRegistry()) return;
@@ -1923,7 +2010,7 @@ class DRP_TopologyTracker {
                         // This is a direct connection from the source; update the LearnedFrom
                         if (thisNode.IsRegistry()) {
                             // Another Registry has made a warm Node handoff to this one
-                            thisNode.log(`Updating LearnedFrom for ${topologyPacket.type} [${topologyPacket.id}] from [${targetTable[topologyPacket.id].LearnedFrom}] to [${srcNodeID}]`);
+                            if (thisNode.Debug) thisNode.log(`Updating LearnedFrom for ${topologyPacket.type} [${topologyPacket.id}] from [${targetTable[topologyPacket.id].LearnedFrom}] to [${srcNodeID}]`);
                             targetTable[topologyPacket.id].LearnedFrom = srcNodeID;
 
                             // We may want to redistribute
@@ -1932,7 +2019,7 @@ class DRP_TopologyTracker {
                         } else {
                             if (sourceIsRegistry || sourceNodeEntry && sourceNodeEntry.IsRegistry()) {
                                 // A Registry Node has connected to this non-Registry node.
-                                thisNode.log(`Connected to new Registry, overwriting LearnedFrom for ${topologyPacket.type} [${topologyPacket.id}] from [${targetTable[topologyPacket.id].LearnedFrom}] to [${srcNodeID}]`);
+                                if (thisNode.Debug) thisNode.log(`Connected to new Registry, overwriting LearnedFrom for ${topologyPacket.type} [${topologyPacket.id}] from [${targetTable[topologyPacket.id].LearnedFrom}] to [${srcNodeID}]`);
                                 targetTable.AddEntry(topologyPacket.id, topologyPacket.data);
                             } else {
                                 // A non-Registry Node has connected to this non-Registry node.  Do not update LearnedFrom.
@@ -1944,7 +2031,7 @@ class DRP_TopologyTracker {
                     // We are a Registry and learned about a newer route from another Registry; warm handoff?
                     if (thisNode.IsRegistry() && (sourceIsRegistry || sourceNodeEntry && sourceNodeEntry.IsRegistry()) && advertisedNodeEntry.LearnedFrom !== advertisedEntry.NodeID) {
                         //thisNode.log(`Ignoring ${topologyPacket.type} table entry [${topologyPacket.id}] from Node [${srcNodeID}], not not relayed from an authoritative source`);
-                        thisNode.log(`Updating LearnedFrom for ${topologyPacket.type} [${topologyPacket.id}] from [${targetTable[topologyPacket.id].LearnedFrom}] to [${srcNodeID}]`);
+                        if (thisNode.Debug) thisNode.log(`Updating LearnedFrom for ${topologyPacket.type} [${topologyPacket.id}] from [${targetTable[topologyPacket.id].LearnedFrom}] to [${srcNodeID}]`);
                         targetTable[topologyPacket.id].LearnedFrom = srcNodeID;
 
                         // We wouldn't want to redistribute to other registries and we wouldn't need to redistribute to other nodes connected to us
@@ -1955,7 +2042,7 @@ class DRP_TopologyTracker {
                     if (!thisNode.IsRegistry() && (sourceIsRegistry || sourceNodeEntry && sourceNodeEntry.IsRegistry())) {
                         // We must have learned from a new Registry; treat like an add
                         topologyPacket.data.LearnedFrom = srcNodeID;
-                        thisNode.log(`Connected to new Registry, overwriting LearnedFrom for ${topologyPacket.type} [${topologyPacket.id}] from [${targetTable[topologyPacket.id].LearnedFrom}] to [${srcNodeID}]`);
+                        if (thisNode.Debug) thisNode.log(`Connected to new Registry, overwriting LearnedFrom for ${topologyPacket.type} [${topologyPacket.id}] from [${targetTable[topologyPacket.id].LearnedFrom}] to [${srcNodeID}]`);
                         targetTable.AddEntry(topologyPacket.id, topologyPacket.data);
                     }
                     return;
@@ -1965,13 +2052,13 @@ class DRP_TopologyTracker {
 
                     // If this is a Registry and the sender didn't get it from an authoritative source, ignore it
                     if (thisNode.IsRegistry() && topologyPacket.data.LearnedFrom !== topologyPacket.data.NodeID && topologyPacket.data.LearnedFrom !== topologyPacket.data.ProxyNodeID) {
-                        thisNode.log(`Ignoring ${topologyPacket.type} table entry [${topologyPacket.id}] from Node [${srcNodeID}], not relayed from an authoritative source`);
+                        if (thisNode.Debug) thisNode.log(`Ignoring ${topologyPacket.type} table entry [${topologyPacket.id}] from Node [${srcNodeID}], not relayed from an authoritative source`);
                         return;
                     }
 
                     // If this is a service entry and we don't have a corresponding node table entry, ignore it
                     if (topologyPacket.type === "service" && !thisTopologyTracker.NodeTable[topologyPacket.data.NodeID]) {
-                        thisTopologyTracker.drpNode.log(`Ignoring service table entry [${topologyPacket.id}], no matching node table entry`);
+                        if (thisNode.Debug) thisTopologyTracker.drpNode.log(`Ignoring service table entry [${topologyPacket.id}], no matching node table entry`);
                         return;
                     }
 
@@ -1990,17 +2077,18 @@ class DRP_TopologyTracker {
                     targetTable.UpdateEntry(topologyPacket.id, topologyPacket.data);
                     topologyEntry = targetTable[topologyPacket.id];
                 } else {
-                    thisTopologyTracker.drpNode.log(`Could not update non-existent ${topologyPacket.type} entry ${topologyPacket.id}`);
+                    if (thisNode.Debug) thisTopologyTracker.drpNode.log(`Could not update non-existent ${topologyPacket.type} entry ${topologyPacket.id}`);
                     return;
                 }
                 break;
             case "delete":
                 // Only delete if we learned the packet from the sourceID or if we are the source (due to disconnect)
                 if (topologyPacket.id === thisNode.nodeID && topologyPacket.type === "node") {
-                    thisNode.log(`This node tried to delete itself.  Why?`);
+                    if (thisNode.Debug) thisNode.log(`This node tried to delete itself.  Why?`);
                     //console.dir(topologyPacket);
                     return;
                 }
+                // Update this rule so that if the table LearnedFrom is another Registry, do not delete or relay!  We are no longer authoritative
                 if (targetTable[topologyPacket.id] && (targetTable[topologyPacket.id].NodeID === srcNodeID || targetTable[topologyPacket.id].LearnedFrom === srcNodeID) || thisNode.nodeID === srcNodeID) {
                     topologyEntry = targetTable[topologyPacket.id];
                     delete targetTable[topologyPacket.id];
@@ -2012,7 +2100,7 @@ class DRP_TopologyTracker {
                             let serviceInstanceID = serviceIDList[i];
                             let thisServiceEntry = thisTopologyTracker.ServiceTable[serviceInstanceID];
                             if (thisServiceEntry.NodeID === topologyPacket.id || thisServiceEntry.LearnedFrom === topologyPacket.id) {
-                                thisNode.log(`Removing entries learned from Node[${topologyPacket.id}] -> Service[${serviceInstanceID}]`);
+                                if (thisNode.Debug) thisNode.log(`Removing entries learned from Node[${topologyPacket.id}] -> Service[${serviceInstanceID}]`);
                                 delete thisTopologyTracker.ServiceTable[serviceInstanceID];
                             }
                         }
@@ -2024,7 +2112,7 @@ class DRP_TopologyTracker {
                             let checkNodeEntry = thisTopologyTracker.NodeTable[checkNodeID];
                             if (checkNodeEntry.LearnedFrom === topologyPacket.id) {
                                 // Delete this entry
-                                thisNode.log(`Removing entries learned from Node[${topologyPacket.id}] -> Node[${checkNodeEntry.NodeID}]`);
+                                if (thisNode.Debug) thisNode.log(`Removing entries learned from Node[${topologyPacket.id}] -> Node[${checkNodeEntry.NodeID}]`);
                                 let nodeDeletePacket = new DRP_TopologyPacket(checkNodeEntry.NodeID, "delete", "node", checkNodeEntry.NodeID, checkNodeEntry.Scope, checkNodeEntry.Zone, checkNodeEntry);
                                 thisTopologyTracker.ProcessPacket(nodeDeletePacket, checkNodeEntry.NodeID);
                             }
@@ -2032,7 +2120,7 @@ class DRP_TopologyTracker {
                     }
                 } else {
                     // Ignore delete command
-                    thisNode.log(`Ignoring delete from Node[${srcNodeID}]`);
+                    if (thisNode.Debug) thisNode.log(`Ignoring delete from Node[${srcNodeID}]`);
                     //console.dir(targetTable[topologyPacket.id]);
                     //console.dir(topologyPacket);
                     return;
@@ -2042,10 +2130,10 @@ class DRP_TopologyTracker {
                 return;
         }
 
-        thisTopologyTracker.drpNode.log(`Imported topology packet from [${topologyPacket.originNodeID}] -> ${topologyPacket.cmd} ${topologyPacket.type}[${topologyPacket.id}]`, true);
+        if (thisNode.Debug) thisTopologyTracker.drpNode.log(`Imported topology packet from [${topologyPacket.originNodeID}] -> ${topologyPacket.cmd} ${topologyPacket.type}[${topologyPacket.id}]`, true);
 
         if (!topologyEntry) {
-            thisNode.log(`The topologyEntry is null!  Why?`);
+            if (thisNode.Debug) thisNode.log(`The topologyEntry is null!  Why?`);
             return;
             //console.dir(topologyPacket);
         }
@@ -2065,7 +2153,7 @@ class DRP_TopologyTracker {
 
             if (relayPacket) {
                 thisTopologyTracker.drpNode.NodeEndpoints[targetNodeID].SendCmd("DRP", "topologyUpdate", topologyPacket, false, null);
-                thisNode.log(`Relayed topology packet to node: [${targetNodeID}]`, true);
+                if (thisNode.Debug) thisNode.log(`Relayed topology packet to node: [${targetNodeID}]`, true);
             } else {
                 if (targetNodeID !== thisNode.nodeID) {
                     //thisNode.log(`Not relaying packet to node[${targetNodeID}], roles ${thisTopologyTracker.NodeTable[targetNodeID].Roles}`);
@@ -2116,6 +2204,8 @@ class DRP_TopologyTracker {
      */
     FindInstanceOfService(serviceName, zone) {
         let thisTopologyTracker = this;
+        let thisNode = thisTopologyTracker.drpNode;
+        let checkZone = zone || thisNode.Zone;
         /*
          * Status MUST be 1 (Ready)
          * Local zone is better than others (if specified, must match)
@@ -2139,11 +2229,22 @@ class DRP_TopologyTracker {
             if (serviceName !== serviceTableEntry.Name) continue;
 
             // Skip if the zone is specified and doesn't match
-            if (zone && zone !== serviceTableEntry.Zone) continue;
+            switch (serviceTableEntry.Scope) {
+                case "local":
+                    break;
+                case "global":
+                    break;
+                case "zone":
+                    if (checkZone !== serviceTableEntry.Zone) continue;
+                    break;
+                default:
+                    // Unrecognized scope option
+                    continue;
+            }
 
             // Delete if we don't have a corresponding Node entry
             if (!this.NodeTable[serviceTableEntry.NodeID]) {
-                thisTopologyTracker.drpNode.log(`Deleted service table entry [${serviceTableEntry.InstanceID}], no matching node table entry`);
+                thisNode.log(`Deleted service table entry [${serviceTableEntry.InstanceID}], no matching node table entry`);
                 delete this.ServiceTable[serviceTableEntry.InstanceID];
                 continue;
             }
@@ -2158,7 +2259,14 @@ class DRP_TopologyTracker {
             // Check this against the current bestServiceEntry
 
             // Better zone?
-            if (!zone && bestServiceEntry.Zone !== thisTopologyTracker.drpNode.Zone && serviceTableEntry.Zone === thisTopologyTracker.drpNode.Zone) {
+            if (bestServiceEntry && bestServiceEntry.Zone !== checkZone && serviceTableEntry.Zone === checkZone) {
+                bestServiceEntry = serviceTableEntry;
+                candidateList = [bestServiceEntry];
+                continue;
+            }
+
+            // Local preference?
+            if (bestServiceEntry && bestServiceEntry.Scope !== "local" && serviceTableEntry.Scope === "local") {
                 bestServiceEntry = serviceTableEntry;
                 candidateList = [bestServiceEntry];
                 continue;
@@ -2194,7 +2302,7 @@ class DRP_TopologyTracker {
             };
 
             bestServiceEntry = pick(candidateList);
-            thisTopologyTracker.drpNode.log(`Need service [${serviceName}], randomly selected [${bestServiceEntry.InstanceID}]`, true);
+            if (thisNode.Debug) thisNode.log(`Need service [${serviceName}], randomly selected [${bestServiceEntry.InstanceID}]`, true);
         }
 
         return bestServiceEntry;
@@ -2226,7 +2334,29 @@ class DRP_TopologyTracker {
 
         try {
 
+            // We don't recognize the target zone; give them everything by default
+            if (!targetNodeEntry) return true;
+
             // TODO - Add logic to support Proxied Nodes
+
+            switch (advertisedScope) {
+                case "local":
+                    // Never advertise local
+                    return false;
+                case "zone":
+                    // Do not proceed if the target isn't in the same zone
+                    if (advertisedZone !== targetNodeEntry.Zone) {
+                        //thisNode.log(`Not relaying because Node[${targetNodeID}] is not in the same zone!`);
+                        return false;
+                    }
+                    break;
+                case "global":
+                    // Global services can be advertised anywhere
+                    break;
+                default:
+                    // Unknown scope type
+                    return false;
+            }
 
             // Never send back to the origin
             if (advertisedNodeID === targetNodeID) return false;
@@ -2285,6 +2415,9 @@ class DRP_TopologyTracker {
 
                     if (relayPacket) {
                         returnNodeTable[advertisedNodeID] = advertisedNodeEntry;
+                    } else {
+                        //thisNode.log(`Not relaying to Node[${requestingNodeID}]`);
+                        //console.dir(advertisedNodeEntry);
                     }
                 }
                 // Loop over Service Table
@@ -2322,8 +2455,8 @@ class DRP_TopologyTracker {
     async ProcessNodeConnect(sourceEndpoint, declaration, localNodeIsProxy) {
         let thisTopologyTracker = this;
         let thisNode = thisTopologyTracker.drpNode;
+        thisNode.log(`Connection established with Node [${declaration.NodeID}] (${declaration.NodeRoles})`);
         let returnData = await sourceEndpoint.SendCmd("DRP", "getRegistry", { "reqNodeID": thisNode.nodeID }, true, null, null);
-        thisNode.log(`Registry from [${declaration.NodeID}], roles ${declaration.NodeRoles}`);
         //console.dir(returnData, { depth: 4 });
         let sourceIsRegistry = false;
         let remoteRegistry = returnData.payload;
@@ -2333,9 +2466,9 @@ class DRP_TopologyTracker {
             sourceIsRegistry = true;
         }
 
-        if (!thisNode.IsRegistry() && sourceIsRegistry && !thisNode.ConnectedToRegistry) {
+        if (!thisNode.IsRegistry() && sourceIsRegistry && !thisNode.ConnectedToControlPlane) {
             // We are connected to a Registry
-            thisNode.ConnectedToRegistry = true;
+            thisNode.ConnectedToControlPlane = true;
             runCleanup = true;
         }
 
@@ -2372,6 +2505,13 @@ class DRP_TopologyTracker {
         let thisNodeEntry = thisTopologyTracker.NodeTable[thisNode.nodeID];
         let disconnectedNodeEntry = thisTopologyTracker.NodeTable[disconnectedNodeID];
 
+        if (!disconnectedNodeEntry) {
+            thisNode.log(`Ran ProcessNodeDisconnect on non-existent Node [${disconnectedNodeID}]`);
+            return;
+        }
+
+        thisNode.log(`Connection terminated with Node [${disconnectedNodeEntry.NodeID}] (${disconnectedNodeEntry.Roles})`);
+
         // See if we're connected to other Registry Nodes
         let hasAnotherRegistryConnection = thisTopologyTracker.ListConnectedRegistryNodes().length > 0;
 
@@ -2379,9 +2519,9 @@ class DRP_TopologyTracker {
         if (!thisNodeEntry.IsRegistry() && disconnectedNodeEntry && disconnectedNodeEntry.IsRegistry() && !hasAnotherRegistryConnection) {
             // Do not go through with the cleanup process; delete only the disconnected Registry node
             // for now and we'll run the StaleEntryCleanup when we connect to the next Registry.
-            thisNode.log(`We've disconnected from Registry Node[${disconnectedNodeID}] and have no other Registry connections`);
+            thisNode.log(`We disconnected from Registry Node[${disconnectedNodeID}] and have no other Registry connections`);
             delete thisTopologyTracker.NodeTable[disconnectedNodeID];
-            thisNode.ConnectedToRegistry = false;
+            thisNode.ConnectedToControlPlane = false;
             return;
         }
 
@@ -2396,11 +2536,11 @@ class DRP_TopologyTracker {
                 }
             } else {
                 // Node has already been removed; maybe dupe delete commands
-                thisNode.log(`ProcessNodeDisconnect: Node[${disconnectedNodeID}] has already been removed`);
+                if (thisNode.Debug) thisNode.log(`ProcessNodeDisconnect: Node[${disconnectedNodeID}] has already been removed`);
             }
         }
 
-        if (thisNode.ConnectedToRegistry) thisNode.TopologyTracker.StaleEntryCleanup();
+        if (thisNode.ConnectedToControlPlane) thisNode.TopologyTracker.StaleEntryCleanup();
     }
 
     /**
@@ -2479,6 +2619,19 @@ class DRP_TopologyTracker {
             }
         }
         return connectedRegistryList;
+    }
+
+    FindRegistriesInZone(zoneName) {
+        let thisTopologyTracker = this;
+        let registryList = [];
+        let nodeIDList = Object.keys(thisTopologyTracker.NodeTable);
+        for (let i = 0; i < nodeIDList.length; i++) {
+            let checkNodeEntry = thisTopologyTracker.NodeTable[nodeIDList[i]];
+            if (checkNodeEntry.IsRegistry() && checkNodeEntry.Zone === zoneName) {
+                registryList.push(checkNodeEntry.NodeURL);
+            }
+        }
+        return registryList;
     }
 }
 
