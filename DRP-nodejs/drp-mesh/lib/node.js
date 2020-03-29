@@ -399,7 +399,7 @@ class DRP_Node {
             let serviceName = serviceNameList[i];
             // Unlike before, we don't distribute the actual service definitions in
             // the declarations.  We need to go out to each service and get the info
-            let bestInstance = thisNode.TopologyTracker.FindInstanceOfService(serviceName, thisNode.Zone);
+            let bestInstance = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
             let response = await thisNode.RunCommand("DRP", "getServiceDefinition", serviceName, bestInstance.NodeID, true, true, callingEndpoint);
             serviceDefinitions[serviceName] = response;
         }
@@ -1008,7 +1008,7 @@ class DRP_Node {
         // If no targetNodeID was provided, we should attempt to locate the target service
         if (!targetNodeID) {
             // Update to use the DRP_TopologyTracker object
-            let targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(serviceName, thisNode.Zone);
+            let targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
 
             // If no match is found then return null
             if (!targetServiceRecord) return null;
@@ -1091,7 +1091,7 @@ class DRP_Node {
         }
 
         // Update to use the DRP_TopologyTracker object
-        let targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(cmdObj.serviceName, thisNode.Zone);
+        let targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(cmdObj.serviceName);
 
         // If no match is found then return null
         if (!targetServiceRecord) return null;
@@ -1226,12 +1226,6 @@ class DRP_Node {
         } else if (declaration.userAgent) {
             // We need to authenticate the Consumer.  Could be using a static token or a name/password.  Need to implement
             // an authentication function.  Authorization to be handled by target services.
-
-            // If no function has been implemented to authenticate Consumers, terminate the connection\
-            if (!thisNode.AuthenticationServiceName) {
-                sourceEndpoint.Close();
-                return;
-            }
 
             // Authenticate the consumer
             let authResponse = await thisNode.Authenticate(declaration.user, declaration.pass, declaration.token);
@@ -1960,6 +1954,10 @@ class DRP_Node {
         targetEndpoint.RegisterCmd("tcpPing", async (...args) => {
             return thisNode.TCPPing(...args);
         });
+
+        targetEndpoint.RegisterCmd("findInstanceOfService", async (params) => {
+            return thisNode.TopologyTracker.FindInstanceOfService(params.serviceName, params.serviceType, params.zone);
+        });
     }
 
     /**
@@ -1999,8 +1997,20 @@ class DRP_Node {
 
     async Authenticate(userName, password, token) {
         let thisNode = this;
-        if (!this.AuthenticationServiceName) return null;
-        let authResponse = await thisNode.RunCommand(thisNode.AuthenticationServiceName, "authenticate", new DRP_AuthRequest(userName, password, token), null, true, true, null);
+        let authenticationServiceName = null;
+        if (this.AuthenticationServiceName) {
+            // This Node has been configured to use a specific Authentication service
+            authenticationServiceName = this.AuthenticationServiceName;
+        } else {
+            // Use the best available
+            let authenticationServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(null, "Authenticator");
+            if (authenticationServiceRecord) authenticationServiceName = authenticationServiceRecord.Name;
+        }
+        if (!authenticationServiceName) {
+            // No authentication service found
+            if (thisNode.Debug) thisNode.log(`Attempted to authenticate Consumer but no Authenticator was specified or found`);
+        }
+        let authResponse = await thisNode.RunCommand(authenticationServiceName, "authenticate", new DRP_AuthRequest(userName, password, token), null, true, true, null);
         return authResponse;
     }
 }
@@ -2333,13 +2343,18 @@ class DRP_TopologyTracker {
     /**
      * Return the most preferred instance of a service
      * @param {string} serviceName Name of Service to find
+     * @param {string} serviceType Type of Service to find
      * @param {string} zone Name of zone (optional)
      * @returns {DRP_ServiceTableEntry} Best Service Table entry
      */
-    FindInstanceOfService(serviceName, zone) {
+    FindInstanceOfService(serviceName, serviceType, zone) {
         let thisTopologyTracker = this;
         let thisNode = thisTopologyTracker.drpNode;
         let checkZone = zone || thisNode.Zone;
+
+        // If neither a name nor a type is specified, return null
+        if (!serviceName && !serviceType) return null;
+
         /*
          * Status MUST be 1 (Ready)
          * Local zone is better than others (if specified, must match)
@@ -2359,8 +2374,9 @@ class DRP_TopologyTracker {
             // Skip if the service isn't ready
             if (serviceTableEntry.Status !== 1) continue;
 
-            // Skip if the service name doesn't match
-            if (serviceName !== serviceTableEntry.Name) continue;
+            // Skip if the service name/type doesn't match
+            if (serviceName && serviceName !== serviceTableEntry.Name) continue;
+            if (serviceType && serviceType !== serviceTableEntry.Type) continue;
 
             // Skip if the zone is specified and doesn't match
             switch (serviceTableEntry.Scope) {
@@ -2440,7 +2456,15 @@ class DRP_TopologyTracker {
             };
 
             bestServiceEntry = pick(candidateList);
-            if (thisNode.Debug) thisNode.log(`Need service [${serviceName}], randomly selected [${bestServiceEntry.InstanceID}]`, true);
+            if (thisNode.Debug) {
+                let qualifierText = "";
+                if (serviceName) qualifierText = `name[${serviceName}]`;
+                if (serviceType) {
+                    if (qualifierText.length !== 0) qualifierText = `${qualifierText}/`;
+                    qualifierText = `${qualifierText}type[${serviceType}]`;
+                }
+                thisNode.log(`Need service ${qualifierText}, randomly selected [${bestServiceEntry.InstanceID}]`, true);
+            }
         }
 
         return bestServiceEntry;
