@@ -164,6 +164,52 @@ class DRP_Node {
         this.RouteHandler = new DRP_RouteHandler(this, this.drpRoute);
 
         this.PacketRelayCount = 0;
+
+        this.TCPPing = async (params, srcEndpoint, token) => {
+            let pingInfo = null;
+            let pingAddress = null;
+            let pingPort = null;
+            let pingTimeout = 3000;
+            let pingAttempts = 1;
+
+            if (params && typeof params === "string") {
+                // params is a string formatted "address:port"
+                let pingRegExp = /^(.*):(\d+)$/;
+                let pingMatch = pingRegExp.exec(params);
+                if (pingMatch.length > 0) {
+                    // Get parts
+                    pingAddress = match[1];
+                    pingPort = match[2];
+                }
+            } else if (params && params.address && params.port) {
+                // params contains address and port members
+                pingAddress = params.address;
+                pingPort = params.port;
+                if (params.timeout) pingTimeout = params.timeout;
+                if (params.attempts) pingAttempts = params.attempts;
+            } else if (params && params.pathList) {
+                // params was passed from cliGetPath
+                pingAddress = params.pathList.shift();
+                pingPort = params.pathList.shift();
+                if (!pingAddress || !pingPort) return `Format: \\TCPPing\\{address}\\{port}`;
+            }
+
+            if (!pingAddress || !pingPort) return { "address": "127.0.0.1", "port": "80", "timeout": 3000, "attempts": 3 };
+            //console.dir(params);
+            try {
+                pingInfo = await tcpPing({
+                    address: pingAddress,
+                    port: pingPort,
+                    timeout: pingTimeout,
+                    attempts: pingAttempts
+                });
+            }
+            catch (ex) {
+                // Cannot do tcpPing against host:port
+                //thisNode.log(`TCP Pings errored: ${ex}`);
+            }
+            return pingInfo;
+        };
     }
     /**
      * Print message to stdout
@@ -1911,23 +1957,8 @@ class DRP_Node {
             return thisNode.ListClientConnections(...args);
         });
 
-        targetEndpoint.RegisterCmd("tcpPing", async (params, srcEndpoint, token) => {
-            let pingInfo = null;
-            if (!params.address || !params.port) return { "address": "127.0.0.1", "port": "80", "timeout": 3000, "attempts": 3 };
-            //console.dir(params);
-            try {
-                pingInfo = await tcpPing({
-                    address: params.address,
-                    port: params.port,
-                    timeout: params.timeout || 3000,
-                    attempts: params.attempts || 1
-                });
-            }
-            catch (ex) {
-                // Cannot do tcpPing against host:port
-                //thisNode.log(`TCP Pings errored: ${ex}`);
-            }
-            return pingInfo;
+        targetEndpoint.RegisterCmd("tcpPing", async (...args) => {
+            return thisNode.TCPPing(...args);
         });
     }
 
