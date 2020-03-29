@@ -53,22 +53,39 @@ class VDMServer extends DRP_Service {
      * @param {string} serviceName Service Name
      * @param {DRP_Node} drpNode DRP Node
      * @param {string} clientDirectory Client directory
-     * @param {function} asyncAuthorizer Async Authorizer
      */
-    constructor(serviceName, drpNode, clientDirectory, asyncAuthorizer) {
+    constructor(serviceName, drpNode, clientDirectory) {
         super(serviceName, drpNode, "VDM", `${drpNode.nodeID}-${serviceName}`, true, 10, 10, drpNode.Zone, "local", null, 1);
 
+        /** @type {Express.Application} */
         this.expressApp = drpNode.WebServer.expressApp;
 
         this.clientStaticDir = clientDirectory;
         this.expressApp.use(express.static(clientDirectory));
-
+        let asyncAuthorizer = async function(user, password, cb) {
+            let authSucceeded = false;
+            let response = await drpNode.Authenticate(user, password);
+            if (response) authSucceeded = true;
+            return cb(null, authSucceeded);
+        };
         if (asyncAuthorizer) {
             this.expressApp.get('/', basicAuth({
                 challenge: true,
                 authorizer: asyncAuthorizer,
-                authorizeAsync: true
+                authorizeAsync: true,
+                unauthorizedResponse: (req) => {
+                    return req.auth
+                        ? 'Credentials rejected'
+                        : 'No credentials provided';
+                }
             }), (req, res) => {
+                // The credentials are valid; pass them via cookies to the next step for the WebSockets connection
+                res.cookie('user', req.auth.user, {
+                    expires: new Date(Date.now() + 24 * 60 * 60000) // cookie will be removed after 1 day
+                });
+                res.cookie('password', req.auth.password, {
+                    expires: new Date(Date.now() + 24 * 60 * 60000) // cookie will be removed after 1 day
+                });
                 res.sendFile("client.html", { "root": clientDirectory });
                 //res.redirect('client.html');
                 return;
@@ -139,9 +156,6 @@ class VDMServer extends DRP_Service {
             },
             "closeUserApp": function (params, wsConn) {
                 thisVDMServer.CloseUserApp(params, wsConn);
-            },
-            "userLoginRequest": function (params, wsConn) {
-                return thisVDMServer.UserLoginRequest(params, wsConn);
             }
 
         };
@@ -156,44 +170,6 @@ class VDMServer extends DRP_Service {
             req.VDMServer = thisVDMServer;
             next();
         });
-    }
-
-    UserLoginRequest(params, wsConn, streamToken) {
-        let thisVDMServer = this;
-        let replyChunk = {};
-
-        /*
-         * NEED TO UPDATE!!!
-         * 
-         * Before we relied on Basic or SSPI auth to populate the clientSessions, but authentication
-         * needs to be part of the DRP client protocol, not handled by basic or sspi auth
-         * 
-         * This function needs to be updated to accept user & password then authenticate it against <insert auth source here>
-         * 
-        */
-
-        if (params.sessionID in thisVDMServer.clientSessions) {
-            var thisClientObj = thisVDMServer.clientSessions[params.sessionID];
-            wsConn.clientObj = thisClientObj;
-            wsConn.clientObj.wsConn = wsConn;
-            // Need to tag conn with ClientObjectID
-            replyChunk.loginSuccessful = true;
-            replyChunk.userName = thisClientObj["userName"];
-            thisVDMServer.LogWSClientEvent(wsConn, "authenticated");
-        } else {
-            replyChunk.loginSuccessful = false;
-            thisVDMServer.LogSysEvent("WS - failed auth from ip (" + wsConn._socket.remoteAddress + "), key {" + params.sessionID + "}");
-            //console.log("WS - failed auth from ip (" + conn._socket.remoteAddress + "), key {" + data.sessionID + "}");
-            //conn.send(JSON.stringify(replyChunk));
-            //conn.close();
-        }
-        return replyChunk;
-    }
-
-    AddClientSession(params) {
-        let thisVDMServer = this;
-        // Need to add logic to validate that 'data' contains [sessionID, userName and userGroups]
-        thisVDMServer.clientSessions[params.sessionID] = params;
     }
 
     OpenUserApp(params, wsConn) {

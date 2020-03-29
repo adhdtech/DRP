@@ -15,6 +15,7 @@ let domainKey = process.env.DOMAINKEY || null;
 let zoneName = process.env.ZONENAME || "MyZone";
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;
+let authenticatorService = process.env.AUTHENTICATORSERVICE || null;
 
 let drpWSRoute = "";
 
@@ -35,7 +36,7 @@ myWebServer.start();
 
 // Create Broker on expressApp
 console.log(`Starting DRP Node`);
-let myNode = new DRP_Node(["Registry"], hostID, myWebServer, drpWSRoute, myServerConfig.NodeURL, null, domainName, domainKey, zoneName, debug, testMode);
+let myNode = new DRP_Node(["Registry"], hostID, myWebServer, drpWSRoute, myServerConfig.NodeURL, null, domainName, domainKey, zoneName, debug, testMode, authenticatorService);
 
 myNode.log(`Listening at: ${myNode.nodeURL}`);
 myNode.log(`Node in zone: ${myNode.Zone}`);

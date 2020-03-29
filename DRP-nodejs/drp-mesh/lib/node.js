@@ -11,6 +11,9 @@ const DRP_Service = require("./service");
 const DRP_TopicManager = require("./topicmanager");
 const DRP_RouteHandler = require("./routehandler");
 const DRP_Subscription = require('./subscription');
+const DRP_AuthRequest = require('./auth').DRP_AuthRequest;
+const DRP_AuthResponse = require('./auth').DRP_AuthResponse;
+const DRP_AuthFunction = require('./auth').DRP_AuthFunction;
 const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Stream, DRP_RouteOptions } = require('./packet');
 
 function getRandomInt(max) {
@@ -73,9 +76,10 @@ class DRP_Node {
      * @param {string} domainKey DRP Domain Key (optional)
      * @param {string} zone DRP Zone Name (optional)
      * @param {boolean} debug Enable debug output (optional)
-     * @param {boolean} testMode uses a set of dummy SRV data for Registry
+     * @param {boolean} testMode Uses a set of dummy SRV data for Registry
+     * @param {string} authenticationServiceName Name of DRP Service to use for Authorization
      */
-    constructor(nodeRoles, hostID, webServer, drpRoute, nodeURL, webProxyURL, domainName, domainKey, zone, debug, testMode) {
+    constructor(nodeRoles, hostID, webServer, drpRoute, nodeURL, webProxyURL, domainName, domainKey, zone, debug, testMode, authenticationServiceName) {
         let thisNode = this;
         this.nodeID = `${os.hostname()}-${process.pid}-${getRandomInt(9999)}`;
         this.HostID = hostID;
@@ -86,6 +90,7 @@ class DRP_Node {
         this.Zone = zone;
         this.Debug = debug;
         this.TestMode = testMode || false;
+        this.AuthenticationServiceName = authenticationServiceName;
         this.nodeURL = null;
         if (this.WebServer && this.WebServer.expressApp) {
             this.nodeURL = nodeURL;
@@ -953,8 +958,28 @@ class DRP_Node {
     // Easier way of execiting a command with the option of routing via the control plane
     async RunCommand(serviceName, cmd, params, targetNodeID, useControlPlane, awaitResponse, callingEndpoint) {
         let thisNode = this;
-        if (targetNodeID && targetNodeID === thisNode.nodeID) {
-            // The service instance is local; execute here
+
+        // If no targetNodeID was provided, we should attempt to locate the target service
+        if (!targetNodeID) {
+            // Update to use the DRP_TopologyTracker object
+            let targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(serviceName, thisNode.Zone);
+
+            // If no match is found then return null
+            if (!targetServiceRecord) return null;
+
+            // Assign target Node & Instance IDs
+            let targetInstanceID = targetServiceRecord.InstanceID;
+            targetNodeID = targetServiceRecord.NodeID;
+
+            if (thisNode.Debug) thisNode.log(`Best instance of service [${serviceName}] is [${targetInstanceID}] on node [${targetNodeID}]`, true);
+        }
+
+        // We don't recognize the target NodeID
+        if (!targetNodeID || !thisNode.TopologyTracker.NodeTable[targetNodeID]) return null;
+
+        // Where is the service?
+        if (targetNodeID === thisNode.nodeID) {
+            // Execute locally
             if (awaitResponse) {
                 let results = await thisNode.LocalServiceCommand(new DRP_Cmd(serviceName, cmd, params), callingEndpoint);
                 return results;
@@ -963,6 +988,7 @@ class DRP_Node {
                 return;
             }
         } else {
+            // Execute on another Node
             let routeNodeID = targetNodeID;
             let routeOptions = null;
 
@@ -1152,8 +1178,38 @@ class DRP_Node {
             await thisNode.TopologyTracker.ProcessNodeConnect(sourceEndpoint, declaration, localNodeIsProxy);
 
         } else if (declaration.userAgent) {
+            // We need to authenticate the Consumer.  Could be using a static token or a name/password.  Need to implement
+            // an authentication function.  Authorization to be handled by target services.
+
+            // If no function has been implemented to authenticate Consumers, terminate the connection\
+            if (!thisNode.AuthenticationServiceName) {
+                sourceEndpoint.Close();
+                return;
+            }
+
+            // Authenticate the consumer
+            let authResponse = await thisNode.Authenticate(declaration.user, declaration.pass, declaration.token);
+
+            // Authentication function did not return successfully
+            if (!authResponse) {
+                if (thisNode.Debug) {
+                    thisNode.log(`Failed to authenticate Consumer`);
+                    console.dir(declaration);
+                }
+                sourceEndpoint.Close();
+                return;
+            }
+
+            // Authentication 
+            if (thisNode.Debug) {
+                thisNode.log(`Authenticated Consumer`);
+                console.dir(authResponse);
+            }
+
             // This is a consumer declaration
             sourceEndpoint.EndpointType = "Consumer";
+            // Assign Authentication Response
+            sourceEndpoint.AuthInfo = authResponse;
             // Moved from wsOpen handler
             if (!thisNode.ConsumerConnectionID) thisNode.ConsumerConnectionID = 1;
             // Assign ID using simple counter for now
@@ -1862,12 +1918,38 @@ class DRP_Node {
             return thisNode.ListClientConnections(...args);
         });
 
+        targetEndpoint.RegisterCmd("tcpPing", async (params, srcEndpoint, token) => {
+            let pingInfo = null;
+            if (!params.address || !params.port) return {"address":"127.0.0.1","port":"80","timeout":3000,"attempts":3};
+            //console.dir(params);
+            try {
+                pingInfo = await tcpPing({
+                    address: params.address,
+                    port: params.port,
+                    timeout: params.timeout || 3000,
+                    attempts: params.attempts || 1
+                });
+            }
+            catch (ex) {
+                // Cannot do tcpPing against host:port
+                //thisNode.log(`TCP Pings errored: ${ex}`);
+            }
+            return pingInfo;
+        });
+
         if (!targetEndpoint.IsServer()) {
             // Add this command for DRP_Client endpoints
             targetEndpoint.RegisterCmd("connectToRegistryInList", async function (...args) {
                 return await thisNode.ConnectToRegistryInList(...args);
             });
         }
+    }
+
+    async Authenticate(userName, password, token) {
+        let thisNode = this;
+        if (!this.AuthenticationServiceName) return null;
+        let authResponse = await thisNode.RunCommand(thisNode.AuthenticationServiceName, "authenticate", new DRP_AuthRequest(userName, password, token), null, true, true, null);
+        return authResponse;
     }
 }
 
@@ -2260,8 +2342,12 @@ class DRP_TopologyTracker {
 
             // Better zone?
             if (bestServiceEntry && bestServiceEntry.Zone !== checkZone && serviceTableEntry.Zone === checkZone) {
+                // The service being evaluated is in a better zone
                 bestServiceEntry = serviceTableEntry;
                 candidateList = [bestServiceEntry];
+                continue;
+            } else if (bestServiceEntry && bestServiceEntry.Zone === checkZone && serviceTableEntry.Zone !== checkZone) {
+                // The service being evaluated is in a different zone
                 continue;
             }
 

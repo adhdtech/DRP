@@ -13,7 +13,8 @@ DOMAINNAME=mydomain.xyz
 DOMAINKEY=supersecretkey
 DEBUG=true
 TESTMODE=true
-ZONENAME=zone1</Environment>
+ZONENAME=zone1
+AUTHENTICATORSERVICE=TestAuthenticator</Environment>
     <NodejsPort>8080</NodejsPort>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
@@ -49,6 +50,9 @@ ZONENAME=zone1</Environment>
     <Content Include="drp-mesh\lib\consumer.js" />
     <Content Include="drp-mesh\lib\client.js" />
     <Content Include="drp-mesh\lib\endpoint.js" />
+    <Content Include="drp-mesh\lib\auth.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="drp-mesh\lib\node.js" />
     <Content Include="drp-mesh\lib\packet.js" />
     <Content Include="drp-mesh\lib\routehandler.js" />
@@ -70,6 +74,7 @@ ZONENAME=zone1</Environment>
     <Content Include="drpProvider-Cache.js" />
     <Content Include="drpProvider-JSONDocMgr.js" />
     <Content Include="drpProvider-Hive.js" />
+    <Content Include="drpProvider-Test-Authenticator.js" />
     <Content Include="drpProvider-Test-PublicDirectory.js" />
     <Content Include="jsondocs\test.json">
       <SubType>Code</SubType>

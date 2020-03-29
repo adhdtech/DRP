@@ -430,10 +430,19 @@ class DRP_Stream {
 }
 
 class VDMClient {
+    /**
+     * VDMClient owns the VDMDesktop and VDMServerAgent objects
+     * @param {VDMDesktop} vdmDesktop VDM Desktop
+     * @param {string} userName User name
+     * @param {string} password User password
+     */
     constructor(vdmDesktop) {
 
         let thisVDMClient = this;
+        this.userName = thisVDMClient.readCookie("user");
+        this.password = thisVDMClient.readCookie("password");
 
+        /** @type VDMServerAgent */
         this.vdmServerAgent = null;
 
         this.vdmDesktop = vdmDesktop;
@@ -441,7 +450,7 @@ class VDMClient {
 
     startSession(wsTarget) {
         let thisVDMClient = this;
-        thisVDMClient.vdmServerAgent = new VDMServerAgent(thisVDMClient);
+        thisVDMClient.vdmServerAgent = new VDMServerAgent(thisVDMClient, thisVDMClient.userName, thisVDMClient.password);
         thisVDMClient.vdmServerAgent.connect(wsTarget);
     }
     /*
@@ -587,10 +596,17 @@ class rSageApplet extends VDMApplet {
 }
 
 class VDMServerAgent extends DRP_Client_Browser {
-    constructor(vdmClient) {
+    /**
+     * Agent which connects to DRP_Node (Broker)
+     * @param {VDMClient} vdmClient VDM Client object
+     * @param {string} user User name
+     * @param {string} pass User password
+     */
+    constructor(vdmClient, user, pass) {
         super();
 
-        this.username = '';
+        this.user = user;
+        this.pass = pass;
         this.wsConn = '';
         this.sessionID = vdmClient.getLastSessionID();
         this.vdmClient = vdmClient;
@@ -615,10 +631,14 @@ class VDMServerAgent extends DRP_Client_Browser {
         this.wsConn = wsConn;
 
         let response = await thisVDMServerAgent.SendCmd("DRP", "hello", {
-            platform: this.platform,
-            userAgent: this.userAgent,
-            URL: this.URL
+            user: thisVDMServerAgent.user,
+            pass: thisVDMServerAgent.pass,
+            platform: thisVDMServerAgent.platform,
+            userAgent: thisVDMServerAgent.userAgent,
+            URL: thisVDMServerAgent.URL
         }, true, null);
+
+        if (!response) window.location.reload();
 
         //let response = await thisVDMServerAgent.SendCmd(thisVDMServerAgent.wsConn, "VDM", "userLoginRequest", { "sessionID": thisVDMServerAgent.sessionID }, true, null);
 
@@ -656,7 +676,6 @@ class VDMServerAgent extends DRP_Client_Browser {
     }
 
     resetConnection() {
-        this.username = '';
         this.wsConn = '';
         this.sessionID = this.vdmClient.getLastSessionID();
     }
