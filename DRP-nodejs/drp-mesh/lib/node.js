@@ -1220,7 +1220,7 @@ class DRP_Node {
             thisNode.ConsumerEndpoints[remoteEndpointID] = sourceEndpoint;
 
             // Apply all Node Endpoint commands
-            thisNode.ApplyNodeEndpointMethods(sourceEndpoint);
+            thisNode.ApplyConsumerEndpointMethods(sourceEndpoint);
 
             if (thisNode.Debug) thisNode.log(`Added ConsumerEndpoint[${sourceEndpoint.EndpointID}], type '${sourceEndpoint.EndpointType}'`);
         }
@@ -1861,14 +1861,11 @@ class DRP_Node {
     }
 
     /**
-     * Add Methods to Endpoint
+     * Add Generic Methods to Endpoint
      * @param {DRP_Endpoint} targetEndpoint Endpoint to add methods to
      */
-    ApplyNodeEndpointMethods(targetEndpoint) {
+    ApplyGenericEndpointMethods(targetEndpoint) {
         let thisNode = this;
-        targetEndpoint.RegisterCmd("topologyUpdate", async function (...args) {
-            return thisNode.TopologyUpdate(...args);
-        });
 
         targetEndpoint.RegisterCmd("getNodeDeclaration", async function (...args) {
             return thisNode.NodeDeclaration;
@@ -1876,10 +1873,6 @@ class DRP_Node {
 
         targetEndpoint.RegisterCmd("pathCmd", async function (params, srcEndpoint, token) {
             return await thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
-        });
-
-        targetEndpoint.RegisterCmd("connectToNode", async function (...args) {
-            return await thisNode.ConnectToNode(...args);
         });
 
         targetEndpoint.RegisterCmd("getRegistry", function (params, srcEndpoint, token) {
@@ -1920,7 +1913,7 @@ class DRP_Node {
 
         targetEndpoint.RegisterCmd("tcpPing", async (params, srcEndpoint, token) => {
             let pingInfo = null;
-            if (!params.address || !params.port) return {"address":"127.0.0.1","port":"80","timeout":3000,"attempts":3};
+            if (!params.address || !params.port) return { "address": "127.0.0.1", "port": "80", "timeout": 3000, "attempts": 3 };
             //console.dir(params);
             try {
                 pingInfo = await tcpPing({
@@ -1936,6 +1929,24 @@ class DRP_Node {
             }
             return pingInfo;
         });
+    }
+
+    /**
+     * Add Methods to Node Endpoint
+     * @param {DRP_Endpoint} targetEndpoint Endpoint to add methods to
+     */
+    ApplyNodeEndpointMethods(targetEndpoint) {
+        let thisNode = this;
+
+        thisNode.ApplyGenericEndpointMethods(targetEndpoint);
+
+        targetEndpoint.RegisterCmd("topologyUpdate", async function (...args) {
+            return thisNode.TopologyUpdate(...args);
+        });
+
+        targetEndpoint.RegisterCmd("connectToNode", async function (...args) {
+            return await thisNode.ConnectToNode(...args);
+        });
 
         if (!targetEndpoint.IsServer()) {
             // Add this command for DRP_Client endpoints
@@ -1943,6 +1954,16 @@ class DRP_Node {
                 return await thisNode.ConnectToRegistryInList(...args);
             });
         }
+    }
+
+    /**
+     * Add Methods to Consumer Endpoint
+     * @param {DRP_Endpoint} targetEndpoint Endpoint to add methods to
+     */
+    ApplyConsumerEndpointMethods(targetEndpoint) {
+        let thisNode = this;
+
+        thisNode.ApplyGenericEndpointMethods(targetEndpoint);
     }
 
     async Authenticate(userName, password, token) {
@@ -2487,42 +2508,42 @@ class DRP_TopologyTracker {
         let returnNodeTable = {};
         let returnServiceTable = {};
 
-        if (requestingNodeID) {
-            try {
-                // Loop over Node Table
-                let nodeIDList = Object.keys(thisTopologyTracker.NodeTable);
-                for (let i = 0; i < nodeIDList.length; i++) {
+        if (!requestingNodeID) { requestingNodeID = ""; }
 
-                    let advertisedNodeID = nodeIDList[i];
-                    let advertisedNodeEntry = thisTopologyTracker.NodeTable[advertisedNodeID];
+        try {
+            // Loop over Node Table
+            let nodeIDList = Object.keys(thisTopologyTracker.NodeTable);
+            for (let i = 0; i < nodeIDList.length; i++) {
 
-                    // Check to see if we should relay this packet
-                    let relayPacket = thisTopologyTracker.AdvertiseOutCheck(advertisedNodeEntry, requestingNodeID);
+                let advertisedNodeID = nodeIDList[i];
+                let advertisedNodeEntry = thisTopologyTracker.NodeTable[advertisedNodeID];
 
-                    if (relayPacket) {
-                        returnNodeTable[advertisedNodeID] = advertisedNodeEntry;
-                    } else {
-                        //thisNode.log(`Not relaying to Node[${requestingNodeID}]`);
-                        //console.dir(advertisedNodeEntry);
-                    }
+                // Check to see if we should relay this packet
+                let relayPacket = thisTopologyTracker.AdvertiseOutCheck(advertisedNodeEntry, requestingNodeID);
+
+                if (relayPacket) {
+                    returnNodeTable[advertisedNodeID] = advertisedNodeEntry;
+                } else {
+                    //thisNode.log(`Not relaying to Node[${requestingNodeID}]`);
+                    //console.dir(advertisedNodeEntry);
                 }
-                // Loop over Service Table
-                let serviceIDList = Object.keys(thisTopologyTracker.ServiceTable);
-                for (let i = 0; i < serviceIDList.length; i++) {
-
-                    let advertisedServiceID = serviceIDList[i];
-                    let advertisedServiceEntry = thisTopologyTracker.ServiceTable[advertisedServiceID];
-
-                    // Check to see if we should relay this packet
-                    let relayPacket = thisTopologyTracker.AdvertiseOutCheck(advertisedServiceEntry, requestingNodeID);
-
-                    if (relayPacket) {
-                        returnServiceTable[advertisedServiceID] = advertisedServiceEntry;
-                    }
-                }
-            } catch (ex) {
-                thisTopologyTracker.drpNode.log(`Exception while getting subset of Registry: ${ex}`);
             }
+            // Loop over Service Table
+            let serviceIDList = Object.keys(thisTopologyTracker.ServiceTable);
+            for (let i = 0; i < serviceIDList.length; i++) {
+
+                let advertisedServiceID = serviceIDList[i];
+                let advertisedServiceEntry = thisTopologyTracker.ServiceTable[advertisedServiceID];
+
+                // Check to see if we should relay this packet
+                let relayPacket = thisTopologyTracker.AdvertiseOutCheck(advertisedServiceEntry, requestingNodeID);
+
+                if (relayPacket) {
+                    returnServiceTable[advertisedServiceID] = advertisedServiceEntry;
+                }
+            }
+        } catch (ex) {
+            thisTopologyTracker.drpNode.log(`Exception while getting subset of Registry: ${ex}`);
         }
 
         let returnObj = {
