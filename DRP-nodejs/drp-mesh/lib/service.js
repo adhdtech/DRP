@@ -53,6 +53,7 @@ class DRP_Service {
     GetDefinition() {
         let thisService = this;
         let serviceDefinition = {
+            InstanceID: thisService.InstanceID,
             Name: thisService.serviceName,
             Type: thisService.Type,
             Classes: {},

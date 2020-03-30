@@ -133,10 +133,12 @@
                     });
 
                     // Loop over Node services
-                    for (let j = 0; j < drpNode.services.length; j++) {
+                    let serviceNameList = Object.keys(drpNode.services);
+                    for (let j = 0; j < serviceNameList.length; j++) {
 
-                        let serviceName = drpNode.services[j];
-                        let serviceNodeID = `svc-${serviceName}`;
+                        let serviceName = serviceNameList[j];
+                        let serviceObj = drpNode.services[serviceName];
+                        let serviceNodeID = serviceObj.InstanceID;
 
                         // See if service node exists
                         let svcNodeObj = myApp.appVars.cy.getElementById(serviceNodeID);

@@ -463,7 +463,7 @@ class DRP_Endpoint {
     PingTime() {
         let returnVal = null;
         if (this.wsConn._socket) {
-            returnVal = this.wsConn._socket.remotePort;
+            returnVal = this.wsConn.pingTimeMs;
         }
         return returnVal;
     }

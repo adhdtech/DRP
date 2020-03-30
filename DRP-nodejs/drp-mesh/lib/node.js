@@ -406,6 +406,24 @@ class DRP_Node {
         return serviceDefinitions;
     }
 
+    GetLocalServiceDefinitions(params, callingEndpoint) {
+        /*
+         * We need to return:
+         * {
+         *    "TestService": {ClientCmds: {}, Classes:{}, Streams:{}}
+         * }
+         */
+        let thisNode = this;
+        let serviceDefinitions = {};
+        let serviceNameList = Object.keys(thisNode.Services);
+        for (let i = 0; i < serviceNameList.length; i++) {
+            let serviceName = serviceNameList[i];
+            let serviceDefinition = thisNode.Services[serviceName].GetDefinition();
+            serviceDefinitions[serviceName] = serviceDefinition;
+        }
+        return serviceDefinitions;
+    }
+
     async GetClassRecords(params) {
         let thisNode = this;
 
@@ -1006,7 +1024,7 @@ class DRP_Node {
         let thisNode = this;
 
         // If no targetNodeID was provided, we should attempt to locate the target service
-        if (!targetNodeID) {
+        if (!targetNodeID ) {
             // Update to use the DRP_TopologyTracker object
             let targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
 
@@ -1799,7 +1817,7 @@ class DRP_Node {
         return isConnected;
     }
 
-    async GetTopology() {
+    async GetTopology(params, callingEndpoint, token) {
         let thisNode = this;
         let topologyObj = {};
         // We need to get a list of all nodes from the registry
@@ -1808,37 +1826,16 @@ class DRP_Node {
             let targetNodeID = nodeIDList[i];
             let nodeEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
             let topologyNode = {};
-            if (targetNodeID === thisNode.nodeID) {
-                topologyNode = thisNode.ListClientConnections();
-            } else {
-                // Send a command to each node to get the list of client connections
-                /*
-                let useControlPlane = true;
-                let routeNodeID = targetNodeID;
-                let routeOptions = null;
+            let topologyNodeServices = {};
 
-                if (useControlPlane) {
-                    // We want to use to use the control plane instead of connecting directly to the target
-                    if (thisNode.ConnectedToControlPlane) {
-                        routeNodeID = thisNode.TopologyTracker.GetNextHop(targetNodeID);
-                        routeOptions = new DRP_RouteOptions(thisNode.nodeID, targetNodeID);
-                    } else {
-                        // We're not connected to a Registry; fallback to VerifyNodeConnection
-                        routeNodeID = targetNodeID;
-                    }
-                }
-
-                let routeNodeConnection = await thisNode.VerifyNodeConnection(routeNodeID);
-                let cmdResponse = await routeNodeConnection.SendCmd("DRP", "listClientConnections", null, true, null, routeOptions, targetNodeID);
-                */
-                let cmdResponse = await thisNode.RunCommand("DRP", "listClientConnections", null, targetNodeID, true, true);
-                topologyNode = cmdResponse;
-            }
+            topologyNode = await thisNode.RunCommand("DRP", "listClientConnections", null, targetNodeID, true, true, callingEndpoint);
+            topologyNodeServices = await thisNode.RunCommand("DRP", "getLocalServiceDefinitions", null, targetNodeID, true, true, callingEndpoint);
 
             // Append Roles and Listening URL
+            topologyNode.zone = nodeEntry.Zone;
             topologyNode.roles = nodeEntry.Roles;
             topologyNode.url = nodeEntry.NodeURL;
-            topologyNode.services = []; //Object.keys(nodeEntry.Services);
+            topologyNode.services = topologyNodeServices;
 
             // Add to hash
             topologyObj[targetNodeID] = topologyNode;
@@ -1923,8 +1920,12 @@ class DRP_Node {
             return thisNode.GetServiceDefinition(params);
         });
 
-        targetEndpoint.RegisterCmd("getServiceDefinitions", async function (params, srcEndpoint) {
-            return await thisNode.GetServiceDefinitions(params, srcEndpoint);
+        targetEndpoint.RegisterCmd("getServiceDefinitions", async function (...args) {
+            return await thisNode.GetServiceDefinitions(...args);
+        });
+
+        targetEndpoint.RegisterCmd("getLocalServiceDefinitions", function (params, srcEndpoint) {
+            return thisNode.GetLocalServiceDefinitions(params, srcEndpoint);
         });
 
         targetEndpoint.RegisterCmd("getClassRecords", async function (...args) {
@@ -1957,6 +1958,10 @@ class DRP_Node {
 
         targetEndpoint.RegisterCmd("findInstanceOfService", async (params) => {
             return thisNode.TopologyTracker.FindInstanceOfService(params.serviceName, params.serviceType, params.zone);
+        });
+
+        targetEndpoint.RegisterCmd("listServices", async (params) => {
+            return thisNode.TopologyTracker.ListServices(params.serviceName, params.serviceType, params.zone);
         });
     }
 
