@@ -2195,7 +2195,7 @@ class DRP_TopologyTracker {
                     if (thisNode.IsRegistry() && topologyPacket.type === "node" && topologyPacket.data.Roles.indexOf("Registry") >= 0 && srcNodeID !== advertisedEntry.NodeID) return;
 
                     // If this is a Registry and the sender didn't get it from an authoritative source, ignore it
-                    if (thisNode.IsRegistry() && topologyPacket.data.LearnedFrom !== topologyPacket.data.NodeID && topologyPacket.data.LearnedFrom !== topologyPacket.data.ProxyNodeID) {
+                    if (thisNode.IsRegistry() && topologyPacket.data.NodeID !== thisNode.nodeID && topologyPacket.data.LearnedFrom !== topologyPacket.data.NodeID && topologyPacket.data.LearnedFrom !== topologyPacket.data.ProxyNodeID) {
                         if (thisNode.Debug) thisNode.log(`Ignoring ${topologyPacket.type} table entry [${topologyPacket.id}] from Node [${srcNodeID}], not relayed from an authoritative source`);
                         return;
                     }

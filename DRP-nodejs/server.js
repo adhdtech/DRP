@@ -3,6 +3,9 @@ const DRP_Node = require('drp-mesh').Node;
 const DRP_WebServer = require('drp-mesh').WebServer;
 const vdmServer = require('drp-service-rsage').VDM;
 const docManager = require('drp-service-docmgr');
+const DRP_AuthRequest = require('drp-mesh').Auth.DRP_AuthResponse;
+const DRP_AuthResponse = require('drp-mesh').Auth.DRP_AuthResponse;
+const DRP_Authenticator = require('drp-mesh').Auth.DRP_Authenticator;
 const os = require("os");
 
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
@@ -45,21 +48,27 @@ let roleList = ["Broker", "Registry"];
 console.log(`Starting DRP Node...`);
 let myNode = new DRP_Node(roleList, hostID, myWebServer, drpWSRoute, myServerConfig.NodeURL, null, domainName, domainKey, zoneName, debug, testMode);
 
-// Declare VDM Authorization function
-/*
-function myAsyncAuthorizer(username, password, cb) {
-    if (username === 'user' && password === 'pass')
-        return cb(null, true);
-    else
-        return cb(null, false);
-}
-*/
+// Test Authentication Service
+let myAuthenticator = new DRP_Authenticator("TestAuthenticator", myNode, 10, 10, "global", 1);
+/**
+ * Authenticate User
+ * @param {DRP_AuthRequest} authRequest Parameters to authentication function
+ * @returns {DRP_AuthResponse} Response from authentication function
+ */
+myAuthenticator.Authenticate = async function (authRequest) {
+    // For demo only; accept all requests
+    let authResponse = new DRP_AuthResponse();
+    authResponse.UserName = authRequest.UserName;
+    authResponse.Token = "ABCD1234";
+    authResponse.FullName = "Authenticated User";
+    authResponse.Groups = ["Users"];
+    return authResponse;
+};
 
-// Set authorizator to null for demo
-let myAsyncAuthorizer = null;
+myNode.AddService(myAuthenticator);
 
 // Create VDM Server on node
-let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot, myAsyncAuthorizer);
+let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot);
 
 myNode.AddService(myVDMServer);
 myNode.AddStream("RESTLogs", "REST service logs");
