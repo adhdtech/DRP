@@ -84,7 +84,7 @@
                 switch (nodeClass) {
                     case "Registry":
                         returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Registry"]);
-                        myApp.appVars.nodeCursors["Registry"].y += 50;
+                        myApp.appVars.nodeCursors["Registry"].y += 75;
                         break;
                     case "Broker":
                         returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Broker"]);
@@ -93,11 +93,11 @@
                         break;
                     case "Provider":
                         returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Provider"]);
-                        myApp.appVars.nodeCursors["Provider"].y += 50;
+                        myApp.appVars.nodeCursors["Provider"].y += 75;
                         break;
                     case "Logger":
                         returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Logger"]);
-                        myApp.appVars.nodeCursors["Logger"].y += 50;
+                        myApp.appVars.nodeCursors["Logger"].y += 75;
                         break;
                     case "Consumer":
                         returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Consumer"]);

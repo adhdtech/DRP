@@ -4,16 +4,22 @@ const DRP_Service = require('drp-mesh').Service;
 const DRP_UMLAttribute = require('drp-mesh').UML.Attribute;
 const DRP_UMLFunction = require('drp-mesh').UML.Function;
 const DRP_UMLClass = require('drp-mesh').UML.Class;
+const os = require("os");
 
-process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
-
-var registryurl = process.env.REGISTRYURL || "ws://localhost:8080";
-var servicename = process.env.SERVICENAME || "ServiceDirectory";
+var port = process.env.PORT || 8080;
+let hostname = process.env.HOSTNAME || os.hostname();
+let hostID = process.env.HOSTID || os.hostname();
+let domainName = process.env.DOMAINNAME || null;
+let domainKey = process.env.DOMAINKEY || null;
+let zoneName = process.env.ZONENAME || "MyZone";
+let registryURL = process.env.REGISTRYURL || null;
+let debug = process.env.DEBUG || false;
+let testMode = process.env.TESTMODE || false;
 
 // Create test service class
-class TestService extends DRP_Service {
+class DirectoryService extends DRP_Service {
     constructor(serviceName, drpNode) {
-        super(serviceName, drpNode);
+        super(serviceName, drpNode, "TestService", `${drpNode.nodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, 1);
         this.ClientCmds = {
             sayHi: async function () { return { pathItem: `Hello from ${drpNode.nodeID}` }; },
             sayBye: async function () { return { pathItem: `Goodbye from ${drpNode.nodeID}` }; },
@@ -63,15 +69,21 @@ class TestService extends DRP_Service {
 
 // Create Node
 console.log(`Starting DRP Node...`);
-let myNode = new DRP_Node(["Provider"]);
+let roleList = ["Provider"];
+let myNode = new DRP_Node(roleList, hostID, null, null, null, null, domainName, domainKey, zoneName, debug, testMode);
+
+// Declare dummy stream
+myNode.AddStream("dummy", "Test stream");
 
 // Add a test service
-myNode.AddService(new TestService(servicename, myNode));
+myNode.AddService(new DirectoryService("DirectoryService", myNode));
 
-// Connect to Registry
-myNode.ConnectToRegistry(registryurl, async () => {
-    myNode.log("Connected to Registry");
-});
+// Connect to Registry manually if no domainName was specified
+if (!domainName && registryURL) {
+    myNode.ConnectToRegistry(registryURL, async () => {
+        myNode.log("Connected to Registry");
+    });
+}
 
 setInterval(function () {
     let timeStamp = new Date().getTime();
