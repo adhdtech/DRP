@@ -112,7 +112,7 @@ class DRP_Node {
 
         this.TopologyTracker = new DRP_TopologyTracker(thisNode);
 
-        let newNodeEntry = new DRP_NodeTableEntry(thisNode.nodeID, null, nodeRoles, nodeURL, "global", thisNode.Zone, thisNode.nodeID);
+        let newNodeEntry = new DRP_NodeTableEntry(thisNode.nodeID, null, nodeRoles, nodeURL, "global", thisNode.Zone, thisNode.nodeID, thisNode.HostID);
         let addNodePacket = new DRP_TopologyPacket(newNodeEntry.NodeID, "add", "node", newNodeEntry.NodeID, newNodeEntry.Scope, newNodeEntry.Zone, newNodeEntry);
         thisNode.TopologyTracker.ProcessPacket(addNodePacket, thisNode.nodeID);
 
@@ -1780,18 +1780,21 @@ class DRP_Node {
         let nodeIDList = Object.keys(thisNode.TopologyTracker.NodeTable);
         for (let i = 0; i < nodeIDList.length; i++) {
             let targetNodeID = nodeIDList[i];
-            let nodeEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
             let topologyNode = {};
-            let topologyNodeServices = {};
 
-            topologyNode = await thisNode.RunCommand("DRP", "listClientConnections", null, targetNodeID, true, true, callingEndpoint);
-            topologyNodeServices = await thisNode.RunCommand("DRP", "getLocalServiceDefinitions", null, targetNodeID, true, true, callingEndpoint);
+            let nodeTableEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
+            let nodeClientConnections = await thisNode.RunCommand("DRP", "listClientConnections", null, targetNodeID, true, true, callingEndpoint);
+            let nodeServices = await thisNode.RunCommand("DRP", "getLocalServiceDefinitions", null, targetNodeID, true, true, callingEndpoint);
 
-            // Append Roles and Listening URL
-            topologyNode.zone = nodeEntry.Zone;
-            topologyNode.roles = nodeEntry.Roles;
-            topologyNode.url = nodeEntry.NodeURL;
-            topologyNode.services = topologyNodeServices;
+            // Assign Node Table Entry attributes
+            Object.assign(topologyNode, nodeTableEntry);
+
+            // Assign Client Connections
+            topologyNode.NodeClients = nodeClientConnections.nodeClients;
+            topologyNode.ConsumerClients = nodeClientConnections.consumerClients;
+
+            // Assign Services
+            topologyNode.Services = nodeServices;
 
             // Add to hash
             topologyObj[targetNodeID] = topologyNode;
@@ -2853,11 +2856,13 @@ class DRP_NodeTableEntry extends DRP_TrackingTableEntry {
      * @param {string} scope Node Scope
      * @param {string} zone Node Zone
      * @param {string} learnedFrom NodeID that sent us this record
+     * @param {string} hostID Host ID
      */
-    constructor(nodeID, proxyNodeID, roles, nodeURL, scope, zone, learnedFrom) {
+    constructor(nodeID, proxyNodeID, roles, nodeURL, scope, zone, learnedFrom, hostID) {
         super(nodeID, proxyNodeID, scope, zone, learnedFrom);
         this.Roles = roles;
         this.NodeURL = nodeURL;
+        this.HostID = hostID;
     }
 
     IsRegistry() {

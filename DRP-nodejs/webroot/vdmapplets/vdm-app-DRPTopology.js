@@ -5,12 +5,28 @@
 
         class topologyNode {
             constructor() {
+                /** @type {string} */
+                this.NodeID = "";
+                /** @type {string} */
+                this.ProxyNodeID = "";
+                /** @type {string} */
+                this.Scope = "";
+                /** @type {string} */
+                this.Zone = "";
+                /** @type {string} */
+                this.LearnedFrom = "";
                 /** @type {string[]} */
-                this.consumerClients = [];
+                this.Roles = [];
+                /** @type {string} */
+                this.NodeURL = "";
+                /** @type {string} */
+                this.HostID = "";
                 /** @type {string[]} */
-                this.nodeClients = [];
+                this.ConsumerClients = [];
                 /** @type {string[]} */
-                this.roles = [];
+                this.NodeClients = [];
+                /** @type {Object.<string,Object>} */
+                this.Services = {};
             }
         }
 
@@ -117,8 +133,8 @@
                     let drpNodeID = nodeIDs[i];
                     let drpNode = topologyObj[drpNodeID];
 
-                    let labelData = drpNodeID;
-                    if (drpNode.url) labelData = `${drpNodeID}\n${drpNode.url}`;
+                    let labelData = `${drpNode.NodeID}\n[${drpNode.HostID}]`;
+                    if (drpNode.NodeURL) labelData = `${labelData}\n${drpNode.NodeURL}`;
 
                     // Add DRP Node as Cytoscape node
                     myApp.appVars.cy.add({
@@ -128,16 +144,16 @@
                             label: labelData,
                             drpNode: drpNode
                         },
-                        classes: drpNode.roles.join(" "),
-                        position: myApp.appFuncs.placeNode(drpNode.roles[0])
+                        classes: drpNode.Roles.join(" "),
+                        position: myApp.appFuncs.placeNode(drpNode.Roles[0])
                     });
 
                     // Loop over Node services
-                    let serviceNameList = Object.keys(drpNode.services);
+                    let serviceNameList = Object.keys(drpNode.Services);
                     for (let j = 0; j < serviceNameList.length; j++) {
 
                         let serviceName = serviceNameList[j];
-                        let serviceObj = drpNode.services[serviceName];
+                        let serviceObj = drpNode.Services[serviceName];
                         let serviceNodeID = serviceObj.InstanceID;
 
                         // See if service node exists
@@ -176,7 +192,7 @@
                     myApp.appVars.nodeCursors["Consumer"].y = nodeObj.position().y;
 
                     // Loop over nodeClients
-                    let nodeClientIDs = Object.keys(drpNode.nodeClients);
+                    let nodeClientIDs = Object.keys(drpNode.NodeClients);
                     for (let j = 0; j < nodeClientIDs.length; j++) {
                         let targetNodeID = nodeClientIDs[j];
 
@@ -187,13 +203,13 @@
                                 source: targetNodeID,
                                 target: drpNodeID,
                                 //label: drpNode.nodeClients[nodeClientIDs[j]]['pingTimeMs'] + " ms\n" + drpNode.nodeClients[nodeClientIDs[j]]['uptimeSeconds'] + " s"
-                                label: drpNode.nodeClients[nodeClientIDs[j]]['pingTimeMs'] + " ms"
+                                label: drpNode.NodeClients[nodeClientIDs[j]]['pingTimeMs'] + " ms"
                             }
                         });
                     }
 
                     // Loop over consumerClients
-                    let consumerClientIDs = Object.keys(drpNode.consumerClients);
+                    let consumerClientIDs = Object.keys(drpNode.ConsumerClients);
                     for (let j = 0; j < consumerClientIDs.length; j++) {
                         let consumerID = `${drpNodeID}-c:${consumerClientIDs[j]}`;
 
@@ -214,7 +230,7 @@
                                 source: consumerID,
                                 target: drpNodeID,
                                 //label: drpNode.consumerClients[consumerClientIDs[j]]['pingTimeMs'] + " ms\n" + drpNode.consumerClients[consumerClientIDs[j]]['uptimeSeconds'] + " s"
-                                label: drpNode.consumerClients[consumerClientIDs[j]]['pingTimeMs'] + " ms"
+                                label: drpNode.ConsumerClients[consumerClientIDs[j]]['pingTimeMs'] + " ms"
                             }
                         });
                     }
