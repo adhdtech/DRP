@@ -979,6 +979,9 @@ class DRP_Node {
     async RunCommand(serviceName, cmd, params, targetNodeID, useControlPlane, awaitResponse, callingEndpoint) {
         let thisNode = this;
 
+        // If if no service or command is provided, return null
+        if (!serviceName || !cmd) return null;
+
         // If no targetNodeID was provided, we should attempt to locate the target service
         if (!targetNodeID) {
             // Update to use the DRP_TopologyTracker object
@@ -1962,6 +1965,7 @@ class DRP_Node {
     async Authenticate(userName, password, token) {
         let thisNode = this;
         let authenticationServiceName = null;
+        let authResponse = null;
         if (this.AuthenticationServiceName) {
             // This Node has been configured to use a specific Authentication service
             authenticationServiceName = this.AuthenticationServiceName;
@@ -1970,11 +1974,12 @@ class DRP_Node {
             let authenticationServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(null, "Authenticator");
             if (authenticationServiceRecord) authenticationServiceName = authenticationServiceRecord.Name;
         }
-        if (!authenticationServiceName) {
+        if (authenticationServiceName) {
+            authResponse = await thisNode.RunCommand(authenticationServiceName, "authenticate", new DRP_AuthRequest(userName, password, token), null, true, true, null);
+        } else {
             // No authentication service found
             if (thisNode.Debug) thisNode.log(`Attempted to authenticate Consumer but no Authenticator was specified or found`);
         }
-        let authResponse = await thisNode.RunCommand(authenticationServiceName, "authenticate", new DRP_AuthRequest(userName, password, token), null, true, true, null);
         return authResponse;
     }
 
