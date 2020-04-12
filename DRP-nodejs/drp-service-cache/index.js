@@ -6,13 +6,13 @@ const assert = require('assert');
 
 require('events').EventEmitter.prototype._maxListeners = 100;
 
-class rSageCacheService extends DRP_Service {
+class DRP_CacheManager extends DRP_Service {
     /**
      * @param {string} serviceName Service Name
      * @param {DRP_Node} drpNode DRP Node
      */
     constructor(serviceName, drpNode) {
-        super(serviceName, drpNode);
+        super(serviceName, drpNode, "CacheManager", `${drpNode.nodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, 1);
         let thisService = this;
         this.mongoDBurl = null;
         this.mongoConn = null;
@@ -104,4 +104,4 @@ class rSageCacheService extends DRP_Service {
     }
 }
 
-module.exports = rSageCacheService;
+module.exports = DRP_CacheManager;

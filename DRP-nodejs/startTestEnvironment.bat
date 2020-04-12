@@ -30,3 +30,11 @@ timeout /T 1
 set PORT=
 set ZONENAME=zone2
 start "TestService-zone2" node drpProvider-Test-NoListener.js
+timeout /T 1
+set PORT=
+set ZONENAME=zone2
+start "TestService-zone2" node drpProvider-Test-NoListener.js
+timeout /T 1
+set PORT=
+set ZONENAME=zone1
+start "TestService-Hive" node drpProvider-Hive.js

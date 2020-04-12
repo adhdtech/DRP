@@ -40,6 +40,22 @@ class UMLFunction {
     }
 }
 
+class UMLDataObject {
+    /**
+     * 
+     * @param {string} className UML Class name
+     * @param {string} primaryKey Primary key value
+     * @param {string} serviceName Source service Name
+     * @param {string} snapTime Timestamp of acquisition from source
+     */
+    constructor(className, primaryKey, serviceName, snapTime) {
+        this._objClass = className;
+        this._objPK = primaryKey;
+        this._serviceName = serviceName;
+        this._snapTime = snapTime;
+    }
+}
+
 class UMLClass {
     /**
      * 
@@ -57,40 +73,44 @@ class UMLClass {
         this.Functions = functions;
         this.PrimaryKey = null;
         this.query = null;
+        /** @type {Object.<string,UMLDataObject} */
         this.cache = {};
         this.loadedCache = false;
         this.GetPK();
-        this.GetRecords = () => {
-            // If we have records cached, return cache
-            return this.cache;
-            // If not, query from source
-        };
-        this.GetDefinition = () => {
-            return {
-                "Name": thisClass.Name,
-                "Stereotypes": thisClass.Stereotypes,
-                "Attributes": thisClass.Attributes,
-                "Functions": thisClass.Functions,
-                "PrimaryKey": thisClass.PrimaryKey
-            };
-        };
 
-        this.AddRecord = (newRecordObj, serviceName, snapTime) => {
-            let thisClass = this;
-            let tmpObj = null;
-            if (newRecordObj.hasOwnProperty(thisClass.PrimaryKey)) {
-                tmpObj = {
-                    "_objClass": thisClass.Name,
-                    "_objPK": null,
-                    "_serviceName": serviceName,
-                    "_snapTime": snapTime
-                };
-                Object.keys(thisClass.Attributes).map(item => { if (newRecordObj.hasOwnProperty(item)) tmpObj[item] = newRecordObj[item]; });
-                tmpObj["_objPK"] = tmpObj[thisClass.PrimaryKey];
-                this.cache[tmpObj[thisClass.PrimaryKey]] = tmpObj;
-            }
-            return tmpObj;
+        this.GetRecords = this.GetRecords;
+        this.GetDefinition = this.GetDefinition;
+        this.AddRecord = this.AddRecord;
+    }
+
+    GetRecords() {
+        let thisClass = this;
+        // If we have records cached, return cache
+        return thisClass.cache;
+        // If not, query from source
+    }
+
+    GetDefinition() {
+        let thisClass = this;
+        return {
+            "Name": thisClass.Name,
+            "Stereotypes": thisClass.Stereotypes,
+            "Attributes": thisClass.Attributes,
+            "Functions": thisClass.Functions,
+            "PrimaryKey": thisClass.PrimaryKey
         };
+    }
+
+    AddRecord(newRecordObj, serviceName, snapTime) {
+        let thisClass = this;
+        let tmpObj = null;
+        if (newRecordObj.hasOwnProperty(thisClass.PrimaryKey)) {
+            tmpObj = new UMLDataObject(thisClass.Name, null, serviceName, snapTime);
+            Object.keys(thisClass.Attributes).map(item => { if (newRecordObj.hasOwnProperty(item)) tmpObj[item] = newRecordObj[item]; });
+            tmpObj._objPK = tmpObj[thisClass.PrimaryKey];
+            this.cache[tmpObj._objPK] = tmpObj;
+        }
+        return tmpObj;
     }
 
     GetPK() {
@@ -123,5 +143,6 @@ class UMLClass {
 module.exports = {
     Attribute: UMLAttribute,
     Function: UMLFunction,
-    Class: UMLClass
+    Class: UMLClass,
+    DataObject: UMLDataObject
 };

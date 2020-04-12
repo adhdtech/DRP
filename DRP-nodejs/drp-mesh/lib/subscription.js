@@ -5,7 +5,7 @@ class DRP_Subscription {
      * @param {string} streamToken Token
      * @param {string} topicName Topic name
      * @param {string} scope global|local
-     * @param {{string:object}} filter Filter
+     * @param {Object.<string,object>} filter Filter
      * @param {function} streamHandler Stream handler
      */
     constructor(streamToken, topicName, scope, filter, streamHandler) {

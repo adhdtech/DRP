@@ -34,7 +34,7 @@ class DRP_Endpoint {
         this.StreamHandlerQueue = {};
         this.TokenNum = 1;
 
-        /** @type {{string:DRP_Subscription}} */
+        /** @type {Object.<string,DRP_Subscription>} */
         this.Subscriptions = {};
         /** @type {function} */
         this.openCallback;

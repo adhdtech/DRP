@@ -12,7 +12,7 @@ class JSONDocManager extends DRP_Service {
      * @param {string} basePath Base path
      */
     constructor(serviceName, drpNode, basePath) {
-        super(serviceName, drpNode, "VDM", `${drpNode.nodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "zone", null, 1);
+        super(serviceName, drpNode, "JSONDocManager", `${drpNode.nodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, 1);
         var thisDocMgr = this;
         this.basePath = basePath;
 
@@ -22,7 +22,7 @@ class JSONDocManager extends DRP_Service {
                 let fileList = await thisDocMgr.ListFiles(thisDocMgr.basePath);
                 return fileList;
             },
-            loadFile: async function (cmdObj, obj2) {
+            loadFile: async function (cmdObj) {
                 //console.log("Loading JSON File - '" + appData.fileName + "'");
                 let fileName = null;
                 if (cmdObj.fileName) {
@@ -47,51 +47,38 @@ class JSONDocManager extends DRP_Service {
         };
     }
 
-    ListFiles(basePath) {
+    /**
+     * 
+     * @param {string} basePath File base path
+     * @returns {Object.<string,object>} Dictionary of files and attributes
+     */
+    async ListFiles(basePath) {
         let thisDocMgr = this;
         let returnData = {};
         // Load file data
-        return new Promise(function (resolve, reject) {
-            fs.readdir(basePath, function (err, data) {
-                if (err)
-                    reject(err);
-                else {
-                    for (var i = 0; i < data.length; i++) {
-                        let fileName = data[i];
+        let dirData = await fs.readdir(basePath);
+        for (var i = 0; i < dirData.length; i++) {
+            let fileName = dirData[i];
 
-                        // Make sure this is a JSON file
-                        if (!fs.statSync(basePath + fileName).isDirectory()) {
-                            returnData[fileName] = fs.statSync(basePath + fileName);
-                        }
-                    }
-                    resolve(returnData);
-                }
-            });
-        });
+            // Make sure this is a JSON file
+            let pathStat = await fs.stat(basePath + fileName);
+            if (!pathStat.isDirectory()) {
+                returnData[fileName] = pathStat;
+            }
+        }
+        return returnData;
     }
 
-    LoadFile(fileName) {
+    async LoadFile(fileName) {
         // Load file data
-        return new Promise(function (resolve, reject) {
-            fs.readFile(fileName, 'utf8', function (err, data) {
-                if (err)
-                    reject(err);
-                else
-                    resolve(data);
-            });
-        });
+        let fileData = await fs.readFile(fileName, 'utf8');
+        return fileData;
     }
 
-    SaveFile(fileName, fileData) {
+    async SaveFile(fileName, fileData) {
         // Save file data
-        return new Promise(function (resolve, reject) {
-            fs.writeFile(fileName, fileData, function (err, data) {
-                if (err)
-                    reject(err);
-                else
-                    resolve(null);
-            });
-        });
+        let saveResults = await fs.writeFile(fileName, fileData);
+        return saveResults;
     }
 }
 

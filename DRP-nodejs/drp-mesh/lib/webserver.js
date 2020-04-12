@@ -55,10 +55,6 @@ class DRP_WebServer {
             }
         });
     }
-
-    AddRouteHandler(route) {
-
-    }
 }
 
 module.exports = DRP_WebServer;

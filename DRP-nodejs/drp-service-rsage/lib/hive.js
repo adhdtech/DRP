@@ -65,7 +65,7 @@ class Hive extends DRP_Service {
      * @param {DRP_Node} drpNode DRP Node
      */
     constructor(serviceName, drpNode) {
-        super(serviceName, drpNode);
+        super(serviceName, drpNode, "Hive", `${drpNode.nodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, 1);
         let thisHive = this;
         this.cfgOpts = {};
         this.HiveClasses = {};
@@ -73,6 +73,8 @@ class Hive extends DRP_Service {
         this.HiveIndexes = {};
 
         this.CollectorInstances = {};
+
+        this.Start = this.Start;
 
         /** @type {HiveClassLoader} */
         this.ClassLoader = null;
@@ -611,15 +613,13 @@ class Hive extends DRP_Service {
     async Start(callback) {
         let thisHive = this;
 
-        this.RunAfterHiveLoad = callback;
-
         this.HiveClasses = {};
         this.HiveData = {};
         this.HiveIndexes = {};
         this.ClassLoader = new HiveClassLoader();
-
+        thisHive.drpNode.log(`Getting class definitions`);
         let classDefs = await thisHive.drpNode.GetClassDefinitions();
-
+        thisHive.drpNode.log(`Loading class definitions`);
         this.ClassLoader.LoadClasses(classDefs);
 
         thisHive.HiveClasses = thisHive.ClassLoader.HiveClasses;

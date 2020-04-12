@@ -87,6 +87,7 @@ AUTHENTICATORSERVICE=TestAuthenticator</Environment>
     <Content Include="drpProvider-Test-NoListener.js" />
     <Content Include="drpProvider-Test.js" />
     <Content Include="drpRegistry.js" />
+    <Content Include="startTestEnvironment.bat" />
     <Content Include="webroot\assets\cytoscape\css\cytoscape-context-menus.css" />
     <Content Include="webroot\assets\cytoscape\js\cytoscape-context-menus.js" />
     <Content Include="webroot\assets\cytoscape\js\cytoscape.min.js" />

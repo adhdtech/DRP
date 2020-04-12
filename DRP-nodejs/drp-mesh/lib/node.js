@@ -104,10 +104,10 @@ class DRP_Node {
         // Wait time for Registry reconnect attempts
         this.ReconnectWaitTimeSeconds = 0;
 
-        /** @type {{string:DRP_NodeClient}} */
+        /** @type {Object.<string,DRP_NodeClient>} */
         this.NodeEndpoints = {};
 
-        /** @type {{string:DRP_NodeClient}} */
+        /** @type {Object.<string,DRP_NodeClient>} */
         this.ConsumerEndpoints = {};
 
         this.TopologyTracker = new DRP_TopologyTracker(thisNode);
@@ -138,7 +138,7 @@ class DRP_Node {
 
         this.NodeDeclaration = new DRP_NodeDeclaration(this.nodeID, this.nodeRoles, this.HostID, this.nodeURL, this.DomainName, this.DomainKey, this.Zone);
 
-        /** @type {{string:DRP_Subscription}} */
+        /** @type {Object.<string,DRP_Subscription>} */
         this.Subscriptions = {};
 
         // Create topic manager
@@ -263,7 +263,12 @@ class DRP_Node {
         let thisNode = this;
         let results = {};
 
+        // Previously, we use this function to list all class instances and return a structure like this...
+        // results[className][serviceID].providers.push(nodeID);
         let classInstances = thisNode.ListClassInstances();
+
+        // We no longer have the classes for each service stored in the Registry.  Now we need to find the best instance
+        // of each service and interrogate for class definitions on the fly.
 
         // Loop over class names
         let classNames = Object.keys(classInstances);

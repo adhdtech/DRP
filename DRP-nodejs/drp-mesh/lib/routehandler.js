@@ -241,10 +241,6 @@ class DRP_RouteHandler {
             wsConn.drpEndpoint.drpNode.log(`Error sending wsPing to Endpoint ${wsConn.drpEndpoint.EndpointID}: ${ex}`);
         }
     }
-
-    /*
-     * Will this section cause the registry to tag Node connections as clients?
-     */
 }
 
 module.exports = DRP_RouteHandler;

@@ -259,3 +259,11 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+*.exe
+*.dll
+*.config
+*.dll
+*.dll
+DRP-dotnet/bin/Debug/DRPDrive.dll
+/DRP-nodejs/drp-mesh/package-lock.json
+DRP-nodejs/package-lock.json

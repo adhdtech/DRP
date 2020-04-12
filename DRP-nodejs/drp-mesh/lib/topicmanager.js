@@ -24,6 +24,7 @@ class DRP_TopicManager {
 
         // Set DRP Node
         this.drpNode = drpNode;
+        /** @type {Object.<string,DRP_TopicManager_Topic>} */
         this.Topics = {};
     }
 
