@@ -2,7 +2,8 @@
 
 // Had to remove this so we don't have a circular eval problem
 //const DRP_Node = require('./node');
-const DRP_Subscription = require('./subscription');
+const DRP_SubscribableSource = require('./subscription').SubscribableSource;
+const DRP_Subscriber = require('./subscription').Subscriber;
 const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Stream, DRP_RouteOptions } = require('./packet');
 
 const WebSocket = require('ws');
@@ -34,7 +35,7 @@ class DRP_Endpoint {
         this.StreamHandlerQueue = {};
         this.TokenNum = 1;
 
-        /** @type {Object.<string,DRP_Subscription>} */
+        /** @type {Object.<string,DRP_Subscriber>} */
         this.Subscriptions = {};
         /** @type {function} */
         this.openCallback;
@@ -69,6 +70,11 @@ class DRP_Endpoint {
         delete this.StreamHandlerQueue[streamToken];
     }
 
+    /**
+     * Register Endpoint Command
+     * @param {string} cmd Command Name
+     * @param {function(Object.<string,object>, DRP_Endpoint, string)} method Function
+     */
     RegisterCmd(cmd, method) {
         let thisEndpoint = this;
         // Need to do sanity checks; is the method actually a method?
@@ -371,13 +377,13 @@ class DRP_Endpoint {
      */
     async WatchStream(topicName, scope, streamHandler) {
         let thisEndpoint = this;
-        let subscriptionObj = new DRP_Subscription(null, topicName, scope, null, streamHandler);
+        let subscriptionObj = new DRP_Subscriber(null, topicName, scope, null, streamHandler);
         thisEndpoint.RegisterSubscription(subscriptionObj);
     }
 
     /**
     * 
-    * @param {DRP_Subscription} subscriptionObject Subscription object
+    * @param {DRP_Subscriber} subscriptionObject Subscription object
     */
     async RegisterSubscription(subscriptionObject) {
         let thisEndpoint = this;
@@ -411,6 +417,17 @@ class DRP_Endpoint {
 
     Close() {
         this.wsConn.close();
+    }
+
+    RemoveSubscriptions() {
+        let subscriptionIDList = Object.keys(this.Subscriptions);
+        for (let i = 0; i < subscriptionIDList.length; i++) {
+            let subscriptionID = subscriptionIDList[i];
+            let subscriptionObject = this.Subscriptions[subscriptionID];
+            subscriptionObject.Terminate();
+            delete this.Subscriptions[subscriptionID];
+            this.drpNode.SubscriptionManager.Subscribers[subscriptionID];
+        }
     }
 
     IsReady() {

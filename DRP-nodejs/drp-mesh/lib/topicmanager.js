@@ -1,18 +1,7 @@
 'use strict';
 
-class DRP_TopicSubscription {
-    /**
-     * 
-     * @param {DRP_Endpoint} endpoint DRP Endpoint
-     * @param {string} token Subscription token
-     * @param {Object} filter Subscription filter
-     */
-    constructor(endpoint, token, filter) {
-        this.endpoint = endpoint;
-        this.token = token;
-        this.filter = filter;
-    }
-}
+const DRP_SubscribableSource = require('./subscription').SubscribableSource;
+const DRP_Subscriber = require('./subscription').Subscriber;
 
 class DRP_TopicManager {
     /**
@@ -28,44 +17,36 @@ class DRP_TopicManager {
         this.Topics = {};
     }
 
-    CreateTopic(topicName) {
+    CreateTopic(topicName, historyLength) {
         // Add logic to verify topic queue name is formatted correctly and doesn't already exist
-        this.Topics[topicName] = new DRP_TopicManager_Topic(this, topicName);
+        this.Topics[topicName] = new DRP_TopicManager_Topic(this, topicName, historyLength);
         this.drpNode.log("Created topic [" + topicName + "]", "TopicManager");
+    }
+
+    GetTopic(topicName) {
+        if (!this.Topics[topicName]) { this.CreateTopic(topicName); }
+        return this.Topics[topicName];
     }
 
     /**
      * 
-     * @param {string} topicName Topic Name
-     * @param {DRP_Endpoint} endpoint DRP Endpoint
-     * @param {string} token Subscription token
-     * @param {Object} filter Subscription Filter
+     * @param {DRP_SubscriptionDeclaration} subscription Subscription
      */
-    SubscribeToTopic(topicName, endpoint, token, filter) {
+    SubscribeToTopic(subscription) {
         // If topic doesn't exist, create it
-        if (!this.Topics[topicName]) {
-            this.CreateTopic(topicName);
+        if (!this.Topics[subscription.topicName]) {
+            this.CreateTopic(subscription.topicName);
         }
 
-        this.Topics[topicName].Subscribers.push(new DRP_TopicSubscription(endpoint, token, filter));
+        this.Topics[subscription.topicName].AddSubscription(subscription);
 
-        this.drpNode.log("Subscribed to topic [" + topicName + "] with token [" + token + "]");
+        //this.drpNode.log("Subscribed to topic [" + topicName + "] with token [" + token + "]");
     }
 
-    UnsubscribeFromTopic(topicName, endpoint, token, filter) {
-        // If topic doesn't exist, create it
+    UnsubscribeFromTopic(topicName, subscriberID) {
         if (this.Topics[topicName]) {
             let thisTopic = this.Topics[topicName];
-
-            let i = thisTopic.Subscribers.length;
-            while (i--) {
-                let thisSubscriberObj = thisTopic.Subscribers[i];
-                if (thisSubscriberObj.endpoint === endpoint && thisSubscriberObj.token === token) {
-                    thisTopic.Subscribers.splice(i, 1);
-                    //console.log("Subscription client[" + i + "] removed gracefully");
-                    break;
-                }
-            }
+            thisTopic.RemoveSubscriber(subscriberID);
         }
     }
 
@@ -103,46 +84,43 @@ class DRP_TopicManager {
     }
 }
 
-class DRP_TopicManager_Topic {
+class DRP_TopicManager_Topic extends DRP_SubscribableSource {
     /**
      * 
      * @param {DRP_TopicManager} topicManager Topic Manager
      * @param {string} topicName Topic Name
+     * @param {number} historyLength History Length
      */
-    constructor(topicManager, topicName) {
-        var thisTopic = this;
+    constructor(topicManager, topicName, historyLength) {
+        super();
+        let thisTopic = this;
 
         // Set Topic Manager
         this.TopicManager = topicManager;
         this.TopicName = topicName;
-        /** @type DRP_TopicSubscription[] */
-        this.Subscribers = [];
+        /** @type Set<DRP_Subscriber> */
+        this.Subscribers = {};
         this.ReceivedMessages = 0;
         this.SentMessages = 0;
-        this.LastTen = [];
+        this.HistoryLength = historyLength || 10;
+        this.History = [];
     }
 
-    Send(message) {
+    async Send(message) {
         let thisTopic = this;
 
         thisTopic.ReceivedMessages++;
 
-        if (thisTopic.LastTen.length === 10) {
-            thisTopic.LastTen.shift();
+        if (thisTopic.History.length === thisTopic.HistoryLength) {
+            thisTopic.History.shift();
         }
-        thisTopic.LastTen.push(message);
+        thisTopic.History.push(message);
 
-        let i = thisTopic.Subscribers.length;
-        while (i--) {
-            let thisSubscriberObj = thisTopic.Subscribers[i];
-            let sendFailed = thisSubscriberObj.endpoint.SendStream(thisSubscriberObj.token, 2, message);
-            if (sendFailed) {
-                thisTopic.Subscribers.splice(i, 1);
-                thisTopic.TopicManager.drpNode.log("Subscription client[" + i + "] removed forcefully");
-            } else {
-                thisTopic.SentMessages++;
-            }
-        }
+        super.Send(message,
+            () => { thisTopic.SentMessages++; },
+            (sendFailed) => { thisTopic.TopicManager.drpNode.log(`Topic[${thisTopic.TopicName}] subscriber removed forcefully, failure response -> ${sendFailed}`); }
+        );
+
     }
 }
 

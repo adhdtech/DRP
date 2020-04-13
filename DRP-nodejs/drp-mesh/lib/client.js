@@ -47,7 +47,9 @@ class DRP_Client extends DRP_Endpoint {
             thisClient.ReceiveMessage(message);
         });
 
-        wsConn.on("close", function (closeCode) { thisClient.CloseHandler(closeCode); });
+        wsConn.on("close", function (closeCode) {
+            thisClient.CloseHandler(closeCode);
+        });
 
         wsConn.on("error", function (error) { thisClient.ErrorHandler(error); });
     }

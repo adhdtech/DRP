@@ -111,7 +111,7 @@ gi drp:\local\Mesh\Services\JSONDocMgr\ClientCmds\listFiles
 dir drp:\local\Mesh\Streams
 
 # Retrieve last 10 messages sent to a stream
-gi drp:\local\Mesh\Streams\RESTLogs\{nodeID}\LastTen
+gi drp:\local\Mesh\Streams\RESTLogs\{nodeID}\History
 
 # View list of attached Nodes & Consumers
 dir drp:\local\Endpoints\Nodes

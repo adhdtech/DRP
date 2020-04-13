@@ -62,6 +62,9 @@ myAuthenticator.Authenticate = async function (authRequest) {
     authResponse.Token = "ABCD1234";
     authResponse.FullName = "Authenticated User";
     authResponse.Groups = ["Users"];
+
+    myNode.TopicManager.SendToTopic("AuthLogs", authResponse);
+
     return authResponse;
 };
 
@@ -86,4 +89,5 @@ if (myNode.nodeURL) {
 setInterval(function () {
     let timeStamp = new Date().getTime();
     myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.nodeID}]`);
+    //if (myNode.Debug) myNode.log(`${timeStamp} Dummy message from node [${myNode.nodeID}]`);
 }, 3000);

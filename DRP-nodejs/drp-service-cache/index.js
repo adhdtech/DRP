@@ -12,7 +12,7 @@ class DRP_CacheManager extends DRP_Service {
      * @param {DRP_Node} drpNode DRP Node
      */
     constructor(serviceName, drpNode) {
-        super(serviceName, drpNode, "CacheManager", `${drpNode.nodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, 1);
+        super(serviceName, drpNode, "CacheManager", `${drpNode.nodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, null, 1);
         let thisService = this;
         this.mongoDBurl = null;
         this.mongoConn = null;

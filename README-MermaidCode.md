@@ -61,7 +61,7 @@ dir drp:\dev\Registry
 dir drp:\dev\Providers
 
 # View last 10 messages in a topic
-dir drp:\dev\Providers\{providerID}\Streams\dummy\LastTen
+dir drp:\dev\Providers\{providerID}\Streams\dummy\History
 
 # Execute a service command
 gi drp:\dev\Services\Greeter\ClientCmds\sayHi

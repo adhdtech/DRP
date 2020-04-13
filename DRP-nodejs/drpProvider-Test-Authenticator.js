@@ -51,6 +51,7 @@ myAuthenticator.Authenticate = async function (authRequest) {
             authResponse.Groups = ["Services"];
         }
     }
+    myNode.TopicManager.SendToTopic("AuthLogs", authResponse);
     return authResponse;
 };
 

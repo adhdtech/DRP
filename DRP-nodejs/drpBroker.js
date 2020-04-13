@@ -61,7 +61,5 @@ if (myNode.nodeURL) {
 
 // Connect to Registry manually if no domainName was specified
 if (!domainName && registryURL) {
-    myNode.ConnectToRegistry(registryURL, async () => {
-        myNode.log("Connected to Registry");
-    });
+    myNode.ConnectToRegistry(registryURL);
 }
