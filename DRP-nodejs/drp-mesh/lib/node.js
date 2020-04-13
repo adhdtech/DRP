@@ -686,11 +686,40 @@ class DRP_Node {
                     let objectType = typeof oCurrentObject[aChildPathArray[i]];
                     switch (objectType) {
                         case 'object':
-                            // Set current object
-                            oCurrentObject = oCurrentObject[aChildPathArray[i]];
-                            if (i + 1 === aChildPathArray.length) {
-                                // Last one - make this the return object
-                                oReturnObject = oCurrentObject;
+                            // Special handling needed for Set objects
+                            let attrType = Object.prototype.toString.call(oCurrentObject[aChildPathArray[i]]).match(/^\[object (.*)\]$/)[1];
+
+                            switch (attrType) {
+                                case "Set":
+                                    // Set current object
+                                    oCurrentObject = oCurrentObject[aChildPathArray[i]];
+                                    if (i + 1 === aChildPathArray.length) {
+                                        // Last one - make this the return object
+                                        oReturnObject = [...oCurrentObject];
+                                    } else {
+                                        // More to the path; skip to the next one
+                                        i++;
+                                        let setIndexString = aChildPathArray[i];
+                                        // If the provided index isn't a number, return
+                                        if (isNaN(setIndexString)) return oReturnObject;
+                                        let setIndexInt = parseInt(setIndexString);
+                                        // If the provided index is out of range, return
+                                        if (setIndexInt + 1 > oCurrentObject.size) return oReturnObject;
+                                        oCurrentObject = [...oCurrentObject][setIndexInt];
+
+                                        if (i + 1 === aChildPathArray.length) {
+                                            // Last one - make this the return object
+                                            oReturnObject = oCurrentObject;
+                                        }
+                                    }
+                                    break;
+                                default:
+                                    // Set current object
+                                    oCurrentObject = oCurrentObject[aChildPathArray[i]];
+                                    if (i + 1 === aChildPathArray.length) {
+                                        // Last one - make this the return object
+                                        oReturnObject = oCurrentObject;
+                                    }
                             }
                             break;
                         case 'function':
@@ -1550,6 +1579,9 @@ class DRP_Node {
                         break;
                     case "Array":
                         returnVal = childAttrObj.length;
+                        break;
+                    case "Set":
+                        returnVal = childAttrObj.size;
                         break;
                     case "Function":
                         returnVal = null;
