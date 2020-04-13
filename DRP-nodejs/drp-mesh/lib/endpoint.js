@@ -42,6 +42,10 @@ class DRP_Endpoint {
         /** @type {function} */
         this.closeCallback;
         this.RegisterCmd("getCmds", "GetCmds");
+
+        this.RemoteAddress = this.RemoteAddress;
+        this.RemotePort = this.RemotePort;
+        this.RemoteFamily = this.RemoteFamily;
     }
 
     GetToken() {
@@ -409,7 +413,9 @@ class DRP_Endpoint {
         return Object.keys(this.EndpointCmds);
     }
 
-    async OpenHandler(req) { }
+    async OpenHandler() {
+        this.RemoteAddressPortFamily = `${this.RemoteAddress()}|${this.RemotePort()}|${this.RemoteFamily()}`;
+    }
 
     async CloseHandler() { }
 
@@ -449,7 +455,7 @@ class DRP_Endpoint {
     */
     RemoteAddress() {
         let returnVal = null;
-        if (this.wsConn._socket) {
+        if (this.wsConn && this.wsConn._socket) {
             returnVal = this.wsConn._socket.remoteAddress;
         }
         return returnVal;
@@ -460,8 +466,19 @@ class DRP_Endpoint {
      */
     RemotePort() {
         let returnVal = null;
-        if (this.wsConn._socket) {
+        if (this.wsConn && this.wsConn._socket) {
             returnVal = this.wsConn._socket.remotePort;
+        }
+        return returnVal;
+    }
+
+    /**
+     * @returns {string} Remote Family
+     */
+    RemoteFamily() {
+        let returnVal = null;
+        if (this.wsConn && this.wsConn._socket) {
+            returnVal = this.wsConn._socket.remoteFamily;
         }
         return returnVal;
     }

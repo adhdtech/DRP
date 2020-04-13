@@ -20,6 +20,7 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
     }
 
     async OpenHandler(req) {
+        super.OpenHandler();
         let thisEndpoint = this;
     }
 

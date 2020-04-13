@@ -1236,6 +1236,7 @@ class DRP_Node {
 
             // This is a consumer declaration
             sourceEndpoint.EndpointType = "Consumer";
+            sourceEndpoint.UserAgent = declaration.userAgent;
             // Assign Authentication Response
             sourceEndpoint.AuthInfo = authResponse;
             // Moved from wsOpen handler
@@ -1955,6 +1956,7 @@ class DRP_NodeClient extends DRP_Client {
 
     // Define Handlers
     async OpenHandler() {
+        super.OpenHandler();
         if (this.drpNode.Debug) this.drpNode.log("Node client [" + this.RemoteAddress() + ":" + this.RemotePort() + "] opened");
         let response = await this.SendCmd("DRP", "hello", this.drpNode.NodeDeclaration, true, null);
         if (this.openCallback && typeof this.openCallback === 'function') {
