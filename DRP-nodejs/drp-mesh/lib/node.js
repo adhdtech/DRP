@@ -1881,18 +1881,35 @@ class DRP_Node {
      * @param {string} targetNodeID Target Node ID
      * @param {string} topicName Topic Name
      * @param {function} streamProcessor Function for processing stream data
-     * @returns {boolean} Subscription success status
+     * @returns {string} Subscription token
      */
-    async SubscribeToRemote(targetNodeID, topicName, streamProcessor) {
+    async SubscribeRemote(targetNodeID, topicName, streamProcessor) {
         let thisNode = this;
-        let successful = false;
+        let returnVal = null;
         // Subscribe to a remote topic
         let thisNodeEndpoint = await thisNode.VerifyNodeConnection(targetNodeID);
         let sourceStreamToken = thisNodeEndpoint.AddStreamHandler(streamProcessor);
 
         // Await for command from source node
-        successful = await thisNodeEndpoint.SendCmd("DRP", "subscribe", { "topicName": topicName, "streamToken": sourceStreamToken, "scope": "local" }, true, null);
-        return successful;
+        let successful = await thisNodeEndpoint.SendCmd("DRP", "subscribe", { "topicName": topicName, "streamToken": sourceStreamToken, "scope": "local" }, true, null);
+        if (successful) returnVal = sourceStreamToken;
+        return returnVal;
+    }
+
+    /**
+     * 
+     * @param {string} targetNodeID Target Node ID
+     * @param {string} streamToken Stream Token
+     */
+    async UnsubscribeRemote(targetNodeID, streamToken) {
+        let thisNode = this;
+        let returnVal = null;
+        // Unsubscribe from a remote topic
+        let thisNodeEndpoint = await thisNode.VerifyNodeConnection(targetNodeID);
+        thisNodeEndpoint.DeleteStreamHandler(streamToken);
+
+        // Await for command from source node
+         await thisNodeEndpoint.SendCmd("DRP", "unsubscribe", { "streamToken": streamToken }, true, null);
     }
 
     async Authenticate(userName, password, token) {
@@ -2903,14 +2920,36 @@ class DRP_TopologyPacket {
 }
 
 class DRP_RemoteSubscription extends DRP_SubscribableSource {
-    constructor() {
+    /**
+     * 
+     * @param {string} targetNodeID Target Node ID
+     * @param {string} topicName Topic Name
+     * @param {string} streamToken Stream Token
+     * @param {function} noSubscribersCallback Last subscriber disconnected callback
+     */
+    constructor(targetNodeID, topicName, streamToken, noSubscribersCallback) {
         super();
+        this.TargetNodeID = targetNodeID;
+        this.TopicName = topicName;
+        this.StreamToken = streamToken;
+        this.NoSubscribersCallback = noSubscribersCallback;
+    }
+
+    /**
+     *
+     * @param {DRP_Subscriber} subscription Subscription to add
+     */
+    RemoveSubscription(subscription) {
+        super.RemoveSubscription(subscription);
+
+        // If there are no more subscribers, terminate this RemoteSubscription
+        if (this.Subscriptions.size === 0) {
+            if (this.NoSubscribersCallback && typeof this.NoSubscribersCallback === "function") this.NoSubscribersCallback();
+        }
     }
 }
 
 class DRP_SubscriptionManager {
-    // TODO - ADD CLEANUP SO THAT WHEN THE LAST SUBSCRIBER IS REMOVED, THE REMOTE SUBSCRIPTION IS TERMINATED!
-
     /**
      * Tracks subscriptions to other Nodes.  Primary purpose is for stream deduplication on Brokers.
      * @param {DRP_Node} drpNode DRP Node
@@ -3032,14 +3071,20 @@ class DRP_SubscriptionManager {
         let returnSubscription = null;
         let remoteSubscriptionID = `${targetNodeID}-${topicName}`;
         if (!thisSubMgr.RemoteSubscriptions[remoteSubscriptionID]) {
-            let newRemoteSubscription = new DRP_RemoteSubscription();
+            let newRemoteSubscription = new DRP_RemoteSubscription(targetNodeID, topicName, null, () => {
+                // No Subscribers Callback
+                delete thisSubMgr.RemoteSubscriptions[remoteSubscriptionID];
+                thisSubMgr.drpNode.UnsubscribeRemote(newRemoteSubscription.TargetNodeID, newRemoteSubscription.StreamToken);
+            });
             thisSubMgr.RemoteSubscriptions[remoteSubscriptionID] = newRemoteSubscription;
-            let successful = await thisSubMgr.drpNode.SubscribeToRemote(targetNodeID, topicName, (streamPacket) => {
+            let streamToken = await thisSubMgr.drpNode.SubscribeRemote(targetNodeID, topicName, (streamPacket) => {
                 // TODO - use streamPacket.status to see if this is the last packet?
                 newRemoteSubscription.Send(streamPacket.payload);
             });
-            if (successful) returnSubscription = thisSubMgr.RemoteSubscriptions[remoteSubscriptionID];
-            else delete thisSubMgr.RemoteSubscriptions[remoteSubscriptionID];
+            if (streamToken) {
+                returnSubscription = thisSubMgr.RemoteSubscriptions[remoteSubscriptionID];
+                returnSubscription.StreamToken = streamToken;
+            } else delete thisSubMgr.RemoteSubscriptions[remoteSubscriptionID];
         } else {
             returnSubscription = thisSubMgr.RemoteSubscriptions[remoteSubscriptionID];
         }
