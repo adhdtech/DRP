@@ -442,6 +442,33 @@ class DRP_Node {
         return results;
     }
 
+    async SendPathCmdToNode(targetNodeID, params) {
+        let thisNode = this;
+        let oReturnObject = null;
+        if (targetNodeID === thisNode.nodeID) {
+            // The target NodeID is local
+            oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
+        } else {
+            // The target NodeID is remote
+            let routeOptions = null;
+
+            // Try to get a direct connection
+            let targetNodeEndpoint = await thisNode.VerifyNodeConnection(targetNodeID);
+            if (!targetNodeEndpoint) {
+                // Fallback to nextHop relay (usually Registry)
+                let endpointNodeID = targetServiceEntry.LearnedFrom;
+                targetNodeEndpoint = thisNode.NodeEndpoints[endpointNodeID];
+                routeOptions = { srcNodeID: thisNode.nodeID, tgtNodeID: targetServiceEntry.NodeID, routeHistory: [] };
+            }
+
+            let cmdResponse = await targetNodeEndpoint.SendCmd("DRP", "pathCmd", params, true, null, routeOptions);
+            if (cmdResponse.payload) {
+                oReturnObject = cmdResponse.payload;
+            }
+        }
+        return oReturnObject;
+    }
+
     GetBaseObj() {
         let thisNode = this;
         return {
@@ -456,21 +483,12 @@ class DRP_Node {
                     let oReturnObject = null;
                     if (remainingChildPath && remainingChildPath.length > 0) {
 
-                        let remoteNodeID = remainingChildPath.shift();
+                        let targetNodeID = remainingChildPath.shift();
 
                         // Need to send command to remoet Node with remaining tree data
                         params.pathList = remainingChildPath;
-                        let thisNodeEndpoint = await thisNode.VerifyNodeConnection(remoteNodeID);
 
-                        if (thisNodeEndpoint) {
-                            // Await for command from remote node
-                            let cmdResponse = await thisNodeEndpoint.SendCmd("DRP", "pathCmd", params, true, null);
-                            if (cmdResponse.payload) {
-                                oReturnObject = cmdResponse.payload;
-                            }
-                        } else {
-                            thisNode.log(`Could not verify node connection for [${remoteNodeID}]`, true);
-                        }
+                        oReturnObject = await thisNode.SendPathCmdToNode(targetNodeID, params);
 
                     } else {
                         // Return list of NodeEndpoints
@@ -522,6 +540,27 @@ class DRP_Node {
             },
             Mesh: {
                 Topology: thisNode.TopologyTracker,
+                Nodes: async function (params) {
+                    // List nodes or redirect to target Node
+                    let remainingChildPath = params.pathList;
+                    let oReturnObject = {};
+                    if (remainingChildPath && remainingChildPath.length > 0) {
+                        // Send PathCmd to target
+                        let targetNodeID = remainingChildPath.shift();
+                        params.pathList = remainingChildPath;
+                        oReturnObject = await thisNode.SendPathCmdToNode(targetNodeID, params);
+                    } else {
+                        // List nodes
+                        let aNodeKeys = Object.keys(thisNode.TopologyTracker.NodeTable);
+                        for (let i = 0; i < aNodeKeys.length; i++) {
+                            oReturnObject[aNodeKeys[i]] = {
+                                "ConsumerType": "SomeType1",
+                                "Status": "Unknown"
+                            };
+                        }
+                    }
+                    return oReturnObject;
+                },
                 Streams: async function (params) {
                     //console.log("Checking Streams...");
                     let remainingChildPath = params.pathList;
@@ -536,20 +575,7 @@ class DRP_Node {
                             // Route to target node's topic manager
                             let targetNodeID = remainingChildPath.shift();
                             params.pathList = ['Streams', streamInstanceID].concat(remainingChildPath);
-
-                            if (targetNodeID === thisNode.nodeID) {
-                                // The target NodeID is local
-                                oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
-                            } else {
-                                // The target NodeID is remote
-                                let targetNodeObj = await thisNode.VerifyNodeConnection(targetNodeID);
-                                if (targetNodeObj) {
-                                    let cmdResponse = await targetNodeObj.SendCmd("DRP", "pathCmd", params, true, null);
-                                    if (cmdResponse.payload) {
-                                        oReturnObject = cmdResponse.payload;
-                                    }
-                                }
-                            }
+                            oReturnObject = await thisNode.SendPathCmdToNode(targetNodeID, params);
                         } else {
                             // Just list the Nodes with this topic
                             let providerNames = Object.keys(thisNode.NodeDeclarations);
@@ -605,27 +631,7 @@ class DRP_Node {
                         let targetNodeID = targetServiceEntry.NodeID;
                         //thisNode.log(`Calling node ${targetNodeID}`);
 
-                        if (targetNodeID === thisNode.nodeID) {
-                            // The target NodeID is local
-                            oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
-                        } else {
-                            // The target NodeID is remote
-                            let routeOptions = null;
-
-                            // Try to get a direct connection
-                            let targetNodeEndpoint = await thisNode.VerifyNodeConnection(targetNodeID);
-                            if (!targetNodeEndpoint) {
-                                // Fallback to nextHop relay (usually Registry)
-                                let endpointNodeID = targetServiceEntry.LearnedFrom;
-                                targetNodeEndpoint = thisNode.NodeEndpoints[endpointNodeID];
-                                routeOptions = { srcNodeID: thisNode.nodeID, tgtNodeID: targetServiceEntry.NodeID, routeHistory: [] };
-                            }
-
-                            let cmdResponse = await targetNodeEndpoint.SendCmd("DRP", "pathCmd", params, true, null, routeOptions);
-                            if (cmdResponse.payload) {
-                                oReturnObject = cmdResponse.payload;
-                            }
-                        }
+                        oReturnObject = await thisNode.SendPathCmdToNode(targetNodeID, params);
 
                     } else {
                         // Return list of Service Objects
@@ -2972,9 +2978,6 @@ class DRP_SubscriptionManager {
     async ProcessTopologyPacket(topologyPacket) {
         let thisSubMgr = this;
         let thisNode = thisSubMgr.drpNode;
-
-        // Get list of Subscription IDs
-        let subscriptionIDList = Object.keys(thisSubMgr.Subscribers);
 
         // Ignore if we don't have any Subscriptions to check against
         if (thisSubMgr.Subscribers.size === 0) return;

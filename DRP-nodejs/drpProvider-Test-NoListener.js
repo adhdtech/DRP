@@ -83,8 +83,8 @@ myNode.AddStream("dummy", "Test stream");
 // Add a test service
 myNode.AddService(new TestService("TestService", myNode));
 
-// Connect to Registry manually if no domainName was specified
-if (!domainName && registryURL) {
+// Connect to Registry directly if specified
+if (registryURL) {
     myNode.ConnectToRegistry(registryURL, async () => {
         myNode.log("Connected to Registry");
     });
