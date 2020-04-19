@@ -103,24 +103,38 @@ class DRP_TopicManager_Topic extends DRP_SubscribableSource {
         this.ReceivedMessages = 0;
         this.SentMessages = 0;
         this.HistoryLength = historyLength || 10;
+        /** @type Array<DRP_TopicMessage> */
         this.History = [];
     }
 
     async Send(message) {
         let thisTopic = this;
 
+        let nodeID = thisTopic.TopicManager.drpNode.nodeID;
+        let timeStamp = thisTopic.TopicManager.drpNode.getTimestamp();
+        let topicEntry = new DRP_TopicMessage(nodeID, timeStamp, message);
+
         thisTopic.ReceivedMessages++;
 
         if (thisTopic.History.length === thisTopic.HistoryLength) {
             thisTopic.History.shift();
         }
-        thisTopic.History.push(message);
+        thisTopic.History.push(topicEntry);
 
-        super.Send(message,
+        super.Send(topicEntry,
             () => { thisTopic.SentMessages++; },
             (sendFailed) => { thisTopic.TopicManager.drpNode.log(`Topic[${thisTopic.TopicName}] subscriber removed forcefully, failure response -> ${sendFailed}`); }
         );
 
+    }
+}
+
+class DRP_TopicMessage {
+
+    constructor(nodeID, timeStamp, message) {
+        this.TimeStamp = timeStamp;
+        this.Message = message;
+        this.Route = [nodeID];
     }
 }
 

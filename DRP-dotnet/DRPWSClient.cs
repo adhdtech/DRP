@@ -192,6 +192,7 @@ namespace ADHDTech.DRP
         public bool clientDied = false;
         public BrokerProfile brokerProfile = null;
         public TaskCompletionSource<bool> clientReady = new TaskCompletionSource<bool>();
+        public TaskCompletionSource<bool> clientClosed = new TaskCompletionSource<bool>();
 
         public DRP_Client(BrokerProfile argBrokerProfile)
         {
@@ -215,15 +216,24 @@ namespace ADHDTech.DRP
                 Console.WriteLine("Error: " + e.Message);
 
             wsConn.OnClose += EndClientSession;
+            wsConn.OnClose += (sender, e) =>
+            {
+                if (!clientReady.Task.IsCompleted)
+                {
+                    clientReady.SetResult(false);
+                }
+            };
+
 
         }
 
-        public async Task<bool> Open() {
+        public async Task<bool> Open()
+        {
             wsConn.Connect();
             if (await Task.WhenAny(clientReady.Task, Task.Delay(5000)) == clientReady.Task)
             {
                 // task completed within timeout
-                clientConnected = true;
+                clientConnected = clientReady.Task.Result;
             }
             else
             {
@@ -236,7 +246,8 @@ namespace ADHDTech.DRP
         public void CloseSession()
         {
             // Close websocket
-            wsConn.Close();
+            if (wsConn.ReadyState != WebSocketSharp.WebSocketState.Closing && wsConn.ReadyState != WebSocketSharp.WebSocketState.Closed)
+                wsConn.Close();
         }
 
         public async void StartClientSession(DRP_WebsocketConn wsConn, EventArgs e)
@@ -250,7 +261,14 @@ namespace ADHDTech.DRP
                     { "user", brokerProfile.User },
                     { "pass", brokerProfile.Pass }
                 });
-            clientReady.SetResult(true);
+            if (! clientReady.Task.IsCompleted)
+            {
+                if (returnedData is null) {
+                    clientReady.SetResult(false);
+                } else {
+                    clientReady.SetResult(true);
+                }
+            }
         }
 
         public void EndClientSession(object sender, EventArgs e)
@@ -261,6 +279,7 @@ namespace ADHDTech.DRP
             {
                 clientDied = true;
             }
+            clientClosed.SetResult(true);
             //Console.WriteLine("Close code: '" + closeArgs.Code + "'");
         }
 
@@ -298,7 +317,7 @@ namespace ADHDTech.DRP
             wsConn.Send(sendCmdString);
             //Console.WriteLine("< " + sendCmdString);
             object data = null;
-            if (await Task.WhenAny(thisTcs.Task, Task.Delay(brokerProfile.Timeout)) == thisTcs.Task)
+            if (await Task.WhenAny(thisTcs.Task, Task.Delay(brokerProfile.Timeout), clientClosed.Task) == thisTcs.Task)
             {
                 // task completed within timeout
                 data = await thisTcs.Task;
@@ -306,6 +325,7 @@ namespace ADHDTech.DRP
             else
             {
                 // timeout logic
+                return null;
             }
             JObject returnObject = null;
 
@@ -326,7 +346,7 @@ namespace ADHDTech.DRP
             return returnObject;
             //});
         }
-        
+
         // Shortcut to execute SendCmd
         public JObject SendCmd(string cmd, object @params)
         {

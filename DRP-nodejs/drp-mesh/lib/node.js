@@ -1230,6 +1230,8 @@ class DRP_Node {
                 }
             }
 
+            results = { status: "OK" };
+
             // Add to NodeEndpoints
             sourceEndpoint.EndpointID = declaration.NodeID;
             thisNode.NodeEndpoints[declaration.NodeID] = sourceEndpoint;
@@ -1268,6 +1270,8 @@ class DRP_Node {
                 thisNode.log(`Authenticated Consumer`);
                 console.dir(authResponse);
             }
+
+            results = { status: "OK" };
 
             // This is a consumer declaration
             sourceEndpoint.EndpointType = "Consumer";
@@ -1595,11 +1599,24 @@ class DRP_Node {
                     default:
                         returnVal = childAttrObj;
                 }
-                pathObjList.push({
+
+                let pathObj = {
                     "Name": objKeys[i],
                     "Type": attrType,
                     "Value": returnVal
-                });
+                };
+
+                if (childAttrObj) {
+                    pathObj.Type = childAttrObj.constructor.name;
+                    switch (pathObj.Type) {
+                        case "DRP_TopicMessage":
+                            pathObj.Value = childAttrObj.TimeStamp;
+                            break;
+                        default:
+                    }
+                }
+
+                pathObjList.push(pathObj);
             }
         }
         return pathObjList;
@@ -2968,7 +2985,7 @@ class DRP_SubscriptionManager {
         /** @type Object.<string, DRP_RemoteSubscription> */
         this.RemoteSubscriptions = {};
 
-        this.drpNode.TopicManager.SubscribeToTopic(new DRP_Subscriber("TopologyTracker", null, null, (topologyPacket) => { this.ProcessTopologyPacket(topologyPacket); }, null));
+        this.drpNode.TopicManager.SubscribeToTopic(new DRP_Subscriber("TopologyTracker", null, null, (topologyPacket) => { this.ProcessTopologyPacket(topologyPacket.Message); }, null));
     }
 
     /**
@@ -3082,6 +3099,10 @@ class DRP_SubscriptionManager {
             thisSubMgr.RemoteSubscriptions[remoteSubscriptionID] = newRemoteSubscription;
             let streamToken = await thisSubMgr.drpNode.SubscribeRemote(targetNodeID, topicName, (streamPacket) => {
                 // TODO - use streamPacket.status to see if this is the last packet?
+
+                // If we're relaying a message from a topic, add the local NodeID to the route
+                if (streamPacket.payload && streamPacket.payload.Route) streamPacket.payload.Route.push(thisSubMgr.drpNode.nodeID);
+
                 newRemoteSubscription.Send(streamPacket.payload);
             });
             if (streamToken) {

@@ -70,6 +70,7 @@ namespace DRP_dotnet_test
                         timeoutValue = Int32.Parse(timeout.Value());
                     }
                     TestDRPConnection(alias.Value(), url.Value(), user.Value(), pass.Value(), proxyAddress.Value(), proxyUser.Value(), proxyAddress.Value(), timeoutValue);
+                    //Console.ReadKey();
                 }
                 else {
                     commandLineApplication.ShowHelp();
@@ -115,6 +116,7 @@ namespace DRP_dotnet_test
             if (!myDRPClient.Open().GetAwaiter().GetResult())
             {
                 Console.WriteLine("Could not open connection to Broker");
+                return;
             }
             else {
                 Console.WriteLine("Connected to DRP Broker!");
