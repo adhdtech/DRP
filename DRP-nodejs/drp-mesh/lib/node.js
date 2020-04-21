@@ -2160,7 +2160,7 @@ class DRP_TopologyTracker {
                     }
 
                     // We are a Registry and learned about a newer route from another Registry; warm handoff?
-                    if (thisNode.IsRegistry() && (sourceIsRegistry || sourceNodeEntry && sourceNodeEntry.IsRegistry()) && advertisedNodeEntry.LearnedFrom !== advertisedEntry.NodeID) {
+                    if (thisNode.IsRegistry() && (sourceIsRegistry || sourceNodeEntry && sourceNodeEntry.IsRegistry()) && advertisedEntry.LearnedFrom === advertisedEntry.NodeID && advertisedNodeEntry.LearnedFrom !== advertisedEntry.NodeID) {
                         //thisNode.log(`Ignoring ${topologyPacket.type} table entry [${topologyPacket.id}] from Node [${srcNodeID}], not not relayed from an authoritative source`);
                         if (thisNode.Debug) thisNode.log(`Updating LearnedFrom for ${topologyPacket.type} [${topologyPacket.id}] from [${targetTable[topologyPacket.id].LearnedFrom}] to [${srcNodeID}]`);
                         targetTable[topologyPacket.id].LearnedFrom = srcNodeID;
@@ -2486,7 +2486,7 @@ class DRP_TopologyTracker {
 
         try {
 
-            // We don't recognize the target zone; give them everything by default
+            // We don't recognize the target node; give them everything by default
             if (!targetNodeEntry) return true;
 
             // TODO - Add logic to support Proxied Nodes
@@ -2663,6 +2663,9 @@ class DRP_TopologyTracker {
         }
 
         thisNode.log(`Connection terminated with Node [${disconnectedNodeEntry.NodeID}] (${disconnectedNodeEntry.Roles})`);
+
+        // If both the local and remote are non-Registry nodes, skip further processing.  May just be a direct connection timing out.
+        if (!thisNodeEntry.IsRegistry() && !disconnectedNodeEntry.IsRegistry()) return;
 
         // See if we're connected to other Registry Nodes
         let hasAnotherRegistryConnection = thisTopologyTracker.ListConnectedRegistryNodes().length > 0;
