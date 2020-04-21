@@ -19,10 +19,10 @@ let testMode = process.env.TESTMODE || false;
 // Create test service class
 class DirectoryService extends DRP_Service {
     constructor(serviceName, drpNode) {
-        super(serviceName, drpNode, "TestService", `${drpNode.nodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, null, 1);
+        super(serviceName, drpNode, "TestService", `${drpNode.NodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, null, 1);
         this.ClientCmds = {
-            sayHi: async function () { return { pathItem: `Hello from ${drpNode.nodeID}` }; },
-            sayBye: async function () { return { pathItem: `Goodbye from ${drpNode.nodeID}` }; },
+            sayHi: async function () { return { pathItem: `Hello from ${drpNode.NodeID}` }; },
+            sayBye: async function () { return { pathItem: `Goodbye from ${drpNode.NodeID}` }; },
             showParams: async function (params) { return { pathItem: params }; }
         };
 
@@ -87,5 +87,5 @@ if (!domainName && registryURL) {
 
 setInterval(function () {
     let timeStamp = new Date().getTime();
-    myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.nodeID}]`);
+    myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.NodeID}]`);
 }, 3000);

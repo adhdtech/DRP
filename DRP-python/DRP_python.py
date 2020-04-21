@@ -111,7 +111,7 @@ class DRP_Endpoint:
             "output": None
         }
 
-        if ("routeOptions" not in message or message.routeOptions.tgtNodeID == thisEndpoint.drpNode.nodeID):
+        if ("routeOptions" not in message or message.routeOptions.tgtNodeID == thisEndpoint.drpNode.NodeID):
             # Execute locally
 
             # Is the message meant for the default DRP service?

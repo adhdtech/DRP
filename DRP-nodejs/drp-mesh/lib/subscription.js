@@ -93,6 +93,6 @@ class DRP_Subscriber {
 }
 
 module.exports = {
-    SubscribableSource: DRP_SubscribableSource,
-    Subscriber: DRP_Subscriber
+    DRP_SubscribableSource: DRP_SubscribableSource,
+    DRP_Subscriber: DRP_Subscriber
 };

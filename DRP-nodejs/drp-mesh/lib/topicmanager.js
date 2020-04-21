@@ -1,7 +1,6 @@
 'use strict';
 
-const DRP_SubscribableSource = require('./subscription').SubscribableSource;
-const DRP_Subscriber = require('./subscription').Subscriber;
+const { DRP_SubscribableSource, DRP_Subscriber } = require('./subscription');
 
 class DRP_TopicManager {
     /**
@@ -110,7 +109,7 @@ class DRP_TopicManager_Topic extends DRP_SubscribableSource {
     async Send(message) {
         let thisTopic = this;
 
-        let nodeID = thisTopic.TopicManager.drpNode.nodeID;
+        let nodeID = thisTopic.TopicManager.drpNode.NodeID;
         let timeStamp = thisTopic.TopicManager.drpNode.getTimestamp();
         let topicEntry = new DRP_TopicMessage(nodeID, timeStamp, message);
 

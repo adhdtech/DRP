@@ -227,8 +227,8 @@ class DRP_Endpoint {
         // Reply with results
         if (typeof drpPacket.replytoken !== "undefined" && drpPacket.replytoken !== null) {
             let routeOptions = null;
-            if (drpPacket.routeOptions && drpPacket.routeOptions.tgtNodeID === thisEndpoint.drpNode.nodeID) {
-                routeOptions = new DRP_RouteOptions(thisEndpoint.drpNode.nodeID, drpPacket.routeOptions.srcNodeID);
+            if (drpPacket.routeOptions && drpPacket.routeOptions.tgtNodeID === thisEndpoint.drpNode.NodeID) {
+                routeOptions = new DRP_RouteOptions(thisEndpoint.drpNode.NodeID, drpPacket.routeOptions.srcNodeID);
             }
             thisEndpoint.SendReply(drpPacket.replytoken, cmdResults.status, cmdResults.output, routeOptions);
         }
@@ -283,7 +283,7 @@ class DRP_Endpoint {
     */
     ShouldRelay(drpPacket) {
         let thisEndpoint = this;
-        if (drpPacket.routeOptions && drpPacket.routeOptions.tgtNodeID && drpPacket.routeOptions.tgtNodeID !== thisEndpoint.drpNode.nodeID)
+        if (drpPacket.routeOptions && drpPacket.routeOptions.tgtNodeID && drpPacket.routeOptions.tgtNodeID !== thisEndpoint.drpNode.NodeID)
             return true;
         else
             return false;
@@ -359,7 +359,7 @@ class DRP_Endpoint {
             let targetNodeEndpoint = await thisEndpoint.drpNode.VerifyNodeConnection(nextHopNodeID);
 
             // Add this node to the routing history
-            drpPacket.routeOptions.routeHistory.push(thisEndpoint.drpNode.nodeID);
+            drpPacket.routeOptions.routeHistory.push(thisEndpoint.drpNode.NodeID);
 
             // We do not need to await the results; any target replies will automatically be routed
             targetNodeEndpoint.SendPacketString(JSON.stringify(drpPacket));

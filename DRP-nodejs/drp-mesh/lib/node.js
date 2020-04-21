@@ -10,11 +10,8 @@ const DRP_Client = require("./client");
 const DRP_Service = require("./service");
 const DRP_TopicManager = require("./topicmanager");
 const DRP_RouteHandler = require("./routehandler");
-const DRP_SubscribableSource = require('./subscription').SubscribableSource;
-const DRP_Subscriber = require('./subscription').Subscriber;
-const DRP_AuthRequest = require('./auth').DRP_AuthRequest;
-const DRP_AuthResponse = require('./auth').DRP_AuthResponse;
-const DRP_AuthFunction = require('./auth').DRP_AuthFunction;
+const { DRP_SubscribableSource, DRP_Subscriber } = require('./subscription');
+const { DRP_AuthRequest, DRP_AuthResponse, DRP_AuthFunction } = require('./auth');
 const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Stream, DRP_RouteOptions } = require('./packet');
 
 function getRandomInt(max) {
@@ -82,7 +79,7 @@ class DRP_Node {
      */
     constructor(nodeRoles, hostID, webServer, drpRoute, nodeURL, webProxyURL, domainName, domainKey, zone, debug, testMode, authenticationServiceName) {
         let thisNode = this;
-        this.nodeID = `${os.hostname()}-${process.pid}-${getRandomInt(9999)}`;
+        this.NodeID = `${os.hostname()}-${process.pid}-${getRandomInt(9999)}`;
         this.HostID = hostID;
         this.WebServer = webServer || null;
         this.drpRoute = drpRoute || "/";
@@ -121,9 +118,9 @@ class DRP_Node {
         // Create topology tracker
         this.TopologyTracker = new DRP_TopologyTracker(thisNode);
 
-        let newNodeEntry = new DRP_NodeTableEntry(thisNode.nodeID, null, nodeRoles, nodeURL, "global", thisNode.Zone, thisNode.nodeID, thisNode.HostID);
+        let newNodeEntry = new DRP_NodeTableEntry(thisNode.NodeID, null, nodeRoles, nodeURL, "global", thisNode.Zone, thisNode.NodeID, thisNode.HostID);
         let addNodePacket = new DRP_TopologyPacket(newNodeEntry.NodeID, "add", "node", newNodeEntry.NodeID, newNodeEntry.Scope, newNodeEntry.Zone, newNodeEntry);
-        thisNode.TopologyTracker.ProcessPacket(addNodePacket, thisNode.nodeID);
+        thisNode.TopologyTracker.ProcessPacket(addNodePacket, thisNode.NodeID);
 
         //this.ServiceCommandTracking = {
         /*
@@ -145,7 +142,7 @@ class DRP_Node {
         /** @type Object.<string,DRP_Service> */
         this.Services = {};
 
-        this.NodeDeclaration = new DRP_NodeDeclaration(this.nodeID, this.nodeRoles, this.HostID, this.nodeURL, this.DomainName, this.DomainKey, this.Zone);
+        this.NodeDeclaration = new DRP_NodeDeclaration(this.NodeID, this.nodeRoles, this.HostID, this.nodeURL, this.DomainName, this.DomainKey, this.Zone);
 
         // If this is a Registry, seed the Registry with it's own declaration
         if (thisNode.IsRegistry()) {
@@ -179,7 +176,7 @@ class DRP_Node {
         // If it's a debug message and we don't have debugging turned on, return
         if (!this.Debug && isDebugMsg) return;
 
-        let paddedNodeID = this.nodeID.padEnd(14, ' ');
+        let paddedNodeID = this.NodeID.padEnd(14, ' ');
         console.log(`${this.getTimestamp()} [${paddedNodeID}] -> ${message}`);
     }
     getTimestamp() {
@@ -238,7 +235,7 @@ class DRP_Node {
             let timeStamp = thisNode.getTimestamp();
             thisNode.TopicManager.SendToTopic("RESTLogs", {
                 timestamp: timeStamp,
-                nodeid: thisNode.nodeID,
+                nodeid: thisNode.NodeID,
                 req: {
                     hostname: req.hostname,
                     ip: req.ip,
@@ -445,7 +442,7 @@ class DRP_Node {
     async SendPathCmdToNode(targetNodeID, params) {
         let thisNode = this;
         let oReturnObject = null;
-        if (targetNodeID === thisNode.nodeID) {
+        if (targetNodeID === thisNode.NodeID) {
             // The target NodeID is local
             oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
         } else {
@@ -458,7 +455,7 @@ class DRP_Node {
                 // Fallback to nextHop relay (usually Registry)
                 let endpointNodeID = targetServiceEntry.LearnedFrom;
                 targetNodeEndpoint = thisNode.NodeEndpoints[endpointNodeID];
-                routeOptions = { srcNodeID: thisNode.nodeID, tgtNodeID: targetServiceEntry.NodeID, routeHistory: [] };
+                routeOptions = { srcNodeID: thisNode.NodeID, tgtNodeID: targetServiceEntry.NodeID, routeHistory: [] };
             }
 
             let cmdResponse = await targetNodeEndpoint.SendCmd("DRP", "pathCmd", params, true, null, routeOptions);
@@ -472,7 +469,7 @@ class DRP_Node {
     GetBaseObj() {
         let thisNode = this;
         return {
-            NodeID: thisNode.nodeID,
+            NodeID: thisNode.NodeID,
             NodeURL: thisNode.nodeURL,
             NodeObj: thisNode,
             Services: thisNode.Services,
@@ -838,11 +835,11 @@ class DRP_Node {
                     // Found the next hop
                     thisNode.log(`Sending back request to ${remoteNodeID}, relaying to [${nextHopNodeID}]`, true);
                     let routeOptions = {
-                        srcNodeID: thisNode.nodeID,
+                        srcNodeID: thisNode.NodeID,
                         tgtNodeID: remoteNodeID,
                         routeHistory: []
                     };
-                    thisNode.NodeEndpoints[nextHopNodeID].SendCmd("DRP", "connectToNode", { "targetNodeID": thisNode.nodeID, "targetURL": thisNode.nodeURL }, false, null, routeOptions);
+                    thisNode.NodeEndpoints[nextHopNodeID].SendCmd("DRP", "connectToNode", { "targetNodeID": thisNode.NodeID, "targetURL": thisNode.nodeURL }, false, null, routeOptions);
                 } else {
                     // Could not find the next hop
                     throw `Could not find next hop to [${remoteNodeID}]`;
@@ -938,9 +935,9 @@ class DRP_Node {
                 };
             }
             */
-            let newServiceEntry = new DRP_ServiceTableEntry(thisNode.nodeID, null, serviceObj.serviceName, serviceObj.Type, serviceObj.InstanceID, serviceObj.Zone, serviceObj.Sticky, serviceObj.Priority, serviceObj.Weight, serviceObj.Scope, serviceObj.Dependencies, serviceObj.Topics, serviceObj.Status);
-            let addServicePacket = new DRP_TopologyPacket(thisNode.nodeID, "add", "service", newServiceEntry.InstanceID, newServiceEntry.Scope, newServiceEntry.Zone, newServiceEntry);
-            thisNode.TopologyTracker.ProcessPacket(addServicePacket, thisNode.nodeID);
+            let newServiceEntry = new DRP_ServiceTableEntry(thisNode.NodeID, null, serviceObj.serviceName, serviceObj.Type, serviceObj.InstanceID, serviceObj.Zone, serviceObj.Sticky, serviceObj.Priority, serviceObj.Weight, serviceObj.Scope, serviceObj.Dependencies, serviceObj.Topics, serviceObj.Status);
+            let addServicePacket = new DRP_TopologyPacket(thisNode.NodeID, "add", "service", newServiceEntry.InstanceID, newServiceEntry.Scope, newServiceEntry.Zone, newServiceEntry);
+            thisNode.TopologyTracker.ProcessPacket(addServicePacket, thisNode.NodeID);
         }
     }
 
@@ -1047,7 +1044,7 @@ class DRP_Node {
         if (!targetNodeID || !thisNode.TopologyTracker.NodeTable[targetNodeID]) return null;
 
         // Where is the service?
-        if (targetNodeID === thisNode.nodeID) {
+        if (targetNodeID === thisNode.NodeID) {
             // Execute locally
             if (awaitResponse) {
                 let results = await thisNode.LocalServiceCommand(new DRP_Cmd(serviceName, cmd, params), callingEndpoint);
@@ -1065,7 +1062,7 @@ class DRP_Node {
                 // We want to use to use the control plane instead of connecting directly to the target
                 if (thisNode.ConnectedToControlPlane) {
                     routeNodeID = thisNode.TopologyTracker.GetNextHop(targetNodeID);
-                    routeOptions = new DRP_RouteOptions(thisNode.nodeID, targetNodeID);
+                    routeOptions = new DRP_RouteOptions(thisNode.NodeID, targetNodeID);
                 } else {
                     // We're not connected to a Registry; fallback to VerifyNodeConnection
                     routeNodeID = targetNodeID;
@@ -1108,7 +1105,7 @@ class DRP_Node {
         }
 
         // Are we being asked to execute locally?
-        if (cmdObj.runNodeID && cmdObj.runNodeID === thisNode.nodeID) {
+        if (cmdObj.runNodeID && cmdObj.runNodeID === thisNode.NodeID) {
             let results = await thisNode.LocalServiceCommand(cmdObj, sourceEndpoint);
             return results;
         }
@@ -1125,7 +1122,7 @@ class DRP_Node {
 
         if (thisNode.Debug) thisNode.log(`Best instance of service [${cmdObj.serviceName}] is [${targetInstanceID}] on node [${targetNodeID}]`, true);
 
-        if (targetNodeID === thisNode.nodeID) {
+        if (targetNodeID === thisNode.NodeID) {
             // The service instance is local; execute here
 
             // Need to make adjustment so that we can specify the InstanceID instead of just the ServiceName in the cmdObj
@@ -1643,7 +1640,7 @@ class DRP_Node {
         let thisNode = this;
         let isProxy = false;
         let checkNodeEntry = thisNode.TopologyTracker.NodeTable[checkNodeID];
-        if (checkNodeEntry && checkNodeEntry.ProxyNodeID === thisNode.nodeID) {
+        if (checkNodeEntry && checkNodeEntry.ProxyNodeID === thisNode.NodeID) {
             isProxy = true;
         }
         return isProxy;
@@ -2107,7 +2104,7 @@ class DRP_TopologyTracker {
 
         /** @type {DRP_TrackingTableEntry} */
         let advertisedEntry = topologyPacket.data;
-        let thisNodeEntry = thisTopologyTracker.NodeTable[thisNode.nodeID];
+        let thisNodeEntry = thisTopologyTracker.NodeTable[thisNode.NodeID];
         let sourceNodeEntry = thisTopologyTracker.NodeTable[srcNodeID];
         let advertisedNodeEntry = thisTopologyTracker.NodeTable[topologyPacket.data.NodeID];
         let learnedFromEntry = thisTopologyTracker.NodeTable[topologyPacket.data.LearnedFrom];
@@ -2185,7 +2182,7 @@ class DRP_TopologyTracker {
                     if (thisNode.IsRegistry() && topologyPacket.type === "node" && topologyPacket.data.Roles.indexOf("Registry") >= 0 && srcNodeID !== advertisedEntry.NodeID) return;
 
                     // If this is a Registry and the sender didn't get it from an authoritative source, ignore it
-                    if (thisNode.IsRegistry() && topologyPacket.data.NodeID !== thisNode.nodeID && topologyPacket.data.LearnedFrom !== topologyPacket.data.NodeID && topologyPacket.data.LearnedFrom !== topologyPacket.data.ProxyNodeID) {
+                    if (thisNode.IsRegistry() && topologyPacket.data.NodeID !== thisNode.NodeID && topologyPacket.data.LearnedFrom !== topologyPacket.data.NodeID && topologyPacket.data.LearnedFrom !== topologyPacket.data.ProxyNodeID) {
                         if (thisNode.Debug) thisNode.log(`Ignoring ${topologyPacket.type} table entry [${topologyPacket.id}] from Node [${srcNodeID}], not relayed from an authoritative source`);
                         return;
                     }
@@ -2217,13 +2214,13 @@ class DRP_TopologyTracker {
                 break;
             case "delete":
                 // Only delete if we learned the packet from the sourceID or if we are the source (due to disconnect)
-                if (topologyPacket.id === thisNode.nodeID && topologyPacket.type === "node") {
+                if (topologyPacket.id === thisNode.NodeID && topologyPacket.type === "node") {
                     if (thisNode.Debug) thisNode.log(`This node tried to delete itself.  Why?`);
                     //console.dir(topologyPacket);
                     return;
                 }
                 // Update this rule so that if the table LearnedFrom is another Registry, do not delete or relay!  We are no longer authoritative
-                if (targetTable[topologyPacket.id] && (targetTable[topologyPacket.id].NodeID === srcNodeID || targetTable[topologyPacket.id].LearnedFrom === srcNodeID) || thisNode.nodeID === srcNodeID) {
+                if (targetTable[topologyPacket.id] && (targetTable[topologyPacket.id].NodeID === srcNodeID || targetTable[topologyPacket.id].LearnedFrom === srcNodeID) || thisNode.NodeID === srcNodeID) {
                     topologyEntry = targetTable[topologyPacket.id];
                     delete targetTable[topologyPacket.id];
                     if (topologyPacket.type === "node") {
@@ -2292,7 +2289,7 @@ class DRP_TopologyTracker {
                 thisTopologyTracker.drpNode.NodeEndpoints[targetNodeID].SendCmd("DRP", "topologyUpdate", topologyPacket, false, null);
                 if (thisNode.Debug) thisNode.log(`Relayed topology packet to node: [${targetNodeID}]`, true);
             } else {
-                if (targetNodeID !== thisNode.nodeID) {
+                if (targetNodeID !== thisNode.NodeID) {
                     //thisNode.log(`Not relaying packet to node[${targetNodeID}], roles ${thisTopologyTracker.NodeTable[targetNodeID].Roles}`);
                     //console.dir(topologyPacket);
                 }
@@ -2472,7 +2469,7 @@ class DRP_TopologyTracker {
     AdvertiseOutCheck(topologyEntry, targetNodeID) {
         let thisTopologyTracker = this;
         let thisNode = thisTopologyTracker.drpNode;
-        let localNodeID = thisNode.nodeID;
+        let localNodeID = thisNode.NodeID;
         let doSend = false;
 
         let advertisedNodeID = topologyEntry.NodeID;
@@ -2611,7 +2608,7 @@ class DRP_TopologyTracker {
         let thisTopologyTracker = this;
         let thisNode = thisTopologyTracker.drpNode;
         thisNode.log(`Connection established with Node [${declaration.NodeID}] (${declaration.NodeRoles})`);
-        let returnData = await sourceEndpoint.SendCmd("DRP", "getRegistry", { "reqNodeID": thisNode.nodeID }, true, null, null);
+        let returnData = await sourceEndpoint.SendCmd("DRP", "getRegistry", { "reqNodeID": thisNode.NodeID }, true, null, null);
         //console.dir(returnData, { depth: 4 });
         let sourceIsRegistry = false;
         let remoteRegistry = returnData.payload;
@@ -2632,7 +2629,7 @@ class DRP_TopologyTracker {
         for (let i = 0; i < nodeIDList.length; i++) {
             /** @type {DRP_NodeTableEntry} */
             let thisNodeEntry = remoteRegistry.NodeTable[nodeIDList[i]];
-            if (localNodeIsProxy) thisNodeEntry.ProxyNodeID = thisNode.nodeID;
+            if (localNodeIsProxy) thisNodeEntry.ProxyNodeID = thisNode.NodeID;
             let nodeAddPacket = new DRP_TopologyPacket(declaration.NodeID, "add", "node", thisNodeEntry.NodeID, thisNodeEntry.Scope, thisNodeEntry.Zone, thisNodeEntry);
             thisNode.TopologyTracker.ProcessPacket(nodeAddPacket, sourceEndpoint.EndpointID, sourceIsRegistry);
         }
@@ -2642,7 +2639,7 @@ class DRP_TopologyTracker {
         for (let i = 0; i < serviceIDList.length; i++) {
             /** @type {DRP_ServiceTableEntry} */
             let thisServiceEntry = remoteRegistry.ServiceTable[serviceIDList[i]];
-            if (localNodeIsProxy) thisServiceEntry.ProxyNodeID = thisNode.nodeID;
+            if (localNodeIsProxy) thisServiceEntry.ProxyNodeID = thisNode.NodeID;
             let serviceAddPacket = new DRP_TopologyPacket(declaration.NodeID, "add", "service", thisServiceEntry.InstanceID, thisServiceEntry.Scope, thisServiceEntry.Zone, thisServiceEntry);
             thisNode.TopologyTracker.ProcessPacket(serviceAddPacket, sourceEndpoint.EndpointID, sourceIsRegistry);
         }
@@ -2657,7 +2654,7 @@ class DRP_TopologyTracker {
         // Remove node; this should trigger an autoremoval of entries learned from it
 
         // If we are not a Registry and we just disconnected from a Registry, hold off on this process!
-        let thisNodeEntry = thisTopologyTracker.NodeTable[thisNode.nodeID];
+        let thisNodeEntry = thisTopologyTracker.NodeTable[thisNode.NodeID];
         let disconnectedNodeEntry = thisTopologyTracker.NodeTable[disconnectedNodeID];
 
         if (!disconnectedNodeEntry) {
@@ -2765,7 +2762,7 @@ class DRP_TopologyTracker {
         // Look for entries with the Registry role and that are still connected
         let nodeIDList = Object.keys(thisTopologyTracker.NodeTable);
         for (let i = 0; i < nodeIDList.length; i++) {
-            let thisNodeID = thisTopologyTracker.drpNode.nodeID;
+            let thisNodeID = thisTopologyTracker.drpNode.NodeID;
             let checkNodeID = nodeIDList[i];
             let checkNodeEntry = thisTopologyTracker.NodeTable[checkNodeID];
             if (checkNodeEntry.NodeID !== thisNodeID && checkNodeEntry.IsRegistry() && thisTopologyTracker.drpNode.NodeEndpoints[checkNodeID]) {
@@ -3064,7 +3061,7 @@ class DRP_SubscriptionManager {
         let targetSource = null;
 
         // Is this local or remote?
-        if (serviceEntry.NodeID === thisNode.nodeID) {
+        if (serviceEntry.NodeID === thisNode.NodeID) {
             targetSource = thisNode.TopicManager.GetTopic(subscriber.topicName);
         } else {
             // Verify we have a RemoteSubscription
@@ -3101,7 +3098,7 @@ class DRP_SubscriptionManager {
                 // TODO - use streamPacket.status to see if this is the last packet?
 
                 // If we're relaying a message from a topic, add the local NodeID to the route
-                if (streamPacket.payload && streamPacket.payload.Route) streamPacket.payload.Route.push(thisSubMgr.drpNode.nodeID);
+                if (streamPacket.payload && streamPacket.payload.Route) streamPacket.payload.Route.push(thisSubMgr.drpNode.NodeID);
 
                 newRemoteSubscription.Send(streamPacket.payload);
             });

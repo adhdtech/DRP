@@ -13,8 +13,8 @@ class TestService extends DRP_Service {
     constructor(serviceName, drpNode) {
         super(serviceName, drpNode);
         this.ClientCmds = {
-            sayHi: async function () { return { pathItem: `Hello from ${drpNode.nodeID}` }; },
-            sayBye: async function () { return { pathItem: `Goodbye from ${drpNode.nodeID}` }; },
+            sayHi: async function () { return { pathItem: `Hello from ${drpNode.NodeID}` }; },
+            sayBye: async function () { return { pathItem: `Goodbye from ${drpNode.NodeID}` }; },
             showParams: async function (params) { return { pathItem: params }; }
         };
     }
@@ -64,5 +64,5 @@ myNode.ConnectToRegistry(registryURL);
 // Start sending data to dummy topic
 setInterval(function () {
     let timeStamp = new Date().getTime();
-    myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.nodeID}]`);
+    myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.NodeID}]`);
 }, 3000);

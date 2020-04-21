@@ -88,6 +88,6 @@ if (myNode.nodeURL) {
 
 setInterval(function () {
     let timeStamp = new Date().getTime();
-    myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.nodeID}]`);
-    //if (myNode.Debug) myNode.log(`${timeStamp} Dummy message from node [${myNode.nodeID}]`);
+    myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.NodeID}]`);
+    //if (myNode.Debug) myNode.log(`${timeStamp} Dummy message from node [${myNode.NodeID}]`);
 }, 3000);
