@@ -2150,7 +2150,7 @@ class DRP_TopologyTracker {
                             if (sourceIsRegistry || sourceNodeEntry && sourceNodeEntry.IsRegistry()) {
                                 // A Registry Node has connected to this non-Registry node.
                                 if (thisNode.Debug) thisNode.log(`Connected to new Registry, overwriting LearnedFrom for ${topologyPacket.type} [${topologyPacket.id}] from [${targetTable[topologyPacket.id].LearnedFrom}] to [${srcNodeID}]`);
-                                targetTable.AddEntry(topologyPacket.id, topologyPacket.data);
+                                targetTable.AddEntry(topologyPacket.id, topologyPacket.data, thisNode.getTimestamp());
                             } else {
                                 // A non-Registry Node has connected to this non-Registry node.  Do not update LearnedFrom.
                             }
@@ -2159,7 +2159,7 @@ class DRP_TopologyTracker {
                     }
 
                     // We are a Registry and learned about a newer route from another Registry; warm handoff?
-                    if (thisNode.IsRegistry() && (sourceIsRegistry || sourceNodeEntry && sourceNodeEntry.IsRegistry()) && advertisedNodeEntry.LearnedFrom !== advertisedEntry.NodeID) {
+                    if (thisNode.IsRegistry() && (sourceIsRegistry || sourceNodeEntry && sourceNodeEntry.IsRegistry()) && advertisedEntry.LearnedFrom === advertisedEntry.NodeID && advertisedNodeEntry.LearnedFrom !== advertisedEntry.NodeID) {
                         //thisNode.log(`Ignoring ${topologyPacket.type} table entry [${topologyPacket.id}] from Node [${srcNodeID}], not not relayed from an authoritative source`);
                         if (thisNode.Debug) thisNode.log(`Updating LearnedFrom for ${topologyPacket.type} [${topologyPacket.id}] from [${targetTable[topologyPacket.id].LearnedFrom}] to [${srcNodeID}]`);
                         targetTable[topologyPacket.id].LearnedFrom = srcNodeID;
@@ -2173,7 +2173,7 @@ class DRP_TopologyTracker {
                         // We must have learned from a new Registry; treat like an add
                         topologyPacket.data.LearnedFrom = srcNodeID;
                         if (thisNode.Debug) thisNode.log(`Connected to new Registry, overwriting LearnedFrom for ${topologyPacket.type} [${topologyPacket.id}] from [${targetTable[topologyPacket.id].LearnedFrom}] to [${srcNodeID}]`);
-                        targetTable.AddEntry(topologyPacket.id, topologyPacket.data);
+                        targetTable.AddEntry(topologyPacket.id, topologyPacket.data, thisNode.getTimestamp());
                     }
                     return;
                 } else {
@@ -2195,7 +2195,7 @@ class DRP_TopologyTracker {
                     // We don't have this one; add it and advertise
                     topologyPacket.data.LearnedFrom = srcNodeID;
 
-                    targetTable.AddEntry(topologyPacket.id, topologyPacket.data);
+                    targetTable.AddEntry(topologyPacket.id, topologyPacket.data, thisNode.getTimestamp());
                     topologyEntry = targetTable[topologyPacket.id];
                     if (topologyPacket.type === "service") {
                         //console.dir(topologyEntry);
@@ -2204,7 +2204,7 @@ class DRP_TopologyTracker {
                 break;
             case "update":
                 if (targetTable[topologyPacket.id]) {
-                    targetTable.UpdateEntry(topologyPacket.id, topologyPacket.data);
+                    targetTable.UpdateEntry(topologyPacket.id, topologyPacket.data, thisNode.getTimestamp());
                     topologyEntry = targetTable[topologyPacket.id];
                 } else {
                     if (thisNode.Debug) thisTopologyTracker.drpNode.log(`Could not update non-existent ${topologyPacket.type} entry ${topologyPacket.id}`);
@@ -2485,7 +2485,7 @@ class DRP_TopologyTracker {
 
         try {
 
-            // We don't recognize the target zone; give them everything by default
+            // We don't recognize the target node; give them everything by default
             if (!targetNodeEntry) return true;
 
             // TODO - Add logic to support Proxied Nodes
@@ -2663,6 +2663,9 @@ class DRP_TopologyTracker {
 
         thisNode.log(`Connection terminated with Node [${disconnectedNodeEntry.NodeID}] (${disconnectedNodeEntry.Roles})`);
 
+        // If both the local and remote are non-Registry nodes, skip further processing.  May just be a direct connection timing out.
+        if (!thisNodeEntry.IsRegistry() && !disconnectedNodeEntry.IsRegistry()) return;
+
         // See if we're connected to other Registry Nodes
         let hasAnotherRegistryConnection = thisTopologyTracker.ListConnectedRegistryNodes().length > 0;
 
@@ -2794,13 +2797,15 @@ class DRP_TrackingTableEntry {
     * @param {string} scope Node Scope
     * @param {string} zone Node Zone
     * @param {string} learnedFrom NodeID that sent us this record
+    * @param {string} lastModified Last Modified Timestamp
     */
-    constructor(nodeID, proxyNodeID, scope, zone, learnedFrom) {
+    constructor(nodeID, proxyNodeID, scope, zone, learnedFrom, lastModified) {
         this.NodeID = nodeID;
         this.ProxyNodeID = proxyNodeID;
         this.Scope = scope || "zone";
         this.Zone = zone;
         this.LearnedFrom = learnedFrom;
+        this.LastModified = lastModified;
     }
 }
 
@@ -2809,17 +2814,20 @@ class DRP_NodeTable {
      * Add Node Table Entry
      * @param {string} entryID New table entry ID
      * @param {DRP_NodeTableEntry} entryData New table entry data
+     * @param {string} lastModified Last Modified Timestamp
      */
-    AddEntry(entryID, entryData) {
+    AddEntry(entryID, entryData, lastModified) {
         let thisTable = this;
         let newTableRecord = new DRP_NodeTableEntry();
         Object.assign(newTableRecord, entryData);
         thisTable[entryID] = newTableRecord;
+        if (lastModified) thisTable[entryID].LastModified = lastModified;
     }
 
-    UpdateEntry(entryID, updateData) {
+    UpdateEntry(entryID, updateData, lastModified) {
         let thisTable = this;
         Object.assign(thisTable[entryID], updateData);
+        if (lastModified) thisTable[entryID].LastModified = lastModified;
     }
 }
 
@@ -2835,9 +2843,10 @@ class DRP_NodeTableEntry extends DRP_TrackingTableEntry {
      * @param {string} zone Node Zone
      * @param {string} learnedFrom NodeID that sent us this record
      * @param {string} hostID Host ID
+     * @param {string} lastModified Last Modified Timestamp
      */
-    constructor(nodeID, proxyNodeID, roles, nodeURL, scope, zone, learnedFrom, hostID) {
-        super(nodeID, proxyNodeID, scope, zone, learnedFrom);
+    constructor(nodeID, proxyNodeID, roles, nodeURL, scope, zone, learnedFrom, hostID, lastModified) {
+        super(nodeID, proxyNodeID, scope, zone, learnedFrom, lastModified);
         this.Roles = roles;
         this.NodeURL = nodeURL;
         this.HostID = hostID;
@@ -2870,17 +2879,20 @@ class DRP_ServiceTable {
      * Add Service Table Entry
      * @param {string} entryID New table entry ID
      * @param {DRP_ServiceTableEntry} entryData New table entry data
+     * @param {string} lastModified Last Modified Timestamp
      */
-    AddEntry(entryID, entryData) {
+    AddEntry(entryID, entryData, lastModified) {
         let thisTable = this;
         let newTableRecord = new DRP_ServiceTableEntry();
         Object.assign(newTableRecord, entryData);
         thisTable[entryID] = newTableRecord;
+        if (lastModified) thisTable[entryID].LastModified = lastModified;
     }
 
-    UpdateEntry(entryID, updateData) {
+    UpdateEntry(entryID, updateData, lastModified) {
         let thisTable = this;
         Object.assign(thisTable[entryID], updateData);
+        if (lastModified) thisTable[entryID].LastModified = lastModified;
     }
 }
 
@@ -2901,9 +2913,10 @@ class DRP_ServiceTableEntry extends DRP_TrackingTableEntry {
      * @param {string[]} topics Topics provided by this service
      * @param {number} serviceStatus Service status (0 down|1 up|2 pending)
      * @param {string} learnedFrom NodeID that sent us this record
+     * @param {string} lastModified Last Modified Timestamp
      */
-    constructor(nodeID, proxyNodeID, serviceName, serviceType, instanceID, zone, serviceSticky, servicePriority, serviceWeight, scope, serviceDependencies, topics, serviceStatus, learnedFrom) {
-        super(nodeID, proxyNodeID, scope, zone, learnedFrom);
+    constructor(nodeID, proxyNodeID, serviceName, serviceType, instanceID, zone, serviceSticky, servicePriority, serviceWeight, scope, serviceDependencies, topics, serviceStatus, learnedFrom, lastModified) {
+        super(nodeID, proxyNodeID, scope, zone, learnedFrom, lastModified);
         this.Name = serviceName;
         this.Type = serviceType;
         this.InstanceID = instanceID;
