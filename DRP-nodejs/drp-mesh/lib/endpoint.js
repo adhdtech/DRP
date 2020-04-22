@@ -41,7 +41,7 @@ class DRP_Endpoint {
         this.openCallback;
         /** @type {function} */
         this.closeCallback;
-        this.RegisterCmd("getCmds", "GetCmds");
+        this.RegisterMethod("getCmds", "GetCmds");
 
         this.RemoteAddress = this.RemoteAddress;
         this.RemotePort = this.RemotePort;
@@ -49,9 +49,9 @@ class DRP_Endpoint {
     }
 
     GetToken() {
-        let replyToken = this.TokenNum;
+        let token = this.TokenNum;
         this.TokenNum++;
-        return replyToken;
+        return token;
     }
 
     AddReplyHandler(callback) {
@@ -76,20 +76,20 @@ class DRP_Endpoint {
 
     /**
      * Register Endpoint Command
-     * @param {string} cmd Command Name
+     * @param {string} methodName Method Name
      * @param {function(Object.<string,object>, DRP_Endpoint, string)} method Function
      */
-    RegisterCmd(cmd, method) {
+    RegisterMethod(methodName, method) {
         let thisEndpoint = this;
         // Need to do sanity checks; is the method actually a method?
         if (typeof method === 'function') {
-            thisEndpoint.EndpointCmds[cmd] = method;
+            thisEndpoint.EndpointCmds[methodName] = method;
         } else if (typeof thisEndpoint[method] === 'function') {
-            thisEndpoint.EndpointCmds[cmd] = function (...args) {
+            thisEndpoint.EndpointCmds[methodName] = function (...args) {
                 return thisEndpoint[method](...args);
             };
         } else {
-            thisEndpoint.log("Cannot add EndpointCmds[" + cmd + "]" + " -> sourceObj[" + method + "] of type " + typeof thisEndpoint[method]);
+            thisEndpoint.log("Cannot add EndpointCmds[" + methodName + "]" + " -> sourceObj[" + method + "] of type " + typeof thisEndpoint[method]);
         }
     }
 
@@ -116,7 +116,7 @@ class DRP_Endpoint {
     /**
      * 
      * @param {string} serviceName DRP Service Name
-     * @param {string} cmd Service Method
+     * @param {string} method Service Method
      * @param {Object} params Method Parameters
      * @param {boolean} promisify Should we promisify?
      * @param {function} callback Callback function
@@ -124,25 +124,25 @@ class DRP_Endpoint {
      * @param {string} runNodeID Execute on specific Node
      * @return {Promise} Returned promise
      */
-    SendCmd(serviceName, cmd, params, promisify, callback, routeOptions, runNodeID) {
+    SendCmd(serviceName, method, params, promisify, callback, routeOptions, runNodeID) {
         let thisEndpoint = this;
         let returnVal = null;
-        let replyToken = null;
+        let token = null;
 
         if (promisify) {
             // We expect a response, using await; add 'resolve' to queue
             returnVal = new Promise(function (resolve, reject) {
-                replyToken = thisEndpoint.AddReplyHandler(function (message) {
+                token = thisEndpoint.AddReplyHandler(function (message) {
                     resolve(message);
                 });
             });
         } else if (typeof callback === 'function') {
             // We expect a response, using callback; add callback to queue
-            replyToken = thisEndpoint.AddReplyHandler(callback);
+            token = thisEndpoint.AddReplyHandler(callback);
         } else {
-            // We don't expect a response; leave replyToken null
+            // We don't expect a response; leave reply token null
         }
-        let packetObj = new DRP_Cmd(serviceName, cmd, params, replyToken, routeOptions, runNodeID);
+        let packetObj = new DRP_Cmd(serviceName, method, params, token, routeOptions, runNodeID);
         let packetString = JSON.stringify(packetObj);
         thisEndpoint.SendPacketString(packetString);
         return returnVal;
@@ -187,9 +187,9 @@ class DRP_Endpoint {
 
     /**
      * Process inbound DRP Command
-     * @param {DRP_Cmd} drpPacket DRP Command
+     * @param {DRP_Cmd} cmdPacket DRP Command
      */
-    async ProcessCmd(drpPacket) {
+    async ProcessCmd(cmdPacket) {
         let thisEndpoint = this;
 
         var cmdResults = {
@@ -198,26 +198,26 @@ class DRP_Endpoint {
         };
 
         // Is the message meant for the default DRP service?
-        if (!drpPacket.serviceName || drpPacket.serviceName === "DRP") {
+        if (!cmdPacket.serviceName || cmdPacket.serviceName === "DRP") {
 
             // Yes - execute as a DRP command
-            if (typeof thisEndpoint.EndpointCmds[drpPacket.cmd] === 'function') {
+            if (typeof thisEndpoint.EndpointCmds[cmdPacket.method] === 'function') {
                 // Execute method
                 try {
-                    cmdResults.output = await thisEndpoint.EndpointCmds[drpPacket.cmd](drpPacket.params, thisEndpoint, drpPacket.replytoken);
+                    cmdResults.output = await thisEndpoint.EndpointCmds[cmdPacket.method](cmdPacket.params, thisEndpoint, cmdPacket.token);
                     cmdResults.status = 1;
                 } catch (err) {
                     cmdResults.output = err.message;
                 }
             } else {
                 cmdResults.output = "Endpoint does not have method";
-                thisEndpoint.log(`Remote endpoint tried to execute invalid method '${drpPacket.cmd}'`);
+                thisEndpoint.log(`Remote endpoint tried to execute invalid method '${cmdPacket.method}'`);
             }
 
             // No - execute as a local service command
         } else {
             try {
-                cmdResults.output = await thisEndpoint.drpNode.ServiceCommand(drpPacket, thisEndpoint);
+                cmdResults.output = await thisEndpoint.drpNode.ServiceCommand(cmdPacket, thisEndpoint);
                 cmdResults.status = 1;
             } catch (err) {
                 cmdResults.output = err.message;
@@ -225,31 +225,31 @@ class DRP_Endpoint {
         }
 
         // Reply with results
-        if (typeof drpPacket.replytoken !== "undefined" && drpPacket.replytoken !== null) {
+        if (typeof cmdPacket.token !== "undefined" && cmdPacket.token !== null) {
             let routeOptions = null;
-            if (drpPacket.routeOptions && drpPacket.routeOptions.tgtNodeID === thisEndpoint.drpNode.NodeID) {
-                routeOptions = new DRP_RouteOptions(thisEndpoint.drpNode.NodeID, drpPacket.routeOptions.srcNodeID);
+            if (cmdPacket.routeOptions && cmdPacket.routeOptions.tgtNodeID === thisEndpoint.drpNode.NodeID) {
+                routeOptions = new DRP_RouteOptions(thisEndpoint.drpNode.NodeID, cmdPacket.routeOptions.srcNodeID);
             }
-            thisEndpoint.SendReply(drpPacket.replytoken, cmdResults.status, cmdResults.output, routeOptions);
+            thisEndpoint.SendReply(cmdPacket.token, cmdResults.status, cmdResults.output, routeOptions);
         }
     }
 
     /**
     * Process inbound DRP Reply
-    * @param {DRP_Reply} drpPacket DRP Reply Packet
+    * @param {DRP_Reply} replyPacket DRP Reply Packet
     */
-    async ProcessReply(drpPacket) {
+    async ProcessReply(replyPacket) {
         let thisEndpoint = this;
 
         //console.dir(message, {"depth": 10})
 
         // Yes - do we have the token?
-        if (thisEndpoint.ReplyHandlerQueue.hasOwnProperty(drpPacket.token)) {
+        if (thisEndpoint.ReplyHandlerQueue.hasOwnProperty(replyPacket.token)) {
 
             // We have the token - execute the reply callback
-            thisEndpoint.ReplyHandlerQueue[drpPacket.token](drpPacket);
+            thisEndpoint.ReplyHandlerQueue[replyPacket.token](replyPacket);
 
-            delete thisEndpoint.ReplyHandlerQueue[drpPacket.token];
+            delete thisEndpoint.ReplyHandlerQueue[replyPacket.token];
 
         } else {
             // We do not have the token - tell the sender we do not honor this token
@@ -258,18 +258,18 @@ class DRP_Endpoint {
 
     /**
     * Process inbound DRP Stream
-    * @param {DRP_Stream} drpPacket DRP Stream Packet
+    * @param {DRP_Stream} streamPacket DRP Stream Packet
     */
-    async ProcessStream(drpPacket) {
+    async ProcessStream(streamPacket) {
         let thisEndpoint = this;
 
         //console.dir(message, {"depth": 10})
 
         // Yes - do we have the token?
-        if (thisEndpoint.StreamHandlerQueue.hasOwnProperty(drpPacket.token)) {
+        if (thisEndpoint.StreamHandlerQueue.hasOwnProperty(streamPacket.token)) {
 
             // We have the token - execute the reply callback
-            thisEndpoint.StreamHandlerQueue[drpPacket.token](drpPacket);
+            thisEndpoint.StreamHandlerQueue[streamPacket.token](streamPacket);
 
         } else {
             // We do not have the token - tell the sender we do not honor this token

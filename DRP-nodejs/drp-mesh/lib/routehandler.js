@@ -14,7 +14,7 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
         super(wsConn, drpNode, endpointID);
         let thisEndpoint = this;
 
-        this.RegisterCmd("hello", async function (...args) {
+        this.RegisterMethod("hello", async function (...args) {
             return drpNode.Hello(...args);
         });
     }

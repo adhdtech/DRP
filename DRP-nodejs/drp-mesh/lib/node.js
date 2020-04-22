@@ -982,15 +982,15 @@ class DRP_Node {
         let thisNode = this;
         let baseMsg = "ERR executing ServiceCommand:";
         if (!cmdObj) {
-            thisNode.log(`${baseMsg} params not supplied`, true);
+            thisNode.log(`${baseMsg} cmdObj not supplied`, true);
             return null;
         }
         if (!cmdObj.serviceName) {
-            thisNode.log(`${baseMsg} params.serviceName not supplied`, true);
+            thisNode.log(`${baseMsg} cmdObj.serviceName not supplied`, true);
             return null;
         }
-        if (!cmdObj.cmd) {
-            thisNode.log(`${baseMsg} params.method not supplied`, true);
+        if (!cmdObj.method) {
+            thisNode.log(`${baseMsg} cmdObj.method not supplied`, true);
             return null;
         }
 
@@ -1006,15 +1006,15 @@ class DRP_Node {
             return null;
         }
 
-        if (!serviceProvider[cmdObj.cmd]) {
-            thisNode.log(`${baseMsg} service ${cmdObj.serviceName} does not have method ${cmdObj.cmd}`, true);
+        if (!serviceProvider[cmdObj.method]) {
+            thisNode.log(`${baseMsg} service ${cmdObj.serviceName} does not have method ${cmdObj.method}`, true);
             return null;
         }
 
         if (cmdObj.serviceName === "DRP") {
-            return await drpEndpoint.EndpointCmds[cmdObj.cmd](cmdObj.params, drpEndpoint);
+            return await drpEndpoint.EndpointCmds[cmdObj.method](cmdObj.params, drpEndpoint);
         } else {
-            return await thisNode.Services[cmdObj.serviceName].ClientCmds[cmdObj.cmd](cmdObj.params, drpEndpoint);
+            return await thisNode.Services[cmdObj.serviceName].ClientCmds[cmdObj.method](cmdObj.params, drpEndpoint);
         }
     }
 
@@ -1099,8 +1099,8 @@ class DRP_Node {
             this.log(`${baseMsg} cmdObj.serviceName not supplied`, true);
             return null;
         }
-        if (!cmdObj.cmd) {
-            this.log(`${baseMsg} cmdObj.cmd not supplied`, true);
+        if (!cmdObj.method) {
+            this.log(`${baseMsg} cmdObj.method not supplied`, true);
             return null;
         }
 
@@ -1152,7 +1152,7 @@ class DRP_Node {
             if (thisNodeClient) {
                 // Await for command from remote node
                 let returnObj = null;
-                let results = await thisNodeClient.SendCmd(cmdObj.serviceName, cmdObj.cmd, cmdObj.params, true, null, null, targetNodeID);
+                let results = await thisNodeClient.SendCmd(cmdObj.serviceName, cmdObj.method, cmdObj.params, true, null, null, targetNodeID);
                 if (results && results.payload && results.payload) {
                     returnObj = results.payload;
                 }
@@ -1298,9 +1298,8 @@ class DRP_Node {
      * 
      * @param {DRP_TopologyPacket} topologyPacket DRP Topology Packet
      * @param {DRP_Endpoint} srcEndpoint Source Endpoint
-     * @param {string} replyToken Reply token
      */
-    async TopologyUpdate(topologyPacket, srcEndpoint, replyToken) {
+    async TopologyUpdate(topologyPacket, srcEndpoint) {
         let thisNode = this;
         thisNode.TopologyTracker.ProcessPacket(topologyPacket, srcEndpoint.EndpointID);
     }
@@ -1753,67 +1752,67 @@ class DRP_Node {
     ApplyGenericEndpointMethods(targetEndpoint) {
         let thisNode = this;
 
-        targetEndpoint.RegisterCmd("getNodeDeclaration", async function (...args) {
+        targetEndpoint.RegisterMethod("getNodeDeclaration", async function (...args) {
             return thisNode.NodeDeclaration;
         });
 
-        targetEndpoint.RegisterCmd("pathCmd", async function (params, srcEndpoint, token) {
+        targetEndpoint.RegisterMethod("pathCmd", async function (params, srcEndpoint, token) {
             return await thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
         });
 
-        targetEndpoint.RegisterCmd("getRegistry", function (params, srcEndpoint, token) {
+        targetEndpoint.RegisterMethod("getRegistry", function (params, srcEndpoint, token) {
             return thisNode.TopologyTracker.GetRegistry(params.reqNodeID);
         });
 
-        targetEndpoint.RegisterCmd("getServiceDefinition", function (params, srcEndpoint, token) {
+        targetEndpoint.RegisterMethod("getServiceDefinition", function (params, srcEndpoint, token) {
             return thisNode.GetServiceDefinition(params);
         });
 
-        targetEndpoint.RegisterCmd("getServiceDefinitions", async function (...args) {
+        targetEndpoint.RegisterMethod("getServiceDefinitions", async function (...args) {
             return await thisNode.GetServiceDefinitions(...args);
         });
 
-        targetEndpoint.RegisterCmd("getLocalServiceDefinitions", function (params, srcEndpoint) {
+        targetEndpoint.RegisterMethod("getLocalServiceDefinitions", function (params, srcEndpoint) {
             return thisNode.GetLocalServiceDefinitions(params, srcEndpoint);
         });
 
-        targetEndpoint.RegisterCmd("getClassRecords", async function (...args) {
+        targetEndpoint.RegisterMethod("getClassRecords", async function (...args) {
             return await thisNode.GetClassRecords(...args);
         });
 
-        targetEndpoint.RegisterCmd("listClassInstances", function () {
+        targetEndpoint.RegisterMethod("listClassInstances", function () {
             return thisNode.ListClassInstances();
         });
 
-        targetEndpoint.RegisterCmd("getClassDefinitions", function () {
+        targetEndpoint.RegisterMethod("getClassDefinitions", function () {
             return thisNode.GetClassDefinitions();
         });
 
-        targetEndpoint.RegisterCmd("sendToTopic", function (params, srcEndpoint, token) {
+        targetEndpoint.RegisterMethod("sendToTopic", function (params, srcEndpoint, token) {
             thisNode.TopicManager.SendToTopic(params.topicName, params.topicData);
         });
 
-        targetEndpoint.RegisterCmd("getTopology", async function (...args) {
+        targetEndpoint.RegisterMethod("getTopology", async function (...args) {
             return await thisNode.GetTopology(...args);
         });
 
-        targetEndpoint.RegisterCmd("listClientConnections", function (...args) {
+        targetEndpoint.RegisterMethod("listClientConnections", function (...args) {
             return thisNode.ListClientConnections(...args);
         });
 
-        targetEndpoint.RegisterCmd("tcpPing", async (...args) => {
+        targetEndpoint.RegisterMethod("tcpPing", async (...args) => {
             return thisNode.TCPPing(...args);
         });
 
-        targetEndpoint.RegisterCmd("findInstanceOfService", async (params) => {
+        targetEndpoint.RegisterMethod("findInstanceOfService", async (params) => {
             return thisNode.TopologyTracker.FindInstanceOfService(params.serviceName, params.serviceType, params.zone);
         });
 
-        targetEndpoint.RegisterCmd("listServices", async (params) => {
+        targetEndpoint.RegisterMethod("listServices", async (params) => {
             return thisNode.TopologyTracker.ListServices(params.serviceName, params.serviceType, params.zone);
         });
 
-        targetEndpoint.RegisterCmd("subscribe", async function (params, srcEndpoint, token) {
+        targetEndpoint.RegisterMethod("subscribe", async function (params, srcEndpoint, token) {
             // Only allow if the scope is local or this Node is a Broker
             if (params.scope !== "local" && !thisNode.IsBroker()) return null;
 
@@ -1829,7 +1828,7 @@ class DRP_Node {
             return await thisNode.Subscribe(thisSubscription);
         });
 
-        targetEndpoint.RegisterCmd("unsubscribe", async function (params, srcEndpoint, token) {
+        targetEndpoint.RegisterMethod("unsubscribe", async function (params, srcEndpoint, token) {
             let response = false;
             let thisSubscription = srcEndpoint.Subscriptions[params.streamToken];
             if (thisSubscription) {
@@ -1850,17 +1849,17 @@ class DRP_Node {
 
         thisNode.ApplyGenericEndpointMethods(targetEndpoint);
 
-        targetEndpoint.RegisterCmd("topologyUpdate", async function (...args) {
+        targetEndpoint.RegisterMethod("topologyUpdate", async function (...args) {
             return thisNode.TopologyUpdate(...args);
         });
 
-        targetEndpoint.RegisterCmd("connectToNode", async function (...args) {
+        targetEndpoint.RegisterMethod("connectToNode", async function (...args) {
             return await thisNode.ConnectToNode(...args);
         });
 
         if (!targetEndpoint.IsServer()) {
             // Add this command for DRP_Client endpoints
-            targetEndpoint.RegisterCmd("connectToRegistryInList", async function (...args) {
+            targetEndpoint.RegisterMethod("connectToRegistryInList", async function (...args) {
                 return await thisNode.ConnectToRegistryInList(...args);
             });
         }

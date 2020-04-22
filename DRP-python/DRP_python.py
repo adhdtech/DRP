@@ -26,7 +26,7 @@ class DRP_Endpoint:
         self.openCallback = None
 
         self.closeCallback = None
-        self.RegisterCmd("getCmds", "GetCmds")
+        self.RegisterMethod("getCmds", "GetCmds")
 
         asyncio.ensure_future(self.wsReceiveLoop())
 
@@ -38,9 +38,9 @@ class DRP_Endpoint:
             self.ReceiveMessage(json_in)
 
     def GetToken(self):
-        replyToken = self.TokenNum
+        token = self.TokenNum
         self.TokenNum += 1
-        return replyToken
+        return token
 
     def AddReplyHandler(self, callback):
         token = self.GetToken()
@@ -58,12 +58,12 @@ class DRP_Endpoint:
     def DeleteStreamHandler(self, streamToken):
         del self.StreamHandlerQueue[streamToken]
 
-    def RegisterCmd(self, cmd, method):
+    def RegisterMethod(self, methodName, method):
         thisEndpoint = self
         if (callable(method)):
-            thisEndpoint.EndpointCmds[cmd] = method
+            thisEndpoint.EndpointCmds[methodName] = method
         elif (callable(getattr(self, method, None))):
-            thisEndpoint.EndpointCmds[cmd] = getattr(self, method, None)
+            thisEndpoint.EndpointCmds[methodName] = getattr(self, method, None)
         else:
             typeObj = getattr(self, method, None)
             typeName = ""
@@ -73,10 +73,10 @@ class DRP_Endpoint:
                 typeName = typeObj.__name__
             thisEndpoint.log(f"Cannot add EndpointCmds[{cmd}] -> sourceObj[{method}] of type {typeName}")
 
-    async def SendCmd(self, serviceName, cmd, params, awaitResponse, routeOptions):
+    async def SendCmd(self, serviceName, method, params, awaitResponse, routeOptions):
         thisEndpoint = self
         returnVal = None
-        replyToken = None
+        token = None
 
         async def awaitFunc(returnData):
             return returnData
@@ -84,13 +84,13 @@ class DRP_Endpoint:
         if (awaitResponse):
             # TODO - Update this to add a go style channel to the ReplyHanderQueue
             replyQueue = asyncio.Queue()
-            replyToken = thisEndpoint.AddReplyHandler(replyQueue);
+            token = thisEndpoint.AddReplyHandler(replyQueue);
         else:
-            # We don't expect a response; leave replyToken null
-            replyToken = None
+            # We don't expect a response; leave reply token null
+            token = None
 
         # Send command
-        sendCmd = DRP_Cmd(serviceName, cmd, params, replyToken, routeOptions)
+        sendCmd = DRP_Cmd(serviceName, method, params, token, routeOptions)
         print(f"> {json.dumps(sendCmd)}")
         await thisEndpoint.wsConn.send(json.dumps(sendCmd))
         #print(f"Command sent")
@@ -117,16 +117,16 @@ class DRP_Endpoint:
             # Is the message meant for the default DRP service?
             if ("serviceName" not in message or message["serviceName"] == "DRP"):
                 # Yes - execute here
-                if ("cmd" not in message):
-                    cmdResults["output"] = "message.cmd not specified"
-                elif (message["cmd"] not in thisEndpoint.EndpointCmds):
-                    cmdResults["output"] = f"{message['cmd']} not in EndpointCmds"
-                elif (not callable(thisEndpoint.EndpointCmds[message["cmd"]])):
-                    cmdResults["output"] = f"EndpointCmds[{message['cmd']}] is not callable"
+                if ("method" not in message):
+                    cmdResults["output"] = "message.method not specified"
+                elif (message["method"] not in thisEndpoint.EndpointCmds):
+                    cmdResults["output"] = f"{message['method']} not in EndpointCmds"
+                elif (not callable(thisEndpoint.EndpointCmds[message["method"]])):
+                    cmdResults["output"] = f"EndpointCmds[{message['method']}] is not callable"
                 else:
                     # Execute method
                     try:
-                        cmdResults["output"] = await thisEndpoint.EndpointCmds[message.get("cmd",None)](message.get("params",None), thisEndpoint, message.get("replytoken",None))
+                        cmdResults["output"] = await thisEndpoint.EndpointCmds[message.get("method",None)](message.get("params",None), thisEndpoint, message.get("token",None))
                         cmdResults["status"] = 1
                     except ():
                         cmdResults["output"] = "Could not execute"
@@ -143,13 +143,13 @@ class DRP_Endpoint:
 
             try:
                 targetNodeEndpoint = await thisEndpoint.drpNode.VerifyNodeConnection(message.routeOptions.tgtNodeID);
-                cmdResults["output"] = await targetNodeEndpoint.SendCmd(message.serviceName, message.cmd, message.params, true, null);
+                cmdResults["output"] = await targetNodeEndpoint.SendCmd(message.serviceName, message.method, message.params, true, null);
             except:
                 # Either could not get connection to node or command send attempt errored out
                 x = 1
         # Reply with results
-        if ("replytoken" in message and message["replytoken"] is not None):
-            await thisEndpoint.SendReply(message["replytoken"], cmdResults["status"], cmdResults["output"])
+        if ("token" in message and message["token"] is not None):
+            await thisEndpoint.SendReply(message["token"], cmdResults["status"], cmdResults["output"])
 
     # SendReply
     async def SendReply(self, token, status, payload):
@@ -214,7 +214,7 @@ class DRP_Endpoint:
 
     # RegisterSubscription
 
-    async def GetCmds(self, params, endpoint, replytoken):
+    async def GetCmds(self, params, endpoint, token):
         return list(self.EndpointCmds.keys())
 
     def log(self, logMessage):
@@ -225,8 +225,8 @@ class DRP_Endpoint:
             print(logMessage)
 
 class DRP_Cmd(dict):
-    def __init__(self, serviceName, cmd, params, replytoken, routeOptions):
-        dict.__init__(self, type="cmd", serviceName=serviceName, cmd=cmd, params=params, replytoken=replytoken, routeOptions=routeOptions)
+    def __init__(self, serviceName, method, params, token, routeOptions):
+        dict.__init__(self, type="cmd", serviceName=serviceName, method=method, params=params, token=token, routeOptions=routeOptions)
 
 class DRP_Reply(dict):
     def __init__(self, token, status, payload, srcNodeID, tgtNodeID):
@@ -274,21 +274,21 @@ async def wsRecv(websocket, path):
 
 # DRP Test Client
 async def drpTestClient():
-    #uri = "ws://localhost:8080"
-    uri = "wss://rsage.io:8443"
+    uri = "ws://localhost:8080"
     print(f"Connecting to -> {uri}")
     async with websockets.connect(uri) as websocket:
 
         print(f"Connected!")
         myEndpoint = DRP_Endpoint(websocket, None, "1234567890", "Client")
 
+        print(f"Sending hello...")
+        returnData = await myEndpoint.SendCmd("DRP", "hello", { "userAgent": "python", "user": "someuser", "pass": "somepass" }, True, None)
+
         print(f"Sending getCmds...")
-        returnData = await myEndpoint.SendCmd("DRP", "hello", { "userAgent": "python" }, True, None)
+        returnData = await myEndpoint.SendCmd("DRP", "getCmds", None, True, None)
 
         # Using this to keep the client alive; need to figure out a cleaner way
         dummyQueue = asyncio.Queue()
         await dummyQueue.get()
 
-#asyncio.get_event_loop().run_until_complete(drpTestClient())
-#asyncio.get_event_loop().run_forever()
 asyncio.run(drpTestClient())

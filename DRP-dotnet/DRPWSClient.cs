@@ -30,16 +30,16 @@ namespace ADHDTech.DRP
         {
             // Generate token
             //string token = Guid.NewGuid().ToString();
-            int replyToken = wsConn.TokenNum;
+            int token = wsConn.TokenNum;
             wsConn.TokenNum++;
-            return replyToken.ToString();
+            return token.ToString();
         }
 
         public string AddReplyHandler(DRP_WebsocketConn wsConn, TaskCompletionSource<object> callback)
         {
-            string replyToken = GetToken(wsConn);
-            wsConn.ReplyHandlerQueue[replyToken] = callback;
-            return replyToken;
+            string token = GetToken(wsConn);
+            wsConn.ReplyHandlerQueue[token] = callback;
+            return token;
         }
 
         public void DeleteReplyHandler(DRP_WebsocketConn wsConn, string token)
@@ -49,9 +49,9 @@ namespace ADHDTech.DRP
 
         public string AddStreamHandler(DRP_WebsocketConn wsConn, TaskCompletionSource<object> callback)
         {
-            string replyToken = GetToken(wsConn);
-            wsConn.StreamHandlerQueue[replyToken] = callback;
-            return replyToken;
+            string token = GetToken(wsConn);
+            wsConn.StreamHandlerQueue[token] = callback;
+            return token;
         }
 
         public void DeleteStreamHandler(DRP_WebsocketConn wsConn, string token)
@@ -59,9 +59,9 @@ namespace ADHDTech.DRP
             wsConn.StreamHandlerQueue.Remove(token);
         }
 
-        public void RegisterCmd(string cmd, Func<Dictionary<string, object>, DRP_WebsocketConn, string, object> method)
+        public void RegisterMethod(string methodName, Func<Dictionary<string, object>, DRP_WebsocketConn, string, object> method)
         {
-            EndpointCmds[cmd] = method;
+            EndpointCmds[methodName] = method;
         }
 
         // Send DRP Cmd
@@ -131,9 +131,9 @@ namespace ADHDTech.DRP
 
         public void ProcessCmd(DRP_WebsocketConn wsConn, DRP_MsgIn message)
         {
-            if (message.replytoken != null && message.replytoken.Length > 0)
+            if (message.token != null && message.token.Length > 0)
             {
-                //thisEndpoint.SendReply(wsConn, message.replytoken, cmdResults.status, cmdResults.output);
+                //thisEndpoint.SendReply(wsConn, message.token, cmdResults.status, cmdResults.output);
             }
         }
         public void ProcessReply(DRP_WebsocketConn wsConn, DRP_MsgIn message)
@@ -401,17 +401,17 @@ namespace ADHDTech.DRP
     {
         public string type;
         public string serviceName;
-        public string cmd;
+        public string method;
         public Dictionary<string, object> @params;
-        public string replytoken;
+        public string token;
 
-        public DRP_Cmd(string serviceName, string cmdName, string cmdToken, Dictionary<string, object> sendData)
+        public DRP_Cmd(string serviceName, string method, string cmdToken, Dictionary<string, object> sendData)
         {
             this.type = "cmd";
-            this.cmd = cmdName;
+            this.method = method;
             this.@params = sendData;
             this.serviceName = serviceName;
-            this.replytoken = cmdToken;
+            this.token = cmdToken;
         }
     }
 
@@ -432,13 +432,12 @@ namespace ADHDTech.DRP
     public class DRP_MsgIn
     {
         public string type;
-        public string cmd;
+        public string method;
         public string serviceName;
         public object @params;
         public object payload;
         public string status;
         public string token;
-        public string replytoken;
     }
 
     public class Playbook

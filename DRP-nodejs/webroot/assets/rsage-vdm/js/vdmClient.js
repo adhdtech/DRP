@@ -1,8 +1,3 @@
-var JSONCmd = function () {
-    this.cmd = '';
-    this.data = {};
-};
-
 class DRP_Endpoint_Browser {
     constructor() {
         let thisEndpoint = this;
@@ -12,13 +7,13 @@ class DRP_Endpoint_Browser {
         this.ReplyHandlerQueue = {};
         this.StreamHandlerQueue = {};
         this.TokenNum = 1;
-        this.RegisterCmd("getCmds", "GetCmds");
+        this.RegisterMethod("getCmds", "GetCmds");
     }
 
     GetToken() {
-        let replyToken = this.TokenNum;
+        let token = this.TokenNum;
         this.TokenNum++;
-        return replyToken;
+        return token;
     }
 
     AddReplyHandler(callback) {
@@ -41,43 +36,41 @@ class DRP_Endpoint_Browser {
         delete this.StreamHandlerQueue[streamToken];
     }
 
-    RegisterCmd(cmd, method) {
+    RegisterMethod(methodName, method) {
         let thisEndpoint = this;
         // Need to do sanity checks; is the method actually a method?
         if (typeof method === 'function') {
-            thisEndpoint.EndpointCmds[cmd] = method;
+            thisEndpoint.EndpointCmds[methodName] = method;
         } else if (typeof thisEndpoint[method] === 'function') {
-            thisEndpoint.EndpointCmds[cmd] = function (params, wsConn, replytoken) {
-                return thisEndpoint[method](params, wsConn, replytoken);
+            thisEndpoint.EndpointCmds[methodName] = function (params, wsConn, token) {
+                return thisEndpoint[method](params, wsConn, token);
             };
         } else {
-            console.log("Cannot add EndpointCmds[" + cmd + "]" + " -> sourceObj[" + method + "] of type " + typeof thisEndpoint[method]);
+            console.log("Cannot add EndpointCmds[" + methodName + "]" + " -> sourceObj[" + method + "] of type " + typeof thisEndpoint[method]);
         }
     }
 
     SendCmd(serviceName, cmd, params, promisify, callback) {
         let thisEndpoint = this;
         let returnVal = null;
-        let replyToken = null;
+        let token = null;
 
         if (promisify) {
             // We expect a response, using await; add 'resolve' to queue
             returnVal = new Promise(function (resolve, reject) {
-                replyToken = thisEndpoint.AddReplyHandler(function (message) {
+                token = thisEndpoint.AddReplyHandler(function (message) {
                     resolve(message);
                 });
             });
         } else if (typeof callback === 'function') {
             // We expect a response, using callback; add callback to queue
-            replyToken = thisEndpoint.AddReplyHandler(callback);
-            //replyToken = thisEndpoint.GetToken(wsConn);
-            //wsConn.ReturnCmdQueue[replyToken] = callback;
+            token = thisEndpoint.AddReplyHandler(callback);
         } else {
-            // We don't expect a response; leave replyToken null
+            // We don't expect a response; leave reply token null
         }
 
-        let sendCmd = new DRP_Cmd(serviceName, cmd, params, replyToken);
-        thisEndpoint.wsConn.send(JSON.stringify(sendCmd));
+        let cmdPacket = new DRP_Cmd(serviceName, cmd, params, token);
+        thisEndpoint.wsConn.send(JSON.stringify(cmdPacket));
         //console.log("SEND -> " + JSON.stringify(sendCmd));
         return returnVal;
     }
@@ -85,7 +78,7 @@ class DRP_Endpoint_Browser {
     SendCmd_StreamHandler(serviceName, cmd, params, callback, sourceApplet) {
         let thisEndpoint = this;
         let returnVal = null;
-        let replyToken = null;
+        let token = null;
 
         if (!params) params = {};
         params.streamToken = thisEndpoint.AddStreamHandler(callback);
@@ -95,14 +88,14 @@ class DRP_Endpoint_Browser {
         }
 
         returnVal = new Promise(function (resolve, reject) {
-            replyToken = thisEndpoint.AddReplyHandler(function (message) {
+            token = thisEndpoint.AddReplyHandler(function (message) {
                 //console.dir(message);
                 resolve(message);
             });
         });
 
-        let sendCmd = new DRP_Cmd(serviceName, cmd, params, replyToken);
-        thisEndpoint.wsConn.send(JSON.stringify(sendCmd));
+        let cmdPacket = new DRP_Cmd(serviceName, cmd, params, token);
+        thisEndpoint.wsConn.send(JSON.stringify(cmdPacket));
         //console.log("SEND -> " + JSON.stringify(sendCmd));
 
         return returnVal;
@@ -110,8 +103,8 @@ class DRP_Endpoint_Browser {
 
     SendReply(wsConn, token, status, payload) {
         if (wsConn.readyState === WebSocket.OPEN) {
-            let replyCmd = new DRP_Reply(token, status, payload);
-            wsConn.send(JSON.stringify(replyCmd));
+            let replyPacket = new DRP_Reply(token, status, payload);
+            wsConn.send(JSON.stringify(replyPacket));
             //console.log("SEND -> " + JSON.stringify(replyCmd));
             return 0;
         } else {
@@ -121,8 +114,8 @@ class DRP_Endpoint_Browser {
 
     SendStream(wsConn, token, status, payload) {
         if (wsConn.readyState === WebSocket.OPEN) {
-            let streamCmd = new DRP_Stream(token, status, payload);
-            wsConn.send(JSON.stringify(streamCmd));
+            let streamPacket = new DRP_Stream(token, status, payload);
+            wsConn.send(JSON.stringify(streamPacket));
             //console.log("SEND -> " + JSON.stringify(streamCmd));
             return 0;
         } else {
@@ -130,7 +123,12 @@ class DRP_Endpoint_Browser {
         }
     }
 
-    async ProcessCmd(wsConn, message) {
+    /**
+     * 
+     * @param {any} wsConn WebSocket Connection
+     * @param {DRP_Cmd} cmdPacket Message to process
+     */
+    async ProcessCmd(wsConn, cmdPacket) {
         let thisEndpoint = this;
 
         var cmdResults = {
@@ -138,65 +136,65 @@ class DRP_Endpoint_Browser {
             output: null
         };
 
-        if (typeof thisEndpoint.EndpointCmds[message.cmd] === 'function') {
+        if (typeof thisEndpoint.EndpointCmds[cmdPacket.method] === 'function') {
             // Execute method
             try {
-                cmdResults.output = await thisEndpoint.EndpointCmds[message.cmd](message.params, wsConn, message.replytoken);
+                cmdResults.output = await thisEndpoint.EndpointCmds[cmdPacket.method](cmdPacket.params, wsConn, cmdPacket.token);
                 cmdResults.status = 1;
             } catch (err) {
                 cmdResults.output = err.message;
             }
         } else {
             cmdResults.output = "Endpoint does not have method";
-            console.log("Remote endpoint tried to execute invalid method '" + message.cmd + "'...");
+            console.log("Remote endpoint tried to execute invalid method '" + cmdPacket.method + "'...");
             //console.dir(thisEndpoint.EndpointCmds);
         }
 
         // Reply with results
-        if (typeof message.replytoken !== "undefined" && message.replytoken !== null) {
-            thisEndpoint.SendReply(wsConn, message.replytoken, cmdResults.status, cmdResults.output);
+        if (typeof cmdPacket.token !== "undefined" && cmdPacket.token !== null) {
+            thisEndpoint.SendReply(wsConn, cmdPacket.token, cmdResults.status, cmdResults.output);
         }
     }
 
-    async ProcessReply(wsConn, message) {
+    async ProcessReply(wsConn, replyPacket) {
         let thisEndpoint = this;
 
         //console.dir(message, {"depth": 10})
 
         // Yes - do we have the token?
-        if (thisEndpoint.ReplyHandlerQueue.hasOwnProperty(message.token)) {
+        if (thisEndpoint.ReplyHandlerQueue.hasOwnProperty(replyPacket.token)) {
 
             // We have the token - execute the reply callback
-            thisEndpoint.ReplyHandlerQueue[message.token](message);
+            thisEndpoint.ReplyHandlerQueue[replyPacket.token](replyPacket);
 
-            delete thisEndpoint.ReplyHandlerQueue[message.token];
+            delete thisEndpoint.ReplyHandlerQueue[replyPacket.token];
 
         } else {
             // We do not have the token - tell the sender we do not honor this token
         }
     }
 
-    async ProcessStream(wsConn, message) {
+    async ProcessStream(wsConn, streamPacket) {
         let thisEndpoint = this;
 
         //console.dir(message, {"depth": 10})
 
         // Yes - do we have the token?
-        if (thisEndpoint.StreamHandlerQueue.hasOwnProperty(message.token)) {
+        if (thisEndpoint.StreamHandlerQueue.hasOwnProperty(streamPacket.token)) {
 
             // We have the token - execute the reply callback
-            thisEndpoint.StreamHandlerQueue[message.token](message);
+            thisEndpoint.StreamHandlerQueue[streamPacket.token](streamPacket);
 
             // Is this the last item in the stream?
-            if (message.status < 2) {
+            if (streamPacket.status < 2) {
 
                 // Yes - delete the handler
-                delete thisEndpoint.StreamHandlerQueue[message.token];
+                delete thisEndpoint.StreamHandlerQueue[streamPacket.token];
             }
 
         } else {
             // We do not have the token - tell the sender we do not honor this token
-            let unsubResults = await thisEndpoint.SendCmd("DRP", "unsubscribe", { "streamToken": message.token }, true, null);
+            let unsubResults = await thisEndpoint.SendCmd("DRP", "unsubscribe", { "streamToken": streamPacket.token }, true, null);
             //console.log("Send close request for unknown stream");
         }
     }
@@ -381,7 +379,7 @@ class DRP_Client_Browser extends DRP_Endpoint_Browser {
 
         wsConn.onerror = function (error) { thisClient.ErrorHandler(wsConn, error); };
 
-        this.RegisterCmd("cliGetPath", async function (params, wsConn, token) {
+        this.RegisterMethod("cliGetPath", async function (params, wsConn, token) {
             let oReturnObject = await thisClient.GetObjFromPath(params, thisClient);
 
             // If we have a return object and want only a list of children, do that now
@@ -402,12 +400,12 @@ class DRP_Client_Browser extends DRP_Endpoint_Browser {
 }
 
 class DRP_Cmd {
-    constructor(serviceName, cmd, params, replytoken) {
+    constructor(serviceName, method, params, token) {
         this.type = "cmd";
-        this.cmd = cmd;
+        this.method = method;
         this.params = params;
         this.serviceName = serviceName;
-        this.replytoken = replytoken;
+        this.token = token;
     }
 }
 

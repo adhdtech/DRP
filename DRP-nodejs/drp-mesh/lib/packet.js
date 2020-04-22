@@ -1,4 +1,9 @@
 class DRP_Packet {
+    /**
+     * 
+     * @param {string} type Packet Type
+     * @param {DRP_RouteOptions} routeOptions Route Options
+     */
     constructor(type, routeOptions) {
         this.type = type;
         this.routeOptions = routeOptions || null;
@@ -9,23 +14,30 @@ class DRP_Cmd extends DRP_Packet {
     /**
      * 
      * @param {string} serviceName DRP Service Name
-     * @param {string} cmd Service Method
+     * @param {string} method Method Name
      * @param {Object} params Method Parameters
-     * @param {string} replytoken Reply Token
+     * @param {string} token Reply Token
      * @param {DRP_RouteOptions} routeOptions Route Options
      * @param {string} runNodeID Execute on specific Node
      */
-    constructor(serviceName, cmd, params, replytoken, routeOptions, runNodeID) {
+    constructor(serviceName, method, params, token, routeOptions, runNodeID) {
         super("cmd", routeOptions);
-        this.cmd = cmd;
+        this.method = method;
         this.params = params;
         this.serviceName = serviceName;
-        this.replytoken = replytoken;
+        this.token = token;
         this.runNodeID = runNodeID;
     }
 }
 
 class DRP_Reply extends DRP_Packet {
+    /**
+     * 
+     * @param {string} token Reply Token
+     * @param {number} status Execution Status
+     * @param {any} payload Reply Payload
+     * @param {DRP_RouteOptions} routeOptions Route Options
+     */
     constructor(token, status, payload, routeOptions) {
         super("reply", routeOptions);
         this.token = token;
@@ -35,6 +47,13 @@ class DRP_Reply extends DRP_Packet {
 }
 
 class DRP_Stream extends DRP_Packet {
+    /**
+     * 
+     * @param {string} token Stream Token
+     * @param {number} status Stream Status [0=?,1=?,2=?]
+     * @param {any} payload Stream Payload
+     * @param {DRP_RouteOptions} routeOptions Route Options
+     */
     constructor(token, status, payload, routeOptions) {
         super("stream", routeOptions);
         this.token = token;

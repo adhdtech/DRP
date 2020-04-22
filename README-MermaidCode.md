@@ -86,15 +86,15 @@ sequenceDiagram
     Note left of Provider: Startup
     Provider-->>Registry: ws://<regsvc>/registry
     Broker-->>Registry: ws://<regsvc>/registry
-    Broker->>Registry: {cmd:"getDeclarations",replytoken:1}
+    Broker->>Registry: {cmd:"getDeclarations",token:1}
     Note right of Registry: *Gather Declarations <payload>
     Registry->>Broker: {token:1, payload: {streams:["hostReport"]}}}
     Note left of Consumer: Startup
     Consumer-->>Broker: ws://<regsvc>/broker
-    Consumer->>Broker: {"type":"cmd","cmd":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
+    Consumer->>Broker: {"type":"cmd","method":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
     Note right of Broker: *Register subscription<br>*Determine list of providers
     Broker-->>Provider: ws://<providersvc>/provider
-    Broker->>Provider: {"type":"cmd","cmd":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
+    Broker->>Provider: {"type":"cmd","method":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
     Note right of Provider: Stream Data <payload>
     Provider->>Broker: {"type":"stream", token:123, status, payload: <payload>}
     Note right of Broker: Relay to<br>Consumers
@@ -110,17 +110,17 @@ sequenceDiagram
     Note left of Provider: Startup
     Provider-->>Registry: ws://<regsvc>/registry
     Broker-->>Registry: ws://<regsvc>/registry
-    Broker->>Registry: {cmd:"getDeclarations",replytoken:1}
+    Broker->>Registry: {cmd:"getDeclarations",token:1}
     Note right of Registry: *Gather Declarations <payload>
     Registry->>Broker: {token:1, payload: {streams:["hostReport"]}}}
     Note left of Consumer: Startup
     Consumer-->>Broker: ws://<regsvc>/broker
-    Consumer->>Broker: {"type":"cmd","cmd":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
+    Consumer->>Broker: {"type":"cmd","method":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
     Note right of Broker: *Register subscription<br>*Determine list of providers
-    Broker->>Registry: {"type":"cmd","cmd":"brokerToProvider","params":{"brokerID":<brokerID>,"brokerURL":"ws://<brokersvc>/broker"}}
-    Registry->>Provider: {"type":"cmd","cmd":"brokerToProvider","params":{"brokerID":<brokerID>,"brokerURL":"ws://<brokersvc>/broker"}}
+    Broker->>Registry: {"type":"cmd","method":"brokerToProvider","params":{"brokerID":<brokerID>,"brokerURL":"ws://<brokersvc>/broker"}}
+    Registry->>Provider: {"type":"cmd","method":"brokerToProvider","params":{"brokerID":<brokerID>,"brokerURL":"ws://<brokersvc>/broker"}}
     Provider-->>Broker: ws://<brokersvc>/broker
-    Broker->>Provider: {"type":"cmd","cmd":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
+    Broker->>Provider: {"type":"cmd","method":"subscribe","params":{"topicName":"hostReport","streamToken":123}}
     Note right of Provider: Stream Data <payload>
     Provider->>Broker: {"type":"stream", token:123, status, payload: <payload>}
     Note right of Broker: Relay to<br>Consumers
