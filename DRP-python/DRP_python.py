@@ -158,7 +158,7 @@ class DRP_Endpoint:
             try:
                 replyString = json.dumps(DRP_Reply(token, status, payload, None, None))
             except:
-                replyString = json.dumps(DRP_Reply(token, 2, "Failed to stringify response", None, None))
+                replyString = json.dumps(DRP_Reply(token, 0, "Failed to stringify response", None, None))
             print(f"> {replyString}")
             await self.wsConn.send(replyString);
             return 0
@@ -172,17 +172,15 @@ class DRP_Endpoint:
         if (message["token"] in thisEndpoint.ReplyHandlerQueue):
 
             # We have the token - execute the reply callback
-            thisEndpoint.ReplyHandlerQueue[message["token"]].put_nowait(message);
+            thisEndpoint.ReplyHandlerQueue[message["token"]].put_nowait(message)
 
-            del thisEndpoint.ReplyHandlerQueue[message["token"]];
+            # Delete if we don't expect any more data
+            if message["status"] < 2:
+                del thisEndpoint.ReplyHandlerQueue[message["token"]]
             return False;
         else:
             # We do not have the token - tell the sender we do not honor this token
             return True;
-
-    # SendStream
-
-    # ProcessStream
 
     def ReceiveMessage(self, rawMessage):
         thisEndpoint = self

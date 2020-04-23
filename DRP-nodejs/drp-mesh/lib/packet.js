@@ -34,28 +34,12 @@ class DRP_Reply extends DRP_Packet {
     /**
      * 
      * @param {string} token Reply Token
-     * @param {number} status Execution Status
+     * @param {number} status Status [0=failed,1=final packet,2=continue]
      * @param {any} payload Reply Payload
      * @param {DRP_RouteOptions} routeOptions Route Options
      */
     constructor(token, status, payload, routeOptions) {
         super("reply", routeOptions);
-        this.token = token;
-        this.status = status;
-        this.payload = payload;
-    }
-}
-
-class DRP_Stream extends DRP_Packet {
-    /**
-     * 
-     * @param {string} token Stream Token
-     * @param {number} status Stream Status [0=?,1=?,2=?]
-     * @param {any} payload Stream Payload
-     * @param {DRP_RouteOptions} routeOptions Route Options
-     */
-    constructor(token, status, payload, routeOptions) {
-        super("stream", routeOptions);
         this.token = token;
         this.status = status;
         this.payload = payload;
@@ -80,6 +64,5 @@ module.exports = {
     DRP_Packet: DRP_Packet,
     DRP_Cmd: DRP_Cmd,
     DRP_Reply: DRP_Reply,
-    DRP_Stream: DRP_Stream,
     DRP_RouteOptions: DRP_RouteOptions
 };

@@ -26,16 +26,6 @@ class DRP_Endpoint_Browser {
         delete this.ReplyHandlerQueue[token];
     }
 
-    AddStreamHandler(callback) {
-        let streamToken = this.GetToken();
-        this.StreamHandlerQueue[streamToken] = callback;
-        return streamToken;
-    }
-
-    DeleteStreamHandler(streamToken) {
-        delete this.StreamHandlerQueue[streamToken];
-    }
-
     RegisterMethod(methodName, method) {
         let thisEndpoint = this;
         // Need to do sanity checks; is the method actually a method?
@@ -81,7 +71,7 @@ class DRP_Endpoint_Browser {
         let token = null;
 
         if (!params) params = {};
-        params.streamToken = thisEndpoint.AddStreamHandler(callback);
+        params.streamToken = thisEndpoint.AddReplyHandler(callback);
 
         if (sourceApplet) {
             sourceApplet.streamHandlerTokens.push(params.streamToken);
@@ -106,17 +96,6 @@ class DRP_Endpoint_Browser {
             let replyPacket = new DRP_Reply(token, status, payload);
             wsConn.send(JSON.stringify(replyPacket));
             //console.log("SEND -> " + JSON.stringify(replyCmd));
-            return 0;
-        } else {
-            return 1;
-        }
-    }
-
-    SendStream(wsConn, token, status, payload) {
-        if (wsConn.readyState === WebSocket.OPEN) {
-            let streamPacket = new DRP_Stream(token, status, payload);
-            wsConn.send(JSON.stringify(streamPacket));
-            //console.log("SEND -> " + JSON.stringify(streamCmd));
             return 0;
         } else {
             return 1;
@@ -167,7 +146,12 @@ class DRP_Endpoint_Browser {
             // We have the token - execute the reply callback
             thisEndpoint.ReplyHandlerQueue[replyPacket.token](replyPacket);
 
-            delete thisEndpoint.ReplyHandlerQueue[replyPacket.token];
+            // Is this the last item in the stream?
+            if (!replyPacket.status || replyPacket.status < 2) {
+
+                // Yes - delete the handler
+                delete thisEndpoint.ReplyHandlerQueue[replyPacket.token];
+            }
 
         } else {
             // We do not have the token - tell the sender we do not honor this token

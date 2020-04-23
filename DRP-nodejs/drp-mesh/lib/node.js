@@ -1818,7 +1818,7 @@ class DRP_Node {
 
             let sendFunction = async (message) => {
                 // Returns send status; error if not null
-                return await srcEndpoint.SendStream(params.streamToken, 2, message);
+                return await srcEndpoint.SendReply(params.streamToken, 2, message);
             };
             let sendFailCallback = async (sendFailMsg) => {
                 // Failed to send; may have already disconnected, take no further action
@@ -1907,7 +1907,7 @@ class DRP_Node {
         let returnVal = null;
         // Subscribe to a remote topic
         let thisNodeEndpoint = await thisNode.VerifyNodeConnection(targetNodeID);
-        let sourceStreamToken = thisNodeEndpoint.AddStreamHandler(streamProcessor);
+        let sourceStreamToken = thisNodeEndpoint.AddReplyHandler(streamProcessor);
 
         // Await for command from source node
         let successful = await thisNodeEndpoint.SendCmd("DRP", "subscribe", { "topicName": topicName, "streamToken": sourceStreamToken, "scope": "local" }, true, null);
@@ -1925,7 +1925,7 @@ class DRP_Node {
         let returnVal = null;
         // Unsubscribe from a remote topic
         let thisNodeEndpoint = await thisNode.VerifyNodeConnection(targetNodeID);
-        thisNodeEndpoint.DeleteStreamHandler(streamToken);
+        thisNodeEndpoint.DeleteReplyHandler(streamToken);
 
         // Await for command from source node
          await thisNodeEndpoint.SendCmd("DRP", "unsubscribe", { "streamToken": streamToken }, true, null);

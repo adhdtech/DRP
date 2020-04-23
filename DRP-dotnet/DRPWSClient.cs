@@ -10,12 +10,10 @@ namespace ADHDTech.DRP
     public class DRP_WebsocketConn : WebSocketSharp.WebSocket
     {
         public Dictionary<string, TaskCompletionSource<object>> ReplyHandlerQueue;
-        public Dictionary<string, TaskCompletionSource<object>> StreamHandlerQueue;
         public int TokenNum;
         public DRP_WebsocketConn(string url, params string[] protocols) : base(url, protocols)
         {
             ReplyHandlerQueue = new Dictionary<string, TaskCompletionSource<object>>();
-            StreamHandlerQueue = new Dictionary<string, TaskCompletionSource<object>>();
             TokenNum = 1;
         }
     }
@@ -45,18 +43,6 @@ namespace ADHDTech.DRP
         public void DeleteReplyHandler(DRP_WebsocketConn wsConn, string token)
         {
             wsConn.ReplyHandlerQueue.Remove(token);
-        }
-
-        public string AddStreamHandler(DRP_WebsocketConn wsConn, TaskCompletionSource<object> callback)
-        {
-            string token = GetToken(wsConn);
-            wsConn.StreamHandlerQueue[token] = callback;
-            return token;
-        }
-
-        public void DeleteStreamHandler(DRP_WebsocketConn wsConn, string token)
-        {
-            wsConn.StreamHandlerQueue.Remove(token);
         }
 
         public void RegisterMethod(string methodName, Func<Dictionary<string, object>, DRP_WebsocketConn, string, object> method)

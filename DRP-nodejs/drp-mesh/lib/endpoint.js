@@ -4,7 +4,7 @@
 //const DRP_Node = require('./node');
 const DRP_SubscribableSource = require('./subscription').SubscribableSource;
 const DRP_Subscriber = require('./subscription').Subscriber;
-const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Stream, DRP_RouteOptions } = require('./packet');
+const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_RouteOptions } = require('./packet');
 
 const WebSocket = require('ws');
 
@@ -31,8 +31,7 @@ class DRP_Endpoint {
 
         /** @type Object<string,function> */
         this.ReplyHandlerQueue = {};
-        /** @type Object<string,function> */
-        this.StreamHandlerQueue = {};
+
         this.TokenNum = 1;
 
         /** @type {Object.<string,DRP_Subscriber>} */
@@ -62,16 +61,6 @@ class DRP_Endpoint {
 
     DeleteReplyHandler(token) {
         delete this.ReplyHandlerQueue[token];
-    }
-
-    AddStreamHandler(callback) {
-        let streamToken = this.GetToken();
-        this.StreamHandlerQueue[streamToken] = callback;
-        return streamToken;
-    }
-
-    DeleteStreamHandler(streamToken) {
-        delete this.StreamHandlerQueue[streamToken];
     }
 
     /**
@@ -151,7 +140,7 @@ class DRP_Endpoint {
     /**
      * Send reply to received command
      * @param {string} token Reply token
-     * @param {number} status Reply status
+     * @param {number} status Reply status [0: fail, 1: success, 2: more data coming]
      * @param {any} payload Payload to send
      * @param {DRP_RouteOptions} routeOptions Route options
      * @returns {number} Error string
@@ -165,23 +154,9 @@ class DRP_Endpoint {
             packetObj = new DRP_Reply(token, status, payload, routeOptions);
             packetString = JSON.stringify(packetObj);
         } catch (e) {
-            packetObj = new DRP_Reply(token, 2, `Failed to stringify response: ${e}`);
+            packetObj = new DRP_Reply(token, 0, `Failed to stringify response: ${e}`);
             packetString = JSON.stringify(packetObj);
         }
-        return thisEndpoint.SendPacketString(packetString);
-    }
-    /**
-     * Send streaming data
-     * @param {string} token Stream token
-     * @param {number} status Stream status (1 continue, 2 end)?
-     * @param {any} payload Payload to send
-     * @param {DRP_RouteOptions} routeOptions Route options
-     * @returns {number} Error status
-     */
-    SendStream(token, status, payload, routeOptions) {
-        let thisEndpoint = this;
-        let packetObj = new DRP_Stream(token, status, payload, routeOptions);
-        let packetString = JSON.stringify(packetObj);
         return thisEndpoint.SendPacketString(packetString);
     }
 
@@ -249,27 +224,10 @@ class DRP_Endpoint {
             // We have the token - execute the reply callback
             thisEndpoint.ReplyHandlerQueue[replyPacket.token](replyPacket);
 
-            delete thisEndpoint.ReplyHandlerQueue[replyPacket.token];
-
-        } else {
-            // We do not have the token - tell the sender we do not honor this token
-        }
-    }
-
-    /**
-    * Process inbound DRP Stream
-    * @param {DRP_Stream} streamPacket DRP Stream Packet
-    */
-    async ProcessStream(streamPacket) {
-        let thisEndpoint = this;
-
-        //console.dir(message, {"depth": 10})
-
-        // Yes - do we have the token?
-        if (thisEndpoint.StreamHandlerQueue.hasOwnProperty(streamPacket.token)) {
-
-            // We have the token - execute the reply callback
-            thisEndpoint.StreamHandlerQueue[streamPacket.token](streamPacket);
+            // Delete if the status < 2
+            if (!replyPacket.status || replyPacket.status < 2) {
+                delete thisEndpoint.ReplyHandlerQueue[replyPacket.token];
+            }
 
         } else {
             // We do not have the token - tell the sender we do not honor this token
@@ -316,9 +274,6 @@ class DRP_Endpoint {
                 break;
             case 'reply':
                 thisEndpoint.ProcessReply(drpPacket);
-                break;
-            case 'stream':
-                thisEndpoint.ProcessStream(drpPacket);
                 break;
             default:
                 thisEndpoint.log("Invalid message.type; here's the JSON data..." + rawMessage);
@@ -392,7 +347,7 @@ class DRP_Endpoint {
     async RegisterSubscription(subscriptionObject) {
         let thisEndpoint = this;
         subscriptionObject.subscribedTo.push(thisEndpoint.EndpointID);
-        let streamToken = thisEndpoint.AddStreamHandler(function (message) {
+        let streamToken = thisEndpoint.AddReplyHandler(function (message) {
             if (message && message.payload) {
                 subscriptionObject.streamHandler(message.payload);
             }
@@ -401,7 +356,7 @@ class DRP_Endpoint {
         let response = await thisEndpoint.SendCmd("DRP", "subscribe", { "topicName": subscriptionObject.topicName, "streamToken": streamToken, "scope": subscriptionObject.scope }, true, null);
 
         if (response.status === 0) {
-            thisEndpoint.DeleteStreamHandler(streamToken);
+            thisEndpoint.DeleteReplyHandler(streamToken);
             subscriptionObject.subscribedTo.slice(subscriptionObject.subscribedTo.indexOf(thisEndpoint.EndpointID), 1);
             thisEndpoint.log("Subscribe failed, deleted handler");
         } else {
