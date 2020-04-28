@@ -7,11 +7,15 @@ class DRP_Consumer extends DRP_Node {
     /**
      * 
      * @param {string} wsTarget WebSocket target
+     * @param {string} user User
+     * @param {string} pass Password
      * @param {string} proxy Proxy URL
      * @param {function} openHandler Callback after open
      */
-    constructor(wsTarget, proxy, openHandler) {
+    constructor(wsTarget, user, pass, proxy, openHandler) {
         super();
+        this.user = user;
+        this.pass = pass;
         this.brokerURL = wsTarget;
         this.webProxyURL = proxy;
         /** @type {DRP_Client} */
@@ -20,20 +24,23 @@ class DRP_Consumer extends DRP_Node {
     }
 
     async Start(openHandler) {
-        this.BrokerClient = new DRP_ConsumerClient(this.brokerURL, openHandler);
+        this.BrokerClient = new DRP_ConsumerClient(this.brokerURL, this.user, this.pass, openHandler);
         this.BrokerClient.drpNode = this;
     }
 }
 
 class DRP_ConsumerClient extends DRP_Client {
-    constructor(wsTarget, callback) {
+    constructor(wsTarget, user, pass, callback) {
         super(wsTarget);
+        this.user = user;
+        this.pass = pass;
         this.postOpenCallback = callback;
     }
 
     async OpenHandler() {
+        super.OpenHandler();
         let thisNodeClient = this;
-        await thisNodeClient.SendCmd("DRP", "hello", { "userAgent": "nodejs" }, true, null); 
+        await thisNodeClient.SendCmd("DRP", "hello", { "userAgent": "nodejs", "user": thisNodeClient.user, "pass": thisNodeClient.pass }, true, null);
         thisNodeClient.postOpenCallback();
     }
 
@@ -43,6 +50,31 @@ class DRP_ConsumerClient extends DRP_Client {
 
     async ErrorHandler(error) {
         console.log("Consumer to Node client encountered error [" + error + "]");
+    }
+
+    /**
+     * 
+     * @param {string} topicName Stream to watch
+     * @param {string} scope global|local
+     * @param {function} streamHandler Function to process stream packets
+     */
+    async WatchStream(topicName, scope, streamHandler) {
+        let thisEndpoint = this;
+
+        let streamToken = thisEndpoint.AddReplyHandler(function (message) {
+            if (message && message.payload) {
+                streamHandler(message.payload);
+            }
+        });
+
+        let response = await thisEndpoint.SendCmd("DRP", "subscribe", { "topicName": topicName, "streamToken": streamToken, "scope": scope }, true, null);
+
+        if (response.status === 0) {
+            thisEndpoint.DeleteReplyHandler(streamToken);
+            thisEndpoint.log("Subscribe failed, deleted handler");
+        } else {
+            thisEndpoint.log(`Subscribed to ${topicName}[${streamToken}]`);
+        }
     }
 }
 

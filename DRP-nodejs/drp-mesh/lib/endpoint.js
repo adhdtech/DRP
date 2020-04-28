@@ -2,8 +2,8 @@
 
 // Had to remove this so we don't have a circular eval problem
 //const DRP_Node = require('./node');
-const DRP_SubscribableSource = require('./subscription').SubscribableSource;
-const DRP_Subscriber = require('./subscription').Subscriber;
+const DRP_SubscribableSource = require('./subscription').DRP_SubscribableSource;
+const DRP_Subscriber = require('./subscription').DRP_Subscriber;
 const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_RouteOptions } = require('./packet');
 
 const WebSocket = require('ws');
@@ -325,42 +325,6 @@ class DRP_Endpoint {
         } catch (ex) {
             // Either could not get connection to node or command send attempt errored out
             thisEndpoint.drpNode.log(`Could not relay message: ${ex}`);
-        }
-    }
-
-    /**
-     * 
-     * @param {string} topicName Stream to watch
-     * @param {string} scope global|local
-     * @param {function} streamHandler Function to process stream packets
-     */
-    async WatchStream(topicName, scope, streamHandler) {
-        let thisEndpoint = this;
-        let subscriptionObj = new DRP_Subscriber(null, topicName, scope, null, streamHandler);
-        thisEndpoint.RegisterSubscription(subscriptionObj);
-    }
-
-    /**
-    * 
-    * @param {DRP_Subscriber} subscriptionObject Subscription object
-    */
-    async RegisterSubscription(subscriptionObject) {
-        let thisEndpoint = this;
-        subscriptionObject.subscribedTo.push(thisEndpoint.EndpointID);
-        let streamToken = thisEndpoint.AddReplyHandler(function (message) {
-            if (message && message.payload) {
-                subscriptionObject.streamHandler(message.payload);
-            }
-        });
-
-        let response = await thisEndpoint.SendCmd("DRP", "subscribe", { "topicName": subscriptionObject.topicName, "streamToken": streamToken, "scope": subscriptionObject.scope }, true, null);
-
-        if (response.status === 0) {
-            thisEndpoint.DeleteReplyHandler(streamToken);
-            subscriptionObject.subscribedTo.slice(subscriptionObject.subscribedTo.indexOf(thisEndpoint.EndpointID), 1);
-            thisEndpoint.log("Subscribe failed, deleted handler");
-        } else {
-            thisEndpoint.log(`Subscribed to ${thisEndpoint.EndpointID} -> ${subscriptionObject.topicName}`);
         }
     }
 

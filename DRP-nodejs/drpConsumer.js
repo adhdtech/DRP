@@ -1,13 +1,12 @@
 'use strict';
 const DRP_Consumer = require('drp-mesh').Consumer;
-const DRP_Subscription = require('drp-mesh').Subscription;
 
-process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
-
-var brokerURL = process.env.BROKERURL || "ws://localhost:8080";
+let brokerURL = process.env.BROKERURL || "ws://localhost:8080";
+let user = process.env.USER || null;
+let pass = process.env.PASS || null;
 
 console.log(`Starting Test Consumer, connecting to Broker Node @ ${brokerURL}`);
-let myConsumer = new DRP_Consumer(brokerURL, null, async function () {
+let myConsumer = new DRP_Consumer(brokerURL, user, pass, null, async function () {
     // Connection established - let's do stuff
     let response = null;
 
@@ -18,13 +17,17 @@ let myConsumer = new DRP_Consumer(brokerURL, null, async function () {
 
     // Execute a pathCmd
     //myClient.SendCmd("pathCmd", { "method": "cliGetPath", "pathList": ["Providers", "JSONDocMgr1", "Services", "JSONDocMgr", "ClientCmds", "listFiles"], "params": {}, "listOnly": true }, false, (payload) => { console.dir(payload, { "depth": 10 }) });
-    
+
     // Get data for a class
     //myClient.GetClassRecords("SomeDataClass", (payload) => console.dir(payload) );
 
     // Subscribe to a stream
-    myConsumer.BrokerClient.WatchStream("dummy", "global", (payload) => console.log(" STREAM -> " + payload));
-    myConsumer.BrokerClient.WatchStream("RegistryUpdate", "global", (payload) => console.log(" STREAM -> " + payload));
+    myConsumer.BrokerClient.WatchStream("dummy", "global", (payload) => {
+        console.log(`[dummy] -> ${JSON.stringify(payload, null, 2)}`);
+    });
+    myConsumer.BrokerClient.WatchStream("TopologyTracker", "local", (payload) => {
+        console.log(`[TopologyTracker] -> ${JSON.stringify(payload, null, 2)}`);
+    });
 
     // Execute a service command
     //myClient.SendCmd("serviceCommand", { "serviceName": "Hive", "method": "listStereoTypes" }, false, (payload) => { console.dir(payload) });
@@ -40,5 +43,5 @@ let myConsumer = new DRP_Consumer(brokerURL, null, async function () {
 	
 	//response = (await myClient.SendCmd("Greeter", "showParams", {"pathList":["asdf","ijkl"]}, true, null)).payload.pathItem;
 
-    console.dir(response, { "depth": 10 });
+    //console.dir(response, { "depth": 10 });
 });
