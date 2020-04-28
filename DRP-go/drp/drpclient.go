@@ -9,17 +9,25 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// DRPEndpointMethod - DRP Endpoint method
 type DRPEndpointMethod func(DRPCmdParams, *websocket.Conn, *string) interface{}
 
+// DRPCmdParams - DRP Cmd parameters
 type DRPCmdParams map[string]interface{}
 
 // Endpoint - DRP endpoint
 type Endpoint struct {
-	EndpointCmds       map[string]DRPEndpointMethod
-	ReplyHandlerQueue  map[string](chan DRPMsgIn)
-	StreamHandlerQueue map[string](chan DRPMsgIn)
-	TokenNum           int
-	sendChan           chan interface{}
+	EndpointCmds      map[string]DRPEndpointMethod
+	ReplyHandlerQueue map[string](chan DRPPacketIn)
+	TokenNum          int
+	sendChan          chan interface{}
+}
+
+func (e *Endpoint) Init() {
+	e.EndpointCmds = make(map[string]DRPEndpointMethod)
+	e.ReplyHandlerQueue = make(map[string](chan DRPPacketIn))
+	e.sendChan = make(chan interface{}, 100)
+	e.TokenNum = 1
 }
 
 func (e *Endpoint) GetToken() string {
@@ -30,38 +38,32 @@ func (e *Endpoint) GetToken() string {
 
 func (e *Endpoint) AddReplyHandler() string {
 	replyToken := e.GetToken()
-	e.ReplyHandlerQueue[replyToken] = make(chan DRPMsgIn)
+	e.ReplyHandlerQueue[replyToken] = make(chan DRPPacketIn)
 	return replyToken
 }
 
 func (e *Endpoint) DeleteReplyHandler() {
 }
 
-func (e *Endpoint) AddStreamHandler() {
-}
-
-func (e *Endpoint) DeleteStreamHandler() {
-}
-
-func (e *Endpoint) RegisterCmd(cmdName string, method DRPEndpointMethod) {
-	e.EndpointCmds[cmdName] = method
+func (e *Endpoint) RegisterCmd(methodName string, method DRPEndpointMethod) {
+	e.EndpointCmds[methodName] = method
 }
 
 // SendCmd
-func (e *Endpoint) SendCmd(cmdName string, cmdParams DRPCmdParams) string {
-	replyToken := e.AddReplyHandler()
+func (e *Endpoint) SendCmd(methodName string, cmdParams DRPCmdParams) string {
+	token := e.AddReplyHandler()
 
 	sendCmd := &DRPCmd{}
 	sendCmd.Type = "cmd"
-	sendCmd.Cmd = &cmdName
+	sendCmd.Method = &methodName
 	sendCmd.Params = cmdParams
-	sendCmd.ReplyToken = &replyToken
+	sendCmd.Token = &token
 	e.sendChan <- *sendCmd
-	return replyToken
+	return token
 }
 
 // SendCmdAwait
-func (e *Endpoint) SendCmdAwait(cmdName string, cmdParams DRPCmdParams) DRPMsgIn {
+func (e *Endpoint) SendCmdAwait(cmdName string, cmdParams DRPCmdParams) DRPPacketIn {
 	replyToken := e.SendCmd(cmdName, cmdParams)
 	responseData := <-e.ReplyHandlerQueue[replyToken]
 
@@ -69,29 +71,19 @@ func (e *Endpoint) SendCmdAwait(cmdName string, cmdParams DRPCmdParams) DRPMsgIn
 }
 
 // SendCmdSubscribe
-func (e *Endpoint) SendCmdSubscribe(topicName string, returnChan *chan DRPMsgIn) {
-	cmdParams := DRPCmdParams{"topicName": &topicName}
-	//cmdParams["topicName"] = &topicName
+func (e *Endpoint) SendCmdSubscribe(topicName string, scope string, returnChan chan DRPPacketIn) {
 	tokenID := e.GetToken()
-	params := cmdParams
-	cmdName := "subscribe"
-	sendCmd := &DRPCmd{}
-	sendCmd.Type = "cmd"
-	sendCmd.ReplyToken = &tokenID
-	sendCmd.Cmd = &cmdName
-	sendCmd.Params = params
+	cmdParams := DRPCmdParams{"topicName": &topicName, "scope": &scope, "streamToken": &tokenID}
 
 	// Queue response chan
-	e.StreamHandlerQueue[tokenID] = make(chan DRPMsgIn)
+	e.ReplyHandlerQueue[tokenID] = returnChan
 
-	// Send cmd
-	e.sendChan <- *sendCmd
+	// Send subscribe command
+	response := e.SendCmdAwait("subscribe", cmdParams)
 
-	for {
-		recvStruct := <-e.StreamHandlerQueue[tokenID]
-		*returnChan <- recvStruct
+	if response.Status == 0 {
+		delete(e.ReplyHandlerQueue, tokenID)
 	}
-
 }
 
 func (e *Endpoint) SendReply(wsConn *websocket.Conn, replyToken *string, returnStatus int, returnPayload interface{}) {
@@ -106,38 +98,35 @@ func (e *Endpoint) SendReply(wsConn *websocket.Conn, replyToken *string, returnS
 func (e *Endpoint) SendStream() {
 }
 
-func (e *Endpoint) ProcessCmd(wsConn *websocket.Conn, msgIn DRPMsgIn) {
+func (e *Endpoint) ProcessCmd(wsConn *websocket.Conn, msgIn DRPPacketIn) {
 	cmdResults := make(map[string]interface{})
 	cmdResults["status"] = 0
 	cmdResults["output"] = nil
-	if _, ok := e.EndpointCmds[*msgIn.Cmd]; ok {
+	if _, ok := e.EndpointCmds[*msgIn.Method]; ok {
 		// Execute command
-		cmdResults["output"] = e.EndpointCmds[*msgIn.Cmd](msgIn.Params, wsConn, msgIn.ReplyToken)
+		cmdResults["output"] = e.EndpointCmds[*msgIn.Method](msgIn.Params, wsConn, msgIn.Token)
 		cmdResults["status"] = 1
 	} else {
-		cmdResults["output"] = "StoreBot does not have this method"
+		cmdResults["output"] = "Endpoint does not have this method"
 	}
-	e.SendReply(wsConn, msgIn.ReplyToken, cmdResults["status"].(int), cmdResults["output"])
+	e.SendReply(wsConn, msgIn.Token, cmdResults["status"].(int), cmdResults["output"])
 }
 
-func (e *Endpoint) ProcessReply(msgIn DRPMsgIn) {
+func (e *Endpoint) ProcessReply(msgIn DRPPacketIn) {
 	e.ReplyHandlerQueue[*msgIn.Token] <- msgIn
 
 	// Add logic to delete from handler queue!
-	delete(e.ReplyHandlerQueue, *msgIn.Token)
+	if msgIn.Status < 2 {
+		delete(e.ReplyHandlerQueue, *msgIn.Token)
+	}
 }
 
-func (e *Endpoint) ProcessStream(msgIn DRPMsgIn) {
-}
-
-func (e *Endpoint) ReceiveMessage(wsConn *websocket.Conn, msgIn DRPMsgIn) {
+func (e *Endpoint) ReceiveMessage(wsConn *websocket.Conn, msgIn DRPPacketIn) {
 	switch msgIn.Type {
 	case "cmd":
 		e.ProcessCmd(wsConn, msgIn)
 	case "reply":
 		e.ProcessReply(msgIn)
-	case "stream":
-		e.ProcessStream(msgIn)
 	}
 }
 
@@ -150,7 +139,6 @@ func (e *Endpoint) GetCmds(DRPCmdParams, *websocket.Conn, *string) interface{} {
 }
 
 func (e *Endpoint) OpenHandler() {
-	//fmt.Println("This is the OpenHandler")
 }
 
 func (e *Endpoint) CloseHandler() {
@@ -159,30 +147,29 @@ func (e *Endpoint) CloseHandler() {
 func (e *Endpoint) ErrorHandler() {
 }
 
-// DRP Client
+// Client
 type Client struct {
 	Endpoint
 	wsTarget string
+	user     string
+	pass     string
 	wsConn   *websocket.Conn
 	DoneChan chan bool
 }
 
 // Open - Establish session
-func (dc *Client) Open(wsTarget string) error {
-	dc.EndpointCmds = make(map[string]DRPEndpointMethod)
-	dc.ReplyHandlerQueue = make(map[string](chan DRPMsgIn))
-	dc.StreamHandlerQueue = make(map[string](chan DRPMsgIn))
+func (dc *Client) Open(wsTarget string, user string, pass string) error {
 	dc.DoneChan = make(chan bool)
-	dc.sendChan = make(chan interface{}, 100)
-	dc.TokenNum = 1
 	dc.wsTarget = wsTarget
+	dc.user = user
+	dc.pass = pass
 
 	log.Printf("connecting to %s", dc.wsTarget)
 
 	// Bypass web proxy
 	var dialer = websocket.Dialer{
-		Subprotocols:     []string{"drp"},
-		Proxy: nil,
+		Subprotocols: []string{"drp"},
+		Proxy:        nil,
 	}
 
 	// Disable TLS Checking - need to address before production!
@@ -226,7 +213,7 @@ func (dc *Client) Open(wsTarget string) error {
 	// Input Loop
 	go func() {
 		for {
-			inputJSON := DRPMsgIn{}
+			inputJSON := DRPPacketIn{}
 			err := dc.wsConn.ReadJSON(&inputJSON)
 			if err != nil {
 				log.Println("WSCLIENT - Could not parse JSON cmd: ", err)
@@ -236,43 +223,39 @@ func (dc *Client) Open(wsTarget string) error {
 		}
 	}()
 
+	// Send Hello
+	dc.SendCmdAwait("hello", DRPCmdParams{"userAgent": "go", "user": dc.user, "pass": dc.pass})
+
 	// Execute OnOpen
 	dc.OpenHandler()
 
 	return nil
 }
 
-type DRPMsgIn struct {
-	Type       string       `json:"type"`
-	Cmd        *string      `json:"cmd"`
-	Params     DRPCmdParams `json:"params"`
-	Token      *string      `json:"token"`
-	ReplyToken *string      `json:"replytoken"`
-	Status     int          `json:"status"`
-	Payload    interface{}  `json:"payload"`
+// DRPPacketIn Message in; could be a Cmd or Reply
+type DRPPacketIn struct {
+	Type    string       `json:"type"`
+	Method  *string      `json:"method"`
+	Params  DRPCmdParams `json:"params"`
+	Token   *string      `json:"token"`
+	Status  int          `json:"status"`
+	Payload interface{}  `json:"payload"`
 }
 
-type DRPMsg struct {
+type DRPPacket struct {
 	Type string `json:"type"`
 }
 
 type DRPCmd struct {
-	DRPMsg
-	Cmd        *string      `json:"cmd"`
-	Params     DRPCmdParams `json:"params"`
-	ReplyToken *string      `json:"replytoken"`
+	DRPPacket
+	Method *string      `json:"method"`
+	Params DRPCmdParams `json:"params"`
+	Token  *string      `json:"token"`
 }
 
 type DRPReply struct {
-	DRPMsg
+	DRPPacket
 	Token   *string     `json:"token"`
 	Status  int         `json:"status"`
 	Payload interface{} `json:"payload"`
-}
-
-type DRPStream struct {
-	DRPMsg
-	Token   *string `json:"token"`
-	Status  int     `json:"status"`
-	Payload *string `json:"payload"`
 }

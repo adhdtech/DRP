@@ -1,36 +1,68 @@
 package main
 
 import (
-	"./drp"
 	"fmt"
+	"os"
+
+	"./drp"
 	"github.com/gorilla/websocket"
 )
 
-func GetPublicInterface(params drp.DRPCmdParams, wsConn *websocket.Conn, replyToken *string) interface{} {
+func getPublicInterface(params drp.DRPCmdParams, wsConn *websocket.Conn, replyToken *string) interface{} {
 	return "eth0"
 }
 
 func main() {
-	storebotclient := &drp.Client{}
+
+	brokerURL := os.Getenv("BROKERURL")
+	user := os.Getenv("USER")
+	pass := os.Getenv("PASS")
+
+	thisClient := &drp.Client{}
+	thisClient.Init()
 
 	// Connect to the Provider
-	storebotclient.Open("wss://rsage.autozone.com/provider")
-	fmt.Println("Connected to Provider")
-
-	// Register as Storebot agent
-	responseData := storebotclient.SendCmdAwait("registerStore", drp.DRPCmdParams{"storeNum": "0094"})
-
-	if registerSuccess, ok := responseData.Payload.(bool); ok && registerSuccess {
-		fmt.Println("Registered agent")
-	} else {
-		fmt.Println("Registration failed")
-	}
+	thisClient.Open(brokerURL, user, pass)
+	fmt.Println("Connected to Broker")
 
 	// Register getPublicInterface command
-	storebotclient.RegisterCmd("getPublicInterface", GetPublicInterface)
+	thisClient.RegisterCmd("getPublicInterface", getPublicInterface)
+
+	// Get Topology
+	//topologyData := thisClient.SendCmdAwait("getTopology", nil)
+	//fmt.Printf("%+v\n", topologyData.Payload)
+
+	// Create stream processor
+	streamInQueue := make(chan drp.DRPPacketIn, 100)
+
+	go func() {
+		for {
+			streamPacket := <-streamInQueue
+			//fmt.Printf("%+v\n", streamPacket)
+
+			//fmt.Println("STREAM -> [" + *dummyMessage.TimeStamp + "] " + *dummyMessage.Message)
+			if payloadMap, ok := streamPacket.Payload.(map[string]interface{}); ok {
+				fmt.Println("STREAM -> [" + payloadMap["TimeStamp"].(string) + "] " + payloadMap["Message"].(string))
+			} else {
+				fmt.Println("STREAM -> (failed to parse)")
+				fmt.Printf("%+v\n", streamPacket.Payload)
+			}
+
+		}
+	}()
+
+	// Subscribe to dummy stream
+	thisClient.SendCmdSubscribe("dummy", "global", streamInQueue)
+
+	/*
+		if registerSuccess, ok := responseData.Payload.(bool); ok && registerSuccess {
+			fmt.Println("Registered agent")
+		} else {
+			fmt.Println("Registration failed")
+		}*/
 
 	// If we get a signal on the DoneChan, we need to exit
-	done := <-storebotclient.DoneChan
+	done := <-thisClient.DoneChan
 	if done {
 		fmt.Println("Closed with error")
 	} else {
