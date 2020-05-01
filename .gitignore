@@ -267,3 +267,4 @@ __pycache__/
 DRP-dotnet/bin/Debug/DRPDrive.dll
 /DRP-nodejs/drp-mesh/package-lock.json
 DRP-nodejs/package-lock.json
+/DRP-go/drpclient.x

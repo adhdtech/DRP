@@ -32,80 +32,78 @@ class DRP_LDAP extends DRP_Authenticator {
     async Authenticate(authRequest) {
         let thisService = this;
         let authResponse = null;
-        let bindUserDN = `${this.userContainerType}=${authRequest.UserName},${this.ldapUserBase}`;
+        let bindUserDN = `${this.userContainerType}=${authRequest.UserName},${thisService.userBase}`;
         let ldapClient = ldapjs.createClient({
             url: this.ldapURL,
             tlsOptions: {
+                //enableTrace: true,
                 rejectUnauthorized: false
             }
         });
-        console.log("LDAP CLIENT CREATED");
+        //console.log("LDAP CLIENT CREATED");
         let results = await new Promise(function (resolve, reject) {
-            try {
-                ldapClient.bind(bindUserDN, authRequest.Password, function (err) {
-                    // Error binding, return null
-                    if (err) {
-                        console.dir(err);
+            let returnSet = [];
+            ldapClient.bind(bindUserDN, authRequest.Password, function (err) {
+                // Error binding, return null
+                if (err) {
+                    //console.dir(err);
+                    if (thisService.drpNode.Debug) thisService.drpNode.log(`Authenticate [${authRequest.UserName}] -> FAILED`);
+                    resolve(null);
+                }
+
+                //console.log("LDAP CLIENT BOUND");
+
+                let opts = {
+                    filter: `(&(objectClass=person)(${thisService.userContainerType}=${authRequest.UserName}))`,
+                    scope: thisService.searchScope,
+                    attributes: thisService.searchAttributes,
+                    paged: true,
+                    sizeLimit: 1000
+                };
+
+                ldapClient.search(thisService.userBase, opts, function (err, res) {
+                    if (err) resolve(null);
+                    //      console.log("Running LDAP query...");
+                    res.on('searchEntry', function (entry) {
+                        returnSet.push(entry);
+                    });
+                    res.on('page', function (result) {
+                        //console.log('page end');
+                    });
+                    res.on('searchReference', function (referral) {
+                        //console.log('referral: ' + referral.uris.join());
+                        //process.exit(0);
                         resolve(null);
-                    }
-
-                    console.log("LDAP CLIENT BOUND");
-
-                    let opts = {
-                        filter: thisService.searchFilter,
-                        scope: thisService.searchScope,
-                        attributes: thisService.searchAttributes,
-                        paged: true,
-                        sizeLimit: 1000
-                    };
-
-                    ldapClient.search(thisService.userBase, opts, function (err, res) {
-                        if (err) resolve(null);
-                        //      console.log("Running LDAP query...");
-                        res.on('searchEntry', function (entry) {
-                            returnSet.push(entry);
-                        });
-                        res.on('page', function (result) {
-                            //console.log('page end');
-                        });
-                        res.on('searchReference', function (referral) {
-                            //console.log('referral: ' + referral.uris.join());
-                            //process.exit(0);
+                    });
+                    res.on('error', function (err) {
+                        //console.error('LDAP error: ' + err.message);
+                        //reject('LDAP error: ' + err.message)
+                        //process.exit(0);
+                        resolve(null);
+                    });
+                    res.on('end', function (result) {
+                        //        console.log('LDAP complete, status: ' + result.status);
+                        if (result.status === 0) {
+                            ldapClient.unbind(function (err) {
+                                //assert.ifError(err);
+                            });
+                            resolve(returnSet);
+                        } else {
                             resolve(null);
-                        });
-                        res.on('error', function (err) {
-                            //console.error('LDAP error: ' + err.message);
-                            //reject('LDAP error: ' + err.message)
+                            //reject('LDAP status non-zero: ' + result.status);
+                            //console.error('LDAP status non-zero: ' + result.status);
                             //process.exit(0);
-                            resolve(null);
-                        });
-                        res.on('end', function (result) {
-                            //        console.log('LDAP complete, status: ' + result.status);
-                            if (result.status === 0) {
-                                ldapClient.unbind(function (err) {
-                                    //assert.ifError(err);
-                                });
-                                resolve(returnSet);
-                            } else {
-                                resolve(null);
-                                //reject('LDAP status non-zero: ' + result.status);
-                                //console.error('LDAP status non-zero: ' + result.status);
-                                //process.exit(0);
-                            }
-                        });
+                        }
                     });
                 });
-            } catch (ex) {
-                console.dir(ex);
-                resolve(null);
-            }
+            });
         });
-        console.dir(results);
-        if (results.length) {
-            let userEntry = results.shift();
+        //console.dir(results);
+        if (results && results.length) {
+            let userEntry = results.shift().object;
             authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName, userEntry.cn, userEntry.memberOf, null, thisService.serviceName, thisService.drpNode.getTimestamp());
+            if (thisService.drpNode.Debug) thisService.drpNode.log(`Authenticate [${authRequest.UserName}] -> SUCCEEDED`);
         }
-
         return authResponse;
     }
 }

@@ -442,7 +442,7 @@ class NetScalerManager extends DRP_Service {
      * @param {drpNode} drpNode DRP Node
      */
     constructor(serviceName, drpNode) {
-        super(serviceName, drpNode, "JSONDocManager", `${drpNode.NodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, null, 1);
+        super(serviceName, drpNode, "NetScalerManager", `${drpNode.NodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, null, 1);
         let thisNsMgr = this;
 
         /** @type {Object<string,NetScalerSet>} */
