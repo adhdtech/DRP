@@ -14,6 +14,9 @@ COPY drp-mesh/ drp-mesh/
 COPY drp-service-cache/ drp-service-cache/
 COPY drp-service-docmgr/ drp-service-docmgr/
 COPY drp-service-rsage/ drp-service-rsage/
+COPY drp-service-bluecat/ drp-service-bluecat/
+COPY drp-service-netscaler/ drp-service-netscaler/
+COPY drp-service-ldap/ drp-service-ldap/
 COPY webroot/ webroot/
 COPY jsondocs/ jsondocs/
 COPY package.json .
@@ -25,6 +28,10 @@ COPY drpProvider-JSONDocMgr.js .
 COPY drpProvider-Hive.js .
 COPY drpProvider-Test.js .
 COPY drpProvider-Test-NoListener.js .
+COPY drpProvider-BlueCat.js .
+COPY drpProvider-NetScaler.js .
+COPY drpProvider-Test-Authenticator.js .
+COPY drpProvider-LDAP-Authenticator.js .
 
 RUN npm install
 # If you are building your code for production
