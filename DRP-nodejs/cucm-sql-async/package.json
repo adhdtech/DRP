@@ -12,6 +12,6 @@
   "dependencies": {
     "xml2js": "^0.4.9"
   },
-  "author": "chykn <jpbrown@adhdtech.com>",
+  "author": "Pete Brown <jpbrown@adhdtech.com>",
   "license": "ISC"
 }

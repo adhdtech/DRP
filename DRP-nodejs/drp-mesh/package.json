@@ -22,7 +22,8 @@
     "express": "*",
     "express-ws": "*",
     "cors": "*",
-    "tcp-ping": "*"
+    "tcp-ping": "*",
+    "uuid": "*"
   },
   "publishConfig": { "registry": "https://npm.pkg.github.com/" }
 }

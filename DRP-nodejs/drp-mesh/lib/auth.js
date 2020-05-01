@@ -3,6 +3,7 @@
 // Had to remove this so we don't have a circular eval problem
 //const DRP_Node = require("./node");
 const DRP_Service = require("./service");
+const { v4: uuidv4 } = require('uuid');
 
 class DRP_AuthRequest {
     /**
@@ -77,6 +78,13 @@ class DRP_Authenticator extends DRP_Service {
     async Authenticate(authRequest) {
         let authResponse = new DRP_AuthResponse();
         return authResponse;
+    }
+
+    /**
+     * @returns {string} New UUID
+     */
+    GetToken() {
+        return uuidv4();
     }
 }
 

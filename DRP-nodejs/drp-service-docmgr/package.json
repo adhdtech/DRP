@@ -11,7 +11,7 @@
     "service",
     "docmgr"
   ],
-  "author": "chykn <jpbrown@adhdtech.com>",
+  "author": "Pete Brown <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
     "drp-mesh": "*"

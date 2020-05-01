@@ -1,7 +1,7 @@
 {
-  "name": "drp-service-cache",
+  "name": "drp-service-bluecat",
   "version": "1.0.0",
-  "description": "DRP Cache Service",
+  "description": "DRP BlueCat Service",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -9,12 +9,12 @@
   "keywords": [
     "drp",
     "service",
-    "cache"
+    "bluecat"
   ],
   "author": "Pete Brown <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
-    "mongodb": "*",
-    "drp-mesh": "*"
+    "drp-mesh": "*",
+    "axios": "*"
   }
 }

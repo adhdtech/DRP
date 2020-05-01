@@ -8,12 +8,12 @@
   },
   "keywords": [
     "drp",
-	  "rsage",
+    "rsage",
     "cortex",
     "hive",
     "vdm"
   ],
-  "author": "chykn <jpbrown@adhdtech.com>",
+  "author": "Pete Brown <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
     "express-basic-auth": "*"

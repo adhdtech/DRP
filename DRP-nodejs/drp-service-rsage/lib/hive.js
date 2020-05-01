@@ -1535,13 +1535,6 @@ ICRQuery.prototype.Verbs = {
                 // Set object
                 let thisObj = tmpList[i]['objRef'];
 
-                // Debug
-				/*
-				if (thisKey == '10707972') {
-				let testVar = 1;
-				}
-				 */
-
                 // Check compare scope
                 switch (thisQueryObj.cmdParts.precedence2) {
                     case 'KEY':
