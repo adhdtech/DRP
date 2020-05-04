@@ -1,7 +1,11 @@
-let DRP_Node = require('drp-mesh').Node;
-let DRP_Service = require('drp-mesh').Service;
-var express = require('express');
-var basicAuth = require('express-basic-auth');
+const DRP_Node = require('drp-mesh').Node;
+const DRP_Service = require('drp-mesh').Service;
+const express = require('express');
+const Express_Application = express.application;
+const Express_Request = express.request;
+const Express_Response = express.response;
+const DRP_AuthResponse = require('drp-mesh').Auth.DRP_AuthResponse;
+const basicAuth = require('express-basic-auth');
 
 class VDMServer_UserAppInstance {
     constructor(conn, appletIndex, appletName, vdmServer) {
@@ -57,53 +61,48 @@ class VDMServer extends DRP_Service {
     constructor(serviceName, drpNode, clientDirectory) {
         super(serviceName, drpNode, "VDM", `${drpNode.NodeID}-${serviceName}`, true, 10, 10, drpNode.Zone, "local", null, null, 1);
 
-        /** @type {Express.Application} */
+        /** @type {Express_Application} */
         this.expressApp = drpNode.WebServer.expressApp;
 
+        // Serve up static docs
         this.clientStaticDir = clientDirectory;
         this.expressApp.use(express.static(clientDirectory));
-        let asyncAuthorizer = async function(user, password, cb) {
+
+        // Define Authorizer
+        let asyncAuthorizer = async function (user, password, cb) {
             let authSucceeded = false;
             let response = await drpNode.Authenticate(user, password);
             if (response) authSucceeded = true;
             return cb(null, authSucceeded);
         };
-        if (asyncAuthorizer) {
-            this.expressApp.get('/', basicAuth({
-                challenge: true,
-                authorizer: asyncAuthorizer,
-                authorizeAsync: true,
-                unauthorizedResponse: (req) => {
-                    return req.auth
-                        ? 'Credentials rejected'
-                        : 'No credentials provided';
-                }
-            }), (req, res) => {
-                // The credentials are valid; pass them via cookies to the next step for the WebSockets connection
-                res.cookie('user', req.auth.user, {
-                    expires: new Date(Date.now() + 24 * 60 * 60000) // cookie will be removed after 1 day
-                });
-                res.cookie('password', req.auth.password, {
-                    expires: new Date(Date.now() + 24 * 60 * 60000) // cookie will be removed after 1 day
-                });
-                res.sendFile("client.html", { "root": clientDirectory });
-                //res.redirect('client.html');
-                return;
+
+        // Get default
+        this.expressApp.get('/', basicAuth({
+            challenge: true,
+            authorizer: asyncAuthorizer,
+            authorizeAsync: true,
+            unauthorizedResponse: (req) => {
+                return req.auth
+                    ? 'Credentials rejected'
+                    : 'No credentials provided';
+            }
+        }), (req, res) => {
+            // The credentials are valid; pass them via cookies to the next step for the WebSockets connection
+            res.cookie('user', req.auth.user, {
+                expires: new Date(Date.now() + 24 * 60 * 60000) // cookie will be removed after 1 day
             });
-        }
-        else {
-            this.expressApp.route('/')
-                .get((req, res) => {
-                    let userAgentString = req.headers['user-agent'];
-                    if (userAgentString.includes(" Quest")) {
-                        res.sendFile("oculus.html", { "root": clientDirectory });
-                    } else {
-                        res.sendFile("client.html", { "root": clientDirectory });
-                    }
-                    //res.redirect('client.html');
-                    return;
-                });
-        }
+            res.cookie('password', req.auth.password, {
+                expires: new Date(Date.now() + 24 * 60 * 60000) // cookie will be removed after 1 day
+            });
+            let userAgentString = req.headers['user-agent'];
+            if (userAgentString.includes(" Quest")) {
+                res.sendFile("oculus.html", { "root": clientDirectory });
+            } else {
+                res.sendFile("client.html", { "root": clientDirectory });
+            }
+            //res.redirect('client.html');
+            return;
+        });
 
         // Register Endpoint commands
         // (methods should return output and optionally accept [params, wsConn, token] for streaming)

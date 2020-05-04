@@ -29,6 +29,12 @@ class DRP_Endpoint {
         this.EndpointType = endpointType || null;
         this.EndpointCmds = {};
 
+        this.AuthInfo = {
+            type: null,
+            value: null,
+            userInfo: null
+        };
+
         /** @type Object<string,function> */
         this.ReplyHandlerQueue = {};
 
@@ -171,6 +177,12 @@ class DRP_Endpoint {
             status: 0,
             output: null
         };
+
+        // Make sure params is an Object
+        if (!cmdPacket.params || typeof cmdPacket.params !== 'object') cmdPacket.params = {};
+
+        // Override AuthInfo if set
+        if (thisEndpoint.AuthInfo) cmdPacket.params.authInfo = thisEndpoint.AuthInfo;
 
         // Is the message meant for the default DRP service?
         if (!cmdPacket.serviceName || cmdPacket.serviceName === "DRP") {

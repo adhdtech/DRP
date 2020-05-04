@@ -5,6 +5,7 @@ const util = require('util');
 const tcpp = require('tcp-ping');
 const tcpPing = util.promisify(tcpp.ping);
 const dns = require('dns').promises;
+const express = require('express');
 const DRP_Endpoint = require("./endpoint");
 const DRP_Client = require("./client");
 const DRP_Service = require("./service");
@@ -13,6 +14,8 @@ const DRP_RouteHandler = require("./routehandler");
 const { DRP_SubscribableSource, DRP_Subscriber } = require('./subscription');
 const { DRP_AuthRequest, DRP_AuthResponse, DRP_AuthFunction } = require('./auth');
 const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Stream, DRP_RouteOptions } = require('./packet');
+const Express_Request = express.request;
+const Express_Response = express.response;
 
 function getRandomInt(max) {
     return Math.floor(Math.random() * Math.floor(max));
@@ -142,6 +145,9 @@ class DRP_Node {
         /** @type Object.<string,DRP_Service> */
         this.Services = {};
 
+        /** @type Object.<string,DRP_AuthResponse> */
+        this.ConsumerTokens = {};
+
         this.NodeDeclaration = new DRP_NodeDeclaration(this.NodeID, this.nodeRoles, this.HostID, this.nodeURL, this.DomainName, this.DomainKey, this.Zone);
 
         // If this is a Registry, seed the Registry with it's own declaration
@@ -208,11 +214,52 @@ class DRP_Node {
         let tmpBasePath = basePath || "";
         let basePathArray = tmpBasePath.replace(/^\/|\/$/g, '').split('/');
 
+        /**
+         * 
+         * @param {Express_Request} req Request
+         * @param {Express_Response} res Response
+         * @param {function} next Next step
+         */
         let nodeRestHandler = async function (req, res, next) {
             // Get Auth Key
-            let authKey = null;
+            let authInfo = {
+                type: null,
+                value: null
+            };
+
+            // Check for authInfo:
+            //   x-api-key - apps (static)
+            //   x-api-token - users (dynamic)
             if (req.headers && req.headers['authorization']) {
-                authKey = req.headers['authorization'];
+
+                let authInfoArr = req.headers['authorization'].match(/^x-api-(key|token): (.*)$/);
+                if (authInfoArr.length > 0) {
+                    // We have a match
+                    authInfo.type = authInfoArr[1];
+                    authInfo.value = authInfoArr[2];
+
+                    switch (authInfo.type) {
+                        case "key":
+                            // Let it go as is
+                            break;
+                        case "token":
+                            // Make sure the token is current
+                            if (!thisNode.ConsumerTokens[authInfo.value]) {
+                                // We don't recognize this token
+                                res.status(401).send("Invalid token");
+                                return;
+                            }
+                            authInfo.userInfo = thisNode.ConsumerTokens[authInfo.value];
+                            break;
+                        default:
+                            res.status(401).send("Invalid authorization type");
+                            return;
+                    }
+                }
+            } else {
+                // Unauthorized
+                res.status(401).send("No x-api-token or x-api-key provided");
+                return;
             }
 
             // Turn path into list, remove first element
@@ -221,21 +268,34 @@ class DRP_Node {
 
             let listOnly = false;
             let format = null;
+            let resCode = 404;
 
             if (req.query.listOnly) listOnly = true;
             if (req.query.format) format = 1;
 
             // Treat as "getPath"
-            let results = await thisNode.GetObjFromPath({ "method": "cliGetPath", "pathList": basePathArray.concat(remainingPath), "listOnly": listOnly, "authKey": authKey }, thisNode.GetBaseObj());
+            let resultString = "";
+
             try {
-                res.end(JSON.stringify(results, null, format));
+                let resultObj = await thisNode.GetObjFromPath({ "method": "cliGetPath", "pathList": basePathArray.concat(remainingPath), "listOnly": listOnly, "authInfo": authInfo }, thisNode.GetBaseObj());
+                if (!resultObj || !resultObj.pathItem && !resultObj.pathItemList || resultObj.pathItemList && !resultObj.pathItemList.length) {
+                    // No results
+                } else {
+                    resCode = 200;
+                    if (resultObj.pathItem) {
+                        resultString = JSON.stringify(resultObj.pathItem, null, format);
+                    } else if (resultObj.pathItemList) {
+                        resultString = JSON.stringify(resultObj.pathItemList, null, format);
+                    } else {
+                        resultString = JSON.stringify(resultObj, null, format);
+                    }
+                }
             } catch (e) {
-                res.end(`Failed to stringify response: ${e}`);
+                resCode = 500;
+                resultString = `Failed to stringify response: ${e}`;
             }
-            let timeStamp = thisNode.getTimestamp();
+            res.status(resCode).send(resultString);
             thisNode.TopicManager.SendToTopic("RESTLogs", {
-                timestamp: timeStamp,
-                nodeid: thisNode.NodeID,
                 req: {
                     hostname: req.hostname,
                     ip: req.ip,
@@ -247,13 +307,32 @@ class DRP_Node {
                     baseUrl: req.baseUrl,
                     body: req.body
                 },
-                res: results
+                res: {
+                    code: resCode,
+                    length: resultString.length
+                }
             });
-            next();
+            //next();
         };
 
         thisNode.WebServer.expressApp.all(`${restRoute}`, nodeRestHandler);
         thisNode.WebServer.expressApp.all(`${restRoute}/*`, nodeRestHandler);
+
+        // Get Token
+        thisNode.WebServer.expressApp.post('/token', async (req, res) => {
+            // Get an auth token
+            let username = req.body.username;
+            let password = req.body.password;
+            /** @type {DRP_AuthResponse} */
+            let authResults = await thisNode.Authenticate(username, password, null);
+            if (authResults) {
+                thisNode.ConsumerTokens[authResults.Token] = authResults;
+                res.send(`x-api-token: ${authResults.Token}`);
+            } else {
+                res.status(401).send("Bad credentials");
+            }
+            return;
+        });
 
         return 0;
     }
@@ -1018,7 +1097,7 @@ class DRP_Node {
         }
     }
 
-    // Easier way of execiting a command with the option of routing via the control plane
+    // Easier way of executing a command with the option of routing via the control plane
     async RunCommand(serviceName, cmd, params, targetNodeID, useControlPlane, awaitResponse, callingEndpoint) {
         let thisNode = this;
 
@@ -1274,7 +1353,11 @@ class DRP_Node {
             sourceEndpoint.EndpointType = "Consumer";
             sourceEndpoint.UserAgent = declaration.userAgent;
             // Assign Authentication Response
-            sourceEndpoint.AuthInfo = authResponse;
+            sourceEndpoint.AuthInfo = {
+                type: "token",
+                value: authResponse.Token,
+                userInfo: authResponse
+            };
             // Moved from wsOpen handler
             if (!thisNode.ConsumerConnectionID) thisNode.ConsumerConnectionID = 1;
             // Assign ID using simple counter for now
