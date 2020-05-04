@@ -211,6 +211,22 @@ class DRP_Node {
 
         if (!thisNode.WebServer || !thisNode.WebServer.expressApp) return 1;
 
+        // Set Consumer Token Cleanup Interval - 60 seconds
+        let checkFrequencyMs = 60000;
+        setInterval(function ConsumerTokenCleanup() {
+            let iCurrentTimestamp = parseInt(thisNode.getTimestamp());
+            let consumerTokenIDList = Object.keys(thisNode.ConsumerTokens);
+            for (let i = 0; i < consumerTokenIDList.length; i++) {
+                let checkToken = consumerTokenIDList[i];
+                let checkTokenObj = thisNode.ConsumerTokens[checkToken];
+                let iCheckTimestamp = parseInt(checkTokenObj.AuthTimestamp);
+                let maxAgeSeconds = 60 * 5;
+                if (iCheckTimestamp + maxAgeSeconds > iCurrentTimestamp) {
+                    delete thisNode.ConsumerTokens[checkToken];
+                }
+            }
+        }, checkFrequencyMs);
+
         let tmpBasePath = basePath || "";
         let basePathArray = tmpBasePath.replace(/^\/|\/$/g, '').split('/');
 
@@ -327,6 +343,17 @@ class DRP_Node {
             let authResults = await thisNode.Authenticate(username, password, null);
             if (authResults) {
                 thisNode.ConsumerTokens[authResults.Token] = authResults;
+
+                // Relay to other Brokers in Zone
+                let nodeIDList = Object.keys(thisNode.TopologyTracker.NodeTable);
+                for (let i = 0; i < nodeIDList; i++) {
+                    let checkNode = thisNode.TopologyTracker.NodeTable[nodeIDList[i]];
+                    if (checkNode.NodeID !== thisNode.NodeID && checkNode.IsBroker() && checkNode.Zone === thisNode.Zone) {
+                        // Send command to remote Broker
+                        thisNode.RunCommand("DRP", "addConsumerToken", { tokenPacket: authResults }, checkNode.NodeID, false, false, null);
+                    }
+                }
+
                 res.send(`x-api-token: ${authResults.Token}`);
             } else {
                 res.status(401).send("Bad credentials");
@@ -1940,6 +1967,14 @@ class DRP_Node {
             return await thisNode.ConnectToNode(...args);
         });
 
+        targetEndpoint.RegisterMethod("addConsumerToken", async function (params, srcEndpoint, token) {
+            // Only accept if the command has NOT originated from a user
+            if (params.tokenPacket && !params.authInfo) {
+                thisNode.ConsumerTokens[params.tokenPacket.Token] = params.tokenPacket;
+            }
+            return;
+        });
+
         if (!targetEndpoint.IsServer()) {
             // Add this command for DRP_Client endpoints
             targetEndpoint.RegisterMethod("connectToRegistryInList", async function (...args) {
@@ -2939,6 +2974,12 @@ class DRP_NodeTableEntry extends DRP_TrackingTableEntry {
         let thisNodeTableEntry = this;
         let isRegistry = thisNodeTableEntry.Roles.indexOf("Registry") >= 0;
         return isRegistry;
+    }
+
+    IsBroker() {
+        let thisNodeTableEntry = this;
+        let isBroker = thisNodeTableEntry.Roles.indexOf("Broker") >= 0;
+        return isBroker;
     }
 
     UsesProxy(checkNodeID) {
