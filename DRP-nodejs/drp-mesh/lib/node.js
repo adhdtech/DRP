@@ -221,7 +221,8 @@ class DRP_Node {
                 let checkTokenObj = thisNode.ConsumerTokens[checkToken];
                 let iCheckTimestamp = parseInt(checkTokenObj.AuthTimestamp);
                 let maxAgeSeconds = 60 * 5;
-                if (iCheckTimestamp + maxAgeSeconds > iCurrentTimestamp) {
+                if (iCurrentTimestamp > iCheckTimestamp + maxAgeSeconds) {
+                    // The token has expired
                     delete thisNode.ConsumerTokens[checkToken];
                 }
             }

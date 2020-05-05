@@ -13,6 +13,7 @@ let domainName = process.env.DOMAINNAME || null;
 let domainKey = process.env.DOMAINKEY || null;
 let zoneName = process.env.ZONENAME || "MyZone";
 let registryURL = process.env.REGISTRYURL || null;
+let serviceName = process.env.SERVICENAME || "TestService";
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;
 
@@ -81,7 +82,7 @@ let myNode = new DRP_Node(roleList, hostID, null, null, null, null, domainName, 
 myNode.AddStream("dummy", "Test stream");
 
 // Add a test service
-myNode.AddService(new TestService("TestService", myNode));
+myNode.AddService(new TestService(serviceName, myNode));
 
 // Connect to Registry directly if specified
 if (registryURL) {
