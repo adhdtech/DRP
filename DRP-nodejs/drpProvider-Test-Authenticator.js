@@ -38,18 +38,7 @@ myAuthenticator.Authenticate = async function (authRequest) {
     console.dir(authRequest);
     if (authRequest.UserName && authRequest.Password || authRequest.Token) {
         // For demo purposes; accept any user/password or token
-        authResponse = new DRP_AuthResponse();
-        if (authRequest.UserName) {
-            authResponse.UserName = authRequest.UserName;
-            authResponse.Token = thisService.GetToken();
-            authResponse.FullName = "Authenticated User";
-            authResponse.Groups = ["Users"];
-        } else if (authRequest.Token) {
-            authReponse.UserName = "ServiceAccount1";
-            authResponse.Token = authRequest.Token;
-            authResponse.FullName = "SkyNet";
-            authResponse.Groups = ["Services"];
-        }
+        authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName || authRequest.Token, "Some User", ["Users"], null, thisService.serviceName, thisService.drpNode.getTimestamp());
     }
     myNode.TopicManager.SendToTopic("AuthLogs", authResponse);
     return authResponse;
