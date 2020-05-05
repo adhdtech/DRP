@@ -16,6 +16,7 @@
   "author": "Pete Brown <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
+    "express": "*",
     "express-basic-auth": "*"
   }
 }

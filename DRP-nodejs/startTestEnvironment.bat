@@ -22,7 +22,10 @@ set ZONENAME=zone1
 start "Authenticator" node drpProvider-Test-Authenticator.js
 timeout /T 1
 set PORT=8080
-start "Broker" node drpBroker.js
+start "Broker1" node drpBroker.js
+timeout /T 1
+set PORT=8081
+start "Broker2" node drpBroker.js
 timeout /T 1
 set PORT=
 start "TestService-zone1" node drpProvider-Test-NoListener.js

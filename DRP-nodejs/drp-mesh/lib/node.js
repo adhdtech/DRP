@@ -346,7 +346,7 @@ class DRP_Node {
 
                 // Relay to other Brokers in Zone
                 let nodeIDList = Object.keys(thisNode.TopologyTracker.NodeTable);
-                for (let i = 0; i < nodeIDList; i++) {
+                for (let i = 0; i < nodeIDList.length; i++) {
                     let checkNode = thisNode.TopologyTracker.NodeTable[nodeIDList[i]];
                     if (checkNode.NodeID !== thisNode.NodeID && checkNode.IsBroker() && checkNode.Zone === thisNode.Zone) {
                         // Send command to remote Broker
@@ -1968,8 +1968,7 @@ class DRP_Node {
         });
 
         targetEndpoint.RegisterMethod("addConsumerToken", async function (params, srcEndpoint, token) {
-            // Only accept if the command has NOT originated from a user
-            if (params.tokenPacket && !params.authInfo) {
+            if (params.tokenPacket) {
                 thisNode.ConsumerTokens[params.tokenPacket.Token] = params.tokenPacket;
             }
             return;

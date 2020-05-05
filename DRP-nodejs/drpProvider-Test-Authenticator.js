@@ -33,7 +33,7 @@ let myAuthenticator = new DRP_Authenticator("TestAuthenticator", myNode, 10, 10,
  * @returns {DRP_AuthResponse} Response from authentication function
  */
 myAuthenticator.Authenticate = async function (authRequest) {
-    let thisAuthenticator = this;
+    let thisService = this;
     let authResponse = null;
     console.dir(authRequest);
     if (authRequest.UserName && authRequest.Password || authRequest.Token) {
@@ -41,7 +41,7 @@ myAuthenticator.Authenticate = async function (authRequest) {
         authResponse = new DRP_AuthResponse();
         if (authRequest.UserName) {
             authResponse.UserName = authRequest.UserName;
-            authResponse.Token = "ABCD1234";
+            authResponse.Token = thisService.GetToken();
             authResponse.FullName = "Authenticated User";
             authResponse.Groups = ["Users"];
         } else if (authRequest.Token) {
