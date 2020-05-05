@@ -11,11 +11,13 @@ const DRP_Client = require("./client");
 const DRP_Service = require("./service");
 const DRP_TopicManager = require("./topicmanager");
 const DRP_RouteHandler = require("./routehandler");
+const DRP_WebServer = require("./webserver");
 const { DRP_SubscribableSource, DRP_Subscriber } = require('./subscription');
 const { DRP_AuthRequest, DRP_AuthResponse, DRP_AuthFunction } = require('./auth');
 const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Stream, DRP_RouteOptions } = require('./packet');
 const Express_Request = express.request;
 const Express_Response = express.response;
+//const swaggerUI = require("swagger-ui-express");
 
 function getRandomInt(max) {
     return Math.floor(Math.random() * Math.floor(max));
@@ -247,7 +249,7 @@ class DRP_Node {
             // Check for authInfo:
             //   x-api-key - apps (static)
             //   x-api-token - users (dynamic)
-            if (req.headers && req.headers['authorization']) {
+            if (req.headers && req.headers['authorization'] && req.headers['authorization'].length) {
 
                 let authInfoArr = req.headers['authorization'].match(/^x-api-(key|token): (.*)$/);
                 if (authInfoArr.length > 0) {
@@ -269,9 +271,13 @@ class DRP_Node {
                             authInfo.userInfo = thisNode.ConsumerTokens[authInfo.value];
                             break;
                         default:
-                            res.status(401).send("Invalid authorization type");
+                            res.status(401).send("No x-api-token or x-api-key provided");
                             return;
                     }
+                } else {
+                    // Invalid authorization format
+                    res.status(401).send("No x-api-token or x-api-key provided");
+                    return;
                 }
             } else {
                 // Unauthorized
@@ -361,6 +367,8 @@ class DRP_Node {
             }
             return;
         });
+
+        //thisNode.WebServer.expressApp.use('/api-docs', swaggerUI.serve, swaggerUI.setup);
 
         return 0;
     }
@@ -2046,7 +2054,7 @@ class DRP_Node {
         thisNodeEndpoint.DeleteReplyHandler(streamToken);
 
         // Await for command from source node
-         await thisNodeEndpoint.SendCmd("DRP", "unsubscribe", { "streamToken": streamToken }, true, null);
+        await thisNodeEndpoint.SendCmd("DRP", "unsubscribe", { "streamToken": streamToken }, true, null);
     }
 
     async Authenticate(userName, password, token) {
