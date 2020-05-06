@@ -2,7 +2,120 @@
 
 const DRP_Service = require('drp-mesh').Service;
 
-const fs = require('fs');
+const fs = require('fs').promises;
+
+let openAPIDoc = {
+    "openapi": "3.0.1",
+    "info": {
+        "title": "JSONDocMgr",
+        "description": "This API is used to store JSON documents",
+        "version": "1.0.1"
+    },
+    "servers": [
+        {
+            "url": "/Mesh/Services/JSONDocMgr"
+        }
+    ],
+    "tags": [
+        {
+            "name": "ClientCmds",
+            "description": "Service ClientCmds"
+        }
+    ],
+    "paths": {
+        "/ClientCmds/listFiles": {
+            "get": {
+                "tags": [
+                    "ClientCmds"
+                ],
+                "summary": "List JSON documents",
+                "description": "Returns list of JSON documents",
+                "operationId": "listFiles",
+                "responses": {
+                    "200": {
+                        "description": "Found list of JSON documents",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid query",
+                        "content": {}
+                    },
+                    "404": {
+                        "description": "No JSON documents",
+                        "content": {}
+                    }
+                },
+                "x-swagger-router-controller": "JSONDocMgr"
+            }
+        },
+        "/ClientCmds/loadFile/{fileName}": {
+            "get": {
+                "tags": [
+                    "ClientCmds"
+                ],
+                "summary": "Get JSON document",
+                "description": "Returns JSON document",
+                "operationId": "loadFile",
+                "parameters": [
+                    {
+                        "name": "fileName",
+                        "in": "path",
+                        "description": "File name to retrieve",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid document name supplied",
+                        "content": {}
+                    },
+                    "404": {
+                        "description": "JSON document not found",
+                        "content": {}
+                    }
+                },
+                "x-swagger-router-controller": "JSONDocMgr"
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "x-api-key": {
+                "type": "apiKey",
+                "name": "x-api-key",
+                "in": "header"
+            },
+            "x-api-token": {
+                "type": "apiKey",
+                "name": "x-api-token",
+                "in": "header"
+            }
+        }
+    },
+    "security": [
+        { "x-api-key": [] },
+        { "x-api-token": [] }
+    ]
+};
 
 class JSONDocManager extends DRP_Service {
     /**
@@ -17,6 +130,9 @@ class JSONDocManager extends DRP_Service {
         this.basePath = basePath;
 
         this.ClientCmds = {
+            getOpenAPIDoc: async function (cmdObj) {
+                return openAPIDoc;
+            },
             listFiles: async function (cmdObj) {
                 //console.log("Listing directory - '" + thisDocMgr.basePath + "'");
                 let fileList = await thisDocMgr.ListFiles(thisDocMgr.basePath);

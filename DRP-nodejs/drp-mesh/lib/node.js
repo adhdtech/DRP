@@ -6,6 +6,7 @@ const tcpp = require('tcp-ping');
 const tcpPing = util.promisify(tcpp.ping);
 const dns = require('dns').promises;
 const express = require('express');
+const Express_Router = express.Router;
 const DRP_Endpoint = require("./endpoint");
 const DRP_Client = require("./client");
 const DRP_Service = require("./service");
@@ -17,7 +18,7 @@ const { DRP_AuthRequest, DRP_AuthResponse, DRP_AuthFunction } = require('./auth'
 const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Stream, DRP_RouteOptions } = require('./packet');
 const Express_Request = express.request;
 const Express_Response = express.response;
-//const swaggerUI = require("swagger-ui-express");
+const swaggerUI = require("swagger-ui-express");
 
 function getRandomInt(max) {
     return Math.floor(Math.random() * Math.floor(max));
@@ -87,6 +88,8 @@ class DRP_Node {
         this.NodeID = `${os.hostname()}-${process.pid}-${getRandomInt(9999)}`;
         this.HostID = hostID;
         this.WebServer = webServer || null;
+        /** @type {Object<string,Express_Router}} */
+        this.SwaggerRouters = {};
         this.drpRoute = drpRoute || "/";
         this.DomainName = domainName;
         this.DomainKey = domainKey;
@@ -249,36 +252,20 @@ class DRP_Node {
             // Check for authInfo:
             //   x-api-key - apps (static)
             //   x-api-token - users (dynamic)
-            if (req.headers && req.headers['authorization'] && req.headers['authorization'].length) {
+            if (req.headers['x-api-key']) {
+                authInfo.type = 'key';
+                authInfo.value = req.headers['x-api-key'];
+            } else if (req.headers['x-api-token']) {
+                authInfo.type = 'token';
+                authInfo.value = req.headers['x-api-token'];
 
-                let authInfoArr = req.headers['authorization'].match(/^x-api-(key|token): (.*)$/);
-                if (authInfoArr.length > 0) {
-                    // We have a match
-                    authInfo.type = authInfoArr[1];
-                    authInfo.value = authInfoArr[2];
-
-                    switch (authInfo.type) {
-                        case "key":
-                            // Let it go as is
-                            break;
-                        case "token":
-                            // Make sure the token is current
-                            if (!thisNode.ConsumerTokens[authInfo.value]) {
-                                // We don't recognize this token
-                                res.status(401).send("Invalid token");
-                                return;
-                            }
-                            authInfo.userInfo = thisNode.ConsumerTokens[authInfo.value];
-                            break;
-                        default:
-                            res.status(401).send("No x-api-token or x-api-key provided");
-                            return;
-                    }
-                } else {
-                    // Invalid authorization format
-                    res.status(401).send("No x-api-token or x-api-key provided");
+                // Make sure the token is current
+                if (!thisNode.ConsumerTokens[authInfo.value]) {
+                    // We don't recognize this token
+                    res.status(401).send("Invalid token");
                     return;
                 }
+                authInfo.userInfo = thisNode.ConsumerTokens[authInfo.value];
             } else {
                 // Unauthorized
                 res.status(401).send("No x-api-token or x-api-key provided");
@@ -341,6 +328,84 @@ class DRP_Node {
         thisNode.WebServer.expressApp.all(`${restRoute}`, nodeRestHandler);
         thisNode.WebServer.expressApp.all(`${restRoute}/*`, nodeRestHandler);
 
+        thisNode.WebServer.expressApp.use('/api-doc/:serviceName?', (req, res) => {
+            // What service are we trying to reach?
+            let targetServiceName = req.params['serviceName'];
+
+            if (!targetServiceName) {
+                let apiNames = Object.keys(thisNode.SwaggerRouters);
+                let linkList = [];
+                for (let i = 0; i < apiNames.length; i++) {
+                    linkList.push(`<a href="${req.baseUrl}/${apiNames[i]}">${apiNames[i]}</a>`);
+                }
+                let linkListHtml = linkList.join("<br><br>");
+                res.send(`<h3>API List</h3>${linkListHtml}`);
+                return;
+            }
+
+            // If we have it, execute
+            if (thisNode.SwaggerRouters[targetServiceName]) {
+                thisNode.SwaggerRouters[targetServiceName].handle(req, res, null);
+            } else {
+                res.status(404).send(`API doc not found for service ${targetServiceName}`);
+            }
+        });
+
+        /**
+         * 
+         * @param {DRP_TopologyPacket} topologyPacket Topology Packet
+         */
+        let WatchTopologyForServices = async (topologyPacket) => {
+            let thisNode = this;
+
+            // Ignore if this isn't a service add
+            if (topologyPacket.cmd !== "add" || topologyPacket.type !== "service") return;
+
+            // Get topologyData
+            /** @type {DRP_ServiceTableEntry} */
+            let serviceEntry = topologyPacket.data;
+
+            // If we already have it, ignore
+            if (thisNode.SwaggerRouters[serviceEntry.Name]) return;
+
+            // Reach out to the remote node
+            let swaggerObj = await thisNode.RunCommand(serviceEntry.Name, "getOpenAPIDoc", {}, serviceEntry.NodeID, false, true, null);
+
+            // Does it exist?
+            if (swaggerObj && swaggerObj.openapi) {
+
+                // Override security settings
+                swaggerObj.components = {
+                    "securitySchemes": {
+                        "x-api-key": {
+                            "type": "apiKey",
+                            "name": "x-api-key",
+                            "in": "header"
+                        },
+                        "x-api-token": {
+                            "type": "apiKey",
+                            "name": "x-api-token",
+                            "in": "header"
+                        }
+                    }
+                };
+                swaggerObj.security = [
+                    { "x-api-key": [] },
+                    { "x-api-token": [] }
+                ];
+
+                let thisRouter = express.Router();
+                thisRouter.use("/", swaggerUI.serve);
+                thisRouter.get("/", swaggerUI.setup(swaggerObj));
+                thisNode.SwaggerRouters[serviceEntry.Name] = thisRouter;
+            }
+        };
+
+        // Watch Topology for new Service
+        thisNode.TopicManager.SubscribeToTopic(new DRP_Subscriber("TopologyTracker", null, null, (topologyPacket) => {
+            WatchTopologyForServices(topologyPacket.Message);
+        }, null));
+
         // Get Token
         thisNode.WebServer.expressApp.post('/token', async (req, res) => {
             // Get an auth token
@@ -367,8 +432,6 @@ class DRP_Node {
             }
             return;
         });
-
-        //thisNode.WebServer.expressApp.use('/api-docs', swaggerUI.serve, swaggerUI.setup);
 
         return 0;
     }

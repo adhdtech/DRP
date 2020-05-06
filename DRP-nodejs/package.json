@@ -19,11 +19,12 @@
   "dependencies": {
     "cucm-sql-async": "./cucm-sql-async",
     "drp-mesh": "./drp-mesh",
+    "drp-service-bluecat": "./drp-service-bluecat",
     "drp-service-cache": "./drp-service-cache",
     "drp-service-docmgr": "./drp-service-docmgr",
-    "drp-service-rsage": "./drp-service-rsage",
     "drp-service-ldap": "./drp-service-ldap",
-    "drp-service-bluecat": "./drp-service-bluecat",
-    "drp-service-netscaler": "./drp-service-netscaler"
+    "drp-service-netscaler": "./drp-service-netscaler",
+    "drp-service-rsage": "./drp-service-rsage",
+    "swagger-ui-express": "^4.1.4"
   }
 }
