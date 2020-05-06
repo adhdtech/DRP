@@ -25,6 +25,7 @@
     "drp-service-ldap": "./drp-service-ldap",
     "drp-service-netscaler": "./drp-service-netscaler",
     "drp-service-rsage": "./drp-service-rsage",
+    "ping": "^0.2.3",
     "swagger-ui-express": "^4.1.4"
   }
 }
