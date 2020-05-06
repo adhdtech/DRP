@@ -358,46 +358,67 @@ class DRP_Node {
         let WatchTopologyForServices = async (topologyPacket) => {
             let thisNode = this;
 
-            // Ignore if this isn't a service add
-            if (topologyPacket.cmd !== "add" || topologyPacket.type !== "service") return;
+            // Is this a service add?
+            if (topologyPacket.cmd === "add" && topologyPacket.type === "service") {
 
-            // Get topologyData
-            /** @type {DRP_ServiceTableEntry} */
-            let serviceEntry = topologyPacket.data;
+                // Get topologyData
+                /** @type {DRP_ServiceTableEntry} */
+                let serviceEntry = topologyPacket.data;
 
-            // If we already have it, ignore
-            if (thisNode.SwaggerRouters[serviceEntry.Name]) return;
+                // If we already have it, ignore
+                if (thisNode.SwaggerRouters[serviceEntry.Name]) return;
 
-            // Reach out to the remote node
-            let swaggerObj = await thisNode.RunCommand(serviceEntry.Name, "getOpenAPIDoc", {}, serviceEntry.NodeID, false, true, null);
+                // Reach out to the remote node
+                let swaggerObj = await thisNode.RunCommand(serviceEntry.Name, "getOpenAPIDoc", {}, serviceEntry.NodeID, false, true, null);
 
-            // Does it exist?
-            if (swaggerObj && swaggerObj.openapi) {
+                // Does it exist?
+                if (swaggerObj && swaggerObj.openapi) {
 
-                // Override security settings
-                swaggerObj.components = {
-                    "securitySchemes": {
-                        "x-api-key": {
-                            "type": "apiKey",
-                            "name": "x-api-key",
-                            "in": "header"
-                        },
-                        "x-api-token": {
-                            "type": "apiKey",
-                            "name": "x-api-token",
-                            "in": "header"
+                    // Override server settings
+                    swaggerObj.servers = [
+                        {
+                            "url": `/Mesh/Services/${serviceEntry.Name}`
                         }
-                    }
-                };
-                swaggerObj.security = [
-                    { "x-api-key": [] },
-                    { "x-api-token": [] }
-                ];
+                    ],
 
-                let thisRouter = express.Router();
-                thisRouter.use("/", swaggerUI.serve);
-                thisRouter.get("/", swaggerUI.setup(swaggerObj));
-                thisNode.SwaggerRouters[serviceEntry.Name] = thisRouter;
+                    // Override security settings
+                    swaggerObj.components = {
+                        "securitySchemes": {
+                            "x-api-key": {
+                                "type": "apiKey",
+                                "name": "x-api-key",
+                                "in": "header"
+                            },
+                            "x-api-token": {
+                                "type": "apiKey",
+                                "name": "x-api-token",
+                                "in": "header"
+                            }
+                        }
+                    };
+                    swaggerObj.security = [
+                        { "x-api-key": [] },
+                        { "x-api-token": [] }
+                    ];
+
+                    let thisRouter = express.Router();
+                    thisRouter.use("/", swaggerUI.serve);
+                    thisRouter.get("/", swaggerUI.setup(swaggerObj));
+                    thisNode.SwaggerRouters[serviceEntry.Name] = thisRouter;
+                }
+            }
+
+            // Is this a service delete?
+            if (topologyPacket.cmd === "delete" && topologyPacket.type === "node") {
+
+                // TODO - Figure out a cleaner way to do this.  The TopologyManager only passes Node deletes to topic, not service deletes
+                // Because of this we need to check each service after a Node removal
+                let serviceNameList = Object.keys(thisNode.SwaggerRouters);
+                for (let i = 0; i < serviceNameList.length; i++) {
+                    let serviceName = serviceNameList[i];
+                    let serviceInstance = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
+                    if (!serviceInstance) delete thisNode.SwaggerRouters[serviceName];
+                }
             }
         };
 
@@ -2019,6 +2040,19 @@ class DRP_Node {
                 response = true;
             }
             return response;
+        });
+
+        targetEndpoint.RegisterMethod("deleteSwaggerRouter", async function (params, srcEndpoint, token) {
+            if (params && params.serviceName) {
+                // params was passed from cliGetPath
+                let serviceName = params.serviceName;
+                if (thisNode.SwaggerRouters[serviceName]) {
+                    delete thisNode.SwaggerRouters[serviceName];
+                    return `OK - Deleted SwaggerRouters[${serviceName}]`;
+                } else return `FAIL - SwaggerRouters[${serviceName}] does not exist`;
+            } else {
+                return `FAIL - params.serviceName not defined`;
+            }
         });
     }
 

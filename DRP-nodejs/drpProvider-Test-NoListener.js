@@ -17,11 +17,98 @@ let serviceName = process.env.SERVICENAME || "TestService";
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;
 
+let openAPIDoc = {
+    "openapi": "3.0.1",
+    "info": {
+        "title": "TestService",
+        "description": "This is a Test Service API",
+        "version": "1.0.1"
+    },
+    "servers": [
+        {
+            "url": "/Mesh/Services/ServiceName"
+        }
+    ],
+    "tags": [
+        {
+            "name": "ClientCmds",
+            "description": "Service ClientCmds"
+        }
+    ],
+    "paths": {
+        "/ClientCmds/sayHi": {
+            "get": {
+                "tags": [
+                    "ClientCmds"
+                ],
+                "summary": "Hello",
+                "description": "Says Hello",
+                "operationId": "sayHi",
+                "responses": {
+                    "200": {
+                        "description": "Greeting",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-swagger-router-controller": "JSONDocMgr"
+            }
+        },
+        "/ClientCmds/sayBye": {
+            "get": {
+                "tags": [
+                    "ClientCmds"
+                ],
+                "summary": "Goodbye",
+                "description": "Says Bye",
+                "operationId": "sayBye",
+                "responses": {
+                    "200": {
+                        "description": "Farewell",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-swagger-router-controller": "JSONDocMgr"
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "x-api-key": {
+                "type": "apiKey",
+                "name": "x-api-key",
+                "in": "header"
+            },
+            "x-api-token": {
+                "type": "apiKey",
+                "name": "x-api-token",
+                "in": "header"
+            }
+        }
+    },
+    "security": [
+        { "x-api-key": [] },
+        { "x-api-token": [] }
+    ]
+};
+
 // Create test service class
 class TestService extends DRP_Service {
     constructor(serviceName, drpNode) {
         super(serviceName, drpNode, "TestService", `${drpNode.NodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, ["dummy"], 1);
         this.ClientCmds = {
+            getOpenAPIDoc: async function (cmdObj) { return openAPIDoc; },
             sayHi: async function () { return { pathItem: `Hello from ${drpNode.NodeID}` }; },
             sayBye: async function () { return { pathItem: `Goodbye from ${drpNode.NodeID}` }; },
             showParams: async function (params) { return { pathItem: params }; }
