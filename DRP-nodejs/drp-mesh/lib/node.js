@@ -339,7 +339,7 @@ class DRP_Node {
                     linkList.push(`<a href="${req.baseUrl}/${apiNames[i]}">${apiNames[i]}</a>`);
                 }
                 let linkListHtml = linkList.join("<br><br>");
-                res.send(`<h3>API List</h3>${linkListHtml}`);
+                res.send(`<h3>Service List</h3>${linkListHtml}`);
                 return;
             }
 
@@ -381,21 +381,21 @@ class DRP_Node {
                         }
                     ],
 
-                    // Override security settings
-                    swaggerObj.components = {
-                        "securitySchemes": {
-                            "x-api-key": {
-                                "type": "apiKey",
-                                "name": "x-api-key",
-                                "in": "header"
-                            },
-                            "x-api-token": {
-                                "type": "apiKey",
-                                "name": "x-api-token",
-                                "in": "header"
+                        // Override security settings
+                        swaggerObj.components = {
+                            "securitySchemes": {
+                                "x-api-key": {
+                                    "type": "apiKey",
+                                    "name": "x-api-key",
+                                    "in": "header"
+                                },
+                                "x-api-token": {
+                                    "type": "apiKey",
+                                    "name": "x-api-token",
+                                    "in": "header"
+                                }
                             }
-                        }
-                    };
+                        };
                     swaggerObj.security = [
                         { "x-api-key": [] },
                         { "x-api-token": [] }
@@ -419,6 +419,17 @@ class DRP_Node {
                     let serviceInstance = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
                     if (!serviceInstance) delete thisNode.SwaggerRouters[serviceName];
                 }
+            }
+
+            if (topologyPacket.cmd === "delete" && topologyPacket.type === "service") {
+                // Individual service removal; uncommon
+
+                // Get topologyData
+                /** @type {DRP_ServiceTableEntry} */
+                let serviceEntry = topologyPacket.data;
+
+                let serviceInstance = thisNode.TopologyTracker.FindInstanceOfService(serviceEntry.Name);
+                if (!serviceInstance) delete thisNode.SwaggerRouters[serviceEntry.Name];
             }
         };
 
