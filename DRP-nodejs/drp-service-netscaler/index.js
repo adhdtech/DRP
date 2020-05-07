@@ -440,9 +440,15 @@ class NetScalerManager extends DRP_Service {
      * 
      * @param {string} serviceName Service Name
      * @param {drpNode} drpNode DRP Node
+     * @param {number} priority Priority (lower better)
+     * @param {number} weight Weight (higher better)
+     * @param {string} scope Scope [local|zone|global(defaut)]
      */
-    constructor(serviceName, drpNode) {
-        super(serviceName, drpNode, "NetScalerManager", `${drpNode.NodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, null, 1);
+    constructor(serviceName, drpNode, priority, weight, scope) {
+        let svcPriority = priority || 10;
+        let svcWeight = weight || 10;
+        let svcScope = scope || "global";
+        super(serviceName, drpNode, "NetScalerManager", `${drpNode.NodeID}-${serviceName}`, false, svcPriority, svcWeight, drpNode.Zone, svcScope, null, null, 1);
         let thisNsMgr = this;
 
         /** @type {Object<string,NetScalerSet>} */
@@ -564,6 +570,34 @@ class NetScalerManager extends DRP_Service {
                     vServer = params.vServer || null;
                 }
                 if (haPair && vServer && thisNsMgr.haPairs[haPair] && thisNsMgr.haPairs[haPair].config.vServers[vServer]) return thisNsMgr.haPairs[haPair].config.vServers[vServer].Disable();
+                else return null;
+            },
+            "enableService": async (params) => {
+                let haPair = null;
+                let service = null;
+                if (params.pathList && params.pathList.length >= 2) {
+                    haPair = params.pathList[0];
+                    service = params.pathList[1] || null;
+                }
+                if (params.haPair && params.service) {
+                    haPair = params.haPair;
+                    service = params.service || null;
+                }
+                if (haPair && service && thisNsMgr.haPairs[haPair] && thisNsMgr.haPairs[haPair].config.Services[service]) return thisNsMgr.haPairs[haPair].config.Services[service].Enable();
+                else return null;
+            },
+            "disableService": async (params) => {
+                let haPair = null;
+                let service = null;
+                if (params.pathList && params.pathList.length >= 2) {
+                    haPair = params.pathList[0];
+                    service = params.pathList[1] || null;
+                }
+                if (params.haPair && params.service) {
+                    haPair = params.haPair;
+                    service = params.service || null;
+                }
+                if (haPair && service && thisNsMgr.haPairs[haPair] && thisNsMgr.haPairs[haPair].config.Services[service]) return thisNsMgr.haPairs[haPair].config.Services[service].Disable();
                 else return null;
             }
         };

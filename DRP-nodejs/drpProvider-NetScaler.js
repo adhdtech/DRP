@@ -4,12 +4,12 @@ const NetScalerManager = require('drp-service-netscaler');
 
 const os = require("os");
 
+// Node variables
 let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || null;
 let domainKey = process.env.DOMAINKEY || null;
 let zoneName = process.env.ZONENAME || "MyZone";
 let registryURL = process.env.REGISTRYURL || null;
-let serviceName = process.env.SERVICENAME || "NetScaler";
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;
 let authenticatorService = process.env.AUTHENTICATORSERVICE || null;
@@ -18,6 +18,10 @@ let authenticatorService = process.env.AUTHENTICATORSERVICE || null;
 let fs = require('fs');
 let promisify = require('util').promisify;
 let readFile = promisify(fs.readFile);
+let serviceName = process.env.SERVICENAME || "NetScaler";
+let priority = process.env.PRIORITY || null;
+let weight = process.env.WEIGHT || null;
+let scope = process.env.SCOPE || null;
 let nsConfigFile = process.env.NSCONFFILE || "nsconf.json";
 
 /*
@@ -42,7 +46,7 @@ let myNode = new DRP_Node(roleList, hostID, null, null, null, null, domainName, 
     let rawConfig = await readFile(nsConfigFile, "utf8");
     let nsConfigSet = JSON.parse(rawConfig);
     //console.dir(nsConfigSet);
-    let thisSvc = new NetScalerManager(serviceName, myNode);
+    let thisSvc = new NetScalerManager(serviceName, myNode, priority, weight, scope);
 
     let configSetKeys = Object.keys(nsConfigSet);
     for (let i = 0; i < configSetKeys.length; i++) {
