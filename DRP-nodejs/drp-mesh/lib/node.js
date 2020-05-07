@@ -677,25 +677,36 @@ class DRP_Node {
     async SendPathCmdToNode(targetNodeID, params) {
         let thisNode = this;
         let oReturnObject = null;
+        let forceControlPlane = false;
+
+        if (!thisNode.NodeDeclaration.NodeURL) {
+            forceControlPlane = true;
+        }
+
         if (targetNodeID === thisNode.NodeID) {
             // The target NodeID is local
             oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
         } else {
-            // The target NodeID is remote
-            let routeOptions = null;
+            if (forceControlPlane) {
+                oReturnObject = await thisNode.RunCommand("DRP", "pathCmd", params, targetNodeID, true, true, null);
+            } else {
 
-            // Try to get a direct connection
-            let targetNodeEndpoint = await thisNode.VerifyNodeConnection(targetNodeID);
-            if (!targetNodeEndpoint) {
-                // Fallback to nextHop relay (usually Registry)
-                let endpointNodeID = targetServiceEntry.LearnedFrom;
-                targetNodeEndpoint = thisNode.NodeEndpoints[endpointNodeID];
-                routeOptions = { srcNodeID: thisNode.NodeID, tgtNodeID: targetServiceEntry.NodeID, routeHistory: [] };
-            }
+                // The target NodeID is remote
+                let routeOptions = null;
 
-            let cmdResponse = await targetNodeEndpoint.SendCmd("DRP", "pathCmd", params, true, null, routeOptions);
-            if (cmdResponse.payload) {
-                oReturnObject = cmdResponse.payload;
+                // Try to get a direct connection
+                let targetNodeEndpoint = await thisNode.VerifyNodeConnection(targetNodeID);
+                if (!targetNodeEndpoint) {
+                    // Fallback to nextHop relay (usually Registry)
+                    let endpointNodeID = targetServiceEntry.LearnedFrom;
+                    targetNodeEndpoint = thisNode.NodeEndpoints[endpointNodeID];
+                    routeOptions = { srcNodeID: thisNode.NodeID, tgtNodeID: targetServiceEntry.NodeID, routeHistory: [] };
+                }
+
+                let cmdResponse = await targetNodeEndpoint.SendCmd("DRP", "pathCmd", params, true, null, routeOptions);
+                if (cmdResponse.payload) {
+                    oReturnObject = cmdResponse.payload;
+                }
             }
         }
         return oReturnObject;
@@ -717,7 +728,7 @@ class DRP_Node {
 
                         let targetNodeID = remainingChildPath.shift();
 
-                        // Need to send command to remoet Node with remaining tree data
+                        // Need to send command to remote Node with remaining tree data
                         params.pathList = remainingChildPath;
 
                         oReturnObject = await thisNode.SendPathCmdToNode(targetNodeID, params);
