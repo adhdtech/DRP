@@ -415,14 +415,11 @@ class VDMClient {
     /**
      * VDMClient owns the VDMDesktop and VDMServerAgent objects
      * @param {VDMDesktop} vdmDesktop VDM Desktop
-     * @param {string} userName User name
-     * @param {string} password User password
      */
     constructor(vdmDesktop) {
 
         let thisVDMClient = this;
-        this.userName = thisVDMClient.readCookie("user");
-        this.password = thisVDMClient.readCookie("password");
+        this.userToken = thisVDMClient.readCookie("x-api-token");
 
         /** @type VDMServerAgent */
         this.vdmServerAgent = null;
@@ -432,7 +429,7 @@ class VDMClient {
 
     startSession(wsTarget) {
         let thisVDMClient = this;
-        thisVDMClient.vdmServerAgent = new VDMServerAgent(thisVDMClient, thisVDMClient.userName, thisVDMClient.password);
+        thisVDMClient.vdmServerAgent = new VDMServerAgent(thisVDMClient, thisVDMClient.userToken);
         thisVDMClient.vdmServerAgent.connect(wsTarget);
     }
     /*
@@ -581,14 +578,12 @@ class VDMServerAgent extends DRP_Client_Browser {
     /**
      * Agent which connects to DRP_Node (Broker)
      * @param {VDMClient} vdmClient VDM Client object
-     * @param {string} user User name
-     * @param {string} pass User password
+     * @param {string} userToken User token
      */
-    constructor(vdmClient, user, pass) {
+    constructor(vdmClient, userToken) {
         super();
 
-        this.user = user;
-        this.pass = pass;
+        this.userToken = userToken;
         this.wsConn = '';
         this.sessionID = vdmClient.getLastSessionID();
         this.vdmClient = vdmClient;
@@ -613,11 +608,10 @@ class VDMServerAgent extends DRP_Client_Browser {
         this.wsConn = wsConn;
 
         let response = await thisVDMServerAgent.SendCmd("DRP", "hello", {
-            user: thisVDMServerAgent.user,
-            pass: thisVDMServerAgent.pass,
-            platform: thisVDMServerAgent.platform,
-            userAgent: thisVDMServerAgent.userAgent,
-            URL: thisVDMServerAgent.URL
+            "token": thisVDMServerAgent.userToken,
+            "platform": thisVDMServerAgent.platform,
+            "userAgent": thisVDMServerAgent.userAgent,
+            "URL": thisVDMServerAgent.URL
         }, true, null);
 
         if (!response) window.location.reload();
@@ -637,6 +631,7 @@ class VDMServerAgent extends DRP_Client_Browser {
 
     async ErrorHandler(wsConn, error) {
         console.log("Consumer to Broker client encountered error [" + error + "]");
+        window.location.reload();
     }
 
     Disconnect(isGraceful) {
@@ -654,6 +649,7 @@ class VDMServerAgent extends DRP_Client_Browser {
             }, 10000);
 
             thisVDMServerAgent.vdmClient.vdmDesktop.changeLEDColor('red');
+            window.location.reload();
         }
     }
 

@@ -205,6 +205,42 @@ class DRP_Node {
         day = (day < 10 ? "0" : "") + day;
         return year + "" + month + "" + day + "" + hour + "" + min + "" + sec;
     }
+
+    async GetConsumerToken(username, password) {
+        let thisNode = this;
+        let returnToken = null;
+        /** @type {DRP_AuthResponse} */
+        let authResults = await thisNode.Authenticate(username, password, null);
+        if (authResults) {
+            thisNode.ConsumerTokens[authResults.Token] = authResults;
+
+            // If this Node is a Broker, relay to other Brokers in Zone
+            if (thisNode.IsBroker()) {
+                let nodeIDList = Object.keys(thisNode.TopologyTracker.NodeTable);
+                for (let i = 0; i < nodeIDList.length; i++) {
+                    let checkNode = thisNode.TopologyTracker.NodeTable[nodeIDList[i]];
+                    if (checkNode.NodeID !== thisNode.NodeID && checkNode.IsBroker() && checkNode.Zone === thisNode.Zone) {
+                        // Send command to remote Broker
+                        thisNode.RunCommand("DRP", "addConsumerToken", { tokenPacket: authResults }, checkNode.NodeID, false, false, null);
+                    }
+                }
+            }
+            returnToken = authResults.Token;
+        }
+        return returnToken;
+    }
+
+    GetLastTokenForUser(userName) {
+        let thisNode = this;
+        let tokenList = Object.keys(thisNode.ConsumerTokens).reverse();
+        for (let i = 0; i < tokenList.length; i++) {
+            let checkTokenID = tokenList[i];
+            let thisToken = thisNode.ConsumerTokens[tokenList[i]];
+            if (userName === thisToken.UserName) return checkTokenID;
+        }
+        return null;
+    }
+
     /**
      * 
      * @param {string} restRoute Route to listen for Node REST requests
@@ -369,7 +405,7 @@ class DRP_Node {
                 if (thisNode.SwaggerRouters[serviceEntry.Name]) return;
 
                 // Reach out to the remote node
-                let swaggerObj = await thisNode.RunCommand(serviceEntry.Name, "getOpenAPIDoc", {}, serviceEntry.NodeID, false, true, null);
+                let swaggerObj = await thisNode.RunCommand(serviceEntry.Name, "getOpenAPIDoc", {}, serviceEntry.NodeID, true, true, null);
 
                 // Does it exist?
                 if (swaggerObj && swaggerObj.openapi) {
@@ -443,22 +479,11 @@ class DRP_Node {
             // Get an auth token
             let username = req.body.username;
             let password = req.body.password;
-            /** @type {DRP_AuthResponse} */
-            let authResults = await thisNode.Authenticate(username, password, null);
-            if (authResults) {
-                thisNode.ConsumerTokens[authResults.Token] = authResults;
 
-                // Relay to other Brokers in Zone
-                let nodeIDList = Object.keys(thisNode.TopologyTracker.NodeTable);
-                for (let i = 0; i < nodeIDList.length; i++) {
-                    let checkNode = thisNode.TopologyTracker.NodeTable[nodeIDList[i]];
-                    if (checkNode.NodeID !== thisNode.NodeID && checkNode.IsBroker() && checkNode.Zone === thisNode.Zone) {
-                        // Send command to remote Broker
-                        thisNode.RunCommand("DRP", "addConsumerToken", { tokenPacket: authResults }, checkNode.NodeID, false, false, null);
-                    }
-                }
+            let userToken = await GetConsumerToken(username, password);
 
-                res.send(`x-api-token: ${authResults.Token}`);
+            if (userToken) {
+                res.send(`x-api-token: ${userToken}`);
             } else {
                 res.status(401).send("Bad credentials");
             }
@@ -2169,6 +2194,12 @@ class DRP_Node {
         let thisNode = this;
         let authenticationServiceName = null;
         let authResponse = null;
+
+        // If a token is provided, skip the rest of the process
+        if (token) {
+            return thisNode.ConsumerTokens[token];
+        }
+
         if (this.AuthenticationServiceName) {
             // This Node has been configured to use a specific Authentication service
             authenticationServiceName = this.AuthenticationServiceName;

@@ -69,10 +69,10 @@ class VDMServer extends DRP_Service {
         this.expressApp.use(express.static(clientDirectory));
 
         // Define Authorizer
-        let asyncAuthorizer = async function (user, password, cb) {
+        let asyncAuthorizer = async function (username, password, cb) {
             let authSucceeded = false;
-            let response = await drpNode.Authenticate(user, password);
-            if (response) authSucceeded = true;
+            let newToken = await drpNode.GetConsumerToken(username, password);
+            if (newToken) authSucceeded = true;
             return cb(null, authSucceeded);
         };
 
@@ -87,12 +87,12 @@ class VDMServer extends DRP_Service {
                     : 'No credentials provided';
             }
         }), (req, res) => {
-            // The credentials are valid; pass them via cookies to the next step for the WebSockets connection
-            res.cookie('user', req.auth.user, {
-                expires: new Date(Date.now() + 24 * 60 * 60000) // cookie will be removed after 1 day
-            });
-            res.cookie('password', req.auth.password, {
-                expires: new Date(Date.now() + 24 * 60 * 60000) // cookie will be removed after 1 day
+            // The authorizer only returns success/fail, so we need to do a dirty workaround - look for last token issued for this user
+            let userToken = thisVDMServer.drpNode.GetLastTokenForUser(req.auth.user);
+
+            // Pass the x-api-token in a cookie for the WebSockets connection
+            res.cookie('x-api-token', userToken, {
+                expires: new Date(Date.now() + 5 * 60000) // cookie will be removed after 5 minutes
             });
             let userAgentString = req.headers['user-agent'];
             if (userAgentString.includes(" Quest")) {
