@@ -301,16 +301,46 @@ class BlueCatMgmtHost {
 
     async AssignIP4Address(configId, ipAddress, hostName) {
         let thisBcMgmtHost = this;
+        let internalViewId = thisBcMgmtHost.config.Views["internal"].id;
         // Get Configuration ObjectID
         let response = await thisBcMgmtHost.ExecuteCommand("assignIP4Address", {
             configurationId: configId,
             ip4Address: ipAddress,
             macAddress: "",
-            hostInfo: "",
+            hostInfo: `${hostName},${internalViewId},true,false`,
             action: "MAKE_STATIC",
-            properties: `name=${hostName}|`
+            properties: `name=${hostName}`
         }, "post", true);
         return response; //[0].id;
+    }
+
+    async UnassignIP4Address(configId, ipAddress, hostName) {
+        let thisBcMgmtHost = this;
+        // Get IP ObjectID
+        let ipObject = await thisBcMgmtHost.GetIP4Address(configId, ipAddress);
+
+        if (!ipObject || !ipObject.id) return `Could not find objectId for IP ${ipAddress}`;
+
+        // Make sure hostname is bound to IP ObjectID
+        let foundMatch = false;
+        let linkedEntities = await thisBcMgmtHost.GetLinkedEntities(ipObject.id, "HostRecord");
+        for (let i = 0; i < linkedEntities.length; i++) {
+            let thisEntity = linkedEntities[i];
+            let propertiesObj = APIEntity.prototype.PropertiesToObject(thisEntity.properties);
+            if (propertiesObj.absoluteName === hostName) {
+                foundMatch = true;
+                break;
+            }
+        }
+
+        if (!foundMatch) return `Could not find HostRecord ${hostName} pointing to IP ${ipAddress}`;
+
+        // Get Configuration ObjectID
+        let response = await thisBcMgmtHost.ExecuteCommand("delete", {
+            objectId: ipObject.id
+        }, "delete");
+        return response; //[0].id;
+
     }
 
     async GetLinkedEntities(entityId, type) {
@@ -327,7 +357,7 @@ class BlueCatMgmtHost {
 
     async Update(bcObject) {
         let thisBcMgmtHost = this;
-        // Update Configuration ObjectID
+        // Update Object
         let response = await thisBcMgmtHost.ExecuteCommand("update", bcObject, "put");
         return response;
     }
@@ -403,6 +433,8 @@ class BlueCatMgmtHost {
                     returnObj = response.data;
                     break;
                 case "delete":
+                    response = await thisBcMgmtHost.restAgent.delete(command, { params: parameters });
+                    returnObj = response.data;
                     break;
                 default:
                     let bob = 1;
@@ -539,6 +571,21 @@ class BlueCatManager extends DRP_Service {
                     if (cmdObj.hostName) hostName = cmdObj.hostName;
                 }
                 if (ipAddress) returnObj = await thisBcMgr.activeMember.AssignIP4Address(thisBcMgr.activeMember.config.ConfigurationID, ipAddress, hostName);
+                return returnObj;
+            },
+            "unassignIP4Address": async function (cmdObj) {
+                let ipAddress = null;
+                let hostName = "";
+                let returnObj = null;
+                if (cmdObj.pathList && cmdObj.pathList.length >= 1) {
+                    ipAddress = cmdObj.pathList[0];
+                    hostName = cmdObj.pathList[1];
+                }
+                if (cmdObj.ipAddress) {
+                    ipAddress = cmdObj.ipAddress;
+                    if (cmdObj.hostName) hostName = cmdObj.hostName;
+                }
+                if (ipAddress) returnObj = await thisBcMgr.activeMember.UnassignIP4Address(thisBcMgr.activeMember.config.ConfigurationID, ipAddress, hostName);
                 return returnObj;
             },
             "searchByObjectTypes": async function () {
