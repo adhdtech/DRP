@@ -200,7 +200,7 @@ class VDMServer extends DRP_Service {
 
     LogWSClientEvent(conn, logMsg) {
         var thisVDMServer = this;
-        thisVDMServer.log(logMsg);
+        thisVDMServer.drpNode.log(logMsg);
     }
 }
 

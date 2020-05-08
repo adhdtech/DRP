@@ -138,6 +138,7 @@ class DRP_Endpoint {
             // We don't expect a response; leave reply token null
         }
         let packetObj = new DRP_Cmd(serviceName, method, params, token, routeOptions, runNodeID);
+        //console.dir(packetObj);
         let packetString = JSON.stringify(packetObj);
         thisEndpoint.SendPacketString(packetString);
         return returnVal;
@@ -178,37 +179,20 @@ class DRP_Endpoint {
             output: null
         };
 
+        //console.dir(cmdPacket);
+
         // Make sure params is an Object
         if (!cmdPacket.params || typeof cmdPacket.params !== 'object') cmdPacket.params = {};
 
         // Override AuthInfo if the remote end is a Consumer
         if (thisEndpoint.AuthInfo && (thisEndpoint.AuthInfo.type === "token" || thisEndpoint.AuthInfo.type === "key")) cmdPacket.params.authInfo = thisEndpoint.AuthInfo;
 
-        // Is the message meant for the default DRP service?
-        if (!cmdPacket.serviceName || cmdPacket.serviceName === "DRP") {
-
-            // Yes - execute as a DRP command
-            if (typeof thisEndpoint.EndpointCmds[cmdPacket.method] === 'function') {
-                // Execute method
-                try {
-                    cmdResults.output = await thisEndpoint.EndpointCmds[cmdPacket.method](cmdPacket.params, thisEndpoint, cmdPacket.token);
-                    cmdResults.status = 1;
-                } catch (err) {
-                    cmdResults.output = err.message;
-                }
-            } else {
-                cmdResults.output = "Endpoint does not have method";
-                thisEndpoint.log(`Remote endpoint tried to execute invalid method '${cmdPacket.method}'`);
-            }
-
-            // No - execute as a local service command
-        } else {
-            try {
-                cmdResults.output = await thisEndpoint.drpNode.ServiceCommand(cmdPacket, thisEndpoint);
-                cmdResults.status = 1;
-            } catch (err) {
-                cmdResults.output = err.message;
-            }
+        // Execute method
+        try {
+            cmdResults.output = await thisEndpoint.drpNode.ServiceCmd(cmdPacket.serviceName, cmdPacket.method, cmdPacket.params, null, false, true, thisEndpoint);
+            cmdResults.status = 1;
+        } catch (err) {
+            cmdResults.output = err.message;
         }
 
         // Reply with results
@@ -219,6 +203,8 @@ class DRP_Endpoint {
             }
             thisEndpoint.SendReply(cmdPacket.token, cmdResults.status, cmdResults.output, routeOptions);
         }
+
+        //console.dir(cmdResults);
     }
 
     /**
@@ -228,7 +214,7 @@ class DRP_Endpoint {
     async ProcessReply(replyPacket) {
         let thisEndpoint = this;
 
-        //console.dir(message, {"depth": 10})
+        //console.dir(replyPacket, { "depth": 10 });
 
         // Yes - do we have the token?
         if (thisEndpoint.ReplyHandlerQueue.hasOwnProperty(replyPacket.token)) {

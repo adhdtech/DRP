@@ -130,23 +130,6 @@ class DRP_Node {
         let addNodePacket = new DRP_TopologyPacket(newNodeEntry.NodeID, "add", "node", newNodeEntry.NodeID, newNodeEntry.Scope, newNodeEntry.Zone, newNodeEntry);
         thisNode.TopologyTracker.ProcessPacket(addNodePacket, thisNode.NodeID);
 
-        //this.ServiceCommandTracking = {
-        /*
-         * ServiceName: {
-         *    Providers: {
-         *      myhost-port: {
-         *          Weight,
-         *          OutstandingCmds,
-         *          AvgResponseTime,
-         *          Reliability,
-         *          ConnectionOpenTimestamp,
-         *          ReconnectCount
-         *      }
-         *    }
-         * }
-         */
-        //};
-
         /** @type Object.<string,DRP_Service> */
         this.Services = {};
 
@@ -221,7 +204,7 @@ class DRP_Node {
                     let checkNode = thisNode.TopologyTracker.NodeTable[nodeIDList[i]];
                     if (checkNode.NodeID !== thisNode.NodeID && checkNode.IsBroker() && checkNode.Zone === thisNode.Zone) {
                         // Send command to remote Broker
-                        thisNode.RunCommand("DRP", "addConsumerToken", { tokenPacket: authResults }, checkNode.NodeID, false, false, null);
+                        thisNode.ServiceCmd("DRP", "addConsumerToken", { tokenPacket: authResults }, checkNode.NodeID, false, false, null);
                     }
                 }
             }
@@ -405,7 +388,7 @@ class DRP_Node {
                 if (thisNode.SwaggerRouters[serviceEntry.Name]) return;
 
                 // Reach out to the remote node
-                let swaggerObj = await thisNode.RunCommand(serviceEntry.Name, "getOpenAPIDoc", {}, serviceEntry.NodeID, true, true, null);
+                let swaggerObj = await thisNode.ServiceCmd(serviceEntry.Name, "getOpenAPIDoc", {}, serviceEntry.NodeID, true, true, null);
 
                 // Does it exist?
                 if (swaggerObj && swaggerObj.openapi) {
@@ -518,18 +501,11 @@ class DRP_Node {
             let serviceName = serviceNames[0];
             let recordPath = ["Mesh", "Services", serviceName, "Classes", className, "GetDefinition"];
 
-            // TO DO - Add logic to see if we can connect to the Provider; if not, route through Broker as we're doing now
+            // Get data
+            let pathParams = { method: "cliGetPath", pathList: recordPath, listOnly: false };
+            let pathData = await thisNode.EvalPath(thisNode.GetBaseObj(), pathParams);
 
-            // Send cmd to broker for info
-            let sendParams = {};
-            sendParams.pathList = recordPath;
-            let brokerNodeID = thisNode.FindBroker();
-            let brokerNodeClient = await thisNode.VerifyNodeConnection(brokerNodeID);
-            let cmdResponse = await brokerNodeClient.SendCmd("DRP", "pathCmd", sendParams, true, null);
-
-            results[className] = cmdResponse.payload.pathItem;
-            //let classDefinition = await thisNode.GetObjFromPath({ method: "cliGetPath", pathList: recordPath, listOnly: false }, thisNode.GetBaseObj());
-            //results[className] = classDefinition.pathItem;
+            results[className] = pathData;
         }
         return results;
     }
@@ -574,7 +550,7 @@ class DRP_Node {
         return results;
     }
 
-    GetServiceDefinition(serviceName) {
+    GetServiceDefinition(params) {
         /*
          * We need to return:
          * {
@@ -582,7 +558,7 @@ class DRP_Node {
          * }
          */
         let thisNode = this;
-        let targetService = thisNode.Services[serviceName];
+        let targetService = thisNode.Services[params.serviceName];
         let serviceDefinition = targetService.GetDefinition();
         return serviceDefinition;
     }
@@ -602,7 +578,7 @@ class DRP_Node {
             // Unlike before, we don't distribute the actual service definitions in
             // the declarations.  We need to go out to each service and get the info
             let bestInstance = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
-            let response = await thisNode.RunCommand("DRP", "getServiceDefinition", serviceName, bestInstance.NodeID, true, true, callingEndpoint);
+            let response = await thisNode.ServiceCmd("DRP", "getServiceDefinition", { serviceName: serviceName }, bestInstance.NodeID, true, true, callingEndpoint);
             serviceDefinitions[serviceName] = response;
         }
         return serviceDefinitions;
@@ -657,19 +633,12 @@ class DRP_Node {
 
             let recordPath = ["Mesh", "Services", serviceName, "Classes", thisClassName, "cache"];
 
-            // TO DO - Add logic to see if we can connect to the Provider; if not, route through Broker as we're doing now
+            // Get data
+            let pathParams = { method: "cliGetPath", pathList: recordPath, listOnly: false };
+            let pathData = await thisNode.EvalPath(thisNode.GetBaseObj(), pathParams);
 
-            // Send cmd to broker for info
-            let sendParams = {};
-            sendParams.pathList = recordPath;
-            let brokerNodeID = thisNode.FindBroker();
-            let brokerNodeClient = await thisNode.VerifyNodeConnection(brokerNodeID);
-            let cmdResponse = await brokerNodeClient.SendCmd("DRP", "pathCmd", sendParams, true, null);
+            results[serviceName] = pathData;
 
-            results[serviceName] = cmdResponse.payload.pathItem;
-
-            //let returnData = await thisNode.GetObjFromPath({ method: "cliGetPath", pathList: recordPath, listOnly: false, authKey: params.authKey }, thisNode.GetBaseObj());
-            //results[serviceName] = returnData.pathItem;
         }
         return results;
     }
@@ -677,37 +646,12 @@ class DRP_Node {
     async SendPathCmdToNode(targetNodeID, params) {
         let thisNode = this;
         let oReturnObject = null;
-        let forceControlPlane = false;
-
-        if (!thisNode.NodeDeclaration.NodeURL) {
-            forceControlPlane = true;
-        }
 
         if (targetNodeID === thisNode.NodeID) {
             // The target NodeID is local
             oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
         } else {
-            if (forceControlPlane) {
-                oReturnObject = await thisNode.RunCommand("DRP", "pathCmd", params, targetNodeID, true, true, null);
-            } else {
-
-                // The target NodeID is remote
-                let routeOptions = null;
-
-                // Try to get a direct connection
-                let targetNodeEndpoint = await thisNode.VerifyNodeConnection(targetNodeID);
-                if (!targetNodeEndpoint) {
-                    // Fallback to nextHop relay (usually Registry)
-                    let endpointNodeID = targetServiceEntry.LearnedFrom;
-                    targetNodeEndpoint = thisNode.NodeEndpoints[endpointNodeID];
-                    routeOptions = { srcNodeID: thisNode.NodeID, tgtNodeID: targetServiceEntry.NodeID, routeHistory: [] };
-                }
-
-                let cmdResponse = await targetNodeEndpoint.SendCmd("DRP", "pathCmd", params, true, null, routeOptions);
-                if (cmdResponse.payload) {
-                    oReturnObject = cmdResponse.payload;
-                }
-            }
+            oReturnObject = await thisNode.ServiceCmd("DRP", "pathCmd", params, targetNodeID, false, true, null);
         }
         return oReturnObject;
     }
@@ -1068,8 +1012,8 @@ class DRP_Node {
             }
         }
 
-        // Try sending a back connection request to the remote node via the registry
-        if (!thisNodeEndpoint || !thisNodeEndpoint.IsReady()) {
+        // If this node is listening, try sending a back connection request to the remote node via the registry
+        if ((!thisNodeEndpoint || !thisNodeEndpoint.IsReady()) && thisNode.nodeURL) {
 
             thisNode.log("Sending back request...", true);
             // Let's try having the Provider call us; send command through Registry
@@ -1092,7 +1036,7 @@ class DRP_Node {
                 }
 
             } catch (err) {
-                this.log(`ERR!!!! [${err}]`);
+                thisNode.log(`ERR!!!! [${err}]`);
             }
 
             this.log("Starting wait...", true);
@@ -1121,25 +1065,6 @@ class DRP_Node {
                 thisNodeEndpoint = thisNode.NodeEndpoints[remoteNodeID];
             }
         }
-
-        // Removing the subscription checking from this section
-        /*
-        if (thisNodeEndpoint) {
-            thisNodeEndpoint.drpNode = thisNode;
-            thisNodeEndpoint.closeCallback = () => {
-                // See if this endpoints was referenced in any subscriptions
-                let remoteNodeID = thisNodeEndpoint.EndpointID;
-                let subscriptionList = Object.keys(thisNode.Subscriptions);
-                for (let i = 0; i < subscriptionList.length; i++) {
-                    let subscriptionObject = thisNode.Subscriptions[subscriptionList[i]];
-                    if (subscriptionObject.subscribedTo.indexOf(remoteNodeID) >= 0) {
-                        // Remove from subcribedTo
-                        subscriptionObject.subscribedTo.splice(subscriptionObject.subscribedTo.indexOf(remoteNodeID), 1);
-                    }
-                }
-            };
-        }
-        */
 
         return thisNodeEndpoint;
     }
@@ -1170,17 +1095,7 @@ class DRP_Node {
 
         if (serviceObj && serviceObj.serviceName && serviceObj.ClientCmds) {
             thisNode.Services[serviceObj.serviceName] = serviceObj;
-            /*
-            if (thisNode.NodeDeclaration) {
-                thisNode.NodeDeclaration.Services[serviceObj.serviceName] = {
-                    "ClientCmds": Object.keys(serviceObj.ClientCmds),
-                    "Classes": Object.keys(serviceObj.Classes),
-                    "Persistence": serviceObj.Sticky || false,
-                    "Weight": serviceObj.Weight || 0,
-                    "Zone": serviceObj.Zone || null
-                };
-            }
-            */
+
             let newServiceEntry = new DRP_ServiceTableEntry(thisNode.NodeID, null, serviceObj.serviceName, serviceObj.Type, serviceObj.InstanceID, serviceObj.Zone, serviceObj.Sticky, serviceObj.Priority, serviceObj.Weight, serviceObj.Scope, serviceObj.Dependencies, serviceObj.Topics, serviceObj.Status);
             let addServicePacket = new DRP_TopologyPacket(thisNode.NodeID, "add", "service", newServiceEntry.InstanceID, newServiceEntry.Scope, newServiceEntry.Zone, newServiceEntry);
             thisNode.TopologyTracker.ProcessPacket(addServicePacket, thisNode.NodeID);
@@ -1201,75 +1116,17 @@ class DRP_Node {
         }
     }
 
-    FindBroker() {
+    // Execute a service command with the option of routing via the control plane
+    async ServiceCmd(serviceName, method, params, targetNodeID, useControlPlane, awaitResponse, callingEndpoint) {
         let thisNode = this;
-        let thisRegistry = thisNode.NodeDeclarations;
-        let nodeIDList = Object.keys(thisRegistry);
-        for (let i = 0; i < nodeIDList.length; i++) {
-            let nodeID = nodeIDList[i];
-            /** @type DRP_NodeDeclaration */
-            let thisNodeDeclaration = thisRegistry[nodeID];
-            // Is this Node a Broker?
-            if (thisNodeDeclaration.NodeURL && thisNodeDeclaration.NodeRoles.indexOf("Broker") >= 0) {
-                return nodeID;
-            }
-        }
-        // We should only reach this point when this is a Provider not yet connected to the mesh
-        return null;
-    }
 
-    /**
-     * @param {DRP_Cmd} cmdObj Command object
-     * @param {DRP_Endpoint} drpEndpoint Requesting Endpoint
-     * @param {string} token Reply token
-     * @return {object} Response
-    */
-    async LocalServiceCommand(cmdObj, drpEndpoint, token) {
-        let thisNode = this;
-        let baseMsg = "ERR executing ServiceCommand:";
-        if (!cmdObj) {
-            thisNode.log(`${baseMsg} cmdObj not supplied`, true);
-            return null;
+        // If the service is DRP and no targetNodeID is specified, set to local
+        if (serviceName === "DRP" && !targetNodeID) {
+            targetNodeID = thisNode.NodeID;
         }
-        if (!cmdObj.serviceName) {
-            thisNode.log(`${baseMsg} cmdObj.serviceName not supplied`, true);
-            return null;
-        }
-        if (!cmdObj.method) {
-            thisNode.log(`${baseMsg} cmdObj.method not supplied`, true);
-            return null;
-        }
-
-        let serviceProvider = null;
-        if (cmdObj.serviceName === "DRP") {
-            serviceProvider = drpEndpoint.EndpointCmds;
-        } else {
-            if (thisNode.Services[cmdObj.serviceName]) serviceProvider = thisNode.Services[cmdObj.serviceName].ClientCmds;
-        }
-
-        if (!serviceProvider) {
-            thisNode.log(`${baseMsg} service ${cmdObj.serviceName} does not exist`, true);
-            return null;
-        }
-
-        if (!serviceProvider[cmdObj.method]) {
-            thisNode.log(`${baseMsg} service ${cmdObj.serviceName} does not have method ${cmdObj.method}`, true);
-            return null;
-        }
-
-        if (cmdObj.serviceName === "DRP") {
-            return await drpEndpoint.EndpointCmds[cmdObj.method](cmdObj.params, drpEndpoint);
-        } else {
-            return await thisNode.Services[cmdObj.serviceName].ClientCmds[cmdObj.method](cmdObj.params, drpEndpoint);
-        }
-    }
-
-    // Easier way of executing a command with the option of routing via the control plane
-    async RunCommand(serviceName, cmd, params, targetNodeID, useControlPlane, awaitResponse, callingEndpoint) {
-        let thisNode = this;
 
         // If if no service or command is provided, return null
-        if (!serviceName || !cmd) return null;
+        if (!serviceName || !method) return "ServiceCmd: must provide serviceName and method";
 
         // If no targetNodeID was provided, we should attempt to locate the target service
         if (!targetNodeID) {
@@ -1292,17 +1149,48 @@ class DRP_Node {
         // Where is the service?
         if (targetNodeID === thisNode.NodeID) {
             // Execute locally
+            let localServiceProvider = null;
+            if (serviceName === "DRP") {
+                if (!callingEndpoint) return "No calling endpoint specified; required to execute DRP commands";
+                localServiceProvider = callingEndpoint.EndpointCmds;
+            } else {
+                if (thisNode.Services[serviceName]) localServiceProvider = thisNode.Services[serviceName].ClientCmds;
+            }
+
+            if (!localServiceProvider) {
+                thisNode.log(`${baseMsg} service ${serviceName} does not exist`, true);
+                return null;
+            }
+
+            if (!localServiceProvider[method]) {
+                thisNode.log(`${baseMsg} service ${serviceName} does not have method ${method}`, true);
+                return null;
+            }
+
             if (awaitResponse) {
-                let results = await thisNode.LocalServiceCommand(new DRP_Cmd(serviceName, cmd, params), callingEndpoint);
+                let results = await localServiceProvider[method](params, callingEndpoint);
                 return results;
             } else {
-                thisNode.LocalServiceCommand(new DRP_Cmd(serviceName, cmd, params));
+                localServiceProvider[method](params, callingEndpoint);
                 return;
             }
         } else {
             // Execute on another Node
             let routeNodeID = targetNodeID;
-            let routeOptions = null;
+            let routeOptions = {};
+
+            if (!useControlPlane) {
+                // Make sure either the local Node or remote Node are listening; if not, route via control plane
+                let localNodeEntry = thisNode.TopologyTracker.NodeTable[thisNode.NodeID];
+                let remoteNodeEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
+
+                if (!remoteNodeEntry) return `Tried to contact Node[${targetNodeID}], not in NodeTable`;
+
+                if (!localNodeEntry.NodeURL && !remoteNodeEntry.NodeURL) {
+                    // Neither the local node nor the remote node are listening, use control plane
+                    useControlPlane = true;
+                }
+            }
 
             if (useControlPlane) {
                 // We want to use to use the control plane instead of connecting directly to the target
@@ -1317,93 +1205,19 @@ class DRP_Node {
 
             let routeNodeConnection = await thisNode.VerifyNodeConnection(routeNodeID);
 
+            if (!routeNodeConnection) {
+                let errMsg = `Could not establish connection from Node[${thisNode.NodeID}] to Node[${routeNodeID}]`;
+                thisNode.log(`ERROR - ${errMsg}`);
+                return errMsg;
+            }
+
             if (awaitResponse) {
-                let cmdResponse = await routeNodeConnection.SendCmd(serviceName, cmd, params, true, null, routeOptions, targetNodeID);
+                let cmdResponse = await routeNodeConnection.SendCmd(serviceName, method, params, true, null, routeOptions, targetNodeID);
                 return cmdResponse.payload;
             } else {
-                routeNodeConnection.SendCmd(serviceName, cmd, params, false, null, routeOptions, targetNodeID);
+                routeNodeConnection.SendCmd(serviceName, method, params, false, null, routeOptions, targetNodeID);
                 return;
             }
-        }
-    }
-
-    /**
-     * @param {DRP_Cmd} cmdObj Command object
-     * @param {DRP_Endpoint} sourceEndpoint Requesting Endpoint
-     * @param {string} token Reply token
-     * @return {object} Response
-    */
-    async ServiceCommand(cmdObj, sourceEndpoint, token) {
-        let thisNode = this;
-
-        let baseMsg = "ERR executing ServiceCommand:";
-        if (!cmdObj) {
-            this.log(`${baseMsg} cmdObj not supplied`, true);
-            return null;
-        }
-        if (!cmdObj.serviceName) {
-            this.log(`${baseMsg} cmdObj.serviceName not supplied`, true);
-            return null;
-        }
-        if (!cmdObj.method) {
-            this.log(`${baseMsg} cmdObj.method not supplied`, true);
-            return null;
-        }
-
-        // Are we being asked to execute locally?
-        if (cmdObj.runNodeID && cmdObj.runNodeID === thisNode.NodeID) {
-            let results = await thisNode.LocalServiceCommand(cmdObj, sourceEndpoint);
-            return results;
-        }
-
-        // Update to use the DRP_TopologyTracker object
-        let targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(cmdObj.serviceName);
-
-        // If no match is found then return null
-        if (!targetServiceRecord) return null;
-
-        // Assign target Node & Instance IDs
-        let targetInstanceID = targetServiceRecord.InstanceID;
-        let targetNodeID = targetServiceRecord.NodeID;
-
-        if (thisNode.Debug) thisNode.log(`Best instance of service [${cmdObj.serviceName}] is [${targetInstanceID}] on node [${targetNodeID}]`, true);
-
-        if (targetNodeID === thisNode.NodeID) {
-            // The service instance is local; execute here
-
-            // Need to make adjustment so that we can specify the InstanceID instead of just the ServiceName in the cmdObj
-            let results = await thisNode.LocalServiceCommand(cmdObj, sourceEndpoint);
-            return results;
-        } else {
-            // The service instance is remote; execute on another node
-
-            // Finally, make sure that we can talk to the Provider.  One of the following must be true...
-            // * This node is listening (broker/registry)
-            // * The target node is listening
-
-            /** @type DRP_NodeClient */
-            let thisNodeClient = null;
-
-            if (thisNode.IsBroker() || thisNode.IsRegistry() || this.NodeDeclarations[targetNodeID].NodeURL) {
-                // Verify connection to target node
-                thisNodeClient = await this.VerifyNodeConnection(targetNodeID);
-            } else {
-                // Verify connection to Broker node
-                let brokerNodeID = thisNode.FindBroker();
-                if (brokerNodeID) {
-                    thisNodeClient = await this.VerifyNodeConnection(brokerNodeID);
-                }
-            }
-
-            if (thisNodeClient) {
-                // Await for command from remote node
-                let returnObj = null;
-                let results = await thisNodeClient.SendCmd(cmdObj.serviceName, cmdObj.method, cmdObj.params, true, null, null, targetNodeID);
-                if (results && results.payload && results.payload) {
-                    returnObj = results.payload;
-                }
-                return returnObj;
-            } else return null;
         }
     }
 
@@ -1920,8 +1734,8 @@ class DRP_Node {
             let topologyNode = {};
 
             let nodeTableEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
-            let nodeClientConnections = await thisNode.RunCommand("DRP", "listClientConnections", null, targetNodeID, true, true, callingEndpoint);
-            let nodeServices = await thisNode.RunCommand("DRP", "getLocalServiceDefinitions", null, targetNodeID, true, true, callingEndpoint);
+            let nodeClientConnections = await thisNode.ServiceCmd("DRP", "listClientConnections", null, targetNodeID, true, true, callingEndpoint);
+            let nodeServices = await thisNode.ServiceCmd("DRP", "getLocalServiceDefinitions", null, targetNodeID, true, true, callingEndpoint);
 
             // Assign Node Table Entry attributes
             Object.assign(topologyNode, nodeTableEntry);
@@ -2220,7 +2034,7 @@ class DRP_Node {
             if (authenticationServiceRecord) authenticationServiceName = authenticationServiceRecord.Name;
         }
         if (authenticationServiceName) {
-            authResponse = await thisNode.RunCommand(authenticationServiceName, "authenticate", new DRP_AuthRequest(userName, password, token), null, true, true, null);
+            authResponse = await thisNode.ServiceCmd(authenticationServiceName, "authenticate", new DRP_AuthRequest(userName, password, token), null, true, true, null);
         } else {
             // No authentication service found
             if (thisNode.Debug) thisNode.log(`Attempted to authenticate Consumer but no Authenticator was specified or found`);

@@ -249,7 +249,7 @@
                 };
 
                 /** @type {Object.<string, topologyNode>}} */
-                let topologyObj = await myApp.sendCmd(null, "getTopology", null, true);
+                let topologyObj = await myApp.sendCmd("DRP", "getTopology", null, true);
                 myApp.appFuncs.importMeshTopology(topologyObj);
             }
         };
