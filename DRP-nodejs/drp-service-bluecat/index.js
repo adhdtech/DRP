@@ -58,6 +58,7 @@ class BlueCatMgmtHost {
             "ConfigurationID": 0,
             "Views": {}
         };
+        /** @type {BlueCatManager} */
         this.bcMgr = params.bcMgr;
     }
 
@@ -139,6 +140,15 @@ class BlueCatMgmtHost {
             // Get Zones
             viewObj.Zones = {};
             await thisBcMgmtHost.GetAllSubZones(viewObj.id, viewObj.Zones);
+        }
+
+        // Set default view to first entry if it's not already set
+        let defaultView = thisBcMgmtHost.bcMgr.defaultView;
+        if (!defaultView || defaultView && !thisBcMgmtHost.config.Views[defaultView]) {
+            let viewNameList = Object.keys(thisBcMgmtHost.config.Views);
+            if (viewNameList.length) {
+                thisBcMgmtHost.bcMgr.defaultView = viewNameList[0];
+            }
         }
     }
 
@@ -299,15 +309,19 @@ class BlueCatMgmtHost {
         return response; //[0].id;
     }
 
-    async AssignIP4Address(configId, ipAddress, hostName) {
+    async AssignIP4Address(configId, ipAddress, hostName, createARecord) {
         let thisBcMgmtHost = this;
-        let internalViewId = thisBcMgmtHost.config.Views["internal"].id;
+        let hostInfo = "";
+        if (createARecord) {
+            let defaultViewId = thisBcMgmtHost.config.Views[thisBcMgmtHost.bcMgr.defaultView].id;
+            hostInfo = `${hostName},${defaultViewId},true,false`;
+        }
         // Get Configuration ObjectID
         let response = await thisBcMgmtHost.ExecuteCommand("assignIP4Address", {
             configurationId: configId,
             ip4Address: ipAddress,
             macAddress: "",
-            hostInfo: `${hostName},${internalViewId},true,false`,
+            hostInfo: hostInfo,
             action: "MAKE_STATIC",
             properties: `name=${hostName}`
         }, "post", true);
@@ -481,12 +495,16 @@ class BlueCatManager extends DRP_Service {
     *
     * @param {string} serviceName Service Name
     * @param {drpNode} drpNode DRP Node
+    * @param {number} priority Priority (lower better)
+    * @param {number} weight Weight (higher better)
+    * @param {string} scope Scope [local|zone|global(defaut)]
     * @param {string[]} bcHosts BlueCat Management Hosts
     * @param {string} bcUser BlueCat User
     * @param {string} bcPass BlueCat Password
+    * @param {string} defaultView Default view name
     */
-    constructor(serviceName, drpNode, bcHosts, bcUser, bcPass) {
-        super(serviceName, drpNode, "BlueCatManager", `${drpNode.NodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, null, 1);
+    constructor(serviceName, drpNode, priority, weight, scope, bcHosts, bcUser, bcPass, defaultView) {
+        super(serviceName, drpNode, "BlueCatManager", `${drpNode.NodeID}-${serviceName}`, false, priority, weight, drpNode.Zone, scope, null, null, 1);
         let thisBcMgr = this;
 
         /** @type {Object.<string, BlueCatMgmtHost>} */
@@ -494,6 +512,8 @@ class BlueCatManager extends DRP_Service {
 
         /** @type {BlueCatMgmtHost} */
         this.activeMember = null;
+
+        this.defaultView = defaultView || null;
 
         this.config = null;
 
@@ -561,16 +581,19 @@ class BlueCatManager extends DRP_Service {
             "assignIP4Address": async function (cmdObj) {
                 let ipAddress = null;
                 let hostName = "";
+                let createARecord = false;
                 let returnObj = null;
                 if (cmdObj.pathList && cmdObj.pathList.length >= 1) {
                     ipAddress = cmdObj.pathList[0];
                     hostName = cmdObj.pathList[1];
+                    if (cmdObj.pathList[2]) createARecord = true;
                 }
                 if (cmdObj.ipAddress) {
                     ipAddress = cmdObj.ipAddress;
                     if (cmdObj.hostName) hostName = cmdObj.hostName;
+                    if (cmdObj.createARecord) createARecord = true;
                 }
-                if (ipAddress) returnObj = await thisBcMgr.activeMember.AssignIP4Address(thisBcMgr.activeMember.config.ConfigurationID, ipAddress, hostName);
+                if (ipAddress) returnObj = await thisBcMgr.activeMember.AssignIP4Address(thisBcMgr.activeMember.config.ConfigurationID, ipAddress, hostName, createARecord);
                 return returnObj;
             },
             "unassignIP4Address": async function (cmdObj) {
