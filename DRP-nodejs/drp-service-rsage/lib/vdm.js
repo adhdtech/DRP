@@ -6,6 +6,7 @@ const Express_Request = express.request;
 const Express_Response = express.response;
 const DRP_AuthResponse = require('drp-mesh').Auth.DRP_AuthResponse;
 const basicAuth = require('express-basic-auth');
+const fs = require('fs').promises;
 
 class VDMServer_UserAppInstance {
     constructor(conn, appletIndex, appletName, vdmServer) {
@@ -18,9 +19,9 @@ class VDMServer_UserAppInstance {
 
     RemoveSubscriptions() {
         // Remove subscription hooks specific to app
-        var userAppObj = this;
-        for (var subIdx in userAppObj.subscriptions) {
-            var publisherObj = userAppObj.subscriptions[subIdx];
+        let userAppObj = this;
+        for (let subIdx in userAppObj.subscriptions) {
+            let publisherObj = userAppObj.subscriptions[subIdx];
             publisherObj['subscribers'].splice(publisherObj['subscribers'].indexOf(userAppObj), 1);
         }
         userAppObj['subscriptions'] = [];
@@ -28,26 +29,38 @@ class VDMServer_UserAppInstance {
 
     SubscribeTo(publisherObj) {
         // Add subscription hook
-        var userAppObj = this;
+        let userAppObj = this;
         publisherObj['subscribers'].push(userAppObj);
         userAppObj['subscriptions'].push(publisherObj);
     }
 
     UnsubscribeFrom(publisherObj) {
         // Remove subscription hook
-        var userAppObj = this;
+        let userAppObj = this;
         publisherObj['subscribers'].splice(publisherObj['subscribers'].indexOf(userAppObj), 1);
         userAppObj['subscriptions'].splice(userAppObj['subscriptions'].indexOf(publisherObj), 1);
     }
 
     ToObject() {
         // Return this
-        var returnObj = {};
-        var userAppObj = this;
+        let returnObj = {};
+        let userAppObj = this;
         returnObj.appletIndex = userAppObj.appletIndex;
         returnObj.appletName = userAppObj.appletName;
         //returnObj.remoteAddress = userAppObj.remoteAddress;
         return returnObj;
+    }
+}
+
+class VDMAppletProfile {
+    constructor(appletName, title, sizeX, sizeY, appletIcon, showInMenu, appletScript) {
+        this.appletName = appletName;
+        this.title = title;
+        this.sizeX = sizeX;
+        this.sizeY = sizeY;
+        this.appletIcon = appletIcon;
+        this.showInMenu = showInMenu;
+        this.appletScript = appletScript;
     }
 }
 
@@ -57,8 +70,9 @@ class VDMServer extends DRP_Service {
      * @param {string} serviceName Service Name
      * @param {DRP_Node} drpNode DRP Node
      * @param {string} clientDirectory Client directory
+     * @param {string} vdmAppletsDir VDMApplets directory
      */
-    constructor(serviceName, drpNode, clientDirectory) {
+    constructor(serviceName, drpNode, clientDirectory, vdmAppletsDir) {
         super(serviceName, drpNode, "VDM", `${drpNode.NodeID}-${serviceName}`, true, 10, 10, drpNode.Zone, "local", null, null, 1);
 
         /** @type {Express_Application} */
@@ -66,6 +80,7 @@ class VDMServer extends DRP_Service {
 
         // Serve up static docs
         this.clientStaticDir = clientDirectory;
+        this.vdmAppletsDir = vdmAppletsDir;
         this.expressApp.use(express.static(clientDirectory));
 
         // Define Authorizer
@@ -98,7 +113,8 @@ class VDMServer extends DRP_Service {
             if (userAgentString.includes(" Quest")) {
                 res.sendFile("oculus.html", { "root": clientDirectory });
             } else {
-                res.sendFile("client.html", { "root": clientDirectory });
+                //res.sendFile("client.html", { "root": clientDirectory });
+                res.send(thisVDMServer.GetClientHtml());
             }
             //res.redirect('client.html');
             return;
@@ -111,7 +127,10 @@ class VDMServer extends DRP_Service {
 
         this.clientSessions = {};
 
+        this.AppletProfiles = {};
+
         this.ClientCmds = {
+            "getAppletProfiles": async (...args) => { return await this.GetAppletProfiles(...args); },
             "listClientSessions": function () {
                 let returnObj = {};
                 let clientSessionIDList = Object.keys(thisVDMServer.clientSessions);
@@ -150,25 +169,126 @@ class VDMServer extends DRP_Service {
 
                 return returnObj;
             },
-            "openUserApp": function (params, wsConn) {
+            "openUserApp": (params, wsConn) => {
                 thisVDMServer.OpenUserApp(params, wsConn);
             },
-            "closeUserApp": function (params, wsConn) {
+            "closeUserApp": (params, wsConn) => {
                 thisVDMServer.CloseUserApp(params, wsConn);
+            },
+            "uploadApplet": async (params, wsConn) => {
+                thisVDMServer.AddApplet(params.appletName, params.title, params.sizeX, params.sizeY, params.appletIcon, params.showInMenu, params.appletScript);
+                if (params.appletContents) {
+                    let outputFilePath = `${thisVDMServer.clientStaticDir}/${thisVDMServer.vdmAppletsDir}/${params.appletScript}`;
+                    let outputFileData = params.appletContents;
+                    let saveResults = await fs.writeFile(outputFilePath, outputFileData);
+                    return saveResults;
+                } else {
+                    return null;
+                }
+            },
+            "removeApplet": async (params, wsConn) => {
+                return thisVDMServer.RemoveApplet(params.appletName);
             }
 
         };
-
-        /*
-        thisVDMServer.GenerateID = function () {
-            return intformat(idGenerator.next(), 'dec');
-        };
-        */
 
         this.expressApp.use(function vdmServerAttachHandler(req, res, next) {
             req.VDMServer = thisVDMServer;
             next();
         });
+    }
+
+    /**
+     * 
+     * @param {string} appletName Applet name
+     * @param {string} title Window title
+     * @param {integer} sizeX Window width
+     * @param {interger} sizeY Window height
+     * @param {any} appletIcon Applet icon
+     * @param {any} showInMenu Should it show in menu
+     * @param {any} appletScript Script to execute
+     */
+    AddApplet(appletName, title, sizeX, sizeY, appletIcon, showInMenu, appletScript) {
+        if (appletName && title && sizeX & sizeY && appletScript) {
+            let newAppletProfile = new VDMAppletProfile(appletName, title, sizeX, sizeY, appletIcon, showInMenu, appletScript);
+            this.AppletProfiles[newAppletProfile.appletName] = newAppletProfile;
+        }
+    }
+
+    RemoveApplet(appletName) {
+        delete this.AppletProfiles[appletName];
+    }
+
+    /**
+     * 
+     * @param {DRP_AuthResponse} authInfo User auth info
+     * @returns {string} Return HTML
+     */
+    GetClientHtml() {
+        let thisVDMServer = this;
+        let returnHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>rSage Desktop</title>
+    <meta name="msapplication-TileColor" content="#5bc0de" />
+
+    <!-- External CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+
+    <!-- VDM -->
+    <link rel="stylesheet" href="assets/rsage-vdm/css/vdm.css">
+
+</head>
+<body>
+
+    <div id="vdmDesktop"></div>
+
+    <!-- External Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/js/bootstrap.min.js"></script>
+
+    <!-- VDM -->
+    <script src="assets/rsage-vdm/js/vdmCore.js"></script>
+    <script src="assets/rsage-vdm/js/vdmClient.js"></script>
+
+    <!-- VDM Client script -->
+    <script>
+window.onload = function () {
+    // Get target DIV
+    let mainPage = document.getElementById('vdmDesktop');
+
+    // Get protocol
+    let vdmSvrProt = location.protocol.replace("http", "ws");
+    let vdmSvrHost = location.host.split(":")[0];
+    let vdmPortString = "";
+    let vdmPort = location.host.split(":")[1];
+    if (vdmPort) {
+        vdmPortString = ":" + vdmPort;
+    }
+    let vdmSvrWSTarget = vdmSvrProt + "//" + vdmSvrHost + vdmPortString;
+
+    // Set applets path
+    let vdmAppletsPath = "${thisVDMServer.vdmAppletsDir}";
+
+    let myVDMDesktop = new VDMDesktop(mainPage, "rSage Desktop", vdmAppletsPath);
+
+    let vdmClient = new VDMClient(myVDMDesktop);
+
+    vdmClient.startSession(vdmSvrWSTarget);
+};
+    </script>
+
+</body>
+</html>`;
+        return returnHtml;
+    }
+
+    GetAppletProfiles() {
+        return this.AppletProfiles;
     }
 
     OpenUserApp(params, wsConn) {
@@ -199,7 +319,7 @@ class VDMServer extends DRP_Service {
     }
 
     LogWSClientEvent(conn, logMsg) {
-        var thisVDMServer = this;
+        let thisVDMServer = this;
         thisVDMServer.drpNode.log(logMsg);
     }
 }

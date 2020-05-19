@@ -71,7 +71,11 @@ myAuthenticator.Authenticate = async function (authRequest) {
 myNode.AddService(myAuthenticator);
 
 // Create VDM Server on node
-let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot);
+let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot, "vdmapplets");
+myVDMServer.AddApplet("CommandTesting", "Command Testing", 850, 400, "fa-book", true, "vdm-app-CommandTesting.js");
+myVDMServer.AddApplet("DRPTopology", "DRP Topology", 950, 600, "fa-list-alt", true, "vdm-app-DRPTopology.js");
+myVDMServer.AddApplet("HiveBrowser", "Hive Browser", 800, 400, "fa-book", true, "vdm-app-HiveBrowser.js");
+myVDMServer.AddApplet("RickRoll", "Rick Roll", 620, 400, "fa-list-alt", false, "vdm-app-RickRoll.js");
 
 myNode.AddService(myVDMServer);
 myNode.AddStream("RESTLogs", "REST service logs");
@@ -79,7 +83,7 @@ myNode.AddStream("dummy", "dummy logs");
 myNode.EnableREST("/Mesh", "Mesh");
 
 // Add another service for demo
-let docService = new docManager("JSONDocMgr", myNode, "jsondocs/");
+let docService = new docManager("DocMgr", myNode, "jsondocs/");
 myNode.AddService(docService);
 
 if (myNode.nodeURL) {
@@ -89,5 +93,4 @@ if (myNode.nodeURL) {
 setInterval(function () {
     let timeStamp = new Date().getTime();
     myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.NodeID}]`);
-    //if (myNode.Debug) myNode.log(`${timeStamp} Dummy message from node [${myNode.NodeID}]`);
 }, 3000);

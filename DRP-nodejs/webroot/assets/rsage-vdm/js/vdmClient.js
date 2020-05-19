@@ -616,15 +616,25 @@ class VDMServerAgent extends DRP_Client_Browser {
 
         if (!response) window.location.reload();
 
-        //let response = await thisVDMServerAgent.SendCmd(thisVDMServerAgent.wsConn, "VDM", "userLoginRequest", { "sessionID": thisVDMServerAgent.sessionID }, true, null);
-
-        //thisVDMServerAgent.vdmClient.processLoginStatus(response.payload, thisVDMServerAgent.reconnect);
-        thisVDMServerAgent.vdmClient.vdmDesktop.loadDesktop();
         thisVDMServerAgent.vdmClient.vdmDesktop.changeLEDColor('green');
+
+        // If we don't have any appletProfiles, request them
+        if (Object.keys(thisVDMServerAgent.vdmClient.vdmDesktop.appletProfiles).length) return;
+        let appletProfiles = {};
+        let getAppletProfilesResponse = await thisVDMServerAgent.SendCmd("VDM", "getAppletProfiles", null, true, null);
+        if (getAppletProfilesResponse && getAppletProfilesResponse.payload) appletProfiles = getAppletProfilesResponse.payload;
+        let appletProfileNames = Object.keys(appletProfiles);
+        for (let i = 0; i < appletProfileNames.length; i++) {
+            let thisAppletProfile = appletProfiles[appletProfileNames[i]];
+            // Manually add the vdmClient to the appletProfile
+            thisAppletProfile.vdmClient = thisVDMServerAgent.vdmClient;
+            thisVDMServerAgent.vdmClient.vdmDesktop.addAppletProfile(thisAppletProfile);
+        }
+
+        thisVDMServerAgent.vdmClient.vdmDesktop.loadAppletProfiles();
     }
 
     async CloseHandler(closeCode) {
-        //console.log("Broker to Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
         let thisVDMServerAgent = this;
         thisVDMServerAgent.Disconnect();
     }

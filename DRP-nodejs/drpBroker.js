@@ -49,7 +49,11 @@ console.log(`Starting DRP Node...`);
 let myNode = new DRP_Node(roleList, hostID, myWebServer, drpWSRoute, myServerConfig.NodeURL, null, domainName, domainKey, zoneName, debug, testMode, authenticatorService);
 
 // Create VDM Server on node
-let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot);
+let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot, "vdmapplets");
+myVDMServer.AddApplet("CommandTesting", "Command Testing", 850, 400, "fa-book", true, "vdm-app-CommandTesting.js");
+myVDMServer.AddApplet("DRPTopology", "DRP Topology", 950, 600, "fa-list-alt", true, "vdm-app-DRPTopology.js");
+myVDMServer.AddApplet("HiveBrowser", "Hive Browser", 800, 400, "fa-book", true, "vdm-app-HiveBrowser.js");
+myVDMServer.AddApplet("RickRoll", "Rick Roll", 620, 400, "fa-list-alt", false, "vdm-app-RickRoll.js");
 
 myNode.AddService(myVDMServer);
 myNode.AddStream("RESTLogs", "REST service logs");

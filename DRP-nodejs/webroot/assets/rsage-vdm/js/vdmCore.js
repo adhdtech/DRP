@@ -6,7 +6,7 @@
  * @param {Object.<string,VDMAppletProfile>} appletProfiles Dictionary of applet profiles
  */
 class VDMDesktop {
-    constructor(vdmDiv, vdmTitle, appletProfiles) {
+    constructor(vdmDiv, vdmTitle, appletPath) {
         let thisVDMDesktop = this;
 
         // VDM Desktop DIV
@@ -19,10 +19,13 @@ class VDMDesktop {
         this.currentWindowDiv = null;
 
         // App Profiles
-        this.appletProfiles = appletProfiles;
+        this.appletProfiles = {};
 
         /** @type {Object.<string,VDMApplet>} */
         this.appletInstances = {};
+
+        // Applet base path
+        this.appletPath = appletPath || "vdmapplets";
 
         // App Resources
         this.loadedResources = [];
@@ -186,16 +189,16 @@ class VDMDesktop {
             var tmpAppletName = appletProfileList[i];
             var appletDefinition = thisVDMDesktop.appletProfiles[tmpAppletName];
             var tmpScriptPath = appletDefinition.appletScript;
-            if (appletDefinition.appletPath && !appletDefinition.appletScript.match(/https?:\/\//)) {
-                tmpScriptPath = appletDefinition.appletPath + '/' + appletDefinition.appletScript;
+            if (!appletDefinition.appletPath) appletDefinition.appletPath = thisVDMDesktop.appletPath;
+            if (!appletDefinition.appletScript.match(/https?:\/\//)) {
+                tmpScriptPath = thisVDMDesktop.appletPath + '/' + appletDefinition.appletScript;
                 let thisAppletScript = await thisVDMDesktop.fetchURLResource(tmpScriptPath);
                 appletDefinition.appletClass = thisVDMDesktop.evalWithinContext(appletDefinition, thisAppletScript);
-                let success = 1;
             }
         }
     }
 
-    async loadDesktop() {
+    async loadAppletProfiles() {
         let thisVDMDesktop = this;
         if (!thisVDMDesktop.loaded) {
             await thisVDMDesktop.loadAppletScripts();
@@ -206,7 +209,7 @@ class VDMDesktop {
                 if (appletDefinition.showInMenu) {
                     thisVDMDesktop.addDropDownMenuItem(function () {
                         thisVDMDesktop.openApp(appKeyName, null);
-                    }, appletDefinition.appletIcon, appletDefinition.window.title);
+                    }, appletDefinition.appletIcon, appletDefinition.title);
                 }
                 var tmpApp = new appletDefinition.appletClass(appletDefinition);
 
@@ -643,11 +646,9 @@ class VDMAppletProfile {
         this.appletClass = null;
         this.showInMenu = true;
         this.startupScript = "";
-        this.window = {
-            title: "",
-            sizeX: 300,
-            sizeY: 250
-        };
+        this.title = "";
+        this.sizeX = 300;
+        this.sizeY = 250;
     }
 }
 
@@ -781,7 +782,7 @@ class VDMWindow {
 
 class VDMApplet extends VDMWindow {
     constructor(appletProfile) {
-        super(appletProfile.window);
+        super(appletProfile);
 
         let thisVDMApplet = this;
 
