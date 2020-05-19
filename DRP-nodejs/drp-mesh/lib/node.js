@@ -1119,6 +1119,7 @@ class DRP_Node {
     // Execute a service command with the option of routing via the control plane
     async ServiceCmd(serviceName, method, params, targetNodeID, useControlPlane, awaitResponse, callingEndpoint) {
         let thisNode = this;
+        let baseErrMsg = "ERROR - ";
 
         // If the service is DRP and no targetNodeID is specified, set to local
         if (serviceName === "DRP" && !targetNodeID) {
@@ -1158,12 +1159,12 @@ class DRP_Node {
             }
 
             if (!localServiceProvider) {
-                thisNode.log(`${baseMsg} service ${serviceName} does not exist`, true);
+                thisNode.log(`${baseErrMsg} service ${serviceName} does not exist`, true);
                 return null;
             }
 
             if (!localServiceProvider[method]) {
-                thisNode.log(`${baseMsg} service ${serviceName} does not have method ${method}`, true);
+                thisNode.log(`${baseErrMsg} service ${serviceName} does not have method ${method}`, true);
                 return null;
             }
 

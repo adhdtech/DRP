@@ -544,6 +544,82 @@ class NetScalerManager extends DRP_Service {
                 }
                 return returnList;
             },
+            "lookupHostPortEntries": async function (params) {
+                let queryHost = null;
+                let queryPort = null;
+                let returnList = [];
+                if (params.pathList && params.pathList.length >= 2) {
+                    queryHost = params.pathList[0];
+                    queryPort = params.pathList[1];
+                }
+                if (params.queryHost && params.queryPort) {
+                    queryHost = params.queryHost;
+                    queryPort = params.queryPort;
+                }
+
+                let queryIP = null;
+
+                // Is this an FQDN or IP?
+                if (/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(queryHost)) {
+                    // This is an IP
+                    queryIP = queryHost;
+                } else {
+                    // This is a host; resolve to IP
+                    try {
+                        const addresses = await resolver.resolve4(queryHost);
+                        queryIP = addresses.shift();
+                    } catch (ex) {
+                        // Could not resolve address
+                        return returnList;
+                    }
+                }
+
+                // Loop over all sets
+                let pairNames = Object.keys(thisNsMgr.haPairs);
+                for (let i = 0; i < pairNames.length; i++) {
+                    let thisHAPair = thisNsMgr.haPairs[pairNames[i]];
+
+                    // Loop over vServers
+                    let vServerNames = Object.keys(thisHAPair.config.vServers);
+                    for (let j = 0; j < vServerNames.length; j++) {
+
+                        let vServer = thisHAPair.config.vServers[vServerNames[j]];
+                        let returnEntry = {
+                            'haPair': pairNames[i],
+                            'vServer': vServerNames[j],
+                            'vip': vServer['vip'],
+                            'port': vServer['port'],
+                            'protocol': vServer['protocol'],
+                            'options': vServer['options'],
+                            'activeNS': `${thisHAPair.activeMember}`,
+                            'members': []
+                        };
+
+                        // Loop over vServer members
+                        for (let i = 0; i < vServer['bindings'].length; i++) {
+                            let serviceName = vServer['bindings'][i];
+                            // Make sure the Service is found - if not we have a config parsing problem
+                            if (thisHAPair.config.Services[serviceName]) {
+                                let serverName = thisHAPair.config.Services[serviceName]['server'];
+                                let protocol = thisHAPair.config.Services[serviceName]['protocol'];
+                                let port = thisHAPair.config.Services[serviceName]['port'];
+                                let ipAddress = thisHAPair.config.Servers[serverName]['ipAddress'];
+
+                                // Is the IP we're checking a member of this vServer?
+                                if (ipAddress === queryIP && port === queryPort) {
+                                    returnList.push({ "nsPairName": thisHAPair.name, "entryType": "Service", "entryName": serviceName});
+                                }
+                            }
+                        }
+
+                        // If the IP we're checking is either a member of this vServer or matches the VIP, return it
+                        if (vServer['vip'] === queryIP && vServer['port'] === queryPort) {
+                            returnList.push({ "nsPairName": thisHAPair.name, "entryType": "vServer", "entryName": vServerNames[j] });
+                        }
+                    }
+                }
+                return returnList;
+            },
             "enableVServer": async (params) => {
                 let haPair = null;
                 let vServer = null;
