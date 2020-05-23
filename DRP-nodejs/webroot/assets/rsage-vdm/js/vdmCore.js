@@ -205,30 +205,26 @@ class VDMDesktop {
             let profileKeys = Object.keys(thisVDMDesktop.appletProfiles);
             for (let i = 0; i < profileKeys.length; i++) {
                 let appKeyName = profileKeys[i];
-                let appletDefinition = thisVDMDesktop.appletProfiles[appKeyName];
-                if (appletDefinition.showInMenu) {
+                let appletProfile = thisVDMDesktop.appletProfiles[appKeyName];
+                if (appletProfile.showInMenu) {
                     thisVDMDesktop.addDropDownMenuItem(function () {
                         thisVDMDesktop.openApp(appKeyName, null);
-                    }, appletDefinition.appletIcon, appletDefinition.title);
+                    }, appletProfile.appletIcon, appletProfile.title);
                 }
-                var tmpApp = new appletDefinition.appletClass(appletDefinition);
 
-                if (typeof tmpApp.preLoadRun !== "undefined") {
-                    tmpApp.preLoadRun();
-                }
-                if (typeof tmpApp.preReqs !== "undefined" && tmpApp.preReqs.length > 0) {
-                    await thisVDMDesktop.loadAppletResources(appKeyName, tmpApp, 0);
+                if (typeof appletProfile.preReqs !== "undefined" && appletProfile.preReqs.length > 0) {
+                    await thisVDMDesktop.loadAppletResources(appletProfile);
                 }
             }
             thisVDMDesktop.loaded = true;
         }
     }
 
-    async loadAppletResources(appletName, tmpApp) {
+    async loadAppletResources(appletProfile) {
         let thisVDMDesktop = this;
 
-        for (let i = 0; i < tmpApp.preReqs.length; i++) {
-            let preReqHash = tmpApp.preReqs[i];
+        for (let i = 0; i < appletProfile.preReqs.length; i++) {
+            let preReqHash = appletProfile.preReqs[i];
             let preReqKeys = Object.keys(preReqHash);
             for (let j = 0; j < preReqKeys.length; j++) {
                 let preReqType = preReqKeys[j];
@@ -256,9 +252,9 @@ class VDMDesktop {
                         break;
                     case 'JS-Runtime':
 
-                        // Cache for execution at runtime
+                        // Cache for execution at runtime (executes before runStartup)
                         let resourceText = await thisVDMDesktop.fetchURLResource(preReqLocation);
-                        thisVDMDesktop.appletProfiles[appletName].startupScript = resourceText;
+                        appletProfile.startupScript = resourceText;
 
                         break;
                     case 'JSON':
@@ -267,7 +263,7 @@ class VDMDesktop {
 
                             // Cache for use at runtime
                             let resourceText = await thisVDMDesktop.fetchURLResource(preReqLocation);
-                            thisVDMDesktop.sharedJSON[preReqLocation] = httpGetPreReq.responseText;
+                            thisVDMDesktop.sharedJSON[preReqLocation] = resourceText;
 
                         }
                         break;

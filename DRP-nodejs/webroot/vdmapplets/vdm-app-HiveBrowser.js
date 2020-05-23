@@ -3,11 +3,6 @@
         super(appletProfile, vdmClient);
         let myApp = this;
 
-        // Prerequisites
-        myApp.preReqs = [
-            { "CSS": myApp.appletPath + "/vdm-app-HiveBrowser.css" }
-        ];
-
         // Dropdown menu items
         myApp.menu = {
             "General":

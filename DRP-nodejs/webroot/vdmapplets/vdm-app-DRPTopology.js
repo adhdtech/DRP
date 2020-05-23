@@ -30,16 +30,6 @@
             }
         }
 
-        // Prerequisites
-        myApp.preReqs = [{
-            "JS": "/assets/cytoscape/js/cytoscape.min.js"
-        }, {
-            "JS": "/assets/cytoscape/js/cytoscape-context-menus.js"
-        }, {
-            "CSS": "/assets/cytoscape/css/cytoscape-context-menus.css"
-        }
-        ];
-
         // Dropdown menu items
         myApp.menu = {
             "View": {

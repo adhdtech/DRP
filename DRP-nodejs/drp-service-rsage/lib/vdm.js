@@ -53,7 +53,7 @@ class VDMServer_UserAppInstance {
 }
 
 class VDMAppletProfile {
-    constructor(appletName, title, sizeX, sizeY, appletIcon, showInMenu, appletScript) {
+    constructor(appletName, title, sizeX, sizeY, appletIcon, showInMenu, appletScript, preReqs) {
         this.appletName = appletName;
         this.title = title;
         this.sizeX = sizeX;
@@ -61,6 +61,7 @@ class VDMAppletProfile {
         this.appletIcon = appletIcon;
         this.showInMenu = showInMenu;
         this.appletScript = appletScript;
+        this.preReqs = preReqs || [];
     }
 }
 
@@ -176,12 +177,19 @@ class VDMServer extends DRP_Service {
                 thisVDMServer.CloseUserApp(params, wsConn);
             },
             "uploadApplet": async (params, wsConn) => {
-                thisVDMServer.AddApplet(params.appletName, params.title, params.sizeX, params.sizeY, params.appletIcon, params.showInMenu, params.appletScript);
+                // Create new Applet Profile
+                let newAppletProfile = thisVDMServer.AddAppletProfile(params.appletName, params.title, params.sizeX, params.sizeY, params.appletIcon, params.showInMenu, params.appletScript, params.preReqs);
+                if (!newAppletProfile || !newAppletProfile.appletName) return "ERROR";
+
+                // Save Applet Profile
+                let outputJSONPath = `${thisVDMServer.clientStaticDir}/${thisVDMServer.vdmAppletsDir}/vdm-app-${newAppletProfile.appletName}.json`;
+                await fs.writeFile(outputJSONPath, JSON.stringify(newAppletProfile));
                 if (params.appletContents) {
-                    let outputFilePath = `${thisVDMServer.clientStaticDir}/${thisVDMServer.vdmAppletsDir}/${params.appletScript}`;
+                    // Save Applet Script
+                    let outputScriptPath = `${thisVDMServer.clientStaticDir}/${thisVDMServer.vdmAppletsDir}/${params.appletScript}`;
                     let outputFileData = params.appletContents;
-                    let saveResults = await fs.writeFile(outputFilePath, outputFileData);
-                    return saveResults;
+                    await fs.writeFile(outputScriptPath, outputFileData);
+                    return null;
                 } else {
                     return null;
                 }
@@ -196,6 +204,26 @@ class VDMServer extends DRP_Service {
             req.VDMServer = thisVDMServer;
             next();
         });
+
+        this.LoadApplets();
+    }
+
+    async LoadApplets() {
+        let thisVDMServer = this;
+        // List applet profiles
+        let dirData = await fs.readdir(thisVDMServer.clientStaticDir + '/' + thisVDMServer.vdmAppletsDir);
+        for (var i = 0; i < dirData.length; i++) {
+            let fileName = dirData[i];
+
+            if (fileName.match(/^vdm-app-.*\.json$/)) {
+                // Load each profile
+                let fileData = await fs.readFile(thisVDMServer.clientStaticDir + '/' + thisVDMServer.vdmAppletsDir + '/' + fileName, 'utf8');
+                /** @type {VDMAppletProfile} */
+                let appletProfile = JSON.parse(fileData);
+                //console.dir(appletProfile);
+                thisVDMServer.AddAppletProfile(appletProfile.appletName, appletProfile.title, appletProfile.sizeX, appletProfile.sizeY, appletProfile.appletIcon, appletProfile.showInMenu, appletProfile.appletScript, appletProfile.preReqs);
+            }
+        }
     }
 
     /**
@@ -207,11 +235,14 @@ class VDMServer extends DRP_Service {
      * @param {any} appletIcon Applet icon
      * @param {any} showInMenu Should it show in menu
      * @param {any} appletScript Script to execute
+     * @param {Object.<string,string>[]} preReqs Pre-requisites
+     * @returns {VDMAppletProfile} New applet profile
      */
-    AddApplet(appletName, title, sizeX, sizeY, appletIcon, showInMenu, appletScript) {
+    AddAppletProfile(appletName, title, sizeX, sizeY, appletIcon, showInMenu, appletScript, preReqs) {
         if (appletName && title && sizeX & sizeY && appletScript) {
-            let newAppletProfile = new VDMAppletProfile(appletName, title, sizeX, sizeY, appletIcon, showInMenu, appletScript);
+            let newAppletProfile = new VDMAppletProfile(appletName, title, sizeX, sizeY, appletIcon, showInMenu, appletScript, preReqs);
             this.AppletProfiles[newAppletProfile.appletName] = newAppletProfile;
+            return newAppletProfile;
         }
     }
 

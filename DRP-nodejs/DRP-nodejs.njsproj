@@ -122,10 +122,14 @@ AUTHENTICATORSERVICE=TestAuthenticator</Environment>
     <Content Include="webroot\vdmapp.js" />
     <Content Include="webroot\vdmapplets\vdm-app-Blank.js" />
     <Content Include="webroot\vdmapplets\vdm-app-CommandTesting.js" />
+    <Content Include="webroot\vdmapplets\vdm-app-CommandTesting.json" />
     <Content Include="webroot\vdmapplets\vdm-app-DRPTopology.js" />
+    <Content Include="webroot\vdmapplets\vdm-app-DRPTopology.json" />
     <Content Include="webroot\vdmapplets\vdm-app-HiveBrowser.css" />
     <Content Include="webroot\vdmapplets\vdm-app-HiveBrowser.js" />
+    <Content Include="webroot\vdmapplets\vdm-app-HiveBrowser.json" />
     <Content Include="webroot\vdmapplets\vdm-app-RickRoll.js" />
+    <Content Include="webroot\vdmapplets\vdm-app-RickRoll.json" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="cucm-sql-async\" />
