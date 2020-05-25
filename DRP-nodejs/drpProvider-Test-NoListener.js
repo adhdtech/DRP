@@ -56,7 +56,7 @@ let openAPIDoc = {
                         }
                     }
                 },
-                "x-swagger-router-controller": "JSONDocMgr"
+                "x-swagger-router-controller": "TestService"
             }
         },
         "/ClientCmds/sayBye": {
@@ -79,7 +79,7 @@ let openAPIDoc = {
                         }
                     }
                 },
-                "x-swagger-router-controller": "JSONDocMgr"
+                "x-swagger-router-controller": "TestService"
             }
         }
     },

@@ -2,18 +2,20 @@
 
 const DRP_Service = require('drp-mesh').Service;
 
+const MongoClient = require('mongodb').MongoClient;
+const MongoDB = require('mongodb').Db;
 const fs = require('fs').promises;
 
 let openAPIDoc = {
     "openapi": "3.0.1",
     "info": {
-        "title": "JSONDocMgr",
-        "description": "This API is used to store JSON documents",
+        "title": "DocMgr",
+        "description": "This API is used to store documents",
         "version": "1.0.1"
     },
     "servers": [
         {
-            "url": "/Mesh/Services/JSONDocMgr"
+            "url": "/Mesh/Services/DocMgr"
         }
     ],
     "tags": [
@@ -23,17 +25,17 @@ let openAPIDoc = {
         }
     ],
     "paths": {
-        "/ClientCmds/listFiles": {
+        "/ClientCmds/listDocs": {
             "get": {
                 "tags": [
                     "ClientCmds"
                 ],
-                "summary": "List JSON documents",
-                "description": "Returns list of JSON documents",
-                "operationId": "listFiles",
+                "summary": "List documents",
+                "description": "Returns list of documents",
+                "operationId": "listDocs",
                 "responses": {
                     "200": {
-                        "description": "Found list of JSON documents",
+                        "description": "Found list of documents",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -47,26 +49,26 @@ let openAPIDoc = {
                         "content": {}
                     },
                     "404": {
-                        "description": "No JSON documents",
+                        "description": "No documents",
                         "content": {}
                     }
                 },
-                "x-swagger-router-controller": "JSONDocMgr"
+                "x-swagger-router-controller": "DocMgr"
             }
         },
-        "/ClientCmds/loadFile/{fileName}": {
+        "/ClientCmds/loadDoc/{docName}": {
             "get": {
                 "tags": [
                     "ClientCmds"
                 ],
-                "summary": "Get JSON document",
-                "description": "Returns JSON document",
-                "operationId": "loadFile",
+                "summary": "Get document",
+                "description": "Returns document",
+                "operationId": "loadDoc",
                 "parameters": [
                     {
-                        "name": "fileName",
+                        "name": "docName",
                         "in": "path",
-                        "description": "File name to retrieve",
+                        "description": "Doc name to retrieve",
                         "required": true,
                         "schema": {
                             "type": "string"
@@ -89,11 +91,11 @@ let openAPIDoc = {
                         "content": {}
                     },
                     "404": {
-                        "description": "JSON document not found",
+                        "description": "Document not found",
                         "content": {}
                     }
                 },
-                "x-swagger-router-controller": "JSONDocMgr"
+                "x-swagger-router-controller": "DocMgr"
             }
         }
     },
@@ -117,85 +119,188 @@ let openAPIDoc = {
     ]
 };
 
-class JSONDocManager extends DRP_Service {
+class DocManager extends DRP_Service {
     /**
      * 
      * @param {string} serviceName Service Name
      * @param {drpNode} drpNode DRP Node
      * @param {string} basePath Base path
+     * @param {string} mongoHost Mongo Host
+     * @param {string} mongoUser Mongo User
+     * @param {string} mongoPw Mongo Password
      */
-    constructor(serviceName, drpNode, basePath) {
-        super(serviceName, drpNode, "JSONDocManager", `${drpNode.NodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, null, 1);
-        var thisDocMgr = this;
+    constructor(serviceName, drpNode, basePath, mongoHost, mongoUser, mongoPw) {
+        super(serviceName, drpNode, "DocManager", `${drpNode.NodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, null, 1);
+        let thisDocMgr = this;
         this.basePath = basePath;
 
+        /** @type {string} Mongo URL */
+        this.MongoHost = mongoHost;
+        this.MongoUser = mongoUser;
+        this.MongoPw = mongoPw;
+
+        /** @type {MongoClient} */
+        this.MongoClient = null;
+
+        /** @type {MongoDB} */
+        this.DocMgrDB = null;
+
+        if (thisDocMgr.MongoHost) thisDocMgr.ConnectToMongo();
+
         this.ClientCmds = {
-            getOpenAPIDoc: async function (cmdObj) {
+            getOpenAPIDoc: async function (params) {
                 return openAPIDoc;
             },
-            listFiles: async function (cmdObj) {
-                //console.log("Listing directory - '" + thisDocMgr.basePath + "'");
-                let fileList = await thisDocMgr.ListFiles(thisDocMgr.basePath);
-                return fileList;
-            },
-            loadFile: async function (cmdObj) {
-                //console.log("Loading JSON File - '" + appData.fileName + "'");
-                let fileName = null;
-                if (cmdObj.fileName) {
-                    fileName = cmdObj.fileName;
-                } else if (cmdObj.pathList && cmdObj.pathList.length > 0) {
-                    fileName = cmdObj.pathList[0];
-                } else if (cmdObj.payload && cmdObj.payload.fileName) {
-                    fileName = cmdObj.payload.fileName;
+            listDocs: async function (params) {
+                let serviceName = null;
+                if (params.serviceName) {
+                    serviceName = params.serviceName;
+                } else if (params.pathList && params.pathList.length > 0) {
+                    serviceName = params.pathList[0];
                 } else {
                     return null;
                 }
-                let fileData = await thisDocMgr.LoadFile(thisDocMgr.basePath + fileName);
-                //console.log("Loaded JSON File - '" + appData.fileName + "'");
-                return fileData;
+                let docList = await thisDocMgr.ListDocs(serviceName);
+                return docList;
             },
-            saveFile: async function (cmdObj) {
-                //console.log("Saving JSON File - '" + appData.fileName + "'");
-                await thisDocMgr.SaveFile(thisDocMgr.basePath + cmdObj.fileName, cmdObj.fileData);
-                //console.log("Saved JSON File - '" + appData.fileName + "'");
+            loadDoc: async function (params) {
+                let docName = null;
+                if (params.serviceName && params.docName) {
+                    serviceName = params.serviceName;
+                    docName = params.docName;
+                } else if (params.pathList && params.pathList.length > 1) {
+                    serviceName = params.pathList[0];
+                    docName = params.pathList[1];
+                } else {
+                    return null;
+                }
+                let docData = await thisDocMgr.LoadDoc(serviceName, docName);
+                return docData;
+            },
+            saveDoc: async function (params) {
+                await thisDocMgr.SaveDoc(params.serviceName, params.docName, params.docData);
                 return "Saved";
+            }
+        };
+
+        this.DocServices = async (params) => {
+            let serviceName = null;
+            let docName = null;
+            if (params.pathList) {
+                serviceName = params.pathList.shift();
+                docName = params.pathList.shift();
+            }
+            if (params.serviceName) serviceName = params.serviceName;
+            if (params.docName) docName = params.docName;
+
+            if (!serviceName) {
+                // return list of service
+                return await thisDocMgr.ListDocServices();
+            } else if (!docName) {
+                // return list of docs
+                return await thisDocMgr.ListDocs(serviceName);
+            } else {
+                // return doc
+                return await thisDocMgr.LoadDoc(serviceName, docName); 
             }
         };
     }
 
-    /**
-     * 
-     * @param {string} basePath File base path
-     * @returns {Object.<string,object>} Dictionary of files and attributes
-     */
-    async ListFiles(basePath) {
+    async ConnectToMongo() {
         let thisDocMgr = this;
-        let returnData = {};
-        // Load file data
-        let dirData = await fs.readdir(basePath);
-        for (var i = 0; i < dirData.length; i++) {
-            let fileName = dirData[i];
+        const user = encodeURIComponent(thisDocMgr.MongoUser);
+        const password = encodeURIComponent(thisDocMgr.MongoPw);
+        const authMechanism = 'DEFAULT';
+        let mongoUrl = `mongodb://${user}:${password}@${thisDocMgr.MongoHost}:27017/?authMechanism=${authMechanism}`;
+        thisDocMgr.drpNode.log(`Trying to connect to Mongo -> [${mongoUrl}]`);
+        /** @type {MongoClient} */
+        thisDocMgr.MongoClient = await MongoClient.connect(`${mongoUrl}`, { useNewUrlParser: true, useUnifiedTopology: true });
+        let bob = 1;
+        // Open the collector DB 
+        this.DocMgrDB = thisDocMgr.MongoClient.db(thisDocMgr.serviceName);
+    }
 
-            // Make sure this is a JSON file
-            let pathStat = await fs.stat(basePath + fileName);
-            if (!pathStat.isDirectory()) {
-                returnData[fileName] = pathStat;
+    async ListDocServices(serviceName) {
+        let thisDocMgr = this;
+        let returnData = [];
+        // Load doc data
+        let dirData = null;
+        if (thisDocMgr.MongoHost) {
+            let docCollectionList = await thisDocMgr.DocMgrDB.listCollections().toArray();
+            returnData = docCollectionList.map(collectionProfile => { return collectionProfile["name"]; });
+        } else {
+            dirData = await fs.readdir(thisDocMgr.basePath);
+            for (var i = 0; i < dirData.length; i++) {
+                let serviceName = dirData[i];
+
+                // Make sure this is a file
+                let pathStat = await fs.stat(thisDocMgr.basePath  + '/' + serviceName);
+                if (pathStat.isDirectory()) {
+                    returnData.push(serviceName);
+                }
             }
         }
         return returnData;
     }
 
-    async LoadFile(fileName) {
-        // Load file data
-        let fileData = await fs.readFile(fileName, 'utf8');
-        return fileData;
+    /**
+     * 
+     * @param {string} serviceName Name of service
+     * @returns {Object.<string,object>} Dictionary of files and attributes
+     */
+    async ListDocs(serviceName) {
+        let thisDocMgr = this;
+        let returnData = [];
+        // Load doc data
+        let dirData = null;
+        if (thisDocMgr.MongoHost) {
+            let serviceDocCollection = thisDocMgr.DocMgrDB.collection(serviceName);
+            let docList = await serviceDocCollection.find({}, { projection: { _id: 0, docName: 1 } }).toArray();
+            returnData = docList.map(collectionProfile => { return collectionProfile["docName"]; });
+        } else {
+            dirData = await fs.readdir(thisDocMgr.basePath + '/' + serviceName);
+            for (var i = 0; i < dirData.length; i++) {
+                let docName = dirData[i];
+
+                // Make sure this is a file
+                let pathStat = await fs.stat(thisDocMgr.basePath + '/' + serviceName + '/' + docName);
+                if (!pathStat.isDirectory()) {
+                    returnData.push(docName);
+                }
+            }
+        }
+        return returnData;
     }
 
-    async SaveFile(fileName, fileData) {
+    async LoadDoc(serviceName, docName) {
+        let thisDocMgr = this;
+        // Load file data
+        let docData = null;
+        if (this.MongoHost) {
+            // Connect to Service doc collection
+            let serviceDocCollection = thisDocMgr.DocMgrDB.collection(serviceName);
+            let docObj = await serviceDocCollection.findOne({ docName: docName });
+            if (docObj && docObj.docData) docData = docObj.docData;
+        } else {
+            docData = await fs.readFile(`${thisDocMgr.basePath}/${serviceName}/${docName}`, 'utf8');
+        }
+
+        return docData;
+    }
+
+    async SaveDoc(serviceName, docName, docData) {
+        let thisDocMgr = this;
         // Save file data
-        let saveResults = await fs.writeFile(fileName, fileData);
+        let saveResults = null;
+        if (this.MongoHost) {
+            // Connect to Service doc collection
+            let serviceDocCollection = thisDocMgr.DocMgrDB.collection(serviceName);
+            saveResults = await serviceDocCollection.updateOne({ docName: docName }, { $set: { docData: docData } }, { upsert: true });
+        } else {
+            saveResults = await fs.writeFile(`${thisDocMgr.basePath}/${serviceName}/${docName}`, docData);
+        }
         return saveResults;
     }
 }
 
-module.exports = JSONDocManager;
+module.exports = DocManager;
