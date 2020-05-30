@@ -1,5 +1,5 @@
 set DOMAINNAME=mydomain.xyz
-set DOMAINKEY=supersecretkey
+set MESHKEY=supersecretkey
 set PORT=8082
 set ZONENAME=zone1
 set DEBUG=true
@@ -41,3 +41,4 @@ timeout /T 1
 set PORT=
 set ZONENAME=zone1
 start "TestService-Hive" node drpProvider-Hive.js
+start "TestService-DocMgr" node drpProvider-DocMgr.js

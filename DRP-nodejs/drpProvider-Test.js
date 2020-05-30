@@ -1,12 +1,12 @@
 'use strict';
-var DRP_Node = require('drp-mesh').Node;
-var DRP_Service = require('drp-mesh').Service;
-var DRP_WebServer = require('drp-mesh').WebServer;
-var os = require("os");
+let DRP_Node = require('drp-mesh').Node;
+let DRP_Service = require('drp-mesh').Service;
+let DRP_WebServer = require('drp-mesh').WebServer;
+let os = require("os");
 
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
-var registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
+let registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
 
 // Create test service class
 class TestService extends DRP_Service {
@@ -20,18 +20,18 @@ class TestService extends DRP_Service {
     }
 }
 
-var protocol = "ws";
+let protocol = "ws";
 if (process.env.SSL_ENABLED) {
     protocol = "wss";
 }
-var port = process.env.PORT || 8081;
-var hostname = process.env.HOSTNAME || os.hostname();
+let port = process.env.PORT || 8081;
+let listeningName = process.env.LISTENINGNAME || os.hostname();
 
 let drpWSRoute = "";
 
 // Set config
 let myServerConfig = {
-    "NodeURL": `${protocol}://${hostname}:${port}${drpWSRoute}`,
+    "NodeURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
     "Port": port,
     "SSLEnabled": process.env.SSL_ENABLED || false,
     "SSLKeyFile": process.env.SSL_KEYFILE || "",
@@ -48,8 +48,8 @@ myWebServer.start();
 console.log(`Starting DRP Node...`);
 let myNode = new DRP_Node(["Provider"], myWebServer, drpWSRoute, myServerConfig.NodeURL);
 
-if (myNode.nodeURL) {
-    myNode.log(`Listening at: ${myNode.nodeURL}`);
+if (myNode.ListeningName) {
+    myNode.log(`Listening at: ${myNode.ListeningName}`);
 }
 
 // Add dummy stream

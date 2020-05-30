@@ -3,25 +3,25 @@ const DRP_Node = require('drp-mesh').Node;
 const DRP_WebServer = require('drp-mesh').WebServer;
 const os = require("os");
 
+let port = process.env.PORT || 8080;
+let listeningName = process.env.LISTENINGNAME || os.hostname();
+let hostID = process.env.HOSTID || os.hostname();
+let domainName = process.env.DOMAINNAME || null;
+let meshKey = process.env.MESHKEY || null;
+let zoneName = process.env.ZONENAME || null;
+let debug = process.env.DEBUG || false;
+let testMode = process.env.TESTMODE || false;
+
 let protocol = "ws";
 if (process.env.SSL_ENABLED) {
     protocol = "wss";
 }
-let port = process.env.PORT || 8080;
-let hostname = process.env.HOSTNAME || os.hostname();
-let hostID = process.env.HOSTID || os.hostname();
-let domainName = process.env.DOMAINNAME || null;
-let domainKey = process.env.DOMAINKEY || null;
-let zoneName = process.env.ZONENAME || "MyZone";
-let debug = process.env.DEBUG || false;
-let testMode = process.env.TESTMODE || false;
-let authenticatorService = process.env.AUTHENTICATORSERVICE || null;
 
 let drpWSRoute = "";
 
 // Set config
 let myServerConfig = {
-    "NodeURL": `${protocol}://${hostname}:${port}${drpWSRoute}`,
+    "NodeURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
     "Port": port,
     "SSLEnabled": process.env.SSL_ENABLED || false,
     "SSLKeyFile": process.env.SSL_KEYFILE || "",
@@ -34,9 +34,12 @@ let myServerConfig = {
 let myWebServer = new DRP_WebServer(myServerConfig);
 myWebServer.start();
 
-// Create Broker on expressApp
+// Create Registry
 console.log(`Starting DRP Node`);
-let myNode = new DRP_Node(["Registry"], hostID, myWebServer, drpWSRoute, myServerConfig.NodeURL, null, domainName, domainKey, zoneName, debug, testMode, authenticatorService);
+let myNode = new DRP_Node(["Registry"], hostID, domainName, meshKey, zoneName, myWebServer, myServerConfig.NodeURL, drpWSRoute);
+myNode.Debug = debug;
+myNode.TestMode = testMode;
+myNode.ConnectToMesh();
 
-myNode.log(`Listening at: ${myNode.nodeURL}`);
+myNode.log(`Listening at: ${myNode.ListeningName}`);
 myNode.log(`Node in zone: ${myNode.Zone}`);

@@ -63,9 +63,12 @@ class Hive extends DRP_Service {
      * 
      * @param {string} serviceName Service Name
      * @param {DRP_Node} drpNode DRP Node
+     * @param {number} priority Priority (lower better)
+     * @param {number} weight Weight (higher better)
+     * @param {string} scope Scope [local|zone|global(defaut)]
      */
-    constructor(serviceName, drpNode) {
-        super(serviceName, drpNode, "Hive", `${drpNode.NodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, null, 1);
+    constructor(serviceName, drpNode, priority, weight, scope) {
+        super(serviceName, drpNode, "Hive", `${drpNode.NodeID}-${serviceName}`, false, priority, weight, drpNode.Zone, scope, null, null, 1);
         let thisHive = this;
         this.cfgOpts = {};
         this.HiveClasses = {};

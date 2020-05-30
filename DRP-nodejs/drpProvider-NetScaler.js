@@ -1,15 +1,14 @@
 'use strict';
 const DRP_Node = require('drp-mesh').Node;
 const NetScalerManager = require('drp-service-netscaler');
-
 const os = require("os");
 
 // Node variables
 let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || null;
-let domainKey = process.env.DOMAINKEY || null;
-let zoneName = process.env.ZONENAME || "MyZone";
-let registryURL = process.env.REGISTRYURL || null;
+let meshKey = process.env.MESHKEY || null;
+let zoneName = process.env.ZONENAME || null;
+let registryUrl = process.env.REGISTRYURL || null;
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;
 let authenticatorService = process.env.AUTHENTICATORSERVICE || null;
@@ -37,12 +36,16 @@ nsconf.json format:
 }
  */
 
-// Create Node
-console.log(`Starting DRP Node...`);
+// Set Roles
 let roleList = ["Provider"];
-let myNode = new DRP_Node(roleList, hostID, null, null, null, null, domainName, domainKey, zoneName, debug, testMode, authenticatorService);
 
-(async () => {
+// Create Node
+console.log(`Starting DRP Node`);
+let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName);
+myNode.Debug = debug;
+myNode.TestMode = testMode;
+myNode.RegistryUrl = registryUrl;
+myNode.ConnectToMesh(async () => {
     let rawConfig = await readFile(nsConfigFile, "utf8");
     let nsConfigSet = JSON.parse(rawConfig);
     //console.dir(nsConfigSet);
@@ -57,11 +60,4 @@ let myNode = new DRP_Node(roleList, hostID, null, null, null, null, domainName, 
         if (debug) myNode.log(`Added set ${nsSetName}`);
     }
     myNode.AddService(thisSvc);
-})();
-
-// Connect to Registry directly if specified
-if (registryURL) {
-    myNode.ConnectToRegistry(registryURL, async () => {
-        myNode.log("Connected to Registry");
-    });
-}
+});

@@ -124,13 +124,16 @@ class DocManager extends DRP_Service {
      * 
      * @param {string} serviceName Service Name
      * @param {drpNode} drpNode DRP Node
+     * @param {number} priority Priority (lower better)
+     * @param {number} weight Weight (higher better)
+     * @param {string} scope Scope [local|zone|global(defaut)]
      * @param {string} basePath Base path
      * @param {string} mongoHost Mongo Host
      * @param {string} mongoUser Mongo User
      * @param {string} mongoPw Mongo Password
      */
-    constructor(serviceName, drpNode, basePath, mongoHost, mongoUser, mongoPw) {
-        super(serviceName, drpNode, "DocManager", `${drpNode.NodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, null, 1);
+    constructor(serviceName, drpNode, priority, weight, scope, basePath, mongoHost, mongoUser, mongoPw) {
+        super(serviceName, drpNode, "DocManager", `${drpNode.NodeID}-${serviceName}`, false, priority, weight, drpNode.Zone, scope, null, null, 1);
         let thisDocMgr = this;
         this.basePath = basePath;
 

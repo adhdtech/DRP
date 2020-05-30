@@ -6,13 +6,11 @@ const DRP_UMLFunction = require('drp-mesh').UML.Function;
 const DRP_UMLClass = require('drp-mesh').UML.Class;
 const os = require("os");
 
-var port = process.env.PORT || 8080;
-let hostname = process.env.HOSTNAME || os.hostname();
 let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || null;
-let domainKey = process.env.DOMAINKEY || null;
-let zoneName = process.env.ZONENAME || "MyZone";
-let registryURL = process.env.REGISTRYURL || null;
+let meshKey = process.env.MESHKEY || null;
+let zoneName = process.env.ZONENAME || null;
+let registryUrl = process.env.REGISTRYURL || null;
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;
 
@@ -67,25 +65,24 @@ class DirectoryService extends DRP_Service {
     }
 }
 
-// Create Node
-console.log(`Starting DRP Node...`);
+// Set Roles
 let roleList = ["Provider"];
-let myNode = new DRP_Node(roleList, hostID, null, null, null, null, domainName, domainKey, zoneName, debug, testMode);
 
-// Declare dummy stream
-myNode.AddStream("dummy", "Test stream");
+// Create Node
+console.log(`Starting DRP Node`);
+let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName);
+myNode.Debug = debug;
+myNode.TestMode = testMode;
+myNode.RegistryUrl = registryUrl;
+myNode.ConnectToMesh(async () => {
+    // Declare dummy stream
+    myNode.AddStream("dummy", "Test stream");
 
-// Add a test service
-myNode.AddService(new DirectoryService("DirectoryService", myNode));
+    // Add a test service
+    myNode.AddService(new DirectoryService("DirectoryService", myNode));
 
-// Connect to Registry manually if no domainName was specified
-if (!domainName && registryURL) {
-    myNode.ConnectToRegistry(registryURL, async () => {
-        myNode.log("Connected to Registry");
-    });
-}
-
-setInterval(function () {
-    let timeStamp = new Date().getTime();
-    myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.NodeID}]`);
-}, 3000);
+    setInterval(function () {
+        let timeStamp = new Date().getTime();
+        myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.NodeID}]`);
+    }, 3000);
+});

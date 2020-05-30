@@ -17,7 +17,7 @@ class DRP_Consumer extends DRP_Node {
         this.user = user;
         this.pass = pass;
         this.brokerURL = wsTarget;
-        this.webProxyURL = proxy;
+        this.WebProxyURL = proxy;
         /** @type {DRP_Client} */
         this.BrokerClient = null;
         this.Start(openHandler);

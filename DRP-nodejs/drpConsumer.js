@@ -16,7 +16,7 @@ let myConsumer = new DRP_Consumer(brokerURL, user, pass, null, async function ()
     //myClient.SendCmd("getCmds", null, false, (response) => { console.dir(response) });
 
     // Execute a pathCmd
-    //myClient.SendCmd("pathCmd", { "method": "cliGetPath", "pathList": ["Providers", "JSONDocMgr1", "Services", "JSONDocMgr", "ClientCmds", "listFiles"], "params": {}, "listOnly": true }, false, (payload) => { console.dir(payload, { "depth": 10 }) });
+    //myClient.SendCmd("pathCmd", { "method": "cliGetPath", "pathList": ["Providers", "DocMgr1", "Services", "DocMgr", "ClientCmds", "listFiles"], "params": {}, "listOnly": true }, false, (payload) => { console.dir(payload, { "depth": 10 }) });
 
     // Get data for a class
     //myClient.GetClassRecords("SomeDataClass", (payload) => console.dir(payload) );
@@ -33,13 +33,13 @@ let myConsumer = new DRP_Consumer(brokerURL, user, pass, null, async function ()
     //myClient.SendCmd("serviceCommand", { "serviceName": "Hive", "method": "listStereoTypes" }, false, (payload) => { console.dir(payload) });
 
     // List Files
-    //myClient.SendCmd("serviceCommand", { "serviceName": "JSONDocMgr", "method": "listFiles" }, false, (payload) => { console.dir(payload) });
+    //myClient.SendCmd("serviceCommand", { "serviceName": "DocMgr", "method": "listFiles" }, false, (payload) => { console.dir(payload) });
 
     // Load a file
-    //response = await myClient.SendCmd("serviceCommand", { "serviceName": "JSONDocMgr", "method": "loadFile", "fileName": "newFile.json" }, true, null);
+    //response = await myClient.SendCmd("serviceCommand", { "serviceName": "DocMgr", "method": "loadFile", "fileName": "newFile.json" }, true, null);
 
     // Save a file
-    //response = await myClient.SendCmd("serviceCommand", { "serviceName": "JSONDocMgr", "method": "saveFile", "fileName": "newFile.json", "fileData": JSON.stringify({"someKey":"someVal"}) }, true, null);
+    //response = await myClient.SendCmd("serviceCommand", { "serviceName": "DocMgr", "method": "saveFile", "fileName": "newFile.json", "fileData": JSON.stringify({"someKey":"someVal"}) }, true, null);
 	
 	//response = (await myClient.SendCmd("Greeter", "showParams", {"pathList":["asdf","ijkl"]}, true, null)).payload.pathItem;
 

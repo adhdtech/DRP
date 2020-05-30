@@ -1,34 +1,33 @@
 'use strict';
 const DRP_Node = require('drp-mesh').Node;
-const DRP_Service = require('drp-mesh').Service;
-const DRP_UMLAttribute = require('drp-mesh').UML.Attribute;
-const DRP_UMLFunction = require('drp-mesh').UML.Function;
-const DRP_UMLClass = require('drp-mesh').UML.Class;
 const rSageHive = require('drp-service-rsage').Hive;
 const os = require("os");
 
-var port = process.env.PORT || 8080;
-let hostname = process.env.HOSTNAME || os.hostname();
 let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || null;
-let domainKey = process.env.DOMAINKEY || null;
-let zoneName = process.env.ZONENAME || "MyZone";
-let registryURL = process.env.REGISTRYURL || null;
+let meshKey = process.env.MESHKEY || null;
+let zoneName = process.env.ZONENAME || null;
+let registryUrl = process.env.REGISTRYURL || null;
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;
 
-// Create Node
-console.log(`Starting DRP Node...`);
+// Service specific variables
+let serviceName = process.env.SERVICENAME || "Hive";
+let priority = process.env.PRIORITY || null;
+let weight = process.env.WEIGHT || null;
+let scope = process.env.SCOPE || null;
+
+// Set Roles
 let roleList = ["Provider"];
-let myNode = new DRP_Node(roleList, hostID, null, null, null, null, domainName, domainKey, zoneName, debug, testMode);
 
-let myHive = new rSageHive("Hive", myNode);
+// Create Node
+console.log(`Starting DRP Node`);
+let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName);
+myNode.Debug = debug;
+myNode.TestMode = testMode;
+myNode.RegistryUrl = registryUrl;
+myNode.ConnectToMesh(async () => {
+    let myHive = new rSageHive(serviceName, myNode, priority, weight, scope);
+    myNode.AddService(myHive);
+});
 
-myNode.AddService(myHive);
-
-// Connect to Registry manually if no domainName was specified
-if (!domainName && registryURL) {
-    myNode.ConnectToRegistry(registryURL, async () => {
-        myNode.log("Connected to Registry");
-    });
-}

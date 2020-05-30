@@ -1,27 +1,28 @@
 const DRP_Node = require('drp-mesh').Node;
 const { DRP_AuthRequest, DRP_AuthResponse, DRP_Authenticator } = require('drp-mesh').Auth;
 const ldapjs = require('ldapjs');
-//const assert = require('assert');
 
 class DRP_LDAP extends DRP_Authenticator {
     /**
      * @param {string} serviceName Service Name
      * @param {DRP_Node} drpNode DRP Node
+     * @param {number} priority Priority (lower better)
+     * @param {number} weight Weight (higher better)
+     * @param {string} scope Scope [local|zone|global(defaut)]
      * @param {string} ldapURL LDAP URL
      * @param {string} userBase LDAP User Base
      * @param {string} userContainerType User container type (cn or uid)
      * @param {string} filter Search filter
-     * @param {string} scope Search Scope
+     * @param {string} searchScope Search Scope
      * @param {string[]} attributes Seach attributes
      */
-    constructor(serviceName, drpNode, ldapURL, userBase, userContainerType, filter, scope, attributes) {
-        super(serviceName, drpNode, 10, 10, "global", 1);
-        let thisService = this;
+    constructor(serviceName, drpNode, priority, weight, scope, ldapURL, userBase, userContainerType, filter, searchScope, attributes) {
+        super(serviceName, drpNode, priority, weight, scope, 1);
         this.ldapURL = ldapURL;
         this.userBase = userBase;
         this.userContainerType = userContainerType;
         this.searchFilter = filter || "(&(objectClass=person))";
-        this.searchScope = scope || "sub";
+        this.searchScope = searchScope || "sub";
         this.searchAttributes = attributes || ["cn", "givenName", "sn", "memberOf"];
     }
 

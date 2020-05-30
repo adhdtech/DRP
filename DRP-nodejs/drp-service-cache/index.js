@@ -8,11 +8,14 @@ require('events').EventEmitter.prototype._maxListeners = 100;
 
 class DRP_CacheManager extends DRP_Service {
     /**
-     * @param {string} serviceName Service Name
-     * @param {DRP_Node} drpNode DRP Node
+    * @param {string} serviceName Service Name
+    * @param {drpNode} drpNode DRP Node
+    * @param {number} priority Priority (lower better)
+    * @param {number} weight Weight (higher better)
+    * @param {string} scope Scope [local|zone|global(defaut)]
      */
-    constructor(serviceName, drpNode) {
-        super(serviceName, drpNode, "CacheManager", `${drpNode.NodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, null, 1);
+    constructor(serviceName, drpNode, priority, weight, scope) {
+        super(serviceName, drpNode, "CacheManager", `${drpNode.NodeID}-${serviceName}`, false, priority, weight, drpNode.Zone, scope, null, null, 1);
         let thisService = this;
         this.mongoDBurl = null;
         this.mongoConn = null;
@@ -74,7 +77,7 @@ class DRP_CacheManager extends DRP_Service {
             } else {
 
                 // Open the collector DB 
-                let collectorDB = thisService.drpNode.MongoConn.db(serviceName);
+                let collectorDB = thisService.mongoConn.db(serviceName);
                 // Connect to class collection
                 let classCollection = collectorDB.collection(className);
                 // Convert class data from hash to array

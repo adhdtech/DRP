@@ -51,17 +51,17 @@ class DRP_NodeDeclaration {
      * @param {string} hostID Host Identifier
      * @param {string} nodeURL Listening URL (optional)
      * @param {string} domainName Domain Name
-     * @param {string} domainKey Domain Key
+     * @param {string} meshKey Domain Key
      * @param {string} zoneName Zone Name
      * @param {string} scope Scope
      */
-    constructor(nodeID, nodeRoles, hostID, nodeURL, domainName, domainKey, zoneName, scope) {
+    constructor(nodeID, nodeRoles, hostID, nodeURL, domainName, meshKey, zoneName, scope) {
         this.NodeID = nodeID;
         this.NodeRoles = nodeRoles;
         this.HostID = hostID;
         this.NodeURL = nodeURL;
         this.DomainName = domainName;
-        this.DomainKey = domainKey;
+        this.MeshKey = meshKey;
         this.Zone = zoneName;
         this.Scope = scope;
     }
@@ -72,18 +72,14 @@ class DRP_Node {
      * 
      * @param {string[]} nodeRoles List of Roles: Broker, Provider, Registry 
      * @param {string} hostID Host Identifier
-     * @param {DRP_WebServer} webServer Web server (optional)
-     * @param {string} drpRoute DRP WS Route (optional)
-     * @param {string} nodeURL Node WS URL (optional)
-     * @param {string} webProxyURL Web Proxy URL (optional)
-     * @param {string} domainName DRP Domain Name (optional)
-     * @param {string} domainKey DRP Domain Key (optional)
+     * @param {string} domainName DRP Domain Name
+     * @param {string} meshKey DRP Mesh Key
      * @param {string} zone DRP Zone Name (optional)
-     * @param {boolean} debug Enable debug output (optional)
-     * @param {boolean} testMode Uses a set of dummy SRV data for Registry
-     * @param {string} authenticationServiceName Name of DRP Service to use for Authorization
+     * @param {DRP_WebServer} webServer Web server (optional)
+     * @param {string} listeningName Node Listening Name (optional)
+     * @param {string} drpRoute DRP WS Route (optional)
      */
-    constructor(nodeRoles, hostID, webServer, drpRoute, nodeURL, webProxyURL, domainName, domainKey, zone, debug, testMode, authenticationServiceName) {
+    constructor(nodeRoles, hostID, domainName, meshKey, zone, webServer, listeningName, drpRoute) {
         let thisNode = this;
         this.NodeID = `${os.hostname()}-${process.pid}-${getRandomInt(9999)}`;
         this.HostID = hostID;
@@ -92,17 +88,26 @@ class DRP_Node {
         this.SwaggerRouters = {};
         this.drpRoute = drpRoute || "/";
         this.DomainName = domainName;
-        this.DomainKey = domainKey;
-        this.Zone = zone;
-        this.Debug = debug;
-        this.TestMode = testMode || false;
-        this.AuthenticationServiceName = authenticationServiceName;
-        this.nodeURL = null;
+        this.MeshKey = meshKey;
+        if (!this.MeshKey) this.Die("No MeshKey provided");
+        this.Zone = zone || "default";
+        /** @type{string} */
+        this.RegistryUrl = null;
+        this.Debug = false;
+        this.TestMode = false;
+        /** @type{string} */
+        this.AuthenticationServiceName = null;
+        this.HasConnectedToMesh = false;
+        /** @type{function} */
+        this.onControlPlaneConnect = null;
+        this.ListeningName = null;
         if (this.WebServer && this.WebServer.expressApp) {
-            this.nodeURL = nodeURL;
+            this.ListeningName = listeningName;
         }
-        this.nodeRoles = nodeRoles || [];
-        this.webProxyURL = webProxyURL || null;
+        /** @type{string[]} */
+        this.NodeRoles = nodeRoles || [];
+        /** @type{string} */
+        this.WebProxyURL = null;
 
         // By default, Registry nodes are "connected" to the Control Plane and non-Registry nodes aren't
         this.ConnectedToControlPlane = thisNode.IsRegistry();
@@ -126,7 +131,7 @@ class DRP_Node {
         // Create topology tracker
         this.TopologyTracker = new DRP_TopologyTracker(thisNode);
 
-        let newNodeEntry = new DRP_NodeTableEntry(thisNode.NodeID, null, nodeRoles, nodeURL, "global", thisNode.Zone, thisNode.NodeID, thisNode.HostID);
+        let newNodeEntry = new DRP_NodeTableEntry(thisNode.NodeID, null, nodeRoles, listeningName, "global", thisNode.Zone, thisNode.NodeID, thisNode.HostID);
         let addNodePacket = new DRP_TopologyPacket(newNodeEntry.NodeID, "add", "node", newNodeEntry.NodeID, newNodeEntry.Scope, newNodeEntry.Zone, newNodeEntry);
         thisNode.TopologyTracker.ProcessPacket(addNodePacket, thisNode.NodeID);
 
@@ -136,22 +141,11 @@ class DRP_Node {
         /** @type Object.<string,DRP_AuthResponse> */
         this.ConsumerTokens = {};
 
-        this.NodeDeclaration = new DRP_NodeDeclaration(this.NodeID, this.nodeRoles, this.HostID, this.nodeURL, this.DomainName, this.DomainKey, this.Zone);
+        this.NodeDeclaration = new DRP_NodeDeclaration(this.NodeID, this.NodeRoles, this.HostID, this.ListeningName, this.DomainName, this.MeshKey, this.Zone);
 
         // If this is a Registry, seed the Registry with it's own declaration
         if (thisNode.IsRegistry()) {
             this.AddStream("RegistryUpdate", "Registry updates");
-
-            if (this.DomainName) {
-                // A domain name was provided; attempt to cluster with other registry hosts
-                this.log(`This node is a Registry for ${this.DomainName}, attempting to contact other Registry nodes`);
-                this.ConnectToOtherRegistries();
-            }
-        } else {
-            if (this.DomainName) {
-                // A domain name was provided; attempt to connect to a registry host
-                this.ConnectToRegistryByDomain();
-            }
         }
 
         // Add a route handler even if we don't have an Express server (needed for stream relays)
@@ -660,7 +654,7 @@ class DRP_Node {
         let thisNode = this;
         return {
             NodeID: thisNode.NodeID,
-            NodeURL: thisNode.nodeURL,
+            NodeURL: thisNode.ListeningName,
             NodeObj: thisNode,
             Services: thisNode.Services,
             Streams: thisNode.TopicManager.Topics,
@@ -996,7 +990,7 @@ class DRP_Node {
 
             // We have a target URL, wait a few seconds for connection to initiate
             thisNode.log(`Connecting to Node [${remoteNodeID}] @ '${targetNodeURL}'`, true);
-            thisNodeEndpoint = new DRP_NodeClient(targetNodeURL, thisNode.webProxyURL, thisNode, remoteNodeID);
+            thisNodeEndpoint = new DRP_NodeClient(targetNodeURL, thisNode.WebProxyURL, thisNode, remoteNodeID);
             thisNode.NodeEndpoints[remoteNodeID] = thisNodeEndpoint;
 
             for (let i = 0; i < 50; i++) {
@@ -1013,7 +1007,7 @@ class DRP_Node {
         }
 
         // If this node is listening, try sending a back connection request to the remote node via the registry
-        if ((!thisNodeEndpoint || !thisNodeEndpoint.IsReady()) && thisNode.nodeURL) {
+        if ((!thisNodeEndpoint || !thisNodeEndpoint.IsReady()) && thisNode.ListeningName) {
 
             thisNode.log("Sending back request...", true);
             // Let's try having the Provider call us; send command through Registry
@@ -1029,7 +1023,7 @@ class DRP_Node {
                         tgtNodeID: remoteNodeID,
                         routeHistory: []
                     };
-                    thisNode.NodeEndpoints[nextHopNodeID].SendCmd("DRP", "connectToNode", { "targetNodeID": thisNode.NodeID, "targetURL": thisNode.nodeURL }, false, null, routeOptions);
+                    thisNode.NodeEndpoints[nextHopNodeID].SendCmd("DRP", "connectToNode", { "targetNodeID": thisNode.NodeID, "targetURL": thisNode.ListeningName }, false, null, routeOptions);
                 } else {
                     // Could not find the next hop
                     throw `Could not find next hop to [${remoteNodeID}]`;
@@ -1236,7 +1230,7 @@ class DRP_Node {
         // Do the domains match?
         if (!thisNode.DomainName && !declaration.DomainName || thisNode.DomainName === declaration.DomainName) {
             // Do the domain keys match?
-            if (!thisNode.DomainKey && !declaration.DomainKey || thisNode.DomainKey === declaration.DomainKey) {
+            if (!thisNode.MeshKey && !declaration.MeshKey || thisNode.MeshKey === declaration.MeshKey) {
                 // Yes - allow the remote node to connect
                 returnVal = true;
             }
@@ -1266,7 +1260,7 @@ class DRP_Node {
 
             // Validate the remote node's domain and key (if applicable)
             if (!thisNode.ValidateNodeDeclaration(declaration)) {
-                // The remote node did not offer a DomainKey or the key does not match
+                // The remote node did not offer a MeshKey or the key does not match
                 thisNode.log(`Node [${declaration.NodeID}] declaration could not be validated`);
                 sourceEndpoint.Close();
                 return null;
@@ -1451,7 +1445,7 @@ class DRP_Node {
             retryOnClose = false;
         } else closeCallback = () => { };
         // Initiate Registry Connection
-        let nodeClient = new DRP_NodeClient(registryURL, thisNode.webProxyURL, thisNode, null, retryOnClose, async () => {
+        let nodeClient = new DRP_NodeClient(registryURL, thisNode.WebProxyURL, thisNode, null, retryOnClose, async () => {
 
             // This is the callback which occurs after our Hello packet has been accepted
             await thisNode.RegistryClientHandler(nodeClient);
@@ -1469,7 +1463,7 @@ class DRP_Node {
         let thisNode = this;
 
         // Initiate Registry Connection
-        let nodeClient = new DRP_NodeClient(registryURL, thisNode.webProxyURL, thisNode, null, false, async () => {
+        let nodeClient = new DRP_NodeClient(registryURL, thisNode.WebProxyURL, thisNode, null, false, async () => {
             if (thisNode.ConnectedToControlPlane) {
                 thisNode.log(`We are already connected to the Control Plane!  No longer need connection to ${registryURL}`);
                 //nodeClient.Close();
@@ -1512,7 +1506,7 @@ class DRP_Node {
                 // Connect to target
                 let registryURL = `${protocol}://${closestRegistry.name}:${closestRegistry.port}`;
 
-                let nodeClient = new DRP_NodeClient(registryURL, thisNode.webProxyURL, thisNode, null, false, async () => {
+                let nodeClient = new DRP_NodeClient(registryURL, thisNode.WebProxyURL, thisNode, null, false, async () => {
 
                     // This is the callback which occurs after our Hello packet has been accepted
                     thisNode.RegistryClientHandler(nodeClient);
@@ -1553,7 +1547,7 @@ class DRP_Node {
                 // Skip the local registry
                 let checkNamePort = `^wss?://${checkRegistry.name}:${checkRegistry.port}$`;
                 let regExp = new RegExp(checkNamePort);
-                if (thisNode.nodeURL.match(regExp)) {
+                if (thisNode.ListeningName.match(regExp)) {
                     continue;
                 }
 
@@ -1619,6 +1613,35 @@ class DRP_Node {
         return returnVal;
     }
 
+    /**
+     * 
+     * @param {function} onControlPlaneConnect Execute after connection to Control Plane
+     */
+    async ConnectToMesh(onControlPlaneConnect) {
+        let thisNode = this;
+        if (onControlPlaneConnect) thisNode.onControlPlaneConnect = onControlPlaneConnect;
+        // If this is a Registry, seed the Registry with it's own declaration
+        if (thisNode.IsRegistry()) {
+            if (this.DomainName) {
+                // A domain name was provided; attempt to cluster with other registry hosts
+                this.log(`This node is a Registry for ${this.DomainName}, attempting to contact other Registry nodes`);
+                this.ConnectToOtherRegistries();
+            }
+            if (thisNode.onControlPlaneConnect && typeof thisNode.onControlPlaneConnect === "function") thisNode.onControlPlaneConnect();
+        } else {
+            if (this.RegistryUrl) {
+                // A specific Registry URL was provided
+                this.ConnectToRegistry(this.RegistryUrl);
+            } else if (this.DomainName) {
+                // A domain name was provided; attempt to connect to a registry host
+                this.ConnectToRegistryByDomain();
+            } else {
+                // No Registry URL or domain provided
+                this.Die("No DomainName or RegistryURL provided!");
+            }
+        }
+    }
+
     async ConnectToNode(params) {
         let thisNode = this;
         let targetNodeID = params.targetNodeID;
@@ -1630,7 +1653,7 @@ class DRP_Node {
             thisNode.log(`Received back request, already have NodeEndpoints[${targetNodeID}]`, true);
         } else {
             thisNode.log(`Received back request, connecting to [${targetNodeID}] @ ${params.wsTarget}`, true);
-            thisNode.NodeEndpoints[targetNodeID] = new DRP_NodeClient(targetURL, thisNode.webProxyURL, thisNode, targetNodeID, false, null, null);
+            thisNode.NodeEndpoints[targetNodeID] = new DRP_NodeClient(targetURL, thisNode.WebProxyURL, thisNode, targetNodeID, false, null, null);
         }
     }
 
@@ -1685,13 +1708,13 @@ class DRP_Node {
 
     IsRegistry() {
         let thisNode = this;
-        let isRegistry = thisNode.nodeRoles.indexOf("Registry") >= 0;
+        let isRegistry = thisNode.NodeRoles.indexOf("Registry") >= 0;
         return isRegistry;
     }
 
     IsBroker() {
         let thisNode = this;
-        let isBroker = thisNode.nodeRoles.indexOf("Broker") >= 0;
+        let isBroker = thisNode.NodeRoles.indexOf("Broker") >= 0;
         return isBroker;
     }
 
@@ -1754,6 +1777,16 @@ class DRP_Node {
         }
 
         return topologyObj;
+    }
+
+    /**
+     * 
+     * @param {string} reason Reason for Node termination
+     */
+    Die(reason) {
+        let thisNode = this;
+        thisNode.log(`TERMINATING - ${reason}`, false);
+        process.exit(1);
     }
 
     ListClientConnections() {
@@ -2712,6 +2745,8 @@ class DRP_TopologyTracker {
             // We are connected to a Registry
             thisNode.ConnectedToControlPlane = true;
             runCleanup = true;
+            if (thisNode.onControlPlaneConnect && typeof thisNode.onControlPlaneConnect === "function" && !thisNode.HasConnectedToMesh) thisNode.onControlPlaneConnect();
+            thisNode.HasConnectedToMesh = true;
         }
 
         // Import Nodes

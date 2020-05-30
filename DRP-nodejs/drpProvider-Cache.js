@@ -2,18 +2,23 @@
 const DRP_Node = require('drp-mesh').Node;
 const DRP_WebServer = require('drp-mesh').WebServer;
 const CacheManager = require('drp-service-cache');
+const os = require("os");
 
-process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
-
-var port = process.env.PORT || 8080;
-let hostname = process.env.HOSTNAME || os.hostname();
+let port = process.env.PORT || 8080;
+let listeningName = process.env.LISTENINGNAME || os.hostname();
 let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || null;
-let domainKey = process.env.DOMAINKEY || null;
-let zoneName = process.env.ZONENAME || "MyZone";
-let registryURL = process.env.REGISTRYURL || null;
+let meshKey = process.env.MESHKEY || null;
+let zoneName = process.env.ZONENAME || null;
+let registryUrl = process.env.REGISTRYURL || null;
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;
+
+// Service specific variables
+let serviceName = process.env.SERVICENAME || "CacheManager";
+let priority = process.env.PRIORITY || null;
+let weight = process.env.WEIGHT || null;
+let scope = process.env.SCOPE || null;
 let mongoURL = process.env.MONGOURL || "mongodb://localhost:27017";
 
 var protocol = "ws";
@@ -25,7 +30,7 @@ let drpWSRoute = "";
 
 // Set config
 let myServerConfig = {
-    "NodeURL": `${protocol}://${hostname}:${port}${drpWSRoute}`,
+    "NodeURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
     "Port": port,
     "SSLEnabled": process.env.SSL_ENABLED || false,
     "SSLKeyFile": process.env.SSL_KEYFILE || "",
@@ -38,16 +43,19 @@ let myServerConfig = {
 let myWebServer = new DRP_WebServer(myServerConfig);
 myWebServer.start();
 
-// Create Node
-console.log(`Starting DRP Node...`);
-let myNode = new DRP_Node(["Provider"], hostID, myWebServer, drpWSRoute, myServerConfig.NodeURL);
+// Set Roles
+let roleList = ["Provider"];
 
-// Connect to Registry
-myNode.ConnectToRegistry(registryURL, async () => {
-    let myService = new CacheManager("CacheManager", myNode);
+// Create Node
+console.log(`Starting DRP Node`);
+let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myWebServer, myServerConfig.NodeURL, drpWSRoute);
+myNode.Debug = debug;
+myNode.TestMode = testMode;
+myNode.RegistryUrl = registryUrl;
+myNode.ConnectToMesh(async () => {
+    let myService = new CacheManager(serviceName, myNode, priority, weight, scope);
     await myService.Connect(mongoURL);
     myNode.log("Adding Cache service...");
     myNode.AddService(myService);
-    myNode.MongoConn = myService.mongoConn;
     myNode.log("Added Cache service");
 });

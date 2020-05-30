@@ -4,28 +4,33 @@ const DRP_WebServer = require('drp-mesh').WebServer;
 const vdmServer = require('drp-service-rsage').VDM;
 const os = require("os");
 
-process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
+let port = process.env.PORT || 8082;
+let listeningName = process.env.LISTENINGNAME || os.hostname();
+let hostID = process.env.HOSTID || os.hostname();
+let domainName = process.env.DOMAINNAME || null;
+let meshKey = process.env.MESHKEY || null;
+let zoneName = process.env.ZONENAME || null;
+let registryUrl = process.env.REGISTRYURL || null;
+let debug = process.env.DEBUG || false;
+let testMode = process.env.TESTMODE || false;
+let authenticatorService = process.env.AUTHENTICATORSERVICE || null;
+
+// Service specific variables
+let serviceName = process.env.SERVICENAME || "VDM";
+let priority = process.env.PRIORITY || null;
+let weight = process.env.WEIGHT || null;
+let scope = process.env.SCOPE || null;
 
 var protocol = "ws";
 if (process.env.SSL_ENABLED) {
     protocol = "wss";
 }
-let port = process.env.PORT || 8082;
-let hostname = process.env.HOSTNAME || os.hostname();
-let hostID = process.env.HOSTID || os.hostname();
-let domainName = process.env.DOMAINNAME || null;
-let domainKey = process.env.DOMAINKEY || null;
-let zoneName = process.env.ZONENAME || "MyZone";
-let registryURL = process.env.REGISTRYURL || null;
-let debug = process.env.DEBUG || false;
-let testMode = process.env.TESTMODE || false;
-let authenticatorService = process.env.AUTHENTICATORSERVICE || null;
 
 let drpWSRoute = "";
 
 // Set config
 let myServerConfig = {
-    "NodeURL": `${protocol}://${hostname}:${port}${drpWSRoute}`,
+    "NodeURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
     "Port": port,
     "SSLEnabled": process.env.SSL_ENABLED || false,
     "SSLKeyFile": process.env.SSL_KEYFILE || "",
@@ -41,25 +46,22 @@ myWebServer.start();
 // Set Roles
 let roleList = ["Broker"];
 
-// If we haven't specified a Registry, make this one
-//if (!registryURL) roleList.push("Registry");
-
 // Create Node
-console.log(`Starting DRP Node...`);
-let myNode = new DRP_Node(roleList, hostID, myWebServer, drpWSRoute, myServerConfig.NodeURL, null, domainName, domainKey, zoneName, debug, testMode, authenticatorService);
+console.log(`Starting DRP Node`);
+let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myWebServer, myServerConfig.NodeURL, drpWSRoute);
+myNode.Debug = debug;
+myNode.TestMode = testMode;
+myNode.AuthenticationServiceName = authenticatorService;
+myNode.RegistryUrl = registryUrl;
+myNode.ConnectToMesh(async () => {
+    // Create VDM Server on node
+    let myVDMServer = new vdmServer(serviceName, myNode, myServerConfig.WebRoot, "vdmapplets");
 
-// Create VDM Server on node
-let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot, "vdmapplets");
+    myNode.AddService(myVDMServer);
+    myNode.AddStream("RESTLogs", "REST service logs");
+    myNode.EnableREST("/Mesh", "Mesh");
 
-myNode.AddService(myVDMServer);
-myNode.AddStream("RESTLogs", "REST service logs");
-myNode.EnableREST("/Mesh", "Mesh");
-
-if (myNode.nodeURL) {
-    myNode.log(`Listening at: ${myNode.nodeURL}`);
-}
-
-// Connect to Registry manually if no domainName was specified
-if (!domainName && registryURL) {
-    myNode.ConnectToRegistry(registryURL);
-}
+    if (myNode.ListeningName) {
+        myNode.log(`Listening at: ${myNode.ListeningName}`);
+    }
+});
