@@ -154,6 +154,10 @@ class DocManager extends DRP_Service {
             getOpenAPIDoc: async function (params) {
                 return openAPIDoc;
             },
+            listServices: async () => {
+                // return list of service
+                return await thisDocMgr.ListDocServices();
+            },
             listDocs: async function (params) {
                 let serviceName = null;
                 if (params.serviceName) {
@@ -223,7 +227,7 @@ class DocManager extends DRP_Service {
         this.DocMgrDB = thisDocMgr.MongoClient.db(thisDocMgr.serviceName);
     }
 
-    async ListDocServices(serviceName) {
+    async ListDocServices() {
         let thisDocMgr = this;
         let returnData = [];
         // Load doc data
@@ -293,6 +297,12 @@ class DocManager extends DRP_Service {
 
     async SaveDoc(serviceName, docName, docData) {
         let thisDocMgr = this;
+
+        // Verify necessary attributes are not empty
+        if (!serviceName || serviceName.length === 0) return "Cannot save - the serviceName parameter is null or empty";
+        if (!docName || docName.length === 0) return "Cannot save - the docName parameter is null or empty";
+        if (!docData || docData.length === 0) return "Cannot save - the docData parameter is null or empty";
+
         // Save file data
         let saveResults = null;
         if (this.MongoHost) {
