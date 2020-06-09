@@ -1,6 +1,6 @@
 (class extends VDMApplet {
-    constructor(appletProfile, vdmDesktop) {
-        super(appletProfile, vdmDesktop);
+    constructor(appletProfile) {
+        super(appletProfile);
         let myApp = this;
 
         // Prerequisites

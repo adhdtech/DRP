@@ -325,7 +325,7 @@ class VDMDesktop {
         thisVDMDesktop.vdmTopBarMenuUL.append(itemLI);
     }
 
-    async openApp(appletName, parameter) {
+    async openApp(appletName, parameters) {
         let thisVDMDesktop = this;
 
         if (appletName !== "") {
@@ -338,7 +338,7 @@ class VDMDesktop {
             }
 
             // Create new instance of applet
-            let newApp = new appDefinition.appletClass(appDefinition, thisVDMDesktop);
+            let newApp = new appDefinition.appletClass(appDefinition, parameters);
 
             // Attach window to applet
             await thisVDMDesktop.newWindow(newApp);

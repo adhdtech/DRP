@@ -239,7 +239,7 @@ class VDMServer extends DRP_Service {
      * @returns {VDMAppletProfile} New applet profile
      */
     AddAppletProfile(appletName, title, sizeX, sizeY, appletIcon, showInMenu, appletScript, preReqs) {
-        if (appletName && title && sizeX & sizeY && appletScript) {
+        if (appletName && title && sizeX && sizeY && appletScript) {
             let newAppletProfile = new VDMAppletProfile(appletName, title, sizeX, sizeY, appletIcon, showInMenu, appletScript, preReqs);
             this.AppletProfiles[newAppletProfile.appletName] = newAppletProfile;
             return newAppletProfile;

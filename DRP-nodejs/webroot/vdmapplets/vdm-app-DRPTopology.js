@@ -1,6 +1,6 @@
 (class extends rSageApplet {
-    constructor(appletProfile, vdmClient) {
-        super(appletProfile, vdmClient);
+    constructor(appletProfile) {
+        super(appletProfile);
         let myApp = this;
 
         class topologyNode {
