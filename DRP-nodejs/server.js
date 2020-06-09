@@ -2,7 +2,7 @@
 const DRP_Node = require('drp-mesh').Node;
 const DRP_WebServer = require('drp-mesh').WebServer;
 const vdmServer = require('drp-service-rsage').VDM;
-const docManager = require('drp-service-docmgr');
+const DocMgr = require('drp-service-docmgr');
 const DRP_AuthRequest = require('drp-mesh').Auth.DRP_AuthResponse;
 const DRP_AuthResponse = require('drp-mesh').Auth.DRP_AuthResponse;
 const DRP_Authenticator = require('drp-mesh').Auth.DRP_Authenticator;
@@ -78,8 +78,8 @@ myNode.ConnectToMesh(async () => {
     myNode.EnableREST("/Mesh", "Mesh");
 
     // Add another service for demo
-    let docService = new docManager("DocMgr", myNode, "jsondocs/");
-    myNode.AddService(docService);
+    let myService = new DocMgr("DocMgr", myNode, 10, 10, "global", "jsondocs", null, null, null);
+    myNode.AddService(myService);
 
     if (myNode.ListeningName) {
         myNode.log(`Listening at: ${myNode.ListeningName}`);
