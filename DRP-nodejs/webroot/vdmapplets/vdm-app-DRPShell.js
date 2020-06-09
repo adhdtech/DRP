@@ -46,6 +46,9 @@
                             case 'dir':
                                 if (cmdParams.length > 0) pathList = cmdParams.split(/[\/\\]/g);
 
+                                let namePadSize = 0;
+                                let typePadSize = 0;
+
                                 // Remove leading empty entries
                                 while (pathList.length > 0 && pathList[0] === "") pathList.shift();
 
@@ -54,6 +57,17 @@
 
                                 results = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: true }, true);
                                 if (results && results.pathItemList && results.pathItemList.length > 0) {
+                                    // First, iterate over all and get the max length of the Name and Type fields
+                                    for (let i = 0; i < results.pathItemList.length; i++) {
+                                        let entryObj = results.pathItemList[i];
+                                        if (entryObj.Name && (!namePadSize || entryObj.Name.length > namePadSize)) {
+                                            namePadSize = entryObj.Name.length;
+                                        }
+                                        if (entryObj.Type && (!typePadSize || entryObj.Type.length > typePadSize)) {
+                                            typePadSize = entryObj.Type.length;
+                                        }
+                                    }
+
                                     // We have a directory listing
                                     for (let i = 0; i < results.pathItemList.length; i++) {
                                         let entryObj = results.pathItemList[i];
@@ -67,15 +81,15 @@
                                             case 'Boolean':
                                             case 'Number':
                                             case 'String':
-                                                term.write(`\x1B[0m${entryObj.Name.padEnd(24)}\t${entryObj.Type ? entryObj.Type.padEnd(16) : "undefined".padEnd(16)}\t${entryObj.Value}\x1B[0m\r\n`);
+                                                term.write(`\x1B[0m${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type ? entryObj.Type.padEnd(typePadSize) : "null".padEnd(16)}\t${entryObj.Value}\x1B[0m\r\n`);
                                                 break;
                                             case 'Function':
                                             case 'AsyncFunction':
-                                                term.write(`\x1B[92m${entryObj.Name.padEnd(24)}\t${entryObj.Type.padEnd(16)}\x1B[0m\r\n`);
+                                                term.write(`\x1B[92m${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type.padEnd(typePadSize)}\x1B[0m\r\n`);
                                                 break;
                                             default:
                                                 // Must be some sort of object
-                                                term.write(`\x1B[1;34m${entryObj.Name.padEnd(24)}\t${entryObj.Type.padEnd(16)}\x1B[0;0m\r\n`);
+                                                term.write(`\x1B[1;34m${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type.padEnd(typePadSize)}\x1B[0;0m\r\n`);
                                                 break;
                                         }
                                     }
@@ -185,6 +199,7 @@
         let myApp = this;
 
         myApp.appVars.termDiv = myApp.windowParts["data"];
+        myApp.appVars.termDiv.style.backgroundColor = "black";
         let term = new Terminal();
         myApp.appVars.term = term;
         myApp.appVars.fitaddon = new FitAddon.FitAddon();
@@ -192,7 +207,6 @@
         term.open(myApp.appVars.termDiv);
         term.setOption('cursorBlink', true);
         term.setOption('bellStyle', 'sound');
-        //term.write('Hello from \x1B[1;3;31mxterm.js\x1B[0m $ ');
 
         let writeNewPrompt = (supressNewline) => {
             if (!supressNewline) term.write('\n');
