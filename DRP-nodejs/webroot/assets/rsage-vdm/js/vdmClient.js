@@ -363,7 +363,7 @@ class DRP_Client_Browser extends DRP_Endpoint_Browser {
 
         wsConn.onerror = function (error) { thisClient.ErrorHandler(wsConn, error); };
 
-        this.RegisterMethod("cliGetPath", async function (params, wsConn, token) {
+        this.RegisterMethod("pathCmd", async function (params, wsConn, token) {
             let oReturnObject = await thisClient.GetObjFromPath(params, thisClient);
 
             // If we have a return object and want only a list of children, do that now

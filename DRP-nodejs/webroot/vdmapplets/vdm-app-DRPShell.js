@@ -57,11 +57,17 @@
                                     // We have a directory listing
                                     for (let i = 0; i < results.pathItemList.length; i++) {
                                         let entryObj = results.pathItemList[i];
+                                        if (!entryObj.Name) {
+                                            console.log("This entry could not be printed, has a null name");
+                                            console.dir(entryObj);
+                                            continue;
+                                        }
                                         switch (entryObj.Type) {
+                                            case null:
                                             case 'Boolean':
                                             case 'Number':
                                             case 'String':
-                                                term.write(`\x1B[0m${entryObj.Name.padEnd(24)}\t${entryObj.Type.padEnd(16)}\t${entryObj.Value}\x1B[0m\r\n`);
+                                                term.write(`\x1B[0m${entryObj.Name.padEnd(24)}\t${entryObj.Type ? entryObj.Type.padEnd(16) : "undefined".padEnd(16)}\t${entryObj.Value}\x1B[0m\r\n`);
                                                 break;
                                             case 'Function':
                                             case 'AsyncFunction':
@@ -212,7 +218,7 @@
             let charCode = e.key.charCodeAt(0);
             let code2 = e.key.charCodeAt(1);
             let code3 = e.key.charCodeAt(2);
-            console.log(`${charCode}, ${code2}, ${code3}`);
+            //console.log(`${charCode}, ${code2}, ${code3}`);
             //console.log(charCode);
             switch (charCode) {
                 case 3:

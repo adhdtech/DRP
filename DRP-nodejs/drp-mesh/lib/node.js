@@ -697,7 +697,7 @@ class DRP_Node {
 
                         if (targetEndpoint) {
                             // Await for command from consumer
-                            let results = await targetEndpoint.SendCmd("DRP", params.method, params, true, null);
+                            let results = await targetEndpoint.SendCmd("DRP", "pathCmd", params, true, null);
                             if (results && results.payload && results.payload) {
                                 oReturnObject = results.payload;
                             }
