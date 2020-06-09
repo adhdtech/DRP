@@ -39,7 +39,7 @@ experience should be able to set up a mesh and create a service in a short amoun
 <br>
 
 ## Demo
-The public demo is hosted at https://rsage.io:8443.  To run it on your own system, either grab the Docker container or clone this repo.
+The public demo is hosted at https://rsage.io.  To run it on your own system, either grab the Docker container or clone this repo.
 
 
 **Option 1: Docker Container**
