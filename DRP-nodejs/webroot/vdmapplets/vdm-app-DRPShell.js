@@ -49,6 +49,9 @@
                                 // Remove leading empty entries
                                 while (pathList.length > 0 && pathList[0] === "") pathList.shift();
 
+                                // Remove trailing empty entries
+                                while (pathList.length > 0 && pathList[pathList.length-1] === "") pathList.pop();
+
                                 results = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: true }, true);
                                 if (results && results.pathItemList && results.pathItemList.length > 0) {
                                     // We have a directory listing
@@ -80,6 +83,9 @@
 
                                 // Remove leading empty entries
                                 while (pathList.length > 0 && pathList[0] === "") pathList.shift();
+
+                                // Remove trailing empty entries
+                                while (pathList.length > 0 && pathList[pathList.length - 1] === "") pathList.pop();
 
                                 if (pathList.length === 0) {
                                     // Error
