@@ -11,9 +11,13 @@ let domainName = process.env.DOMAINNAME || null;
 let meshKey = process.env.MESHKEY || null;
 let zoneName = process.env.ZONENAME || null;
 let registryUrl = process.env.REGISTRYURL || null;
-let serviceName = process.env.SERVICENAME || "TestService";
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;
+
+let serviceName = process.env.SERVICENAME || "TestService";
+let priority = process.env.PRIORITY || null;
+let weight = process.env.WEIGHT || null;
+let scope = process.env.SCOPE || null;
 
 let openAPIDoc = {
     "openapi": "3.0.1",
@@ -103,12 +107,20 @@ let openAPIDoc = {
 
 // Create test service class
 class TestService extends DRP_Service {
-    constructor(serviceName, drpNode) {
-        super(serviceName, drpNode, "TestService", `${drpNode.NodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, ["dummy"], 1);
+    constructor(serviceName, drpNode, priority, weight, scope) {
+        super(serviceName, drpNode, "TestService", `${drpNode.NodeID}-${serviceName}`, false, priority, weight, drpNode.Zone, scope, null, ["dummy"], 1);
         this.ClientCmds = {
             getOpenAPIDoc: async function (cmdObj) { return openAPIDoc; },
-            sayHi: async function () { return { pathItem: `Hello from ${drpNode.NodeID}` }; },
-            sayBye: async function () { return { pathItem: `Goodbye from ${drpNode.NodeID}` }; },
+            sayHi: async function () {
+                drpNode.log("Remote node wants to say hi");
+                return {
+                    pathItem: `Hello from ${drpNode.NodeID}`
+                };
+            },
+            sayBye: async function () {
+                drpNode.log("Remote node wants to say bye");
+                return { pathItem: `Goodbye from ${drpNode.NodeID}` };
+            },
             showParams: async function (params) { return { pathItem: params }; }
         };
 
@@ -172,7 +184,7 @@ myNode.ConnectToMesh(async () => {
     myNode.AddStream("dummy", "Test stream");
 
     // Add a test service
-    myNode.AddService(new TestService(serviceName, myNode));
+    myNode.AddService(new TestService(serviceName, myNode, priority, weight, scope));
 
     setInterval(function () {
         let timeStamp = new Date().getTime();

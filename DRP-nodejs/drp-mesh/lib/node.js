@@ -1850,6 +1850,10 @@ class DRP_Node {
     ApplyGenericEndpointMethods(targetEndpoint) {
         let thisNode = this;
 
+        targetEndpoint.RegisterMethod("getEndpointID", async function (...args) {
+            return targetEndpoint.EndpointID;
+        });
+
         targetEndpoint.RegisterMethod("getNodeDeclaration", async function (...args) {
             return thisNode.NodeDeclaration;
         });
@@ -1991,6 +1995,10 @@ class DRP_Node {
         let thisNode = this;
 
         thisNode.ApplyGenericEndpointMethods(targetEndpoint);
+
+        targetEndpoint.RegisterMethod("getUserInfo", async function (params, srcEndpoint, token) {
+            return targetEndpoint.AuthInfo.userInfo;
+        });
     }
 
     /**
