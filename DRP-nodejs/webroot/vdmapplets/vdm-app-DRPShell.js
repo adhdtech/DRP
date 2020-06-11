@@ -122,7 +122,7 @@
                                     if (typeof results.pathItem === "object") {
                                         term.write(`\x1B[0m${JSON.stringify(results.pathItem, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
                                     } else {
-                                        term.write(`\x1B[0m${results.pathItem}\x1B[0m\r\n`);
+                                        term.write(`\x1B[0m${results.pathItem.replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
                                     }
                                 } else {
                                     term.write(`\x1B[0m${results}\x1B[0m\r\n`);
@@ -161,7 +161,7 @@
                             case 'whoami':
                                 term.write(`\x1B[33mUserName: \x1B[0m${myApp.appVars.UserInfo.UserName}`);
                                 term.write(`\r\n\x1B[33mFullName: \x1B[0m${myApp.appVars.UserInfo.FullName}`);
-                                term.write(`\r\n\x1B[33mGroups: \x1B[0m${myApp.appVars.UserInfo.Groups.join(',')}`);
+                                term.write(`\r\n\x1B[33m  Groups: \x1B[0m${myApp.appVars.UserInfo.Groups.join('\r\n          ')}`);
                                 term.write(`\r\n`);
                                 //term.write(`\x1B[36m${JSON.stringify(myApp.appVars.UserInfo, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
                                 break;
