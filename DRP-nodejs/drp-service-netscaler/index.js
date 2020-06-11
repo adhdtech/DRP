@@ -445,10 +445,7 @@ class NetScalerManager extends DRP_Service {
      * @param {string} scope Scope [local|zone|global(defaut)]
      */
     constructor(serviceName, drpNode, priority, weight, scope) {
-        let svcPriority = priority || 10;
-        let svcWeight = weight || 10;
-        let svcScope = scope || "global";
-        super(serviceName, drpNode, "NetScalerManager", `${drpNode.NodeID}-${serviceName}`, false, svcPriority, svcWeight, drpNode.Zone, svcScope, null, null, 1);
+        super(serviceName, drpNode, "NetScalerManager", `${drpNode.NodeID}-${serviceName}`, false, priority, weight, drpNode.Zone, scope, null, null, 1);
         let thisNsMgr = this;
 
         /** @type {Object<string,NetScalerSet>} */

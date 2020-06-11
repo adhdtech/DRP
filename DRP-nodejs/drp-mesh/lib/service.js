@@ -28,10 +28,10 @@ class DRP_Service {
         this.Type = type;
         this.InstanceID = instanceID;
         this.Sticky = sticky;
-        this.Priority = priority;
-        this.Weight = weight;
-        this.Zone = zone;
-        this.Scope = scope || "zone";
+        this.Priority = priority || 10;
+        this.Weight = weight || 10;
+        this.Zone = zone || "DEFAULT";
+        this.Scope = scope || "global";
         this.Dependencies = dependencies || [];
         this.Topics = topics || [];
         this.Streams = {};
