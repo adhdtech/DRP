@@ -42,6 +42,10 @@
                             case 'clear':
                                 term.clear();
                                 break;
+                            case 'exit':
+                            case 'quit':
+                                myApp.vdmDesktop.closeWindow(myApp);
+                                break;
                             case 'ls':
                             case 'dir':
                                 if (cmdParams.length > 0) pathList = cmdParams.split(/[\/\\]/g);
