@@ -120,38 +120,15 @@
                                 } else if (results && results.pathItem) {
                                     // Have pathItem
                                     if (typeof results.pathItem === "object") {
-                                        term.write(`\x1B[0m${JSON.stringify(results.pathItem, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
-                                    } else {
+                                        term.write(`\x1B[0m${JSON.stringify(results.pathItem, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                                    } else if (typeof results.pathItem === "string") {
                                         term.write(`\x1B[0m${results.pathItem.replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                                    } else {
+                                        term.write(`\x1B[0m${results.pathItem}\x1B[0m\r\n`);
                                     }
                                 } else {
                                     term.write(`\x1B[0m${results}\x1B[0m\r\n`);
                                 }
-                                /*
-                                if (results && results.pathItemList && results.pathItemList.length > 0) {
-                                    // We have a directory listing
-                                    for (let i = 0; i < results.pathItemList.length; i++) {
-                                        let entryObj = results.pathItemList[i];
-                                        switch (entryObj.Type) {
-                                            case 'Boolean':
-                                            case 'Number':
-                                            case 'String':
-                                                term.write(`\x1B[0m${entryObj.Name.padEnd(24)}\t${entryObj.Type.padEnd(16)}\t${entryObj.Value}\x1B[0m\r\n`);
-                                                break;
-                                            case 'Function':
-                                            case 'AsyncFunction':
-                                                term.write(`\x1B[32m${entryObj.Name.padEnd(24)}\t${entryObj.Type.padEnd(16)}\x1B[0m\r\n`);
-                                                break;
-                                            default:
-                                                // Must be some sort of object
-                                                term.write(`\x1B[34m${entryObj.Name.padEnd(24)}\t${entryObj.Type.padEnd(16)}\x1B[0m\r\n`);
-                                                break;
-                                        }
-                                    }
-                                } else {
-                                    term.write(`\x1B[31mNo results\x1B[0m`);
-                                }
-                                */
                                 break;
                             case 'topology':
                                 results = await myApp.sendCmd("DRP", "getTopology", null, true);
@@ -233,18 +210,10 @@
             let code2 = e.key.charCodeAt(1);
             let code3 = e.key.charCodeAt(2);
             //console.log(`${charCode}, ${code2}, ${code3}`);
-            //console.log(charCode);
             switch (charCode) {
                 case 3:
                     // Ctrl-C
                     navigator.clipboard.writeText(term.getSelection());
-                    /*
-                    lineBuffer = "";
-                    lineCursorIndex = 0;
-                    scrollbackIndex = 0;
-                    term.write("^C");
-                    writeNewPrompt();
-                    */
                     break;
                 case 22:
                     // Ctrl-V
@@ -277,7 +246,6 @@
                     break;
                 case 27:
                     // Special character
-                    //term.write("\b ");
                     if (!code2) {
                         // Escape
                         if (lineBuffer.length) {
@@ -318,7 +286,6 @@
                             lineCursorIndex = lineBuffer.length;
                             term.write(lineBuffer);
                             if (scrollbackIndex < lineBufferHistory.length) scrollbackIndex++;
-                            console.log(`ScrollbackIndex -> ${scrollbackIndex}`);
                         }
                         break;
                     } else if (code2 === 91 && code3 === 66) {
@@ -329,7 +296,6 @@
                             lineBuffer = lineBufferHistory[scrollbackIndex];
                             lineCursorIndex = lineBuffer.length;
                             term.write(lineBuffer);
-                            console.log(`ScrollbackIndex -> ${scrollbackIndex}`);
                         }
                         break;
                     } else if (code2 === 91 && code3 === 67) {
@@ -412,11 +378,6 @@
             //console.log(`${termBuffer.cursorX},${termBuffer.cursorY}`);
         });
 
-        /*
-        term.textarea.onkeypress = function (e) {
-            term.write(String.fromCharCode(e.keyCode));
-        };
-        */
         myApp.resizeMovingHook = function () {
             myApp.appVars.fitaddon.fit();
         };
