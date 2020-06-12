@@ -34,7 +34,7 @@
                             case '?':
                             case 'help':
                                 //term.write(`\x1B[0mDRP Shell commands:\x1B[0m\r\n`);
-                                ['help', 'ls', 'cat', 'clear', 'topology', 'whoami', 'token', 'endpointid'].forEach(thisCmd => {
+                                ['help', 'ls', 'cat', 'clear', 'topology', 'whoami', 'token', 'endpointid', 'exit'].forEach(thisCmd => {
                                     term.write(`\x1B[95m  ${thisCmd}\x1B[0m\r\n`);
                                 });
                                 break;
