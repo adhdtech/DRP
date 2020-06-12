@@ -504,7 +504,7 @@ class BlueCatManager extends DRP_Service {
     * @param {string} defaultView Default view name
     */
     constructor(serviceName, drpNode, priority, weight, scope, bcHosts, bcUser, bcPass, defaultView) {
-        super(serviceName, drpNode, "BlueCatManager", `${drpNode.NodeID}-${serviceName}`, false, priority, weight, drpNode.Zone, scope, null, null, 1);
+        super(serviceName, drpNode, "BlueCatManager", null, false, priority, weight, drpNode.Zone, scope, null, null, 1);
         let thisBcMgr = this;
 
         /** @type {Object.<string, BlueCatMgmtHost>} */

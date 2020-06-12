@@ -108,7 +108,7 @@ let openAPIDoc = {
 // Create test service class
 class TestService extends DRP_Service {
     constructor(serviceName, drpNode, priority, weight, scope) {
-        super(serviceName, drpNode, "TestService", `${drpNode.NodeID}-${serviceName}`, false, priority, weight, drpNode.Zone, scope, null, ["dummy"], 1);
+        super(serviceName, drpNode, "TestService", null, false, priority, weight, drpNode.Zone, scope, null, ["dummy"], 1);
         this.ClientCmds = {
             getOpenAPIDoc: async function (cmdObj) { return openAPIDoc; },
             sayHi: async function () {

@@ -3,6 +3,10 @@
 const UMLClass = require('./uml').Class;
 const DRP_Cmd = require('./packet').DRP_Cmd;
 
+function getRandomInt(max) {
+    return Math.floor(Math.random() * Math.floor(max));
+}
+
 class DRP_Service {
     /**
      * 
@@ -26,7 +30,7 @@ class DRP_Service {
         /** @type Object.<string,UMLClass> */
         this.Classes = {};
         this.Type = type;
-        this.InstanceID = instanceID;
+        this.InstanceID = instanceID || `${drpNode.NodeID}-${serviceName}-${getRandomInt(9999)}`;
         this.Sticky = sticky;
         this.Priority = priority || 10;
         this.Weight = weight || 10;

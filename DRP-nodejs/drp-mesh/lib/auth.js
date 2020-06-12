@@ -62,7 +62,7 @@ class DRP_Authenticator extends DRP_Service {
      * @param { number } status Service status[0 | 1 | 2]
      **/
     constructor(serviceName, drpNode, priority, weight, scope, status) {
-        super(serviceName, drpNode, "Authenticator", `${drpNode.NodeID}-${serviceName}`, false, priority, weight, drpNode.Zone, scope, null, ["AuthLogs"], status);
+        super(serviceName, drpNode, "Authenticator", null, false, priority, weight, drpNode.Zone, scope, null, ["AuthLogs"], status);
         let thisAuthenticator = this;
 
         this.ClientCmds = {

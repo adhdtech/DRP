@@ -133,7 +133,7 @@ class DocManager extends DRP_Service {
      * @param {string} mongoPw Mongo Password
      */
     constructor(serviceName, drpNode, priority, weight, scope, basePath, mongoHost, mongoUser, mongoPw) {
-        super(serviceName, drpNode, "DocManager", `${drpNode.NodeID}-${serviceName}`, false, priority, weight, drpNode.Zone, scope, null, null, 1);
+        super(serviceName, drpNode, "DocManager", null, false, priority, weight, drpNode.Zone, scope, null, null, 1);
         let thisDocMgr = this;
         this.basePath = basePath;
 

@@ -20,10 +20,6 @@ const Express_Request = express.request;
 const Express_Response = express.response;
 const swaggerUI = require("swagger-ui-express");
 
-function getRandomInt(max) {
-    return Math.floor(Math.random() * Math.floor(max));
-}
-
 function sleep(ms) {
     return new Promise(resolve => {
         setTimeout(resolve, ms);
@@ -81,7 +77,7 @@ class DRP_Node {
      */
     constructor(nodeRoles, hostID, domainName, meshKey, zone, webServer, listeningName, drpRoute) {
         let thisNode = this;
-        this.NodeID = `${os.hostname()}-${process.pid}-${getRandomInt(9999)}`;
+        this.NodeID = `${os.hostname()}-${process.pid}`;
         this.HostID = hostID;
         this.WebServer = webServer || null;
         /** @type {Object<string,Express_Router}} */

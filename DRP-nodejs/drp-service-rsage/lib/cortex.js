@@ -11,7 +11,7 @@ class Cortex extends DRP_Service {
      * @param {function} postHiveLoad Post load function
      */
     constructor(serviceName, drpNode, hiveObj, postHiveLoad) {
-        super(serviceName, drpNode, "Cortex", `${drpNode.NodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, null, 1);
+        super(serviceName, drpNode, "Cortex", null, false, 10, 10, drpNode.Zone, "global", null, null, 1);
         let thisCortex = this;
 
         // Set DRP Broker client
