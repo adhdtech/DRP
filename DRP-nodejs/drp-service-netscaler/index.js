@@ -36,8 +36,17 @@ class vService {
         }
     }
 
-    async Disable() {
-        return await this.haPair.ExecuteCommand(`disable service ${this.name}`);
+    async Disable(params) {
+        let delay = null;
+        let graceful = false;
+        if (params.pathList) {
+            delay = params.pathList.shift();
+            graceful = params.pathList.shift();
+        }
+        let cmdString = `disable service ${this.name}`;
+        if (delay) cmdString += ` ${delay}`;
+        if (graceful) cmdString += ` -graceful YES`;
+        return await this.haPair.ExecuteCommand(cmdString);
     }
 
     async Enable() {
