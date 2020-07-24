@@ -444,11 +444,11 @@ class BlueCatMgmtHost {
                     } else {
                         response = await thisBcMgmtHost.restAgent.post(command, parameters, { headers: { "Content-Type": "application/json" } });
                     }
-                    returnObj = response;
+                    returnObj = response.data;
                     break;
                 case "delete":
                     response = await thisBcMgmtHost.restAgent.delete(command, { params: parameters });
-                    returnObj = response;
+                    returnObj = response.data;
                     break;
                 default:
                     let bob = 1;
