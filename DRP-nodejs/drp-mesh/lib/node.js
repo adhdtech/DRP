@@ -282,7 +282,8 @@ class DRP_Node {
             }
 
             // Turn path into list, remove first element
-            let remainingPath = req.path.replace(/^\/|\/$/g, '').split('/');
+            let decodedPath = decodeURIComponent(req.path);
+            let remainingPath = decodedPath.replace(/^\/|\/$/g, '').split('/');
             remainingPath.shift();
 
             let listOnly = false;
