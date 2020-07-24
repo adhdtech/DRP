@@ -436,7 +436,7 @@ class BlueCatMgmtHost {
                     break;
                 case "put":
                     response = await thisBcMgmtHost.restAgent.put(command, parameters, { headers: { "Content-Type": "application/json" } });
-                    returnObj = response.data;
+                    returnObj = response;
                     break;
                 case "post":
                     if (paramsInQuery) {
@@ -444,11 +444,11 @@ class BlueCatMgmtHost {
                     } else {
                         response = await thisBcMgmtHost.restAgent.post(command, parameters, { headers: { "Content-Type": "application/json" } });
                     }
-                    returnObj = response.data;
+                    returnObj = response;
                     break;
                 case "delete":
                     response = await thisBcMgmtHost.restAgent.delete(command, { params: parameters });
-                    returnObj = response.data;
+                    returnObj = response;
                     break;
                 default:
                     let bob = 1;
@@ -686,6 +686,8 @@ class BlueCatManager extends DRP_Service {
                     thisBcMgr.drpNode.TopicManager.SendToTopic("BlueCat", `Updating Object: ${JSON.stringify(cmdObj.updateObj)}`);
                     if (response && response.status && response.status === 200) {
                         thisBcMgr.DeployObjectId(cmdObj.updateObj.id);
+                    } else {
+                        thisBcMgr.drpNode.TopicManager.SendToTopic("BlueCat", `Update of Object: ${JSON.stringify(cmdObj.updateObj)} failed, response status <${response.status}>`);
                     }
                 }
                 return returnObj;

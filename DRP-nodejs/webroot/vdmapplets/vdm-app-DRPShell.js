@@ -93,7 +93,7 @@
                                                 break;
                                             default:
                                                 // Must be some sort of object
-                                                term.write(`\x1B[1;34m${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type.padEnd(typePadSize)}\x1B[0;0m\r\n`);
+                                                term.write(`\x1B[1;34m${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type.padEnd(typePadSize)}\t${entryObj.Value}\x1B[0m\r\n`);
                                                 break;
                                         }
                                     }
