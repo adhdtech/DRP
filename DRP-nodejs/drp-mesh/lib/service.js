@@ -71,7 +71,7 @@ class DRP_Service {
         let classNameList = Object.keys(thisService.Classes);
         for (let i = 0; i < classNameList.length; i++) {
             let className = classNameList[i];
-            serviceDefinition[className] = thisService.Classes[className].GetDefinition();
+            serviceDefinition.Classes[className] = thisService.Classes[className].GetDefinition();
         }
         return serviceDefinition;
     }

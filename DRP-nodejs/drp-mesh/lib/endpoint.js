@@ -331,6 +331,7 @@ class DRP_Endpoint {
     }
 
     async OpenHandler() {
+        if (!this.wsConn) return null;
         this.RemoteAddressPortFamily = `${this.RemoteAddress()}|${this.RemotePort()}|${this.RemoteFamily()}`;
     }
 
@@ -339,10 +340,12 @@ class DRP_Endpoint {
     async ErrorHandler() { }
 
     Close() {
+        if (!this.wsConn) return null;
         this.wsConn.close();
     }
 
     RemoveSubscriptions() {
+        if (!this.wsConn) return null;
         let subscriptionIDList = Object.keys(this.Subscriptions);
         for (let i = 0; i < subscriptionIDList.length; i++) {
             let subscriptionID = subscriptionIDList[i];
@@ -354,6 +357,7 @@ class DRP_Endpoint {
     }
 
     IsReady() {
+        if (!this.wsConn) return null;
         if (this.wsConn && this.wsConn.readyState === 1)
             return true;
         else
@@ -361,6 +365,7 @@ class DRP_Endpoint {
     }
 
     IsConnecting() {
+        if (!this.wsConn) return null;
         if (this.wsConn && this.wsConn.readyState === 0)
             return true;
         else
@@ -371,6 +376,7 @@ class DRP_Endpoint {
     * @returns {string} Remote Address
     */
     RemoteAddress() {
+        if (!this.wsConn) return null;
         let returnVal = null;
         if (this.wsConn && this.wsConn._socket) {
             returnVal = this.wsConn._socket.remoteAddress;
@@ -382,6 +388,7 @@ class DRP_Endpoint {
      * @returns {string} Remote Port
      */
     RemotePort() {
+        if (!this.wsConn) return null;
         let returnVal = null;
         if (this.wsConn && this.wsConn._socket) {
             returnVal = this.wsConn._socket.remotePort;
@@ -393,6 +400,7 @@ class DRP_Endpoint {
      * @returns {string} Remote Family
      */
     RemoteFamily() {
+        if (!this.wsConn) return null;
         let returnVal = null;
         if (this.wsConn && this.wsConn._socket) {
             returnVal = this.wsConn._socket.remoteFamily;
@@ -404,6 +412,7 @@ class DRP_Endpoint {
      * @returns {number} Uptime in seconds
      */
     UpTime() {
+        if (!this.wsConn) return null;
         let currentTime = new Date().getTime();
         return Math.floor((currentTime - this.wsConn.openTime) / 1000);
     }
@@ -412,6 +421,7 @@ class DRP_Endpoint {
      * @returns {number} Ping time in milliseconds
      */
     PingTime() {
+        if (!this.wsConn) return null;
         let returnVal = null;
         if (this.wsConn._socket) {
             returnVal = this.wsConn.pingTimeMs;
@@ -420,6 +430,7 @@ class DRP_Endpoint {
     }
 
     ConnectionStats() {
+        if (!this.wsConn) return null;
         return {
             pingTimeMs: this.PingTime(),
             uptimeSeconds: this.UpTime()
@@ -427,6 +438,7 @@ class DRP_Endpoint {
     }
 
     IsServer() {
+        if (!this.wsConn) return null;
         return this.wsConn._isServer;
     }
 

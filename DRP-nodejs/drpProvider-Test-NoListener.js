@@ -19,6 +19,7 @@ let priority = process.env.PRIORITY || null;
 let weight = process.env.WEIGHT || null;
 let scope = process.env.SCOPE || null;
 
+// Define OpenAPI Doc
 let openAPIDoc = {
     "openapi": "3.0.1",
     "info": {
@@ -109,6 +110,8 @@ let openAPIDoc = {
 class TestService extends DRP_Service {
     constructor(serviceName, drpNode, priority, weight, scope) {
         super(serviceName, drpNode, "TestService", null, false, priority, weight, drpNode.Zone, scope, null, ["dummy"], 1);
+
+        // Define global methods
         this.ClientCmds = {
             getOpenAPIDoc: async function (cmdObj) { return openAPIDoc; },
             sayHi: async function () {
@@ -124,6 +127,7 @@ class TestService extends DRP_Service {
             showParams: async function (params) { return { pathItem: params }; }
         };
 
+        // Define data classes for this Provider
         this.AddClass(new DRP_UMLClass("Person", [],
             [
                 new DRP_UMLAttribute("personID", "personID", null, false, "int", null, "1", "PK,MK"),
@@ -145,6 +149,7 @@ class TestService extends DRP_Service {
             []
         ));
 
+        // Add sample data records
         this.Classes['Person'].AddRecord({
             "personID": 1001,
             "firstName": "John",
@@ -165,6 +170,7 @@ class TestService extends DRP_Service {
             "address": "123 Pine St, Nowhere, AR"
         }, this.serviceName, "2019-11-30T04:10:54.843Z");
 
+        // Mark cache loading as complete
         this.Classes['Person'].loadedCache = true;
         this.Classes['Department'].loadedCache = true;
     }

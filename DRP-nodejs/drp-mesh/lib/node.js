@@ -150,6 +150,16 @@ class DRP_Node {
         this.PacketRelayCount = 0;
 
         this.TCPPing = this.TCPPing;
+        this.GetServiceDefinitions = this.GetServiceDefinitions;
+        this.ListClassInstances = this.ListClassInstances;
+
+        let localDRPEndpoint = new DRP_Endpoint(null, this, "Local");
+        this.ApplyNodeEndpointMethods(localDRPEndpoint);
+
+        let DRPService = new DRP_Service("DRP", this, "DRP", null, false, 10, 10, this.Zone, "local", null, [], 1);
+        DRPService.ClientCmds = localDRPEndpoint.EndpointCmds;
+
+        this.AddService(DRPService);
     }
     /**
      * Print message to stdout
@@ -467,77 +477,44 @@ class DRP_Node {
         return 0;
     }
 
-    async GetClassDefinitions() {
-
-        let thisNode = this;
-        let results = {};
-
-        // Previously, we use this function to list all class instances and return a structure like this...
-        // results[className][serviceID].providers.push(nodeID);
-        let classInstances = thisNode.ListClassInstances();
-
-        // We no longer have the classes for each service stored in the Registry.  Now we need to find the best instance
-        // of each service and interrogate for class definitions on the fly.
-
-        // Loop over class names
-        let classNames = Object.keys(classInstances);
-        for (let i = 0; i < classNames.length; i++) {
-
-            let className = classNames[i];
-
-            // Loop over service names
-            let serviceNames = Object.keys(classInstances[className]);
-
-            // Call the first service to get the class definition
-            let serviceName = serviceNames[0];
-            let recordPath = ["Mesh", "Services", serviceName, "Classes", className, "GetDefinition"];
-
-            // Get data
-            let pathParams = { method: "cliGetPath", pathList: recordPath, listOnly: false };
-            let pathData = await thisNode.EvalPath(thisNode.GetBaseObj(), pathParams);
-
-            results[className] = pathData;
-        }
-        return results;
-    }
-
     /**
      * Return a dictionary of class names, services and providers
      * @param {{className: string}} params Parameters
+     * @param {object} callingEndpoint Calling Endpoint
+     * @param {token} token Command token
      * @returns {Object.<string,Object.<string,{providers:string[]}>>} Class instances
      */
-    ListClassInstances(params) {
+    async ListClassInstances(params, callingEndpoint, token) {
+        let thisNode = this;
+
         let results = {};
         let findClassName = null;
         if (params && params.className) findClassName = params.className;
-        let nodeIDs = Object.keys(this.NodeDeclarations);
-        for (let i = 0; i < nodeIDs.length; i++) {
-            let nodeID = nodeIDs[i];
-            //console.log("Looping over nodeID: " + nodeID);
-            /** @type DRP_NodeDeclaration */
-            let thisNodeDeclaration = this.NodeDeclarations[nodeID];
-            // Loop over Services
-            let serviceList = Object.keys(thisNodeDeclaration.Services);
-            for (let j = 0; j < serviceList.length; j++) {
-                let serviceID = serviceList[j];
-                //console.log("Looping over sourceID: " + sourceID);
-                let serviceInstanceObj = thisNodeDeclaration.Services[serviceID];
-                // Loop over Classes
-                //let classNames = Object.keys(serviceInstanceObj.Classes);
-                for (let k = 0; k < serviceInstanceObj.Classes.length; k++) {
-                    let className = serviceInstanceObj.Classes[k];
-                    if (!findClassName || findClassName === className) {
-                        if (!results[className]) {
-                            results[className] = {};
-                        }
-                        if (!results[className][serviceID]) {
-                            results[className][serviceID] = { providers: [] };
-                        }
-                        results[className][serviceID].providers.push(nodeID);
+        else if (params && params.pathList && params.pathList.length > 0) findClassName = params.pathList.shift();
+
+        // Get best instance for each service
+        let serviceDefinitions = await thisNode.GetServiceDefinitions(params, callingEndpoint);
+
+        // Get best instance of each service
+        let serviceList = Object.keys(serviceDefinitions);
+        for (let i = 0; i < serviceList.length; i++) {
+            let serviceName = serviceList[i];
+            let serviceInstanceObj = serviceDefinitions[serviceName];
+            let classList = Object.keys(serviceInstanceObj.Classes);
+            for (let k = 0; k < classList.length; k++) {
+                let className = classList[k];
+                if (!findClassName || findClassName === className) {
+                    if (!results[className]) {
+                        results[className] = {};
                     }
+                    if (!results[className][serviceName]) {
+                        results[className][serviceName] = { providers: [] };
+                    }
+                    results[className][serviceName].providers.push(serviceInstanceObj.NodeID);
                 }
             }
         }
+
         return results;
     }
 
@@ -570,6 +547,7 @@ class DRP_Node {
             // the declarations.  We need to go out to each service and get the info
             let bestInstance = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
             let response = await thisNode.ServiceCmd("DRP", "getServiceDefinition", { serviceName: serviceName }, bestInstance.NodeID, true, true, callingEndpoint);
+            response.NodeID = bestInstance.NodeID;
             serviceDefinitions[serviceName] = response;
         }
         return serviceDefinitions;
@@ -584,9 +562,15 @@ class DRP_Node {
          */
         let thisNode = this;
         let serviceDefinitions = {};
+        let checkServiceName = null;
+        if (params) {
+            if (params.serviceName) checkServiceName = params.serviceName;
+            else if (params.pathList && params.pathList.length > 0) checkServiceName = params.pathList.shift();
+        }
         let serviceNameList = Object.keys(thisNode.Services);
         for (let i = 0; i < serviceNameList.length; i++) {
             let serviceName = serviceNameList[i];
+            if (checkServiceName && checkServiceName !== serviceName) continue;
             let serviceDefinition = thisNode.Services[serviceName].GetDefinition();
             serviceDefinitions[serviceName] = serviceDefinition;
         }
@@ -608,7 +592,7 @@ class DRP_Node {
         let thisClassName = params.className;
 
         // We need to get a list of all distinct INSTANCES for this class along with the best source for each
-        let classInstances = thisNode.ListClassInstances(params);
+        let classInstances = await thisNode.ListClassInstances(params);
 
         // If we don't have data for this class, return null
         if (!classInstances[thisClassName]) return null;
@@ -849,7 +833,7 @@ class DRP_Node {
         return providerList;
     }
 
-    async EvalPath(oCurrentObject, params) {
+    async EvalPath(oCurrentObject, params, callingEndpoint) {
         let oReturnObject = null;
 
         let aChildPathArray = params.pathList;
@@ -910,7 +894,7 @@ class DRP_Node {
                             // Send the rest of the path to a function
                             let remainingPath = aChildPathArray.splice(i + 1);
                             params.pathList = remainingPath;
-                            oReturnObject = await oCurrentObject[aChildPathArray[i]](params);
+                            oReturnObject = await oCurrentObject[aChildPathArray[i]](params, callingEndpoint);
                             break PathLoop;
                         case 'string':
                             oReturnObject = oCurrentObject[aChildPathArray[i]];
@@ -938,12 +922,13 @@ class DRP_Node {
     /**
    * @param {object} params Remaining path
    * @param {Boolean} baseObj Flag to return list of children
+   * @param {object} callingEndpoint Endpoint making request
    * @returns {object} oReturnObject Return object
    */
-    async GetObjFromPath(params, baseObj) {
+    async GetObjFromPath(params, baseObj, callingEndpoint) {
 
         // Return object
-        let oReturnObject = await this.EvalPath(baseObj, params);
+        let oReturnObject = await this.EvalPath(baseObj, params, callingEndpoint);
 
         // If we have a return object and want only a list of children, do that now
         if (params.listOnly) {
@@ -1143,8 +1128,12 @@ class DRP_Node {
             // Execute locally
             let localServiceProvider = null;
             if (serviceName === "DRP") {
-                if (!callingEndpoint) return "No calling endpoint specified; required to execute DRP commands";
-                localServiceProvider = callingEndpoint.EndpointCmds;
+                //if (!callingEndpoint) return "No calling endpoint specified; required to execute DRP commands";
+                if (callingEndpoint) {
+                    localServiceProvider = callingEndpoint.EndpointCmds;
+                } else {
+                    localServiceProvider = thisNode.DRPService.ClientCmds;
+                }
             } else {
                 if (thisNode.Services[serviceName]) localServiceProvider = thisNode.Services[serviceName].ClientCmds;
             }
@@ -1160,6 +1149,7 @@ class DRP_Node {
             }
 
             if (awaitResponse) {
+                let bob = 0;
                 let results = await localServiceProvider[method](params, callingEndpoint);
                 return results;
             } else {
@@ -1855,36 +1845,32 @@ class DRP_Node {
             return thisNode.NodeDeclaration;
         });
 
-        targetEndpoint.RegisterMethod("pathCmd", async function (params, srcEndpoint, token) {
-            return await thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
+        targetEndpoint.RegisterMethod("pathCmd", async (params, srcEndpoint, token) => {
+            return await thisNode.GetObjFromPath(params, thisNode.GetBaseObj(), srcEndpoint);
         });
 
-        targetEndpoint.RegisterMethod("getRegistry", function (params, srcEndpoint, token) {
+        targetEndpoint.RegisterMethod("getRegistry", (params, srcEndpoint, token) => {
             return thisNode.TopologyTracker.GetRegistry(params.reqNodeID);
         });
 
-        targetEndpoint.RegisterMethod("getServiceDefinition", function (params, srcEndpoint, token) {
-            return thisNode.GetServiceDefinition(params);
+        targetEndpoint.RegisterMethod("getServiceDefinition", (...args) => {
+            return thisNode.GetServiceDefinition(...args);
         });
 
         targetEndpoint.RegisterMethod("getServiceDefinitions", async function (...args) {
             return await thisNode.GetServiceDefinitions(...args);
         });
 
-        targetEndpoint.RegisterMethod("getLocalServiceDefinitions", function (params, srcEndpoint) {
-            return thisNode.GetLocalServiceDefinitions(params, srcEndpoint);
+        targetEndpoint.RegisterMethod("getLocalServiceDefinitions", function (...args) {
+            return thisNode.GetLocalServiceDefinitions(...args);
         });
 
-        targetEndpoint.RegisterMethod("getClassRecords", async function (...args) {
+        targetEndpoint.RegisterMethod("getClassRecords", async (...args) => {
             return await thisNode.GetClassRecords(...args);
         });
 
-        targetEndpoint.RegisterMethod("listClassInstances", function () {
-            return thisNode.ListClassInstances();
-        });
-
-        targetEndpoint.RegisterMethod("getClassDefinitions", function () {
-            return thisNode.GetClassDefinitions();
+        targetEndpoint.RegisterMethod("listClassInstances", async (...args) => {
+            return await thisNode.ListClassInstances(...args);
         });
 
         targetEndpoint.RegisterMethod("sendToTopic", function (params, srcEndpoint, token) {
@@ -1976,7 +1962,7 @@ class DRP_Node {
             return;
         });
 
-        if (!targetEndpoint.IsServer()) {
+        if (targetEndpoint.IsServer && !targetEndpoint.IsServer()) {
             // Add this command for DRP_Client endpoints
             targetEndpoint.RegisterMethod("connectToRegistryInList", async function (...args) {
                 return await thisNode.ConnectToRegistryInList(...args);
@@ -2127,6 +2113,12 @@ class DRP_Node {
         }
         return pingInfo;
     }
+
+    async Sleep(ms) {
+        await new Promise(resolve => {
+            setTimeout(resolve, ms);
+        });
+    }
 }
 
 class DRP_NodeClient extends DRP_Client {
@@ -2193,15 +2185,12 @@ class DRP_TopologyTracker {
         /** @type {Object.<string,DRP_ServiceTableEntry>} */
         this.ServiceTable = new DRP_ServiceTable();
 
-        this.getNextHop = function (params) {
-            let remainingChildPath = params.pathList;
-            let oReturnObject = null;
-            if (remainingChildPath && remainingChildPath.length > 0) {
-                let checkNextHopForNodeID = remainingChildPath.shift();
-                oReturnObject = thisTopologyTracker.GetNextHop(checkNextHopForNodeID);
-            }
-            return oReturnObject;
-        };
+        this.GetNextHop = this.GetNextHop;
+        this.GetServicesWithProviders = this.GetServicesWithProviders;
+        this.ListServices = this.ListServices;
+        this.ListConnectedRegistryNodes = this.ListConnectedRegistryNodes;
+        this.FindRegistriesInZone = this.FindRegistriesInZone;
+        this.FindInstanceOfService = this.FindInstanceOfService;
     }
 
     RemoveNextHop(nextHopNode) {
@@ -2468,6 +2457,19 @@ class DRP_TopologyTracker {
     FindInstanceOfService(serviceName, serviceType, zone) {
         let thisTopologyTracker = this;
         let thisNode = thisTopologyTracker.drpNode;
+
+        if (serviceName && typeof serviceName === "object" && serviceName.pathList) {
+            // This was called from the CLI
+            let remainingChildPath = serviceName.pathList;
+            if (remainingChildPath && remainingChildPath.length > 0) {
+                serviceName = remainingChildPath.shift();
+                serviceType = remainingChildPath.shift();
+                zone = remainingChildPath.shift();
+            } else {
+                serviceName = null;
+            }
+        }
+
         let checkZone = zone || thisNode.Zone;
 
         // If neither a name nor a type is specified, return null
@@ -2835,14 +2837,37 @@ class DRP_TopologyTracker {
      */
     GetNextHop(targetNodeID) {
         let thisTopologyTracker = this;
+        if (targetNodeID && typeof targetNodeID === "object" && targetNodeID.pathList) {
+            // This was called from the CLI
+            let remainingChildPath = targetNodeID.pathList;
+            if (remainingChildPath && remainingChildPath.length > 0) {
+                targetNodeID = remainingChildPath.shift();
+            } else {
+                targetNodeID = null;
+            }
+        }
         let nextHopNodeID = null;
         let targetNodeEntry = thisTopologyTracker.NodeTable[targetNodeID];
         if (targetNodeEntry) nextHopNodeID = targetNodeEntry.LearnedFrom;
         return nextHopNodeID;
     }
 
+    /**
+     * Validate Node ID
+     * @param {string} checkNodeID Node ID we're trying to validate
+     * @returns {boolean} Node ID of next hop
+     */
     ValidateNodeID(checkNodeID) {
         let thisTopologyTracker = this;
+        if (checkNodeID && typeof checkNodeID === "object" && checkNodeID.pathList) {
+            // This was called from the CLI
+            let remainingChildPath = checkNodeID.pathList;
+            if (remainingChildPath && remainingChildPath.length > 0) {
+                checkNodeID = remainingChildPath.shift();
+            } else {
+                checkNodeID = null;
+            }
+        }
         if (thisTopologyTracker.NodeTable[checkNodeID])
             return true;
         else
@@ -2908,6 +2933,15 @@ class DRP_TopologyTracker {
 
     FindRegistriesInZone(zoneName) {
         let thisTopologyTracker = this;
+        if (zoneName && typeof zoneName === "object" && zoneName.pathList) {
+            // This was called from the CLI
+            let remainingChildPath = zoneName.pathList;
+            if (remainingChildPath && remainingChildPath.length > 0) {
+                zoneName = remainingChildPath.shift();
+            } else {
+                zoneName = null;
+            }
+        }
         let registryList = [];
         let nodeIDList = Object.keys(thisTopologyTracker.NodeTable);
         for (let i = 0; i < nodeIDList.length; i++) {
