@@ -1,63 +1,6 @@
 const DRP_Service = require('drp-mesh').Service;
 const DRP_Node = require('drp-mesh').Node;
 
-class HiveClassLoader {
-
-    constructor() {
-        this.HiveClasses = {};
-    }
-
-    LoadClasses(umlClasses) {
-        // Translate UMLClasses objects
-
-        this.HiveClasses = umlClasses;
-    }
-
-    GenerateIndexes() {
-        // Get Index structure
-        let HiveIndexes = {};
-        let classKeys = Object.keys(this.HiveClasses);
-        for (let i = 0; i < classKeys.length; i++) {
-            let thisClass = this.HiveClasses[classKeys[i]];
-            let attributeKeys = Object.keys(thisClass.Attributes);
-            for (let j = 0; j < attributeKeys.length; j++) {
-                let thisAttrDef = thisClass.Attributes[attributeKeys[j]];
-                if (thisAttrDef.Restrictions) {
-                    let keyArr = thisAttrDef.Restrictions.split(",");
-                    // Loop over keys of attribute
-                    for (let k = 0; k < keyArr.length; k++) {
-                        switch (keyArr[k]) {
-                            case 'MK':
-                                this.CheckIdxEntry(HiveIndexes, thisAttrDef.Stereotype);
-                                HiveIndexes[thisAttrDef.Stereotype].MKAttributes.push(thisAttrDef);
-                                break;
-                            case 'FK':
-                                this.CheckIdxEntry(HiveIndexes, thisAttrDef.Stereotype);
-                                HiveIndexes[thisAttrDef.Stereotype].FKAttributes.push(thisAttrDef);
-                                break;
-                            case 'PK':
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                }
-            }
-        }
-        return HiveIndexes;
-    }
-
-    CheckIdxEntry(thisIdx, key) {
-        if (typeof thisIdx[key] === "undefined") {
-            thisIdx[key] = {
-                MKAttributes: [],
-                FKAttributes: [],
-                IndexRecords: {}
-            };
-        }
-    }
-}
-
 class Hive extends DRP_Service {
     /**
      * 
@@ -78,9 +21,6 @@ class Hive extends DRP_Service {
         this.CollectorInstances = {};
 
         this.Start = this.Start;
-
-        /** @type {HiveClassLoader} */
-        this.ClassLoader = null;
 
         this.ClientCmds = {
             // Old Hive client commands
@@ -619,18 +559,15 @@ class Hive extends DRP_Service {
         this.HiveClasses = {};
         this.HiveData = {};
         this.HiveIndexes = {};
-        this.ClassLoader = new HiveClassLoader();
         thisHive.drpNode.log(`Getting class definitions`);
-        let classDefs = await thisHive.drpNode.GetClassDefinitions();
+        let serviceDefs = await thisHive.drpNode.GetServiceDefinitions();
         thisHive.drpNode.log(`Loading class definitions`);
-        this.ClassLoader.LoadClasses(classDefs);
-
-        thisHive.HiveClasses = thisHive.ClassLoader.HiveClasses;
-        thisHive.HiveIndexes = thisHive.ClassLoader.GenerateIndexes();
+        thisHive.HiveClasses = thisHive.LoadClasses(serviceDefs);
+        thisHive.HiveIndexes = thisHive.GenerateIndexes(thisHive.HiveClasses);
         thisHive.drpNode.log("Loaded class definitions");
-        await thisHive.LoadClassRecords(thisHive.drpNode);
+        await thisHive.LoadClassRecords();
         thisHive.drpNode.log("Loaded collector data");
-        callback();
+        if (callback && typeof callback === "function") callback();
     }
 
     async LoadClassRecords() {
@@ -639,14 +576,16 @@ class Hive extends DRP_Service {
 
         /** @type {DRP_Node} */
         //let thisNode = thisHive.drpNode;
-        let serviceListObj = thisHive.drpNode.GetServiceDefinitions();
-        let serviceNames = Object.keys(serviceListObj);
+
+        let serviceDefs = await thisHive.drpNode.GetServiceDefinitions();
+        let serviceNames = Object.keys(serviceDefs);
         for (let i = 0; i < serviceNames.length; i++) {
             let serviceName = serviceNames[i];
-            let thisServiceObj = serviceListObj[serviceName];
+            let serviceDefinition = serviceDefs[serviceName];
 
-            for (let j = 0; j < thisServiceObj.Classes.length; j++) {
-                let className = thisServiceObj.Classes[j];
+            let classNames = Object.keys(serviceDefinition.Classes);
+            for (let j = 0; j < classNames.length; j++) {
+                let className = classNames[j];
 
                 let cmdResponse = await thisHive.drpNode.GetClassRecords({ className: className, serviceName: serviceName});
 
@@ -917,6 +856,70 @@ class Hive extends DRP_Service {
         return returnVal;
     }
 
+    LoadClasses(serviceDefinitions) {
+        // Translate UMLClasses objects
+        // We used to get a list of umlClasses; now we're getting Service Definitions
+        let HiveClasses = {};
+
+        // Loop over services
+        let serviceNames = Object.keys(serviceDefinitions);
+        for (let i = 0; i < serviceNames.length; i++) {
+            // Loop over classes in service
+            let serviceName = serviceNames[i];
+            let serviceDefinition = serviceDefinitions[serviceName];
+            let classNames = Object.keys(serviceDefinition.Classes);
+            for (let j = 0; j < classNames.length; j++) {
+                let className = classNames[j];
+                let classDefinition = serviceDefinition.Classes[className];
+                if (!HiveClasses[className]) HiveClasses[className] = classDefinition;
+            }
+        }
+        return HiveClasses;
+    }
+
+    GenerateIndexes(HiveClasses) {
+        // Get Index structure
+        let HiveIndexes = {};
+        let classKeys = Object.keys(HiveClasses);
+        for (let i = 0; i < classKeys.length; i++) {
+            let thisClass = HiveClasses[classKeys[i]];
+            let attributeKeys = Object.keys(thisClass.Attributes);
+            for (let j = 0; j < attributeKeys.length; j++) {
+                let thisAttrDef = thisClass.Attributes[attributeKeys[j]];
+                if (thisAttrDef.Restrictions) {
+                    let keyArr = thisAttrDef.Restrictions.split(",");
+                    // Loop over keys of attribute
+                    for (let k = 0; k < keyArr.length; k++) {
+                        switch (keyArr[k]) {
+                            case 'MK':
+                                this.CheckIdxEntry(HiveIndexes, thisAttrDef.Stereotype);
+                                HiveIndexes[thisAttrDef.Stereotype].MKAttributes.push(thisAttrDef);
+                                break;
+                            case 'FK':
+                                this.CheckIdxEntry(HiveIndexes, thisAttrDef.Stereotype);
+                                HiveIndexes[thisAttrDef.Stereotype].FKAttributes.push(thisAttrDef);
+                                break;
+                            case 'PK':
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                }
+            }
+        }
+        return HiveIndexes;
+    }
+
+    CheckIdxEntry(thisIdx, key) {
+        if (typeof thisIdx[key] === "undefined") {
+            thisIdx[key] = {
+                MKAttributes: [],
+                FKAttributes: [],
+                IndexRecords: {}
+            };
+        }
+    }
 }
 
 class HiveMapQuery {

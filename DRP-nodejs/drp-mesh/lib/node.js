@@ -570,7 +570,7 @@ class DRP_Node {
         let serviceNameList = Object.keys(thisNode.Services);
         for (let i = 0; i < serviceNameList.length; i++) {
             let serviceName = serviceNameList[i];
-            if (checkServiceName && checkServiceName !== serviceName) continue;
+            if (serviceName === "DRP" || checkServiceName && checkServiceName !== serviceName) continue;
             let serviceDefinition = thisNode.Services[serviceName].GetDefinition();
             serviceDefinitions[serviceName] = serviceDefinition;
         }
@@ -612,7 +612,7 @@ class DRP_Node {
             let pathParams = { method: "cliGetPath", pathList: recordPath, listOnly: false };
             let pathData = await thisNode.EvalPath(thisNode.GetBaseObj(), pathParams);
 
-            results[serviceName] = pathData;
+            results[serviceName] = pathData.pathItem;
 
         }
         return results;
@@ -1127,13 +1127,9 @@ class DRP_Node {
         if (targetNodeID === thisNode.NodeID) {
             // Execute locally
             let localServiceProvider = null;
-            if (serviceName === "DRP") {
+            if (serviceName === "DRP" && callingEndpoint) {
                 //if (!callingEndpoint) return "No calling endpoint specified; required to execute DRP commands";
-                if (callingEndpoint) {
-                    localServiceProvider = callingEndpoint.EndpointCmds;
-                } else {
-                    localServiceProvider = thisNode.DRPService.ClientCmds;
-                }
+                localServiceProvider = callingEndpoint.EndpointCmds;
             } else {
                 if (thisNode.Services[serviceName]) localServiceProvider = thisNode.Services[serviceName].ClientCmds;
             }

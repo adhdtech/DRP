@@ -10,7 +10,7 @@
     <NodeExeArguments>--max-old-space-size=4096</NodeExeArguments>
     <Environment>REGISTRYURL=ws://localhost:8080
 DOMAINNAME=mydomain.xyz
-DOMAINKEY=supersecretkey
+MESHKEY=supersecretkey
 DEBUG=true
 TESTMODE=true
 ZONENAME=zone1
@@ -23,7 +23,7 @@ AUTHENTICATORSERVICE=TestAuthenticator</Environment>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>ba4b474a-fa17-4e27-bcda-500a68bbbb3a</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>server.js</StartupFile>
+    <StartupFile>drpProvider-Hive.js</StartupFile>
     <StartWebBrowser>False</StartWebBrowser>
     <SearchPath>
     </SearchPath>
@@ -84,6 +84,7 @@ AUTHENTICATORSERVICE=TestAuthenticator</Environment>
     <Content Include="drpProvider-LDAP-Authenticator.js" />
     <Content Include="drpProvider-NetScaler.js" />
     <Content Include="drpProvider-Test-Authenticator.js" />
+    <Content Include="drpProvider-Webex.js" />
     <Content Include="drpProvider-Test-PublicDirectory.js" />
     <Content Include="jsondocs\SomeSvc1\test.json" />
     <Content Include="drpBroker.js" />
