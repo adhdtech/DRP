@@ -382,44 +382,8 @@ class DRP_Node {
                 // If we already have it, ignore
                 if (thisNode.SwaggerRouters[serviceEntry.Name]) return;
 
-                // Reach out to the remote node
-                let swaggerObj = await thisNode.ServiceCmd(serviceEntry.Name, "getOpenAPIDoc", {}, serviceEntry.NodeID, true, true, null);
-
-                // Does it exist?
-                if (swaggerObj && swaggerObj.openapi) {
-
-                    // Override server settings
-                    swaggerObj.servers = [
-                        {
-                            "url": `/Mesh/Services/${serviceEntry.Name}`
-                        }
-                    ],
-
-                        // Override security settings
-                        swaggerObj.components = {
-                            "securitySchemes": {
-                                "x-api-key": {
-                                    "type": "apiKey",
-                                    "name": "x-api-key",
-                                    "in": "header"
-                                },
-                                "x-api-token": {
-                                    "type": "apiKey",
-                                    "name": "x-api-token",
-                                    "in": "header"
-                                }
-                            }
-                        };
-                    swaggerObj.security = [
-                        { "x-api-key": [] },
-                        { "x-api-token": [] }
-                    ];
-
-                    let thisRouter = express.Router();
-                    thisRouter.use("/", swaggerUI.serve);
-                    thisRouter.get("/", swaggerUI.setup(swaggerObj));
-                    thisNode.SwaggerRouters[serviceEntry.Name] = thisRouter;
-                }
+                // Reach out to the remote node, see if it has a Swagger doc for this service
+                await thisNode.AddSwaggerRouter(serviceEntry.Name, serviceEntry.NodeID);
             }
 
             // Is this a service delete?
@@ -469,6 +433,48 @@ class DRP_Node {
         });
 
         return 0;
+    }
+
+    async AddSwaggerRouter(serviceName, targetNodeID) {
+        let thisNode = this;
+        // Reach out to the remote node
+        let swaggerObj = await thisNode.ServiceCmd(serviceName, "getOpenAPIDoc", {}, targetNodeID, true, true, null);
+
+        // Does it exist?
+        if (swaggerObj && swaggerObj.openapi) {
+
+            // Override server settings
+            swaggerObj.servers = [
+                {
+                    "url": `/Mesh/Services/${serviceName}`
+                }
+            ],
+
+                // Override security settings
+                swaggerObj.components = {
+                    "securitySchemes": {
+                        "x-api-key": {
+                            "type": "apiKey",
+                            "name": "x-api-key",
+                            "in": "header"
+                        },
+                        "x-api-token": {
+                            "type": "apiKey",
+                            "name": "x-api-token",
+                            "in": "header"
+                        }
+                    }
+                };
+            swaggerObj.security = [
+                { "x-api-key": [] },
+                { "x-api-token": [] }
+            ];
+
+            let thisRouter = express.Router();
+            thisRouter.use("/", swaggerUI.serve);
+            thisRouter.get("/", swaggerUI.setup(swaggerObj));
+            thisNode.SwaggerRouters[serviceName] = thisRouter;
+        }
     }
 
     /**
@@ -1139,7 +1145,6 @@ class DRP_Node {
             }
 
             if (awaitResponse) {
-                let bob = 0;
                 let results = await localServiceProvider[method](params, callingEndpoint);
                 return results;
             } else {
@@ -1802,15 +1807,18 @@ class DRP_Node {
         if (staleNodeID) {
             switch (staleEndpoint.EndpointType) {
                 case "Node":
-                    thisNode.log(`Removing disconnected node [${staleNodeID}]`, true);
-                    thisNode.NodeEndpoints[staleNodeID].RemoveSubscriptions();
-                    delete thisNode.NodeEndpoints[staleNodeID];
-                    thisNode.TopologyTracker.ProcessNodeDisconnect(staleNodeID);
-
+                    if (thisNode.NodeEndpoints[staleNodeID]) {
+                        thisNode.log(`Removing disconnected node [${staleNodeID}]`, true);
+                        thisNode.NodeEndpoints[staleNodeID].RemoveSubscriptions();
+                        delete thisNode.NodeEndpoints[staleNodeID];
+                        thisNode.TopologyTracker.ProcessNodeDisconnect(staleNodeID);
+                    }
                     break;
                 case "Consumer":
-                    thisNode.ConsumerEndpoints[staleNodeID].RemoveSubscriptions();
-                    delete thisNode.ConsumerEndpoints[staleNodeID];
+                    if (thisNode.ConsumerEndpoints[staleNodeID]) {
+                        thisNode.ConsumerEndpoints[staleNodeID].RemoveSubscriptions();
+                        delete thisNode.ConsumerEndpoints[staleNodeID];
+                    }
                     break;
                 default:
             }
@@ -1914,16 +1922,28 @@ class DRP_Node {
             return response;
         });
 
-        targetEndpoint.RegisterMethod("deleteSwaggerRouter", async function (params, srcEndpoint, token) {
+        targetEndpoint.RegisterMethod("refreshSwaggerRouter", async function (params, srcEndpoint, token) {
+            let serviceName = null;
             if (params && params.serviceName) {
                 // params was passed from cliGetPath
-                let serviceName = params.serviceName;
-                if (thisNode.SwaggerRouters[serviceName]) {
-                    delete thisNode.SwaggerRouters[serviceName];
-                    return `OK - Deleted SwaggerRouters[${serviceName}]`;
-                } else return `FAIL - SwaggerRouters[${serviceName}] does not exist`;
+                serviceName = params.serviceName;
+                
+            } else if (params && params.pathList && params.pathList.length > 0) {
+                // params was passed from cliGetPath
+                serviceName = params.pathList.shift();
             } else {
-                return `FAIL - params.serviceName not defined`;
+                if (params && params.pathList) return `Format \\refreshSwaggerRouter\\{serviceName}`;
+                else return `FAIL - serviceName not defined`;
+            }
+
+            if (thisNode.SwaggerRouters[serviceName]) {
+                delete thisNode.SwaggerRouters[serviceName];
+                let serviceInstance = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
+                if (!serviceInstance) return `FAIL - Service [${serviceName}] does not exist`;
+                await thisNode.AddSwaggerRouter(serviceName, serviceInstance.NodeID);
+                return `OK - Refreshed SwaggerRouters[${serviceName}]`;
+            } else {
+                return `FAIL - SwaggerRouters[${serviceName}] does not exist`;
             }
         });
     }

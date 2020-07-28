@@ -84,6 +84,29 @@ let openAPIDoc = {
                 },
                 "x-swagger-router-controller": "TestService"
             }
+        },
+        "/ClientCmds/sayMoo": {
+            "get": {
+                "tags": [
+                    "ClientCmds"
+                ],
+                "summary": "Moo",
+                "description": "Says Moo",
+                "operationId": "sayMoo",
+                "responses": {
+                    "200": {
+                        "description": "Moo",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-swagger-router-controller": "TestService"
+            }
         }
     },
     "components": {
@@ -123,6 +146,10 @@ class TestService extends DRP_Service {
             sayBye: async function () {
                 drpNode.log("Remote node wants to say bye");
                 return { pathItem: `Goodbye from ${drpNode.NodeID}` };
+            },
+            sayMoo: async function () {
+                drpNode.log("Remote node wants to say moo");
+                return { pathItem: `Moo from ${drpNode.NodeID}` };
             },
             showParams: async function (params) { return { pathItem: params }; }
         };

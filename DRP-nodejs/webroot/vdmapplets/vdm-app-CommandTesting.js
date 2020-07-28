@@ -20,11 +20,12 @@
                 myApp.appVars.cmdParamsInput.innerHTML = "";
 
                 // Add DRP as default
+                /*
                 var newOption = document.createElement("option");
                 newOption.value = "DRP";
                 newOption.text = "DRP";
                 myApp.appVars.drpServiceSelect.appendChild(newOption);
-
+                */
                 myApp.appVars.svcDictionary = {};
 
                 let svcListResponse = await myApp.sendCmd("DRP", "getServiceDefinitions", null, true);
@@ -44,10 +45,12 @@
                 }
 
                 // Get DRP methods (not included in primary list of Services)
+                /*
                 let drpCmdList = await myApp.sendCmd("DRP", "getCmds", null, true);
                 myApp.appVars.svcDictionary["DRP"] = {
                     "ClientCmds": drpCmdList
                 };
+                */
 
                 // Set initial Method list to DRP
                 let cmdList = myApp.appVars.svcDictionary["DRP"]["ClientCmds"];
