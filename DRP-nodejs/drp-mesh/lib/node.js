@@ -20,12 +20,6 @@ const Express_Request = express.request;
 const Express_Response = express.response;
 const swaggerUI = require("swagger-ui-express");
 
-function sleep(ms) {
-    return new Promise(resolve => {
-        setTimeout(resolve, ms);
-    });
-}
-
 class DRP_PathCmd {
     /**
      * @param {string} method Method to execute
@@ -980,7 +974,7 @@ class DRP_Node {
                 // Are we still trying?
                 if (thisNodeEndpoint.IsConnecting()) {
                     // Yes - wait
-                    await sleep(100);
+                    await thisNode.Sleep(100);
                 } else {
                     // No - break the for loop
                     break;
@@ -1022,7 +1016,7 @@ class DRP_Node {
                 // Are we still trying?
                 if (!thisNode.NodeEndpoints[remoteNodeID] || !thisNode.NodeEndpoints[remoteNodeID].IsReady()) {
                     // Yes - wait
-                    await sleep(100);
+                    await thisNode.Sleep(100);
                 } else {
                     // No - break the for loop
                     thisNode.log(`Received back connection from remote node [${remoteNodeID}]`, true);
@@ -1497,14 +1491,14 @@ class DRP_Node {
                 }, async () => {
                     // Disconnect Callback; try again if we're not connected to another Registry
                     if (!thisNode.ConnectedToControlPlane) {
-                        await sleep(5000);
+                        await thisNode.Sleep(5000);
                         thisNode.ConnectToRegistryByDomain();
                     }
                 });
 
             } else {
                 thisNode.log(`Could not find active registry`);
-                await sleep(5000);
+                await thisNode.Sleep(5000);
                 thisNode.ConnectToRegistryByDomain();
             }
 
@@ -1551,7 +1545,7 @@ class DRP_Node {
                     let registryDisconnectCallback = async () => {
                         // On failure, wait 10 seconds, see if the remote registry is connected back then try again
                         // For each attempt, increase the wait time by 10 seconds up to 5 minutes
-                        await sleep(thisNode.ReconnectWaitTimeSeconds * 1000);
+                        await thisNode.Sleep(thisNode.ReconnectWaitTimeSeconds * 1000);
                         if (!thisNode.TopologyTracker.GetNodeWithURL(registryURL)) {
                             thisNode.ConnectToRegistry(registryURL, null, registryDisconnectCallback);
                             if (thisNode.ReconnectWaitTimeSeconds < 300) thisNode.ReconnectWaitTimeSeconds += 10;
@@ -2156,7 +2150,7 @@ class DRP_NodeClient extends DRP_Client {
         thisEndpoint.drpNode.RemoveEndpoint(thisEndpoint, thisEndpoint.closeCallback);
 
         if (this.retryOnClose) {
-            await sleep(5000);
+            await thisEndpoint.drpNode.Sleep(5000);
             this.RetryConnection();
         }
     }
@@ -2744,14 +2738,6 @@ class DRP_TopologyTracker {
             sourceIsRegistry = true;
         }
 
-        if (!thisNode.IsRegistry() && sourceIsRegistry && !thisNode.ConnectedToControlPlane) {
-            // We are connected to a Registry
-            thisNode.ConnectedToControlPlane = true;
-            runCleanup = true;
-            if (thisNode.onControlPlaneConnect && typeof thisNode.onControlPlaneConnect === "function" && !thisNode.HasConnectedToMesh) thisNode.onControlPlaneConnect();
-            thisNode.HasConnectedToMesh = true;
-        }
-
         // Import Nodes
         let nodeIDList = Object.keys(remoteRegistry.NodeTable);
         for (let i = 0; i < nodeIDList.length; i++) {
@@ -2770,6 +2756,15 @@ class DRP_TopologyTracker {
             if (localNodeIsProxy) thisServiceEntry.ProxyNodeID = thisNode.NodeID;
             let serviceAddPacket = new DRP_TopologyPacket(declaration.NodeID, "add", "service", thisServiceEntry.InstanceID, thisServiceEntry.Scope, thisServiceEntry.Zone, thisServiceEntry);
             thisNode.TopologyTracker.ProcessPacket(serviceAddPacket, sourceEndpoint.EndpointID, sourceIsRegistry);
+        }
+
+        // Execute onControlPlaneConnect callback
+        if (!thisNode.IsRegistry() && sourceIsRegistry && !thisNode.ConnectedToControlPlane) {
+            // We are connected to a Registry
+            thisNode.ConnectedToControlPlane = true;
+            runCleanup = true;
+            if (thisNode.onControlPlaneConnect && typeof thisNode.onControlPlaneConnect === "function" && !thisNode.HasConnectedToMesh) thisNode.onControlPlaneConnect();
+            thisNode.HasConnectedToMesh = true;
         }
 
         // Remove any stale entries if we're reconnecting to a new Registry

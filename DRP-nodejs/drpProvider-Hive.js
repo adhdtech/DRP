@@ -27,7 +27,6 @@ myNode.Debug = debug;
 myNode.TestMode = testMode;
 myNode.RegistryUrl = registryUrl;
 myNode.ConnectToMesh(async () => {
-    await myNode.Sleep(3000);
     let myHive = new rSageHive(serviceName, myNode, priority, weight, scope);
     myHive.Start();
     myNode.AddService(myHive);
