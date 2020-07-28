@@ -31,6 +31,7 @@ myNode.Debug = debug;
 myNode.TestMode = testMode;
 myNode.RegistryUrl = registryUrl;
 myNode.ConnectToMesh(async () => {
-    let myService = new BlueCatManager(serviceName, myNode, priority, weight, scope, bcHosts, bcUser, bcPass, defaultView);
-    myNode.AddService(myService);
+    let myService = new BlueCatManager(serviceName, myNode, priority, weight, scope, bcHosts, bcUser, bcPass, defaultView, () => {
+        myNode.AddService(myService);
+    });
 });
