@@ -234,12 +234,29 @@ class DRP_Node {
         setInterval(function ConsumerTokenCleanup() {
             let iCurrentTimestamp = parseInt(thisNode.getTimestamp());
             let consumerTokenIDList = Object.keys(thisNode.ConsumerTokens);
+
+            // Collect tokens from ConsumerEndpoints
+            let currentTokenList = [];
+            let consumerEndpointIDList = Object.keys(thisNode.ConsumerEndpoints);
+            for (let i = 0; i < consumerEndpointIDList.length; i++) {
+                let consumerEndpointID = consumerEndpointIDList[i];
+                currentTokenList.push(thisNode.ConsumerEndpoints[consumerEndpointID].AuthInfo.value);
+            }
+
+            // TO DO - if clients automatically time out, we need to add a keepalive so that
+            // tokens of consumers connected to this Broker are not removed from other Brokers
             for (let i = 0; i < consumerTokenIDList.length; i++) {
                 let checkToken = consumerTokenIDList[i];
                 let checkTokenObj = thisNode.ConsumerTokens[checkToken];
                 let iCheckTimestamp = parseInt(checkTokenObj.AuthTimestamp);
+
+                // Skip if currently connected
+                if (currentTokenList.includes(checkToken)) continue;
+
+                // Expire after 5 minutes
                 let maxAgeSeconds = 60 * 5;
                 if (iCurrentTimestamp > iCheckTimestamp + maxAgeSeconds) {
+
                     // The token has expired
                     delete thisNode.ConsumerTokens[checkToken];
                 }
@@ -1287,6 +1304,7 @@ class DRP_Node {
             // an authentication function.  Authorization to be handled by target services.
 
             // Authenticate the consumer
+            /** @type {DRP_AuthResponse} */
             let authResponse = await thisNode.Authenticate(declaration.user, declaration.pass, declaration.token);
 
             // Authentication function did not return successfully
@@ -1927,7 +1945,7 @@ class DRP_Node {
             if (params && params.serviceName) {
                 // params was passed from cliGetPath
                 serviceName = params.serviceName;
-                
+
             } else if (params && params.pathList && params.pathList.length > 0) {
                 // params was passed from cliGetPath
                 serviceName = params.pathList.shift();

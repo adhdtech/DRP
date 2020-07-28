@@ -40,9 +40,9 @@ myNode.ConnectToMesh(async () => {
         let thisService = this;
         let authResponse = null;
         console.dir(authRequest);
-        if (authRequest.UserName && authRequest.Password || authRequest.Token) {
+        if (authRequest.UserName && authRequest.Password) {
             // For demo purposes; accept any user/password or token
-            authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName || authRequest.Token, "Some User", ["Users"], null, thisService.serviceName, thisService.drpNode.getTimestamp());
+            authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName, "Some User", ["Users"], null, thisService.serviceName, thisService.drpNode.getTimestamp());
         }
         myNode.TopicManager.SendToTopic("AuthLogs", authResponse);
         return authResponse;
