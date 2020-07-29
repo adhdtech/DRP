@@ -16,25 +16,10 @@ let authenticatorService = process.env.AUTHENTICATORSERVICE || null;
 // Service specific variables
 let fs = require('fs');
 let promisify = require('util').promisify;
-let readFile = promisify(fs.readFile);
 let serviceName = process.env.SERVICENAME || "NetScaler";
 let priority = process.env.PRIORITY || null;
 let weight = process.env.WEIGHT || null;
 let scope = process.env.SCOPE || null;
-let nsConfigFile = process.env.NSCONFFILE || "nsconf.json";
-
-/*
-nsconf.json format:
-{
-	"NSPairName": {
-		"Hosts": [
-			"10.1.1.10",
-			"10.1.1.11"
-		],
-		"KeyFileName": "nsroot.priv"
-	}
-}
- */
 
 // Set Roles
 let roleList = ["Provider"];
@@ -46,8 +31,19 @@ myNode.Debug = debug;
 myNode.TestMode = testMode;
 myNode.RegistryUrl = registryUrl;
 myNode.ConnectToMesh(async () => {
-    let rawConfig = await readFile(nsConfigFile, "utf8");
-    let nsConfigSet = JSON.parse(rawConfig);
-    let thisSvc = new NetScalerManager(serviceName, myNode, priority, weight, scope, nsConfigSet);
+	let thisSvc = new NetScalerManager(serviceName, myNode, priority, weight, scope, async () => {
+		// This is executed on inital load and refreshes
+
+		// Get Set Names
+		let setNames = await myNode.ServiceCmd("DocMgr", "listDocs", { serviceName: "NetScaler" }, null, null, true, null);
+
+		// Loop over config set names
+		for (let i = 0; i < setNames.length; i++) {
+			let thisSetName = setNames[i];
+			if (!thisSetName) continue;
+			let thisSetDoc = await myNode.ServiceCmd("DocMgr", "loadDoc", { serviceName: "NetScaler", docName: thisSetName }, null, null, true, null);
+			thisSvc.AddSet(thisSetName, thisSetDoc.Hosts, thisSetDoc.PrivateKey);
+		}
+	});
     myNode.AddService(thisSvc);
 });

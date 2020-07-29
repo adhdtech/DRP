@@ -452,9 +452,9 @@ class NetScalerManager extends DRP_Service {
      * @param {number} priority Priority (lower better)
      * @param {number} weight Weight (higher better)
      * @param {string} scope Scope [local|zone|global(defaut)]
-     * @param {Object<string,object>} nsConfigSet NetScaler pairs to load
+     * @param {function} configLoadCallback Function to load config
      */
-    constructor(serviceName, drpNode, priority, weight, scope, nsConfigSet) {
+    constructor(serviceName, drpNode, priority, weight, scope, configLoadCallback) {
         super(serviceName, drpNode, "NetScalerManager", null, false, priority, weight, drpNode.Zone, scope, null, null, 1);
         let thisNsMgr = this;
 
@@ -462,7 +462,7 @@ class NetScalerManager extends DRP_Service {
         this.haPairs = {};
         /** @type {Array<NetScalerHost>} */
         this.nsHosts = {};
-        this.nsConfigSet = nsConfigSet;
+        this.configLoadCallback = configLoadCallback;
 
         this.ClientCmds = {
             "saveConfigs": async function () {
@@ -686,8 +686,7 @@ class NetScalerManager extends DRP_Service {
             }
         };
 
-        // Load config set
-        this.RefreshConfigs();
+        if (configLoadCallback && typeof configLoadCallback === "function") configLoadCallback();
     }
     /**
      * @param {string} name NetScaler set name
@@ -708,20 +707,13 @@ class NetScalerManager extends DRP_Service {
         }
     }
 
-    async RefreshConfigs() {
+    async RefreshConfigs(configLoadCallback) {
         let thisNsMgr = this;
         let thisNode = thisNsMgr.drpNode;
         thisNsMgr.haPairs = {};
         thisNsMgr.nsHosts = {};
 
-        let configSetKeys = Object.keys(thisNsMgr.nsConfigSet);
-        for (let i = 0; i < configSetKeys.length; i++) {
-            let nsSetName = configSetKeys[i];
-            let nsSetData = thisNsMgr.nsConfigSet[nsSetName];
-            if (thisNode.Debug) thisNode.log(`Adding set ${nsSetName}...`);
-            await thisNsMgr.AddSet(nsSetName, nsSetData.Hosts, nsSetData.KeyFileName);
-            if (thisNode.Debug) thisNode.log(`Added set ${nsSetName}`);
-        }
+        if (configLoadCallback && typeof configLoadCallback === "function") configLoadCallback();
     }
 
 }
