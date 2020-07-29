@@ -152,7 +152,7 @@ class BlueCatMgmtHost {
         }
     }
 
-    async GetInfoForMember() {
+    async GetInfoForMember(onLoadComplete) {
         let thisBcMgmtHost = this;
         let systemInfoString = await thisBcMgmtHost.GetSystemInfo();
         let parsedValues = APIEntity.prototype.PropertiesToObject(systemInfoString);
@@ -164,6 +164,7 @@ class BlueCatMgmtHost {
             thisBcMgmtHost.bcMgr.config = thisBcMgmtHost.config;
             thisBcMgmtHost.config.ConfigurationID = await thisBcMgmtHost.GetFirstConfigurationID();
             await thisBcMgmtHost.PopulateViews();
+            if (onLoadComplete && typeof onLoadComplete === "function") onLoadComplete();
         }
     }
 
@@ -502,8 +503,9 @@ class BlueCatManager extends DRP_Service {
     * @param {string} bcUser BlueCat User
     * @param {string} bcPass BlueCat Password
     * @param {string} defaultView Default view name
+    * @param {function} onLoadComplete Execute on load complete
     */
-    constructor(serviceName, drpNode, priority, weight, scope, bcHosts, bcUser, bcPass, defaultView) {
+    constructor(serviceName, drpNode, priority, weight, scope, bcHosts, bcUser, bcPass, defaultView, onLoadComplete) {
         super(serviceName, drpNode, "BlueCatManager", null, false, priority, weight, drpNode.Zone, scope, null, null, 1);
         let thisBcMgr = this;
 
@@ -531,7 +533,7 @@ class BlueCatManager extends DRP_Service {
                 bcMgr: thisBcMgr
             });
             this.members[bcMgmtHostIP] = bcMgmtHostObj;
-            bcMgmtHostObj.GetInfoForMember();
+            bcMgmtHostObj.GetInfoForMember(onLoadComplete);
         }
 
         this.ClientCmds = {
