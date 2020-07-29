@@ -710,6 +710,7 @@ class NetScalerManager extends DRP_Service {
 
     async RefreshConfigs() {
         let thisNsMgr = this;
+        let thisNode = thisNsMgr.drpNode;
         thisNsMgr.haPairs = {};
         thisNsMgr.nsHosts = {};
 
@@ -717,9 +718,9 @@ class NetScalerManager extends DRP_Service {
         for (let i = 0; i < configSetKeys.length; i++) {
             let nsSetName = configSetKeys[i];
             let nsSetData = thisNsMgr.nsConfigSet[nsSetName];
-            if (debug) myNode.log(`Adding set ${nsSetName}...`);
+            if (thisNode.Debug) thisNode.log(`Adding set ${nsSetName}...`);
             await thisNsMgr.AddSet(nsSetName, nsSetData.Hosts, nsSetData.KeyFileName);
-            if (debug) myNode.log(`Added set ${nsSetName}`);
+            if (thisNode.Debug) thisNode.log(`Added set ${nsSetName}`);
         }
     }
 
