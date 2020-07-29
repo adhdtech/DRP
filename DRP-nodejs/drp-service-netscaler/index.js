@@ -452,8 +452,9 @@ class NetScalerManager extends DRP_Service {
      * @param {number} priority Priority (lower better)
      * @param {number} weight Weight (higher better)
      * @param {string} scope Scope [local|zone|global(defaut)]
+     * @param {Object<string,object>} nsConfigSet NetScaler pairs to load
      */
-    constructor(serviceName, drpNode, priority, weight, scope) {
+    constructor(serviceName, drpNode, priority, weight, scope, nsConfigSet) {
         super(serviceName, drpNode, "NetScalerManager", null, false, priority, weight, drpNode.Zone, scope, null, null, 1);
         let thisNsMgr = this;
 
@@ -461,6 +462,7 @@ class NetScalerManager extends DRP_Service {
         this.haPairs = {};
         /** @type {Array<NetScalerHost>} */
         this.nsHosts = {};
+        this.nsConfigSet = nsConfigSet;
 
         this.ClientCmds = {
             "saveConfigs": async function () {
@@ -683,6 +685,9 @@ class NetScalerManager extends DRP_Service {
                 else return null;
             }
         };
+
+        // Load config set
+        this.RefreshConfigs();
     }
     /**
      * @param {string} name NetScaler set name
@@ -705,10 +710,16 @@ class NetScalerManager extends DRP_Service {
 
     async RefreshConfigs() {
         let thisNsMgr = this;
-        let haPairNames = Object.keys(thisNsMgr.haPairs);
-        for (let i = 0; i < haPairNames.length; i++) {
-            let haPairName = haPairNames[i];
-            // Need to retrieve the latest configs for each set - what's the best way?
+        thisNsMgr.haPairs = {};
+        thisNsMgr.nsHosts = {};
+
+        let configSetKeys = Object.keys(thisNsMgr.nsConfigSet);
+        for (let i = 0; i < configSetKeys.length; i++) {
+            let nsSetName = configSetKeys[i];
+            let nsSetData = thisNsMgr.nsConfigSet[nsSetName];
+            if (debug) myNode.log(`Adding set ${nsSetName}...`);
+            await thisNsMgr.AddSet(nsSetName, nsSetData.Hosts, nsSetData.KeyFileName);
+            if (debug) myNode.log(`Added set ${nsSetName}`);
         }
     }
 

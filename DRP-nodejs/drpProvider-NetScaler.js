@@ -48,16 +48,6 @@ myNode.RegistryUrl = registryUrl;
 myNode.ConnectToMesh(async () => {
     let rawConfig = await readFile(nsConfigFile, "utf8");
     let nsConfigSet = JSON.parse(rawConfig);
-    //console.dir(nsConfigSet);
-    let thisSvc = new NetScalerManager(serviceName, myNode, priority, weight, scope);
-
-    let configSetKeys = Object.keys(nsConfigSet);
-    for (let i = 0; i < configSetKeys.length; i++) {
-        let nsSetName = configSetKeys[i];
-        let nsSetData = nsConfigSet[nsSetName];
-        if (debug) myNode.log(`Adding set ${nsSetName}...`);
-        await thisSvc.AddSet(nsSetName, nsSetData.Hosts, nsSetData.KeyFileName);
-        if (debug) myNode.log(`Added set ${nsSetName}`);
-    }
+    let thisSvc = new NetScalerManager(serviceName, myNode, priority, weight, scope, nsConfigSet);
     myNode.AddService(thisSvc);
 });
