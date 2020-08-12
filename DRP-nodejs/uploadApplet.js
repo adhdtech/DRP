@@ -13,7 +13,7 @@ let brokerURL = myArgs[1] || "ws://localhost:8080";
 
 if (!user) die("ENV variable USER not specified");
 if (!pass) die("ENV variable PASS not specified");
-if (!appletName) die("APPLETNAME not specified");
+if (!appletName) die(`Usage: node ${process.argv[1]} vdm-app-SomeApp [ws://brokerurl]`);
 
 console.log(`Uploading applet, connecting to Broker Node @ ${brokerURL}`);
 let myConsumer = new DRP_Consumer(brokerURL, user, pass, null, async function () {
