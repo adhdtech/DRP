@@ -3,7 +3,7 @@
 const DRP_Node = require("./node");
 const DRP_Client = require("./client");
 
-class DRP_Consumer extends DRP_Node {
+class DRP_Consumer {
     /**
      * 
      * @param {string} wsTarget WebSocket target
@@ -13,7 +13,6 @@ class DRP_Consumer extends DRP_Node {
      * @param {function} openHandler Callback after open
      */
     constructor(wsTarget, user, pass, proxy, openHandler) {
-        super();
         this.user = user;
         this.pass = pass;
         this.brokerURL = wsTarget;
