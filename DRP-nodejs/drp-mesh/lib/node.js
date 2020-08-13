@@ -318,7 +318,7 @@ class DRP_Node {
             let resultString = "";
 
             try {
-                let resultObj = await thisNode.GetObjFromPath({ "method": "cliGetPath", "pathList": basePathArray.concat(remainingPath), "listOnly": listOnly, "authInfo": authInfo }, thisNode.GetBaseObj());
+                let resultObj = await thisNode.GetObjFromPath({ "method": "cliGetPath", "pathList": basePathArray.concat(remainingPath), "listOnly": listOnly, "authInfo": authInfo, "body": req.body }, thisNode.GetBaseObj());
                 if (!resultObj || !resultObj.pathItem && !resultObj.pathItemList || resultObj.pathItemList && !resultObj.pathItemList.length) {
                     // No results
                 } else {
