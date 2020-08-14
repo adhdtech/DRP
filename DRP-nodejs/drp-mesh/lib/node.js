@@ -1369,6 +1369,7 @@ class DRP_Node {
         let srvHash = null;
 
         if (thisNode.TestMode && thisNode.TestMode === "true") {
+            thisNode.log("TESTMODE is set - overriding domain, using localhost:8082-8085");
             srvHash = {
                 "localhost-8082": { "name": os.hostname(), "port": 8082 },
                 "localhost-8083": { "name": os.hostname(), "port": 8083 },
