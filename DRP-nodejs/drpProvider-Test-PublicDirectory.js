@@ -75,8 +75,6 @@ myNode.Debug = debug;
 myNode.TestMode = testMode;
 myNode.RegistryUrl = registryUrl;
 myNode.ConnectToMesh(async () => {
-    // Declare dummy stream
-    myNode.AddStream("dummy", "Test stream");
 
     // Add a test service
     myNode.AddService(new DirectoryService("DirectoryService", myNode));

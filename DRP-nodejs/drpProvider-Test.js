@@ -52,9 +52,6 @@ if (myNode.ListeningName) {
     myNode.log(`Listening at: ${myNode.ListeningName}`);
 }
 
-// Add dummy stream
-myNode.AddStream("dummy", "Test stream");
-
 // Add a test service
 myNode.AddService(new TestService("Greeter", myNode));
 

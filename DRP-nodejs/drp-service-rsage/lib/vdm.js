@@ -74,7 +74,7 @@ class VDMServer extends DRP_Service {
      * @param {string} vdmAppletsDir VDMApplets directory
      */
     constructor(serviceName, drpNode, clientDirectory, vdmAppletsDir) {
-        super(serviceName, drpNode, "VDM", null, true, 10, 10, drpNode.Zone, "local", null, null, 1);
+        super(serviceName, drpNode, "VDM", null, true, 10, 10, drpNode.Zone, "local", null, ["RESTLogs"], 1);
 
         /** @type {Express_Application} */
         this.expressApp = drpNode.WebServer.expressApp;

@@ -72,8 +72,6 @@ myNode.ConnectToMesh(async () => {
     let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot, "vdmapplets");
 
     myNode.AddService(myVDMServer);
-    myNode.AddStream("RESTLogs", "REST service logs");
-    myNode.AddStream("dummy", "dummy logs");
     myNode.EnableREST("/Mesh", "Mesh");
 
     // Add another service for demo

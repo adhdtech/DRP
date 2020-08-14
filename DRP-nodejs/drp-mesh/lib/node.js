@@ -133,11 +133,6 @@ class DRP_Node {
 
         this.NodeDeclaration = new DRP_NodeDeclaration(this.NodeID, this.NodeRoles, this.HostID, this.ListeningName, this.DomainName, this.MeshKey, this.Zone);
 
-        // If this is a Registry, seed the Registry with it's own declaration
-        if (thisNode.IsRegistry()) {
-            this.AddStream("RegistryUpdate", "Registry updates");
-        }
-
         // Add a route handler even if we don't have an Express server (needed for stream relays)
         this.RouteHandler = new DRP_RouteHandler(this, this.drpRoute);
 
@@ -1089,7 +1084,7 @@ class DRP_Node {
         if (serviceObj && serviceObj.serviceName && serviceObj.ClientCmds) {
             thisNode.Services[serviceObj.serviceName] = serviceObj;
 
-            let newServiceEntry = new DRP_ServiceTableEntry(thisNode.NodeID, null, serviceObj.serviceName, serviceObj.Type, serviceObj.InstanceID, serviceObj.Zone, serviceObj.Sticky, serviceObj.Priority, serviceObj.Weight, serviceObj.Scope, serviceObj.Dependencies, serviceObj.Topics, serviceObj.Status);
+            let newServiceEntry = new DRP_ServiceTableEntry(thisNode.NodeID, null, serviceObj.serviceName, serviceObj.Type, serviceObj.InstanceID, serviceObj.Zone, serviceObj.Sticky, serviceObj.Priority, serviceObj.Weight, serviceObj.Scope, serviceObj.Dependencies, serviceObj.Streams, serviceObj.Status);
             let addServicePacket = new DRP_TopologyPacket(thisNode.NodeID, "add", "service", newServiceEntry.InstanceID, newServiceEntry.Scope, newServiceEntry.Zone, newServiceEntry);
             thisNode.TopologyTracker.ProcessPacket(addServicePacket, thisNode.NodeID);
         }
@@ -1099,13 +1094,6 @@ class DRP_Node {
         let thisNode = this;
         if (serviceName && thisNode.NodeDeclaration.Services[serviceName]) {
             delete this.NodeDeclaration.Services[serviceName];
-        }
-    }
-
-    AddStream(streamName, streamDescription) {
-        let thisNode = this;
-        if (streamName && streamDescription) {
-            //thisNode.NodeDeclaration.Streams[streamName] = streamDescription;
         }
     }
 
@@ -3111,12 +3099,12 @@ class DRP_ServiceTableEntry extends DRP_TrackingTableEntry {
      * @param {number} serviceWeight Service weight
      * @param {string} scope Service scope (Local|Zone|Global)
      * @param {string[]} serviceDependencies Services required for this one to operate
-     * @param {string[]} topics Topics provided by this service
+     * @param {string[]} streams Streams provided by this service
      * @param {number} serviceStatus Service status (0 down|1 up|2 pending)
      * @param {string} learnedFrom NodeID that sent us this record
      * @param {string} lastModified Last Modified Timestamp
      */
-    constructor(nodeID, proxyNodeID, serviceName, serviceType, instanceID, zone, serviceSticky, servicePriority, serviceWeight, scope, serviceDependencies, topics, serviceStatus, learnedFrom, lastModified) {
+    constructor(nodeID, proxyNodeID, serviceName, serviceType, instanceID, zone, serviceSticky, servicePriority, serviceWeight, scope, serviceDependencies, streams, serviceStatus, learnedFrom, lastModified) {
         super(nodeID, proxyNodeID, scope, zone, learnedFrom, lastModified);
         this.Name = serviceName;
         this.Type = serviceType;
@@ -3125,7 +3113,7 @@ class DRP_ServiceTableEntry extends DRP_TrackingTableEntry {
         this.Priority = servicePriority;
         this.Weight = serviceWeight;
         this.Dependencies = serviceDependencies || [];
-        this.Topics = topics || [];
+        this.Streams = streams || [];
         this.Status = serviceStatus;
     }
 }
@@ -3250,14 +3238,17 @@ class DRP_SubscriptionManager {
     /**
      * 
      * @param {DRP_ServiceTableEntry} serviceEntry Service to check
-     * @param {string} topicName Topic Name
+     * @param {string} streamName Stream Name
      * @param {string} subscriptionScope Subscription Scope
      * @param {string} subscriptionZone Subscription Zone
      * @returns {boolean} Successful Match
      */
-    EvaluateServiceTableEntry(serviceEntry, topicName, subscriptionScope, subscriptionZone) {
+    EvaluateServiceTableEntry(serviceEntry, streamName, subscriptionScope, subscriptionZone) {
         // Return false if the service doesn't provide the topic
-        if (serviceEntry.Streams.indexOf(topicName) < 0) return false;
+        if (serviceEntry.Streams.indexOf(streamName) < 0) return false;
+
+        // Return false if the service scope is local and isn't on this node
+        if (serviceEntry.Scope === "local" && serviceEntry.NodeID !== this.drpNode.NodeID) return false;
 
         // Return false if we're looking in a specific zone and it doesn't match
         if (subscriptionScope === "zone" && subscriptionZone !== serviceEntry.Zone) return false;

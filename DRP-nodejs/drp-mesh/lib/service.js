@@ -20,10 +20,10 @@ class DRP_Service {
      * @param {string} zone Declared zone
      * @param {string} scope Availability Local|Zone|Global
      * @param {string[]} dependencies Peer service dependencies
-     * @param {string[]} topics Topics provided
+     * @param {string[]} streams Streams provided
      * @param {number} status Service status [0|1|2]
      */
-    constructor(serviceName, drpNode, type, instanceID, sticky, priority, weight, zone, scope, dependencies, topics, status) {
+    constructor(serviceName, drpNode, type, instanceID, sticky, priority, weight, zone, scope, dependencies, streams, status) {
         this.serviceName = serviceName;
         this.drpNode = drpNode;
         this.ClientCmds = {};
@@ -37,8 +37,7 @@ class DRP_Service {
         this.Zone = zone || "DEFAULT";
         this.Scope = scope || "global";
         this.Dependencies = dependencies || [];
-        this.Topics = topics || [];
-        this.Streams = {};
+        this.Streams = streams || [];
         this.Status = status || 0;
         this.isCacheable = false;
         this.lastSnapTime = null;
