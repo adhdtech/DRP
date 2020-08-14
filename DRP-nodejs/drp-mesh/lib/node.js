@@ -1368,7 +1368,7 @@ class DRP_Node {
 
         let srvHash = null;
 
-        if (thisNode.TestMode) {
+        if (thisNode.TestMode && thisNode.TestMode === "true") {
             srvHash = {
                 "localhost-8082": { "name": os.hostname(), "port": 8082 },
                 "localhost-8083": { "name": os.hostname(), "port": 8083 },
@@ -1479,7 +1479,7 @@ class DRP_Node {
     async ConnectToRegistryByDomain() {
         let thisNode = this;
         // Look up SRV records for DNS
-        thisNode.log(`Looking up a Registry Node by domain...`);
+        thisNode.log(`Looking up a Registry Node for domain [${thisNode.DomainName}]...`);
         try {
             let srvHash = await thisNode.PingDomainRegistries(thisNode.DomainName);
             let srvKeys = Object.keys(srvHash);
@@ -3256,7 +3256,7 @@ class DRP_SubscriptionManager {
      */
     EvaluateServiceTableEntry(serviceEntry, topicName, subscriptionScope, subscriptionZone) {
         // Return false if the service doesn't provide the topic
-        if (serviceEntry.Topics.indexOf(topicName) < 0) return false;
+        if (serviceEntry.Streams.indexOf(topicName) < 0) return false;
 
         // Return false if we're looking in a specific zone and it doesn't match
         if (subscriptionScope === "zone" && subscriptionZone !== serviceEntry.Zone) return false;
