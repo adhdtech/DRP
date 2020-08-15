@@ -707,13 +707,13 @@ class NetScalerManager extends DRP_Service {
         }
     }
 
-    async RefreshConfigs(configLoadCallback) {
+    async RefreshConfigs() {
         let thisNsMgr = this;
         let thisNode = thisNsMgr.drpNode;
         thisNsMgr.haPairs = {};
         thisNsMgr.nsHosts = {};
 
-        if (configLoadCallback && typeof configLoadCallback === "function") configLoadCallback();
+        if (thisNsMgr.configLoadCallback && typeof thisNsMgr.configLoadCallback === "function") thisNsMgr.configLoadCallback();
     }
 
 }
