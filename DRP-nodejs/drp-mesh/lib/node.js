@@ -231,11 +231,11 @@ class DRP_Node {
             let consumerTokenIDList = Object.keys(thisNode.ConsumerTokens);
 
             // Collect tokens from ConsumerEndpoints
-            let currentTokenList = [];
+            let connectedTokenList = [];
             let consumerEndpointIDList = Object.keys(thisNode.ConsumerEndpoints);
             for (let i = 0; i < consumerEndpointIDList.length; i++) {
                 let consumerEndpointID = consumerEndpointIDList[i];
-                currentTokenList.push(thisNode.ConsumerEndpoints[consumerEndpointID].AuthInfo.value);
+                connectedTokenList.push(thisNode.ConsumerEndpoints[consumerEndpointID].AuthInfo.value);
             }
 
             // TO DO - if clients automatically time out, we need to add a keepalive so that
@@ -246,10 +246,10 @@ class DRP_Node {
                 let iCheckTimestamp = parseInt(checkTokenObj.AuthTimestamp);
 
                 // Skip if currently connected
-                if (currentTokenList.includes(checkToken)) continue;
+                if (connectedTokenList.includes(checkToken)) continue;
 
-                // Expire after 5 minutes
-                let maxAgeSeconds = 60 * 5;
+                // Expire after 30 minutes
+                let maxAgeSeconds = 60 * 30;
                 if (iCurrentTimestamp > iCheckTimestamp + maxAgeSeconds) {
 
                     // The token has expired

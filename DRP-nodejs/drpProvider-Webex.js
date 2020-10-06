@@ -18,6 +18,70 @@ let scope = process.env.SCOPE || null;
 
 // MUST SET process.env['WEBEX_ACCESS_TOKEN'] which is read by 'webex/env'
 
+// Define OpenAPI Doc
+let openAPIDoc = {
+    "openapi": "3.0.1",
+    "info": {
+        "title": "",
+        "description": "Webex Test API",
+        "version": "1.0.1"
+    },
+    "servers": [
+        {
+            "url": "/Mesh/Services/ServiceName"
+        }
+    ],
+    "tags": [
+        {
+            "name": "ClientCmds",
+            "description": "Service ClientCmds"
+        }
+    ],
+    "paths": {
+        "/ClientCmds/listRooms": {
+            "get": {
+                "tags": [
+                    "ClientCmds"
+                ],
+                "summary": "List Rooms",
+                "description": "Retrieves list of Room Objects",
+                "operationId": "listRooms",
+                "responses": {
+                    "200": {
+                        "description": "Greeting",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-swagger-router-controller": "WebexService"
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "x-api-key": {
+                "type": "apiKey",
+                "name": "x-api-key",
+                "in": "header"
+            },
+            "x-api-token": {
+                "type": "apiKey",
+                "name": "x-api-token",
+                "in": "header"
+            }
+        }
+    },
+    "security": [
+        { "x-api-key": [] },
+        { "x-api-token": [] }
+    ]
+};
+
 // Create test service class
 class WebexService extends DRP_Service {
     constructor(serviceName, drpNode, priority, weight, scope) {
@@ -27,6 +91,7 @@ class WebexService extends DRP_Service {
         this.webex = require('webex/env');
 
         this.ClientCmds = {
+            getOpenAPIDoc: async function (cmdObj) { return openAPIDoc; },
             listRooms: async () => {
                 let response = await this.webex.rooms.list();
                 return response.items;

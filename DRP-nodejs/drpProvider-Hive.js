@@ -28,7 +28,8 @@ myNode.TestMode = testMode;
 myNode.RegistryUrl = registryUrl;
 myNode.ConnectToMesh(async () => {
     let myHive = new rSageHive(serviceName, myNode, priority, weight, scope);
-    myHive.Start();
-    myNode.AddService(myHive);
+    myHive.Start(async () => {
+        myNode.AddService(myHive);
+    });
 });
 
