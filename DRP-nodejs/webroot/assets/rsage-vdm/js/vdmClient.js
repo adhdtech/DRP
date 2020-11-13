@@ -316,7 +316,7 @@ class DRP_Endpoint_Browser {
 
         // If we have a return object and want only a list of children, do that now
         if (params.listOnly) {
-            if (typeof oReturnObject === 'object') {
+            if (oReturnObject instanceof Object) {
                 if (!oReturnObject.pathItemList) {
                     // Return only child keys and data types
                     oReturnObject = { pathItemList: this.ListObjChildren(oReturnObject) };
@@ -325,7 +325,7 @@ class DRP_Endpoint_Browser {
                 oReturnObject = { pathItemList: [] };
             }
         } else if (oReturnObject) {
-            if (!(typeof oReturnObject === 'object') || !oReturnObject["pathItem"]) {
+            if (!(oReturnObject instanceof Object) || !oReturnObject["pathItem"]) {
                 // Return object as item
                 oReturnObject = { pathItem: oReturnObject };
             }
