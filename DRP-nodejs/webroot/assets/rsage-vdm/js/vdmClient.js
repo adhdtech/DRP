@@ -322,7 +322,7 @@ class DRP_Endpoint_Browser {
                     oReturnObject = { pathItemList: this.ListObjChildren(oReturnObject) };
                 }
             } else {
-                oReturnObject = { pathItemList: [] };
+                oReturnObject = null;
             }
         } else if (oReturnObject) {
             if (!(oReturnObject instanceof Object) || !oReturnObject["pathItem"]) {
