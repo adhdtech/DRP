@@ -1516,6 +1516,8 @@ class DRP_Node {
 
         } catch (ex) {
             thisNode.log(`Error resolving DNS: ${ex}`);
+            await thisNode.Sleep(5000);
+            thisNode.ConnectToRegistryByDomain();
         }
     }
 

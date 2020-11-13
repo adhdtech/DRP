@@ -2,7 +2,7 @@
 
 // Had to remove this so we don't have a circular eval problem
 //const DRP_Node = require('./node');
-const DRP_SubscribableSource = require('./subscription').DRP_SubscribableSource;
+//const DRP_SubscribableSource = require('./subscription').DRP_SubscribableSource;
 const DRP_Subscriber = require('./subscription').DRP_Subscriber;
 const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_RouteOptions } = require('./packet');
 

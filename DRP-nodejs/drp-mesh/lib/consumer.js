@@ -1,6 +1,6 @@
 'use strict';
 
-const DRP_Node = require("./node");
+//const DRP_Node = require("./node");
 const DRP_Client = require("./client");
 
 class DRP_Consumer {
