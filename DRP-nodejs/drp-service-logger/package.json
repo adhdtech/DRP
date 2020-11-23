@@ -14,7 +14,7 @@
   "author": "chykn <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
-    "mongodb": "3.5.7",
+    "mongodb": "*",
     "drp-mesh": "*"
   }
 }
