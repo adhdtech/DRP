@@ -6,7 +6,7 @@ const DocMgr = require('drp-service-docmgr');
 const DRP_AuthRequest = require('drp-mesh').Auth.DRP_AuthResponse;
 const DRP_AuthResponse = require('drp-mesh').Auth.DRP_AuthResponse;
 const DRP_Authenticator = require('drp-mesh').Auth.DRP_Authenticator;
-const DRP_Logger = require('drp-service-logger');
+const FedExAPIMgr = require('drp-service-fedex');
 const os = require("os");
 
 var protocol = "ws";
@@ -17,10 +17,15 @@ var port = process.env.PORT || 8080;
 let listeningName = process.env.LISTENINGNAME || os.hostname();
 let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || null;
-let meshKey = process.env.MESHKEY || "supersecretkey";
+let meshKey = process.env.MESHKEY || null;
 let zoneName = process.env.ZONENAME || "MyZone";
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;
+
+let apiKey = process.env.APIKEY || null;
+let secretKey = process.env.SECRETKEY || null;
+let serviceBaseURL = process.env.SERVICEBASEURL || null;
+let shippingAccount = process.env.SHIPPINGACCOUNT || null;
 
 let drpWSRoute = "";
 
@@ -64,15 +69,10 @@ myNode.ConnectToMesh(async () => {
             authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName, "Some User", ["Users"], null, thisService.serviceName, thisService.drpNode.getTimestamp());
         }
         myNode.TopicManager.SendToTopic("AuthLogs", authResponse);
-        myNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse });
         return authResponse;
     };
 
     myNode.AddService(myAuthenticator);
-
-    // Add logger
-    let logger = new DRP_Logger("Logger", myNode, 10, 10, "global", "localhost", null, null);
-    myNode.AddService(logger);
 
     // Create VDM Server on node
     let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot, "vdmapplets");
@@ -84,12 +84,10 @@ myNode.ConnectToMesh(async () => {
     let myService = new DocMgr("DocMgr", myNode, 10, 10, "global", "jsondocs", null, null, null);
     myNode.AddService(myService);
 
+    // Add a FedEx service
+    myNode.AddService(new FedExAPIMgr("FedEx", myNode, 10, 10, "global", apiKey, secretKey, shippingAccount, serviceBaseURL));
+
     if (myNode.ListeningName) {
         myNode.log(`Listening at: ${myNode.ListeningName}`);
     }
-
-    setInterval(function () {
-        let timeStamp = new Date().getTime();
-        myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.NodeID}]`);
-    }, 3000);
 });

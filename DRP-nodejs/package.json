@@ -21,6 +21,7 @@
     "drp-mesh": "./drp-mesh",
     "drp-service-bluecat": "./drp-service-bluecat",
     "drp-service-cache": "./drp-service-cache",
+    "drp-service-logger": "./drp-service-logger",
     "drp-service-docmgr": "./drp-service-docmgr",
     "drp-service-ldap": "./drp-service-ldap",
     "drp-service-netscaler": "./drp-service-netscaler",

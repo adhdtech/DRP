@@ -1,7 +1,7 @@
 {
-  "name": "drp-service-logger",
+  "name": "drp-service-fedex",
   "version": "1.0.0",
-  "description": "DRP Logger Service",
+  "description": "DRP FedEx Service",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -9,12 +9,12 @@
   "keywords": [
     "drp",
     "service",
-    "logger"
+    "fedex"
   ],
-  "author": "chykn <jpbrown@adhdtech.com>",
+  "author": "Pete Brown <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
-    "mongodb": "3.5.7",
-    "drp-mesh": "*"
+    "drp-mesh": "*",
+    "axios": "*"
   }
 }

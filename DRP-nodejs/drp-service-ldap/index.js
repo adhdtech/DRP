@@ -104,6 +104,7 @@ class DRP_LDAP extends DRP_Authenticator {
             let userEntry = results.shift().object;
             authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName, userEntry.cn, userEntry.memberOf, null, thisService.serviceName, thisService.drpNode.getTimestamp());
             if (thisService.drpNode.Debug) thisService.drpNode.log(`Authenticate [${authRequest.UserName}] -> SUCCEEDED`);
+            thisService.drpNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse });
         }
         return authResponse;
     }
