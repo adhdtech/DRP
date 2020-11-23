@@ -81,6 +81,7 @@ AUTHENTICATORSERVICE=TestAuthenticator</Environment>
     <Content Include="drp-service-rsage\lib\hive.js" />
     <Content Include="drp-service-rsage\lib\vdm.js" />
     <Content Include="drp-service-rsage\package.json" />
+    <Content Include="drpLogger.js" />
     <Content Include="drpProvider-BlueCat.js" />
     <Content Include="drpProvider-Cache.js" />
     <Content Include="drpProvider-DocMgr.js" />

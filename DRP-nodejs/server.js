@@ -71,8 +71,8 @@ myNode.ConnectToMesh(async () => {
     myNode.AddService(myAuthenticator);
 
     // Add logger
-    let logger = new DRP_Logger("Logger", myNode, 10, 10, "global", "localhost", null, null);
-    myNode.AddService(logger);
+    //let logger = new DRP_Logger("Logger", myNode, 10, 10, "global", "localhost", null, null);
+    //myNode.AddService(logger);
 
     // Create VDM Server on node
     let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot, "vdmapplets");
