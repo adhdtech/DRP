@@ -25,6 +25,7 @@ COPY server.js .
 COPY drpRegistry.js .
 COPY drpBroker.js .
 COPY drpConsumer.js .
+COPY drpLogger.js .
 COPY drpProvider-Cache.js .
 COPY drpProvider-DocMgr.js .
 COPY drpProvider-Hive.js .
