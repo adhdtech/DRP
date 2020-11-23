@@ -12,6 +12,7 @@ WORKDIR /app
 COPY cucm-sql-async/ cucm-sql-async/
 COPY drp-mesh/ drp-mesh/
 COPY drp-service-cache/ drp-service-cache/
+COPY drp-service-logger/ drp-service-logger/
 COPY drp-service-docmgr/ drp-service-docmgr/
 COPY drp-service-rsage/ drp-service-rsage/
 COPY drp-service-bluecat/ drp-service-bluecat/
