@@ -4,12 +4,16 @@ const DRP_WebServer = require('drp-mesh').WebServer;
 const CacheManager = require('drp-service-cache');
 const os = require("os");
 
+var protocol = "ws";
+if (process.env.SSL_ENABLED) {
+    protocol = "wss";
+}
 let port = process.env.PORT || 8080;
 let listeningName = process.env.LISTENINGNAME || os.hostname();
 let hostID = process.env.HOSTID || os.hostname();
-let domainName = process.env.DOMAINNAME || null;
-let meshKey = process.env.MESHKEY || null;
-let zoneName = process.env.ZONENAME || null;
+let domainName = process.env.DOMAINNAME || "mydomain.xyz";
+let meshKey = process.env.MESHKEY || "supersecretkey";
+let zoneName = process.env.ZONENAME || "MyZone";
 let registryUrl = process.env.REGISTRYURL || null;
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;
@@ -19,12 +23,9 @@ let serviceName = process.env.SERVICENAME || "CacheManager";
 let priority = process.env.PRIORITY || null;
 let weight = process.env.WEIGHT || null;
 let scope = process.env.SCOPE || null;
-let mongoURL = process.env.MONGOURL || "mongodb://localhost:27017";
-
-var protocol = "ws";
-if (process.env.SSL_ENABLED) {
-    protocol = "wss";
-}
+let mongoHost = process.env.MONGOHOST || "localhost";
+let mongoUser = process.env.MONGOUSER || null;
+let mongoPw = process.env.MONGOPW || null;
 
 let drpWSRoute = "";
 
@@ -35,8 +36,7 @@ let myServerConfig = {
     "SSLEnabled": process.env.SSL_ENABLED || false,
     "SSLKeyFile": process.env.SSL_KEYFILE || "",
     "SSLCrtFile": process.env.SSL_CRTFILE || "",
-    "SSLCrtFilePwd": process.env.SSL_CRTFILEPWD || "",
-    "WebRoot": process.env.WEBROOT || "webroot"
+    "SSLCrtFilePwd": process.env.SSL_CRTFILEPWD || ""
 };
 
 // Create expressApp
@@ -53,9 +53,12 @@ myNode.Debug = debug;
 myNode.TestMode = testMode;
 myNode.RegistryUrl = registryUrl;
 myNode.ConnectToMesh(async () => {
-    let myService = new CacheManager(serviceName, myNode, priority, weight, scope);
-    await myService.Connect(mongoURL);
-    myNode.log("Adding Cache service...");
+
+    // Add Cache Service
+    let myService = new CacheManager(serviceName, myNode, priority, weight, scope, mongoHost, mongoUser, mongoPw);
     myNode.AddService(myService);
-    myNode.log("Added Cache service");
+
+    if (myNode.ListeningName) {
+        myNode.log(`Listening at: ${myNode.ListeningName}`);
+    }
 });

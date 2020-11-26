@@ -1,6 +1,9 @@
+'use strict';
+
 const DRP_Service = require('drp-mesh').Service;
-const DRP_Node = require('drp-mesh').Node;
+
 const MongoClient = require('mongodb').MongoClient;
+const MongoDB = require('mongodb').Db;
 
 const assert = require('assert');
 
@@ -13,16 +16,40 @@ class DRP_CacheManager extends DRP_Service {
     * @param {number} priority Priority (lower better)
     * @param {number} weight Weight (higher better)
     * @param {string} scope Scope [local|zone|global(defaut)]
-     */
-    constructor(serviceName, drpNode, priority, weight, scope) {
+    * @param {string} mongoHost Mongo Host
+    * @param {string} mongoUser Mongo User
+    * @param {string} mongoPw Mongo Password
+    */
+    constructor(serviceName, drpNode, priority, weight, scope, mongoHost, mongoUser, mongoPw) {
         super(serviceName, drpNode, "CacheManager", null, false, priority, weight, drpNode.Zone, scope, null, null, 1);
         let thisService = this;
-        this.mongoDBurl = null;
-        this.mongoConn = null;
+
+        /** @type {string} Mongo URL */
+        this.MongoHost = mongoHost;
+        this.MongoUser = mongoUser;
+        this.MongoPw = mongoPw;
+
+        /** @type {MongoClient} */
+        this.MongoClient = null;
+
+        /** @type {MongoDB} */
+        this.CacheDB = null;
+
+        if (thisService.MongoHost) {
+            thisService.ConnectToMongo();
+        }
 
         this.TestCache = null;
 
         this.ClientCmds = {
+            "listDatabases": async (params) => {
+                let returnObj = null;
+                let adminDb = thisService.MongoClient.db().admin();
+                // List all the available databases
+                let dbListResult = await adminDb.listDatabases();
+                returnObj = dbListResult.databases;
+                return returnObj;
+            },
             "readClassCache": async (params) => {
                 return await thisService.ReadClassCacheFromMongo(params.serviceName, params.className);
             },
@@ -31,20 +58,23 @@ class DRP_CacheManager extends DRP_Service {
             }
         };
     }
-	
-    async Connect(mongoDBurl) {
+
+    async ConnectToMongo() {
         let thisService = this;
-        // Connect to Mongo
-		this.mongoDBurl = mongoDBurl;
-        this.mongoConn = await MongoClient.connect(this.mongoDBurl, { useNewUrlParser: true, useUnifiedTopology: true });
-        this.drpNode.log("Connected to Mongo");
+        const user = encodeURIComponent(thisService.MongoUser);
+        const password = encodeURIComponent(thisService.MongoPw);
+        const authMechanism = 'DEFAULT';
+        let mongoUrl = thisService.MongoUser ? `mongodb://${user}:${password}@${thisService.MongoHost}:27017/?authMechanism=${authMechanism}` : `mongodb://${thisService.MongoHost}:27017`;
+        thisService.drpNode.log(`Trying to connect to Mongo -> [${mongoUrl}]`);
+        /** @type {MongoClient} */
+        thisService.MongoClient = await MongoClient.connect(`${mongoUrl}`, { useNewUrlParser: true, useUnifiedTopology: true });
     }
-	
+
     async ReadClassCacheFromMongo(serviceName, className) {
         let thisService = this;
         return new Promise(function (resolve, reject) {
             // Open the collector DB 
-            var serviceDB = thisService.mongoConn.db(serviceName);
+            var serviceDB = thisService.MongoClient.db(serviceName);
             // Connect to class collection
             var classCollection = serviceDB.collection(className);
 
@@ -77,7 +107,7 @@ class DRP_CacheManager extends DRP_Service {
             } else {
 
                 // Open the collector DB 
-                let collectorDB = thisService.mongoConn.db(serviceName);
+                let collectorDB = thisService.MongoClient.db(serviceName);
                 // Connect to class collection
                 let classCollection = collectorDB.collection(className);
                 // Convert class data from hash to array
