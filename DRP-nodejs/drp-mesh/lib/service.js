@@ -1,7 +1,7 @@
 'use strict';
 
 const UMLClass = require('./uml').Class;
-const DRP_Cmd = require('./packet').DRP_Cmd;
+//const DRP_Node = require('./node');
 
 function getRandomInt(max) {
     return Math.floor(Math.random() * Math.floor(max));
@@ -172,6 +172,26 @@ class DRP_Service {
         let classNames = Object.keys(thisService.Classes);
         for (let i = 0; i < classNames.length; i++) {
             await thisService.ReadClassCacheFromService(classNames[i]);
+        }
+    }
+
+    /**
+     * Send a command to peer services within a given scope
+     * @param {string} method Method name
+     * @param {object} params Method parameters
+     * @param {('local'|'zone'|'global')} scope Scope to search for peers
+     */
+    PeerBroadcast(method, params, scope) {
+        let thisService = this;
+
+        // Get list of peer service IDs
+        let peerServiceIDList = thisService.drpNode.TopologyTracker.FindServicePeers(thisService.InstanceID, scope);
+
+        // Loop over peers, broadcast command
+        for (let i = 0; i < peerServiceIDList.length; i++) {
+            let peerServiceID = peerServiceIDList[i];
+            let targetNodeID = thisService.drpNode.TopologyTracker.ServiceTable[peerServiceID].NodeID;
+            thisService.drpNode.ServiceCmd(thisService.serviceName, method, params, targetNodeID);
         }
     }
 }

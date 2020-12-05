@@ -189,7 +189,7 @@ class DRP_Endpoint {
 
         // Execute method
         try {
-            cmdResults.output = await thisEndpoint.drpNode.ServiceCmd(cmdPacket.serviceName, cmdPacket.method, cmdPacket.params, null, false, true, thisEndpoint);
+            cmdResults.output = await thisEndpoint.drpNode.ServiceCmd(cmdPacket.serviceName, cmdPacket.method, cmdPacket.params, cmdPacket.runNodeID, false, true, thisEndpoint);
             cmdResults.status = 1;
         } catch (err) {
             cmdResults.output = err.message;

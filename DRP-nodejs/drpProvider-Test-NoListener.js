@@ -7,9 +7,9 @@ const DRP_UMLClass = require('drp-mesh').UML.Class;
 const os = require("os");
 
 let hostID = process.env.HOSTID || os.hostname();
-let domainName = process.env.DOMAINNAME || null;
-let meshKey = process.env.MESHKEY || null;
-let zoneName = process.env.ZONENAME || null;
+let domainName = process.env.DOMAINNAME || "mydomain.xyz";
+let meshKey = process.env.MESHKEY || "supersecretkey";
+let zoneName = process.env.ZONENAME || "MyZone";
 let registryUrl = process.env.REGISTRYURL || null;
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;
@@ -133,6 +133,7 @@ let openAPIDoc = {
 class TestService extends DRP_Service {
     constructor(serviceName, drpNode, priority, weight, scope) {
         super(serviceName, drpNode, "TestService", null, false, priority, weight, drpNode.Zone, scope, null, ["dummy"], 1);
+        let thisService = this;
 
         // Define global methods
         this.ClientCmds = {
@@ -151,7 +152,14 @@ class TestService extends DRP_Service {
                 drpNode.log("Remote node wants to say moo");
                 return { pathItem: `Moo from ${drpNode.NodeID}` };
             },
-            showParams: async function (params) { return { pathItem: params }; }
+            showParams: async function (params) { return { pathItem: params }; },
+            peerBroadcastTest: async function (params) {
+                drpNode.log(`Peer service sent a broadcast test - ${params.message}`);
+            },
+            sendPeerBroadcastTest: async function (params) {
+                thisService.PeerBroadcast("peerBroadcastTest", { message: `From serviceID ${thisService.InstanceID}` }, "zone");
+                drpNode.log(`Sent a peer broadcast`);
+            }
         };
 
         // Define data classes for this Provider

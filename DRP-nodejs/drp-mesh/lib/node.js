@@ -2449,6 +2449,9 @@ class DRP_TopologyTracker {
         return returnList;
     }
 
+    /**
+     * @returns {Object.<string,{ServiceName:string,Providers:string[]}>} Dictionary of service names and providers
+     */
     GetServicesWithProviders() {
         let oReturnObject = {};
         let serviceInstanceList = Object.keys(this.ServiceTable);
@@ -2607,6 +2610,59 @@ class DRP_TopologyTracker {
         }
 
         return bestServiceEntry;
+    }
+
+    /**
+     * Find peers of a specified service instance
+     * @param {string} serviceID Service instance to find peers of
+     * @param {('local'|'zone'|'global')} searchScope Scope to search
+     * @returns {string[]} List of peers
+     */
+    FindServicePeers(serviceID, searchScope) {
+        let thisTopologyTracker = this;
+        let peerServiceIDList = [];
+
+        // Get origin service
+        let originServiceTableEntry = thisTopologyTracker.ServiceTable[serviceID];
+        if (!originServiceTableEntry) return [];
+
+        // A peer is another service with the same name and falls
+        // under the specified scope
+        let serviceInstanceList = Object.keys(thisTopologyTracker.ServiceTable);
+        for (let i = 0; i < serviceInstanceList.length; i++) {
+            /** @type DRP_ServiceTableEntry */
+            let serviceTableEntry = thisTopologyTracker.ServiceTable[serviceInstanceList[i]];
+
+            // Skip the instance specified
+            if (serviceTableEntry.InstanceID === serviceID) continue;
+
+            // Skip if the service isn't ready
+            if (serviceTableEntry.Status !== 1) continue;
+
+            // Skip if the service name/type doesn't match
+            if (originServiceTableEntry.Name !== serviceTableEntry.Name) continue;
+            if (originServiceTableEntry.Type !== serviceTableEntry.Type) continue;
+
+            // Skip if the zone doesn't match
+            switch (searchScope) {
+                case "local":
+                    if (serviceTableEntry.NodeID !== thisTopologyTracker.drpNode.NodeID) continue;
+                    break;
+                case "global":
+                    break;
+                case "zone":
+                    if (thisTopologyTracker.drpNode.Zone !== serviceTableEntry.Zone) continue;
+                    break;
+                default:
+                    // Unrecognized scope option
+                    continue;
+            }
+
+            // We have a match
+            peerServiceIDList.push(serviceTableEntry.InstanceID);
+        }
+
+        return peerServiceIDList;
     }
 
     /**
