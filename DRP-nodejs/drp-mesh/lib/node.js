@@ -2520,6 +2520,11 @@ class DRP_TopologyTracker {
             if (serviceName && serviceName !== serviceTableEntry.Name) continue;
             if (serviceType && serviceType !== serviceTableEntry.Type) continue;
 
+            // If we offer the service locally, select it and continue
+            if (serviceTableEntry.NodeID === thisNode.NodeID) {
+                return serviceTableEntry;
+            }
+
             // Skip if the zone is specified and doesn't match
             switch (serviceTableEntry.Scope) {
                 case "local":
