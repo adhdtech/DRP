@@ -7,13 +7,30 @@ const expressWs = require('express-ws');
 const cors = require('cors');
 const fs = require('fs');
 
+class DRP_WebServerConfig {
+    constructor(port, bindingIP, sslEnabled, sslKeyFile, sslCrtFile, sslCrtFilePwd) {
+        this.Port = port;
+        this.BindingIP = bindingIP;
+        this.SSLEnabled = sslEnabled;
+        this.SSLKeyFile = sslKeyFile;
+        this.SSLCrtFile = sslCrtFile;
+        this.SSLCrtFilePwd = sslCrtFilePwd;
+    }
+}
+
 // Instantiate Express instance
 class DRP_WebServer {
+    /**
+     * 
+     * @param {DRP_WebServerConfig} webServerConfig Web Server Configuration
+     */
     constructor(webServerConfig) {
+        let thisDRPWebServer = this;
 
         // Setup the Express web server
-        this.webServerConfig = webServerConfig;
+        this.config = webServerConfig;
 
+        /** @type {Server} */
         this.server = null;
         this.expressApp = express();
         this.expressApp.use(cors());
@@ -21,34 +38,35 @@ class DRP_WebServer {
         let wsMaxPayload = 512 * 1024 * 1024;
 
         // Is SSL enabled?
-        if (webServerConfig.SSLEnabled) {
+        if (thisDRPWebServer.config.SSLEnabled) {
             var optionsExpress = {
-                key: fs.readFileSync(webServerConfig.SSLKeyFile),
-                cert: fs.readFileSync(webServerConfig.SSLCrtFile),
-                passphrase: webServerConfig.SSLCrtFilePwd
+                key: fs.readFileSync(thisDRPWebServer.config.SSLKeyFile),
+                cert: fs.readFileSync(thisDRPWebServer.config.SSLCrtFile),
+                passphrase: thisDRPWebServer.config.SSLCrtFilePwd
             };
-            let httpsServer = https.createServer(optionsExpress, this.expressApp);
-            expressWs(this.expressApp, httpsServer, { wsOptions: { maxPayload: wsMaxPayload } });
-            this.server = httpsServer;
+            let httpsServer = https.createServer(optionsExpress, thisDRPWebServer.expressApp);
+            expressWs(thisDRPWebServer.expressApp, httpsServer, { wsOptions: { maxPayload: wsMaxPayload } });
+            thisDRPWebServer.server = httpsServer;
 
         } else {
-            expressWs(this.expressApp, null, { wsOptions: { maxPayload: wsMaxPayload } });
-            this.server = this.expressApp;
+            expressWs(thisDRPWebServer.expressApp, null, { wsOptions: { maxPayload: wsMaxPayload } });
+            thisDRPWebServer.server = thisDRPWebServer.expressApp;
         }
 
-        this.expressApp.get('env');
-        this.expressApp.use(bodyParser.urlencoded({
+        thisDRPWebServer.expressApp.get('env');
+        thisDRPWebServer.expressApp.use(bodyParser.urlencoded({
             extended: true
         }));
-        this.expressApp.use(bodyParser.json());
+        thisDRPWebServer.expressApp.use(bodyParser.json());
     }
 
     start() {
-        let thiswebServer = this;
+        let thisDRPWebServer = this;
         return new Promise(function (resolve, reject) {
             try {
-                thiswebServer.server.listen(thiswebServer.webServerConfig.Port, function () {
-                    resolve();
+                let bindingIP = thisDRPWebServer.config.BindingIP || '0.0.0.0';
+                thisDRPWebServer.server.listen(thisDRPWebServer.config.Port, bindingIP, function () {
+                    resolve(null);
                 });
             } catch (err) {
                 reject(err);
@@ -57,4 +75,7 @@ class DRP_WebServer {
     }
 }
 
-module.exports = DRP_WebServer;
+module.exports = {
+    DRP_WebServer: DRP_WebServer,
+    DRP_WebServerConfig: DRP_WebServerConfig
+}

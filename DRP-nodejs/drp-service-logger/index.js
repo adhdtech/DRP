@@ -77,6 +77,7 @@ class Logger extends DRP_Service {
         thisLogger.drpNode.log(`Trying to connect to Mongo -> [${mongoUrl}]`);
         /** @type {MongoClient} */
         thisLogger.MongoClient = await MongoClient.connect(`${mongoUrl}`, { useNewUrlParser: true, useUnifiedTopology: true });
+        thisLogger.drpNode.log(`Connected to Mongo`);
 
         // Open the collector DB 
         this.LoggerDB = thisLogger.MongoClient.db(thisLogger.serviceName);

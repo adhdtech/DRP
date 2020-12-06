@@ -1,14 +1,15 @@
 'use strict';
 const DRP_Node = require('drp-mesh').Node;
-const DRP_WebServer = require('drp-mesh').WebServer;
+const DRP_WebServerConfig = require('drp-mesh').WebServer.DRP_WebServerConfig;
 const DRP_Logger = require('drp-service-logger');
 const os = require("os");
 
-var protocol = "ws";
-if (process.env.SSL_ENABLED) {
+let protocol = "ws";
+if (isTrue(process.env.SSL_ENABLED)) {
     protocol = "wss";
 }
-var port = process.env.PORT || 8081;
+let isListening = isTrue(process.env.ISLISTENING);
+let port = process.env.PORT || 8081;
 let listeningName = process.env.LISTENINGNAME || os.hostname();
 let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || "mydomain.xyz";
@@ -29,26 +30,28 @@ let mongoPw = process.env.MONGOPW || null;
 
 let drpWSRoute = "";
 
-// Set config
-let myServerConfig = {
-    "NodeURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
-    "Port": port,
-    "SSLEnabled": process.env.SSL_ENABLED || false,
-    "SSLKeyFile": process.env.SSL_KEYFILE || "",
-    "SSLCrtFile": process.env.SSL_CRTFILE || "",
-    "SSLCrtFilePwd": process.env.SSL_CRTFILEPWD || ""
-};
+/** @type DRP_WebServerConfig */
+let myWebServerConfig = null;
 
-// Create expressApp
-let myWebServer = new DRP_WebServer(myServerConfig);
-myWebServer.start();
+// If we want the node to accept inbound connections, configure the web service
+if (isListening) {
+    // Set config
+    myWebServerConfig = {
+        "NodeURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
+        "Port": port,
+        "SSLEnabled": isTrue(process.env.SSL_ENABLED),
+        "SSLKeyFile": process.env.SSL_KEYFILE || "",
+        "SSLCrtFile": process.env.SSL_CRTFILE || "",
+        "SSLCrtFilePwd": process.env.SSL_CRTFILEPWD || ""
+    };
+}
 
 // Set Roles
 let roleList = ["Logger"];
 
 // Create Node
 console.log(`Starting DRP Node`);
-let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myWebServer, myServerConfig.NodeURL, drpWSRoute);
+let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myWebServerConfig, drpWSRoute);
 myNode.Debug = debug;
 myNode.TestMode = testMode;
 myNode.RegistryUrl = registryUrl;
@@ -62,3 +65,20 @@ myNode.ConnectToMesh(async () => {
         myNode.log(`Listening at: ${myNode.ListeningName}`);
     }
 });
+
+function isTrue(value) {
+    if (typeof (value) === 'string') {
+        value = value.trim().toLowerCase();
+    }
+    switch (value) {
+        case true:
+        case "true":
+        case 1:
+        case "1":
+        case "on":
+        case "yes":
+            return true;
+        default:
+            return false;
+    }
+}

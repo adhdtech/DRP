@@ -1,6 +1,6 @@
 'use strict';
 const DRP_Node = require('drp-mesh').Node;
-const DRP_WebServer = require('drp-mesh').WebServer;
+const DRP_WebServerConfig = require('drp-mesh').WebServer.DRP_WebServerConfig;
 const vdmServer = require('drp-service-rsage').VDM;
 const DocMgr = require('drp-service-docmgr');
 const DRP_AuthRequest = require('drp-mesh').Auth.DRP_AuthResponse;
@@ -25,26 +25,24 @@ let testMode = process.env.TESTMODE || false;
 let drpWSRoute = "";
 
 // Set config
-let myServerConfig = {
-    "NodeURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
+/** @type {DRP_WebServerConfig} */
+let myWebServerConfig = {
+    "ListeningURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
     "Port": port,
     "SSLEnabled": process.env.SSL_ENABLED || false,
     "SSLKeyFile": process.env.SSL_KEYFILE || "",
     "SSLCrtFile": process.env.SSL_CRTFILE || "",
-    "SSLCrtFilePwd": process.env.SSL_CRTFILEPWD || "",
-    "WebRoot": process.env.WEBROOT || "webroot"
+    "SSLCrtFilePwd": process.env.SSL_CRTFILEPWD || ""
 };
 
-// Create expressApp
-let myWebServer = new DRP_WebServer(myServerConfig);
-myWebServer.start();
+let webRoot = process.env.WEBROOT || "webroot";
 
 // Set Roles
 let roleList = ["Broker", "Registry"];
 
 // Create Node
 console.log(`Starting DRP Node`);
-let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myWebServer, myServerConfig.NodeURL, drpWSRoute);
+let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myWebServerConfig, drpWSRoute);
 myNode.Debug = debug;
 myNode.TestMode = testMode;
 myNode.ConnectToMesh(async () => {
@@ -75,7 +73,7 @@ myNode.ConnectToMesh(async () => {
     //myNode.AddService(logger);
 
     // Create VDM Server on node
-    let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot, "vdmapplets");
+    let myVDMServer = new vdmServer("VDM", myNode, webRoot, "vdmapplets");
 
     myNode.AddService(myVDMServer);
     myNode.EnableREST("/Mesh", "Mesh");

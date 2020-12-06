@@ -116,10 +116,10 @@ class DRP_Endpoint {
      * @param {boolean} promisify Should we promisify?
      * @param {function} callback Callback function
      * @param {DRP_RouteOptions} routeOptions Route Options
-     * @param {string} runNodeID Execute on specific Node
+     * @param {string} serviceInstanceID Execute on specific Service Instance ID
      * @return {Promise} Returned promise
      */
-    SendCmd(serviceName, method, params, promisify, callback, routeOptions, runNodeID) {
+    SendCmd(serviceName, method, params, promisify, callback, routeOptions, serviceInstanceID) {
         let thisEndpoint = this;
         let returnVal = null;
         let token = null;
@@ -137,7 +137,7 @@ class DRP_Endpoint {
         } else {
             // We don't expect a response; leave reply token null
         }
-        let packetObj = new DRP_Cmd(serviceName, method, params, token, routeOptions, runNodeID);
+        let packetObj = new DRP_Cmd(serviceName, method, params, token, routeOptions, serviceInstanceID);
         //console.dir(packetObj);
         let packetString = JSON.stringify(packetObj);
         thisEndpoint.SendPacketString(packetString);
@@ -189,7 +189,7 @@ class DRP_Endpoint {
 
         // Execute method
         try {
-            cmdResults.output = await thisEndpoint.drpNode.ServiceCmd(cmdPacket.serviceName, cmdPacket.method, cmdPacket.params, cmdPacket.runNodeID, false, true, thisEndpoint);
+            cmdResults.output = await thisEndpoint.drpNode.ServiceCmd(cmdPacket.serviceName, cmdPacket.method, cmdPacket.params, cmdPacket.serviceInstanceID, false, true, thisEndpoint);
             cmdResults.status = 1;
         } catch (err) {
             cmdResults.output = err.message;

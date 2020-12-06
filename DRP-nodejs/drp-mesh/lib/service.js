@@ -190,8 +190,7 @@ class DRP_Service {
         // Loop over peers, broadcast command
         for (let i = 0; i < peerServiceIDList.length; i++) {
             let peerServiceID = peerServiceIDList[i];
-            let targetNodeID = thisService.drpNode.TopologyTracker.ServiceTable[peerServiceID].NodeID;
-            thisService.drpNode.ServiceCmd(thisService.serviceName, method, params, targetNodeID);
+            thisService.drpNode.ServiceCmd(thisService.serviceName, method, params, peerServiceID);
         }
     }
 }

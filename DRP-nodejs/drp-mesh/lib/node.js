@@ -12,7 +12,7 @@ const DRP_Client = require("./client");
 const DRP_Service = require("./service");
 const DRP_TopicManager = require("./topicmanager");
 const DRP_RouteHandler = require("./routehandler");
-const DRP_WebServer = require("./webserver");
+const { DRP_WebServer, DRP_WebServerConfig } = require("./webserver");
 const { DRP_SubscribableSource, DRP_Subscriber } = require('./subscription');
 const { DRP_AuthRequest, DRP_AuthResponse, DRP_AuthFunction } = require('./auth');
 const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Stream, DRP_RouteOptions } = require('./packet');
@@ -65,15 +65,16 @@ class DRP_Node {
      * @param {string} domainName DRP Domain Name
      * @param {string} meshKey DRP Mesh Key
      * @param {string} zone DRP Zone Name (optional)
-     * @param {DRP_WebServer} webServer Web server (optional)
-     * @param {string} listeningName Node Listening Name (optional)
+     * @param {DRP_WebServerConfig} webServerConfig Web server config (optional)
      * @param {string} drpRoute DRP WS Route (optional)
      */
-    constructor(nodeRoles, hostID, domainName, meshKey, zone, webServer, listeningName, drpRoute) {
+    constructor(nodeRoles, hostID, domainName, meshKey, zone, webServerConfig, drpRoute) {
         let thisNode = this;
         this.NodeID = `${os.hostname()}-${process.pid}`;
         this.HostID = hostID;
-        this.WebServer = webServer || null;
+        /** @type {DRP_WebServer} */
+        this.WebServer = null;
+        this.WebServerConfig = webServerConfig || null;
         /** @type {Object<string,Express_Router}} */
         this.SwaggerRouters = {};
         this.drpRoute = drpRoute || "/";
@@ -91,9 +92,15 @@ class DRP_Node {
         /** @type{function} */
         this.onControlPlaneConnect = null;
         this.ListeningName = null;
-        if (this.WebServer && this.WebServer.expressApp) {
-            this.ListeningName = listeningName;
+
+        // If we have a web server config, start listening
+        if (this.WebServerConfig && this.WebServerConfig.ListeningURL) {
+            this.WebServer = new DRP_WebServer(webServerConfig);
+            this.WebServer.start();
+
+            this.ListeningName = this.WebServer.config.ListeningURL;
         }
+
         /** @type{string[]} */
         this.NodeRoles = nodeRoles || [];
         /** @type{string} */
@@ -121,9 +128,9 @@ class DRP_Node {
         // Create topology tracker
         this.TopologyTracker = new DRP_TopologyTracker(thisNode);
 
-        let newNodeEntry = new DRP_NodeTableEntry(thisNode.NodeID, null, nodeRoles, listeningName, "global", thisNode.Zone, thisNode.NodeID, thisNode.HostID);
+        let newNodeEntry = new DRP_NodeTableEntry(thisNode.NodeID, null, nodeRoles, this.ListeningName, "global", this.Zone, this.NodeID, this.HostID);
         let addNodePacket = new DRP_TopologyPacket(newNodeEntry.NodeID, "add", "node", newNodeEntry.NodeID, newNodeEntry.Scope, newNodeEntry.Zone, newNodeEntry);
-        thisNode.TopologyTracker.ProcessPacket(addNodePacket, thisNode.NodeID);
+        thisNode.TopologyTracker.ProcessPacket(addNodePacket, this.NodeID);
 
         /** @type Object.<string,DRP_Service> */
         this.Services = {};
@@ -193,7 +200,7 @@ class DRP_Node {
                     let checkNode = thisNode.TopologyTracker.NodeTable[nodeIDList[i]];
                     if (checkNode.NodeID !== thisNode.NodeID && checkNode.IsBroker() && checkNode.Zone === thisNode.Zone) {
                         // Send command to remote Broker
-                        thisNode.ServiceCmd("DRP", "addConsumerToken", { tokenPacket: authResults }, checkNode.NodeID, false, false, null);
+                        thisNode.ServiceCmd("DRP", "addConsumerToken", { tokenPacket: authResults }, null, false, false, null);
                     }
                 }
             }
@@ -558,7 +565,7 @@ class DRP_Node {
             // Unlike before, we don't distribute the actual service definitions in
             // the declarations.  We need to go out to each service and get the info
             let bestInstance = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
-            let response = await thisNode.ServiceCmd("DRP", "getServiceDefinition", { serviceName: serviceName }, bestInstance.NodeID, true, true, callingEndpoint);
+            let response = await thisNode.ServiceCmd("DRP", "getServiceDefinition", { serviceName: serviceName }, bestInstance.InstanceID, true, true, callingEndpoint);
             response.NodeID = bestInstance.NodeID;
             serviceDefinitions[serviceName] = response;
         }
@@ -638,7 +645,8 @@ class DRP_Node {
             // The target NodeID is local
             oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
         } else {
-            oReturnObject = await thisNode.ServiceCmd("DRP", "pathCmd", params, targetNodeID, false, true, null);
+            let serviceTableEntry = thisNode.TopologyTracker.FindInstanceOfService("DRP", null, null, targetNodeID);
+            oReturnObject = await thisNode.ServiceCmd("DRP", "pathCmd", params, serviceTableEntry.InstanceID, false, true, null);
         }
         return oReturnObject;
     }
@@ -1098,42 +1106,42 @@ class DRP_Node {
     }
 
     // Execute a service command with the option of routing via the control plane
-    async ServiceCmd(serviceName, method, params, targetNodeID, useControlPlane, awaitResponse, callingEndpoint) {
+    async ServiceCmd(serviceName, method, params, targetServiceInstanceID, useControlPlane, awaitResponse, callingEndpoint) {
         let thisNode = this;
         let baseErrMsg = "ERROR - ";
-
-        // If the service is DRP and no targetNodeID is specified, set to local
-        if (serviceName === "DRP" && !targetNodeID) {
-            targetNodeID = thisNode.NodeID;
-        }
+        let targetNodeID = null;
+        /** @type {DRP_ServiceTableEntry} */
+        let targetServiceRecord = null;
 
         // If if no service or command is provided, return null
         if (!serviceName || !method) return "ServiceCmd: must provide serviceName and method";
 
         // If no targetNodeID was provided, we should attempt to locate the target service
-        if (!targetNodeID) {
+        if (!targetServiceInstanceID) {
             // Update to use the DRP_TopologyTracker object
-            let targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
+            targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
 
             // If no match is found then return null
             if (!targetServiceRecord) return null;
 
             // Assign target Node & Instance IDs
-            let targetInstanceID = targetServiceRecord.InstanceID;
+            targetServiceInstanceID = targetServiceRecord.InstanceID;
             targetNodeID = targetServiceRecord.NodeID;
 
-            if (thisNode.Debug) thisNode.log(`Best instance of service [${serviceName}] is [${targetInstanceID}] on node [${targetNodeID}]`, true);
+            if (thisNode.Debug) thisNode.log(`Best instance of service [${serviceName}] is [${targetServiceRecord.InstanceID}] on node [${targetServiceRecord.NodeID}]`, true);
+        } else {
+            targetServiceRecord = thisNode.TopologyTracker.ServiceTable[targetServiceInstanceID];
         }
 
         // We don't recognize the target NodeID
-        if (!targetNodeID || !thisNode.TopologyTracker.NodeTable[targetNodeID]) return null;
+        if (!targetServiceRecord || !thisNode.TopologyTracker.NodeTable[targetServiceRecord.NodeID]) return null;
 
         // Where is the service?
-        if (targetNodeID === thisNode.NodeID) {
+        if (targetServiceRecord.NodeID === thisNode.NodeID) {
             // Execute locally
             let localServiceProvider = null;
             if (serviceName === "DRP" && callingEndpoint) {
-                //if (!callingEndpoint) return "No calling endpoint specified; required to execute DRP commands";
+                // If the service is DRP and the caller is a remote endpoint, execute from that caller's EndpointCmds
                 localServiceProvider = callingEndpoint.EndpointCmds;
             } else {
                 if (thisNode.Services[serviceName]) localServiceProvider = thisNode.Services[serviceName].ClientCmds;
@@ -1158,15 +1166,15 @@ class DRP_Node {
             }
         } else {
             // Execute on another Node
-            let routeNodeID = targetNodeID;
+            let routeNodeID = targetServiceRecord.NodeID;
             let routeOptions = {};
 
             if (!useControlPlane) {
                 // Make sure either the local Node or remote Node are listening; if not, route via control plane
                 let localNodeEntry = thisNode.TopologyTracker.NodeTable[thisNode.NodeID];
-                let remoteNodeEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
+                let remoteNodeEntry = thisNode.TopologyTracker.NodeTable[targetServiceRecord.NodeID];
 
-                if (!remoteNodeEntry) return `Tried to contact Node[${targetNodeID}], not in NodeTable`;
+                if (!remoteNodeEntry) return `Tried to contact Node[${targetServiceRecord.NodeID}], not in NodeTable`;
 
                 if (!localNodeEntry.NodeURL && !remoteNodeEntry.NodeURL) {
                     // Neither the local node nor the remote node are listening, use control plane
@@ -1177,11 +1185,11 @@ class DRP_Node {
             if (useControlPlane) {
                 // We want to use to use the control plane instead of connecting directly to the target
                 if (thisNode.ConnectedToControlPlane) {
-                    routeNodeID = thisNode.TopologyTracker.GetNextHop(targetNodeID);
-                    routeOptions = new DRP_RouteOptions(thisNode.NodeID, targetNodeID);
+                    routeNodeID = thisNode.TopologyTracker.GetNextHop(targetServiceRecord.NodeID);
+                    routeOptions = new DRP_RouteOptions(thisNode.NodeID, targetServiceRecord.NodeID);
                 } else {
                     // We're not connected to a Registry; fallback to VerifyNodeConnection
-                    routeNodeID = targetNodeID;
+                    routeNodeID = targetServiceRecord.NodeID;
                 }
             }
 
@@ -1194,10 +1202,10 @@ class DRP_Node {
             }
 
             if (awaitResponse) {
-                let cmdResponse = await routeNodeConnection.SendCmd(serviceName, method, params, true, null, routeOptions, targetNodeID);
+                let cmdResponse = await routeNodeConnection.SendCmd(serviceName, method, params, true, null, routeOptions, targetServiceInstanceID);
                 return cmdResponse.payload;
             } else {
-                routeNodeConnection.SendCmd(serviceName, method, params, false, null, routeOptions, targetNodeID);
+                routeNodeConnection.SendCmd(serviceName, method, params, false, null, routeOptions, targetServiceInstanceID);
                 return;
             }
         }
@@ -1743,14 +1751,15 @@ class DRP_Node {
         let thisNode = this;
         let topologyObj = {};
         // We need to get a list of all nodes from the registry
-        let nodeIDList = Object.keys(thisNode.TopologyTracker.NodeTable);
-        for (let i = 0; i < nodeIDList.length; i++) {
-            let targetNodeID = nodeIDList[i];
+        let serviceTableEntryList = thisNode.TopologyTracker.FindInstancesOfService("DRP");
+        for (let i = 0; i < serviceTableEntryList.length; i++) {
+            let serviceTableEntry = serviceTableEntryList[i];
+
             let topologyNode = {};
 
-            let nodeTableEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
-            let nodeClientConnections = await thisNode.ServiceCmd("DRP", "listClientConnections", null, targetNodeID, true, true, callingEndpoint);
-            let nodeServices = await thisNode.ServiceCmd("DRP", "getLocalServiceDefinitions", null, targetNodeID, true, true, callingEndpoint);
+            let nodeTableEntry = thisNode.TopologyTracker.NodeTable[serviceTableEntry.NodeID];
+            let nodeClientConnections = await thisNode.ServiceCmd("DRP", "listClientConnections", null, serviceTableEntry.InstanceID, true, true, callingEndpoint);
+            let nodeServices = await thisNode.ServiceCmd("DRP", "getLocalServiceDefinitions", null, serviceTableEntry.InstanceID, true, true, callingEndpoint);
 
             // Assign Node Table Entry attributes
             Object.assign(topologyNode, nodeTableEntry);
@@ -1763,7 +1772,7 @@ class DRP_Node {
             topologyNode.Services = nodeServices;
 
             // Add to hash
-            topologyObj[targetNodeID] = topologyNode;
+            topologyObj[serviceTableEntry.NodeID] = topologyNode;
 
         }
 
@@ -2472,11 +2481,12 @@ class DRP_TopologyTracker {
     /**
      * Return the most preferred instance of a service
      * @param {string} serviceName Name of Service to find
-     * @param {string} serviceType Type of Service to find
+     * @param {string} serviceType Type of Service to find (optional)
      * @param {string} zone Name of zone (optional)
+     * @param {string} nodeID Specify Node ID (optional)
      * @returns {DRP_ServiceTableEntry} Best Service Table entry
      */
-    FindInstanceOfService(serviceName, serviceType, zone) {
+    FindInstanceOfService(serviceName, serviceType, zone, nodeID) {
         let thisTopologyTracker = this;
         let thisNode = thisTopologyTracker.drpNode;
 
@@ -2519,6 +2529,9 @@ class DRP_TopologyTracker {
             // Skip if the service name/type doesn't match
             if (serviceName && serviceName !== serviceTableEntry.Name) continue;
             if (serviceType && serviceType !== serviceTableEntry.Type) continue;
+
+            // Skip if the node ID doesn't match
+            if (nodeID && nodeID !== serviceTableEntry.NodeID) continue;
 
             // If we offer the service locally, select it and continue
             if (serviceTableEntry.NodeID === thisNode.NodeID) {
@@ -2615,6 +2628,40 @@ class DRP_TopologyTracker {
         }
 
         return bestServiceEntry;
+    }
+
+    /**
+     * Return the most preferred instance of a service
+     * @param {string} serviceName Name of Service to find
+     * @returns {DRP_ServiceTableEntry[]} List of Service Table entries
+     */
+    FindInstancesOfService(serviceName) {
+        let thisTopologyTracker = this;
+
+        if (serviceName && typeof serviceName === "object" && serviceName.pathList) {
+            // This was called from the CLI
+            let remainingChildPath = serviceName.pathList;
+            if (remainingChildPath && remainingChildPath.length > 0) {
+                serviceName = remainingChildPath.shift();
+                zone = remainingChildPath.shift();
+            } else {
+                serviceName = null;
+            }
+        }
+
+        // If neither a name nor a type is specified, return null
+        if (!serviceName) return null;
+
+        /** @type {DRP_ServiceTableEntry[]} */
+        let serviceEntryList = [];
+
+        let serviceInstanceList = Object.keys(this.ServiceTable);
+        for (let i = 0; i < serviceInstanceList.length; i++) {
+            let serviceTableEntry = this.ServiceTable[serviceInstanceList[i]];
+            if (serviceTableEntry.Name === serviceName) serviceEntryList.push(serviceTableEntry);
+        }
+
+        return serviceEntryList;
     }
 
     /**

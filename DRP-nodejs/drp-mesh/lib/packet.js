@@ -18,15 +18,15 @@ class DRP_Cmd extends DRP_Packet {
      * @param {Object} params Method Parameters
      * @param {string} token Reply Token
      * @param {DRP_RouteOptions} routeOptions Route Options
-     * @param {string} runNodeID Execute on specific Node
+     * @param {string} serviceInstanceID Execute on specific Service Instance
      */
-    constructor(serviceName, method, params, token, routeOptions, runNodeID) {
+    constructor(serviceName, method, params, token, routeOptions, serviceInstanceID) {
         super("cmd", routeOptions);
         this.method = method;
         this.params = params;
         this.serviceName = serviceName;
         this.token = token;
-        this.runNodeID = runNodeID;
+        this.serviceInstanceID = serviceInstanceID;
     }
 }
 
