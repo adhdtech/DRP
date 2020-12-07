@@ -18,6 +18,8 @@ let scope = process.env.SCOPE || null;
 
 // MUST SET process.env['WEBEX_ACCESS_TOKEN'] which is read by 'webex/env'
 
+// MUST INSTALL "webex": "^1.80.267"
+
 // Define OpenAPI Doc
 let openAPIDoc = {
     "openapi": "3.0.1",

@@ -23,7 +23,8 @@
     "express-ws": "*",
     "cors": "*",
     "tcp-ping": "*",
-    "uuid": "*"
+    "uuid": "*",
+    "swagger-ui-express": "^4.1.4"
   },
   "publishConfig": { "registry": "https://npm.pkg.github.com/" }
 }
