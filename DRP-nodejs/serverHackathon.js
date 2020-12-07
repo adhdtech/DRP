@@ -31,25 +31,22 @@ let drpWSRoute = "";
 
 // Set config
 let myServerConfig = {
-    "NodeURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
+    "ListeningURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
     "Port": port,
     "SSLEnabled": process.env.SSL_ENABLED || false,
     "SSLKeyFile": process.env.SSL_KEYFILE || "",
     "SSLCrtFile": process.env.SSL_CRTFILE || "",
-    "SSLCrtFilePwd": process.env.SSL_CRTFILEPWD || "",
-    "WebRoot": process.env.WEBROOT || "webroot"
+    "SSLCrtFilePwd": process.env.SSL_CRTFILEPWD || ""
 };
 
-// Create expressApp
-let myWebServer = new DRP_WebServer(myServerConfig);
-myWebServer.start();
+let webRoot = process.env.WEBROOT || "webroot";
 
 // Set Roles
 let roleList = ["Broker", "Registry"];
 
 // Create Node
 console.log(`Starting DRP Node`);
-let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myWebServer, myServerConfig.NodeURL, drpWSRoute);
+let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myServerConfig, drpWSRoute);
 myNode.Debug = debug;
 myNode.TestMode = testMode;
 myNode.ConnectToMesh(async () => {
@@ -75,7 +72,7 @@ myNode.ConnectToMesh(async () => {
     myNode.AddService(myAuthenticator);
 
     // Create VDM Server on node
-    let myVDMServer = new vdmServer("VDM", myNode, myServerConfig.WebRoot, "vdmapplets");
+    let myVDMServer = new vdmServer("VDM", myNode, webRoot, "vdmapplets");
 
     myNode.AddService(myVDMServer);
     myNode.EnableREST("/Mesh", "Mesh");

@@ -4,9 +4,9 @@ const rSageHive = require('drp-service-rsage').Hive;
 const os = require("os");
 
 let hostID = process.env.HOSTID || os.hostname();
-let domainName = process.env.DOMAINNAME || null;
-let meshKey = process.env.MESHKEY || null;
-let zoneName = process.env.ZONENAME || null;
+let domainName = process.env.DOMAINNAME || "";
+let meshKey = process.env.MESHKEY || "supersecretkey";
+let zoneName = process.env.ZONENAME || "MyZone";
 let registryUrl = process.env.REGISTRYURL || null;
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;

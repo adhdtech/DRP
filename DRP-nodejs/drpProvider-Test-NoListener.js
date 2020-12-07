@@ -7,7 +7,7 @@ const DRP_UMLClass = require('drp-mesh').UML.Class;
 const os = require("os");
 
 let hostID = process.env.HOSTID || os.hostname();
-let domainName = process.env.DOMAINNAME || "mydomain.xyz";
+let domainName = process.env.DOMAINNAME || "";
 let meshKey = process.env.MESHKEY || "supersecretkey";
 let zoneName = process.env.ZONENAME || "MyZone";
 let registryUrl = process.env.REGISTRYURL || null;
@@ -157,7 +157,7 @@ class TestService extends DRP_Service {
                 drpNode.log(`Peer service sent a broadcast test - ${params.message}`);
             },
             sendPeerBroadcastTest: async function (params) {
-                thisService.PeerBroadcast("peerBroadcastTest", { message: `From serviceID ${thisService.InstanceID}` }, "zone");
+                thisService.PeerBroadcast("peerBroadcastTest", { message: `From serviceID ${thisService.InstanceID}` }, "global");
                 drpNode.log(`Sent a peer broadcast`);
             }
         };

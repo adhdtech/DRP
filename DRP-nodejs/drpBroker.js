@@ -7,9 +7,9 @@ const os = require("os");
 let port = process.env.PORT || 8082;
 let listeningName = process.env.LISTENINGNAME || os.hostname();
 let hostID = process.env.HOSTID || os.hostname();
-let domainName = process.env.DOMAINNAME || null;
-let meshKey = process.env.MESHKEY || null;
-let zoneName = process.env.ZONENAME || null;
+let domainName = process.env.DOMAINNAME || "";
+let meshKey = process.env.MESHKEY || "supersecretkey";
+let zoneName = process.env.ZONENAME || "MyZone";
 let registryUrl = process.env.REGISTRYURL || null;
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;
@@ -30,7 +30,7 @@ let drpWSRoute = "";
 
 // Set config
 let myServerConfig = {
-    "NodeURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
+    "ListeningURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
     "Port": port,
     "SSLEnabled": process.env.SSL_ENABLED || false,
     "SSLKeyFile": process.env.SSL_KEYFILE || "",
@@ -39,23 +39,21 @@ let myServerConfig = {
     "WebRoot": process.env.WEBROOT || "webroot"
 };
 
-// Create expressApp
-let myWebServer = new DRP_WebServer(myServerConfig);
-myWebServer.start();
+let webRoot = process.env.WEBROOT || "webroot";
 
 // Set Roles
 let roleList = ["Broker"];
 
 // Create Node
 console.log(`Starting DRP Node`);
-let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myWebServer, myServerConfig.NodeURL, drpWSRoute);
+let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myServerConfig, drpWSRoute);
 myNode.Debug = debug;
 myNode.TestMode = testMode;
 myNode.AuthenticationServiceName = authenticatorService;
 myNode.RegistryUrl = registryUrl;
 myNode.ConnectToMesh(async () => {
     // Create VDM Server on node
-    let myVDMServer = new vdmServer(serviceName, myNode, myServerConfig.WebRoot, "vdmapplets");
+    let myVDMServer = new vdmServer(serviceName, myNode, webRoot, "vdmapplets");
 
     myNode.AddService(myVDMServer);
     myNode.EnableREST("/Mesh", "Mesh");

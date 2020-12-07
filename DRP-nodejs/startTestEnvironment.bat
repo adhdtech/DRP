@@ -28,15 +28,14 @@ set PORT=8081
 start "Broker2" node drpBroker.js
 timeout /T 1
 set PORT=
-start "TestService-zone1" node drpProvider-Test-NoListener.js
+start "TestService1-zone1" node drpProvider-Test-NoListener.js
 timeout /T 1
-set PORT=
-set ZONENAME=zone2
-start "TestService-zone2" node drpProvider-Test-NoListener.js
+start "TestService2-zone1" node drpProvider-Test-NoListener.js
 timeout /T 1
-set PORT=
 set ZONENAME=zone2
-start "TestService-zone2" node drpProvider-Test-NoListener.js
+start "TestService1-zone2" node drpProvider-Test-NoListener.js
+timeout /T 1
+start "TestService2-zone2" node drpProvider-Test-NoListener.js
 timeout /T 1
 set PORT=
 set ZONENAME=zone1

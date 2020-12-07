@@ -11,7 +11,7 @@ if (process.env.SSL_ENABLED) {
 let port = process.env.PORT || 8080;
 let listeningName = process.env.LISTENINGNAME || os.hostname();
 let hostID = process.env.HOSTID || os.hostname();
-let domainName = process.env.DOMAINNAME || "mydomain.xyz";
+let domainName = process.env.DOMAINNAME || "";
 let meshKey = process.env.MESHKEY || "supersecretkey";
 let zoneName = process.env.ZONENAME || "MyZone";
 let registryUrl = process.env.REGISTRYURL || null;
@@ -31,7 +31,7 @@ let drpWSRoute = "";
 
 // Set config
 let myServerConfig = {
-    "NodeURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
+    "ListeningURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
     "Port": port,
     "SSLEnabled": process.env.SSL_ENABLED || false,
     "SSLKeyFile": process.env.SSL_KEYFILE || "",
@@ -39,16 +39,12 @@ let myServerConfig = {
     "SSLCrtFilePwd": process.env.SSL_CRTFILEPWD || ""
 };
 
-// Create expressApp
-let myWebServer = new DRP_WebServer(myServerConfig);
-myWebServer.start();
-
 // Set Roles
 let roleList = ["Provider"];
 
 // Create Node
 console.log(`Starting DRP Node`);
-let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myWebServer, myServerConfig.NodeURL, drpWSRoute);
+let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myServerConfig, drpWSRoute);
 myNode.Debug = debug;
 myNode.TestMode = testMode;
 myNode.RegistryUrl = registryUrl;

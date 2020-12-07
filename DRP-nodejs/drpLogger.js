@@ -8,11 +8,11 @@ let protocol = "ws";
 if (isTrue(process.env.SSL_ENABLED)) {
     protocol = "wss";
 }
-let isListening = isTrue(process.env.ISLISTENING);
+let isListening = isFalse(process.env.ISLISTENING);
 let port = process.env.PORT || 8081;
 let listeningName = process.env.LISTENINGNAME || os.hostname();
 let hostID = process.env.HOSTID || os.hostname();
-let domainName = process.env.DOMAINNAME || "mydomain.xyz";
+let domainName = process.env.DOMAINNAME || "";
 let meshKey = process.env.MESHKEY || "supersecretkey";
 let zoneName = process.env.ZONENAME || "MyZone";
 let registryUrl = process.env.REGISTRYURL || null;
@@ -37,7 +37,7 @@ let myWebServerConfig = null;
 if (isListening) {
     // Set config
     myWebServerConfig = {
-        "NodeURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
+        "ListeningURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
         "Port": port,
         "SSLEnabled": isTrue(process.env.SSL_ENABLED),
         "SSLKeyFile": process.env.SSL_KEYFILE || "",
@@ -80,5 +80,22 @@ function isTrue(value) {
             return true;
         default:
             return false;
+    }
+}
+
+function isFalse(value) {
+    if (typeof (value) === 'string') {
+        value = value.trim().toLowerCase();
+    }
+    switch (value) {
+        case true:
+        case "false":
+        case 0:
+        case "0":
+        case "off":
+        case "no":
+            return false;
+        default:
+            return true;
     }
 }

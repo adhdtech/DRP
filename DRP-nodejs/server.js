@@ -13,10 +13,10 @@ var protocol = "ws";
 if (process.env.SSL_ENABLED) {
     protocol = "wss";
 }
-var port = process.env.PORT || 8080;
+let port = process.env.PORT || 8080;
 let listeningName = process.env.LISTENINGNAME || os.hostname();
 let hostID = process.env.HOSTID || os.hostname();
-let domainName = process.env.DOMAINNAME || "mydomain.xyz";
+let domainName = process.env.DOMAINNAME || "";
 let meshKey = process.env.MESHKEY || "supersecretkey";
 let zoneName = process.env.ZONENAME || "MyZone";
 let debug = process.env.DEBUG || false;
