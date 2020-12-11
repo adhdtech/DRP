@@ -533,6 +533,8 @@ class rSageApplet extends VDMApplet {
             thisApplet.sendCmd("DRP", "unsubscribe", { streamToken: thisStreamToken}, false);
             thisApplet.vdmClient.vdmServerAgent.DeleteReplyHandler(thisStreamToken);
         }
+        // Delete from 
+        delete thisApplet.vdmDesktop.appletInstances[thisApplet.appletIndex];
         thisApplet.sendCmd("VDM", "closeUserApp",
             {
                 appletName: thisApplet.appletName,
