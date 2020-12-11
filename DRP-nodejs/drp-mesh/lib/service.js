@@ -130,7 +130,7 @@ class DRP_Service {
 
     async ReadClassCacheFromService(className) {
         let thisService = this;
-        let replyObj = await thisService.drpNode.ServiceCmd("CacheManager", "readClassCache", { "serviceName": thisService.serviceName, "className": className }, null, null, true, true, null);
+        let replyObj = await thisService.drpNode.ServiceCmd("CacheManager", "readClassCache", { "serviceName": thisService.serviceName, "className": className }, null, null, false, true, null);
         if (replyObj.err) {
             thisService.drpNode.log("Could not read cached objects for " + thisService.serviceName + "\\" + className + " -> " + replyObj.err);
             thisService.Classes[className].records = {};
@@ -162,7 +162,7 @@ class DRP_Service {
                 "className": className,
                 "cacheData": cacheData,
                 "snapTime": thisService.snapStartTime
-            }, null, null, true, true, null);
+            }, null, null, false, true, null);
             return replyObj;
         }
     }

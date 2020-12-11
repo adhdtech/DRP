@@ -22,6 +22,7 @@
     "express": "*",
     "express-ws": "*",
     "cors": "*",
+    "ping": "*",
     "tcp-ping": "*",
     "uuid": "*",
     "swagger-ui-express": "^4.1.4"
