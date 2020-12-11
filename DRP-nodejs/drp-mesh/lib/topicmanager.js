@@ -29,7 +29,7 @@ class DRP_TopicManager {
 
     /**
      * 
-     * @param {DRP_SubscriptionDeclaration} subscription Subscription
+     * @param {DRP_Subscriber} subscription Subscription
      */
     SubscribeToTopic(subscription) {
         // If topic doesn't exist, create it
@@ -91,12 +91,11 @@ class DRP_TopicManager_Topic extends DRP_SubscribableSource {
      * @param {number} historyLength History Length
      */
     constructor(topicManager, topicName, historyLength) {
-        super();
+        super(topicManager.drpNode.NodeID, topicName);
         let thisTopic = this;
 
         // Set Topic Manager
         this.TopicManager = topicManager;
-        this.TopicName = topicName;
         /** @type Set<DRP_Subscriber> */
         this.Subscribers = {};
         this.ReceivedMessages = 0;

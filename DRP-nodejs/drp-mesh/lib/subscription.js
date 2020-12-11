@@ -1,8 +1,15 @@
 'use strict';
 
 class DRP_SubscribableSource {
-    constructor() {
-        /** @type {Set<{ DRP_SubscriptionDeclaration>} */
+    /**
+     * Tracker for a local or remote source which can be subscribed to
+     * @param {string} sourceNodeID Source NodeID
+     * @param {string} topicName Source Topic Name
+     */
+    constructor(sourceNodeID, topicName) {
+        this.NodeID = sourceNodeID;
+        this.TopicName = topicName;
+        /** @type {Set<DRP_Subscriber>} */
         this.Subscriptions = new Set();
     }
 

@@ -3272,9 +3272,7 @@ class DRP_RemoteSubscription extends DRP_SubscribableSource {
      * @param {function} noSubscribersCallback Last subscriber disconnected callback
      */
     constructor(targetNodeID, topicName, streamToken, noSubscribersCallback) {
-        super();
-        this.TargetNodeID = targetNodeID;
-        this.TopicName = topicName;
+        super(targetNodeID, topicName);
         this.StreamToken = streamToken;
         this.NoSubscribersCallback = noSubscribersCallback;
     }
@@ -3320,17 +3318,39 @@ class DRP_SubscriptionManager {
         // Ignore if we don't have any Subscriptions to check against
         if (thisSubMgr.Subscribers.size === 0) return;
 
-        // Ignore if this isn't a service add
-        if (topologyPacket.cmd !== "add" || topologyPacket.type !== "service") return;
+        // This is a service add
+        if (topologyPacket.cmd === "add" && topologyPacket.type === "service") {
 
-        // Get topologyData
-        /** @type {DRP_ServiceTableEntry} */
-        let serviceEntry = topologyPacket.data;
+            // Get topologyData
+            /** @type {DRP_ServiceTableEntry} */
+            let serviceEntry = topologyPacket.data;
 
-        for (let subscriber of thisSubMgr.Subscribers) {
-            // Does the newly discovered service provide what this subscription is asking for?
-            if (!thisSubMgr.EvaluateServiceTableEntry(serviceEntry, subscriber.topicName, subscriber.scope, thisNode.Zone)) continue;
-            await this.RegisterSubscriberWithTargetSource(serviceEntry, subscriber);
+            for (let subscriber of thisSubMgr.Subscribers) {
+                // Does the newly discovered service provide what this subscription is asking for?
+                if (!thisSubMgr.EvaluateServiceTableEntry(serviceEntry, subscriber.topicName, subscriber.scope, thisNode.Zone)) continue;
+                await this.RegisterSubscriberWithTargetSource(serviceEntry, subscriber);
+            }
+        }
+
+        // This is a node delete
+        if (topologyPacket.cmd === "delete" && topologyPacket.type === "node") {
+
+            /** @type {DRP_NodeTableEntry} */
+            let nodeEntry = topologyPacket.data;
+            let checkNodeID = nodeEntry.NodeID;
+
+            // Loop over all Subscribers and objects they're subscribed to
+            let remoteSubscriptionIDList = Object.keys(thisSubMgr.RemoteSubscriptions);
+            for (let i = 0; i < remoteSubscriptionIDList.length; i++) {
+                let remoteSubscriptionID = remoteSubscriptionIDList[i];
+                let thisRemoteSub = thisSubMgr.RemoteSubscriptions[remoteSubscriptionID];
+                if (checkNodeID !== thisRemoteSub.NodeID) continue;
+                for (let thisLocalSub of thisRemoteSub.Subscriptions) {
+                    // This will remove the local sub from the remote and vice versa
+                    thisRemoteSub.RemoveSubscription(thisLocalSub);
+                }
+                delete thisSubMgr.RemoteSubscriptions[remoteSubscriptionID];
+            }
         }
     }
 
@@ -3418,7 +3438,7 @@ class DRP_SubscriptionManager {
             let newRemoteSubscription = new DRP_RemoteSubscription(targetNodeID, topicName, null, () => {
                 // No Subscribers Callback
                 delete thisSubMgr.RemoteSubscriptions[remoteSubscriptionID];
-                thisSubMgr.drpNode.UnsubscribeRemote(newRemoteSubscription.TargetNodeID, newRemoteSubscription.StreamToken);
+                thisSubMgr.drpNode.UnsubscribeRemote(newRemoteSubscription.NodeID, newRemoteSubscription.StreamToken);
             });
             thisSubMgr.RemoteSubscriptions[remoteSubscriptionID] = newRemoteSubscription;
             let streamToken = await thisSubMgr.drpNode.SubscribeRemote(targetNodeID, topicName, (streamPacket) => {
