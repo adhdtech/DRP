@@ -529,7 +529,9 @@ class rSageApplet extends VDMApplet {
         // Delete stream handlers
         for (let i = 0; i < thisApplet.streamHandlerTokens.length; i++) {
             //console.dir(thisApplet.vdmClient.vdmServerAgent.wsConn);
-            thisApplet.vdmClient.vdmServerAgent.DeleteStreamHandler(thisApplet.vdmClient.vdmServerAgent.wsConn, thisApplet.streamHandlerTokens[i]);
+            let thisStreamToken = thisApplet.streamHandlerTokens[i];
+            thisApplet.sendCmd("DRP", "unsubscribe", { streamToken: thisStreamToken}, false);
+            thisApplet.vdmClient.vdmServerAgent.DeleteReplyHandler(thisStreamToken);
         }
         thisApplet.sendCmd("VDM", "closeUserApp",
             {

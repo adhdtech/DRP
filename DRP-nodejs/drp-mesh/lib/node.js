@@ -1834,21 +1834,21 @@ class DRP_Node {
 
     RemoveEndpoint(staleEndpoint, callback) {
         let thisNode = this;
-        let staleNodeID = staleEndpoint.EndpointID;
-        if (staleNodeID) {
+        let staleEndpointID = staleEndpoint.EndpointID;
+        if (staleEndpointID) {
             switch (staleEndpoint.EndpointType) {
                 case "Node":
-                    if (thisNode.NodeEndpoints[staleNodeID]) {
-                        thisNode.log(`Removing disconnected node [${staleNodeID}]`, true);
-                        thisNode.NodeEndpoints[staleNodeID].RemoveSubscriptions();
-                        delete thisNode.NodeEndpoints[staleNodeID];
-                        thisNode.TopologyTracker.ProcessNodeDisconnect(staleNodeID);
+                    if (thisNode.NodeEndpoints[staleEndpointID]) {
+                        thisNode.log(`Removing disconnected node [${staleEndpointID}]`, true);
+                        thisNode.NodeEndpoints[staleEndpointID].RemoveSubscriptions();
+                        delete thisNode.NodeEndpoints[staleEndpointID];
+                        thisNode.TopologyTracker.ProcessNodeDisconnect(staleEndpointID);
                     }
                     break;
                 case "Consumer":
-                    if (thisNode.ConsumerEndpoints[staleNodeID]) {
-                        thisNode.ConsumerEndpoints[staleNodeID].RemoveSubscriptions();
-                        delete thisNode.ConsumerEndpoints[staleNodeID];
+                    if (thisNode.ConsumerEndpoints[staleEndpointID]) {
+                        thisNode.ConsumerEndpoints[staleEndpointID].RemoveSubscriptions();
+                        delete thisNode.ConsumerEndpoints[staleEndpointID];
                     }
                     break;
                 default:

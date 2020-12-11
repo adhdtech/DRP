@@ -352,7 +352,7 @@ class DRP_Endpoint {
             let subscriptionObject = this.Subscriptions[subscriptionID];
             subscriptionObject.Terminate();
             delete this.Subscriptions[subscriptionID];
-            this.drpNode.SubscriptionManager.Subscribers[subscriptionID];
+            this.drpNode.SubscriptionManager.Subscribers.delete(subscriptionObject);
         }
     }
 
