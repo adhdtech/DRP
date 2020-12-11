@@ -2075,9 +2075,14 @@ class DRP_Node {
         let returnVal = null;
         // Unsubscribe from a remote topic
         let thisNodeEndpoint = await thisNode.VerifyNodeConnection(targetNodeID);
+
+        // If thisNodeEndpoint is null, it means the connection has already been terminated
+        if (!thisNodeEndpoint) return;
+
+        // Delete the reply handler
         thisNodeEndpoint.DeleteReplyHandler(streamToken);
 
-        // Await for command from source node
+        // Tell remote node this streamToken is no longer valid
         await thisNodeEndpoint.SendCmd("DRP", "unsubscribe", { "streamToken": streamToken }, true, null);
     }
 
