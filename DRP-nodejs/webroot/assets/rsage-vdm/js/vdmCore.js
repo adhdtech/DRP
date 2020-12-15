@@ -257,6 +257,18 @@ class VDMDesktop {
                         appletProfile.startupScript = resourceText;
 
                         break;
+                    case 'JS-Head':
+                        if (thisVDMDesktop.loadedResources.indexOf(preReqLocation) === -1) {
+                            thisVDMDesktop.loadedResources.push(preReqLocation);
+
+                            // Run it globally now
+                            let script = document.createElement('script');
+                            script.src = preReqLocation;
+                            script.defer = true;
+
+                            document.head.appendChild(script);
+                        }
+                        break;
                     case 'JSON':
                         if (thisVDMDesktop.loadedResources.indexOf(preReqLocation) === -1) {
                             thisVDMDesktop.loadedResources.push(preReqLocation);
