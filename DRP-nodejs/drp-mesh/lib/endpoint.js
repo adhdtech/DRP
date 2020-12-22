@@ -35,7 +35,7 @@ class DRP_Endpoint {
             userInfo: null
         };
 
-        /** @type Object<string,function> */
+        /** @type Object<number,function> */
         this.ReplyHandlerQueue = {};
 
         this.TokenNum = 1;
@@ -239,7 +239,13 @@ class DRP_Endpoint {
     */
     ShouldRelay(drpPacket) {
         let thisEndpoint = this;
-        if (drpPacket.routeOptions && drpPacket.routeOptions.tgtNodeID && drpPacket.routeOptions.tgtNodeID !== thisEndpoint.drpNode.NodeID)
+        /*
+         * In order to be relayed, a packet should:
+         *   - Have route options
+         *   - Specify a tgtNodeID that is not the local Node
+         *   - Come from an endpoint that has successfully peered as a Node
+         */
+        if (drpPacket.routeOptions && drpPacket.routeOptions.tgtNodeID && drpPacket.routeOptions.tgtNodeID !== thisEndpoint.drpNode.NodeID && thisEndpoint.EndpointType && thisEndpoint.EndpointType === "Node")
             return true;
         else
             return false;
