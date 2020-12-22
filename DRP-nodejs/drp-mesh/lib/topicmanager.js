@@ -74,7 +74,7 @@ class DRP_TopicManager {
         for (let i = 0; i < topicKeyList.length; i++) {
             let thisTopic = thisTopicManager.Topics[topicKeyList[i]];
             responseObject[topicKeyList[i]] = {
-                SubscriberCount: thisTopic.Subscribers.length,
+                SubscriberCount: thisTopic.Subscriptions.length,
                 ReceivedMessages: thisTopic.ReceivedMessages,
                 SentMessages: thisTopic.SentMessages
             };
@@ -96,8 +96,6 @@ class DRP_TopicManager_Topic extends DRP_SubscribableSource {
 
         // Set Topic Manager
         this.TopicManager = topicManager;
-        /** @type Set<DRP_Subscriber> */
-        this.Subscribers = {};
         this.ReceivedMessages = 0;
         this.SentMessages = 0;
         this.HistoryLength = historyLength || 10;
