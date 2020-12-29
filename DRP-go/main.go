@@ -4,68 +4,28 @@ import (
 	"fmt"
 	"os"
 
-	"./drp"
-	"github.com/gorilla/websocket"
+	drp "./drpmesh"
 )
 
-func getPublicInterface(params drp.DRPCmdParams, wsConn *websocket.Conn, replyToken *string) interface{} {
-	return "eth0"
-}
-
 func main() {
-
-	brokerURL := os.Getenv("BROKERURL")
-	user := os.Getenv("USER")
-	pass := os.Getenv("PASS")
-
-	thisClient := &drp.Client{}
-	thisClient.Init()
-
-	// Connect to the Provider
-	thisClient.Open(brokerURL, user, pass)
-	fmt.Println("Connected to Broker")
-
-	// Register getPublicInterface command
-	thisClient.RegisterCmd("getPublicInterface", getPublicInterface)
-
-	// Get Topology
-	//topologyData := thisClient.SendCmdAwait("getTopology", nil)
-	//fmt.Printf("%+v\n", topologyData.Payload)
-
-	// Create stream processor
-	streamInQueue := make(chan drp.DRPPacketIn, 100)
-
-	go func() {
-		for {
-			streamPacket := <-streamInQueue
-			//fmt.Printf("%+v\n", streamPacket)
-
-			//fmt.Println("STREAM -> [" + *dummyMessage.TimeStamp + "] " + *dummyMessage.Message)
-			if payloadMap, ok := streamPacket.Payload.(map[string]interface{}); ok {
-				fmt.Println("STREAM -> [" + payloadMap["TimeStamp"].(string) + "] " + payloadMap["Message"].(string))
-			} else {
-				fmt.Println("STREAM -> (failed to parse)")
-				fmt.Printf("%+v\n", streamPacket.Payload)
-			}
-
-		}
-	}()
-
-	// Subscribe to dummy stream
-	thisClient.SendCmdSubscribe("dummy", "global", streamInQueue)
+	fmt.Println("Test DRP_Node Instantiation:")
+	//listeningName := "ws://somehost.domain.com:8080"
+	nodeHostname, _ := os.Hostname()
+	thisNode := drp.CreateNode([]string{"Provider"}, nodeHostname, "mydomain.xyz", "supersecretkey", "zone1", "global", nil, nil, nil, true)
+	thisNode.Log("Node created", false)
+	//fmt.Printf("%+v\n", thisNode)
+	//thisNode.ConnectToBroker("ws://localhost:8080", nil)
 
 	/*
-		if registerSuccess, ok := responseData.Payload.(bool); ok && registerSuccess {
-			fmt.Println("Registered agent")
-		} else {
-			fmt.Println("Registration failed")
-		}*/
+		thisNodeID := &thisNode.NodeID
+		var results = thisNode.TopologyTracker.GetRegistry(thisNodeID)
 
-	// If we get a signal on the DoneChan, we need to exit
-	done := <-thisClient.DoneChan
-	if done {
-		fmt.Println("Closed with error")
-	} else {
-		fmt.Println("Closed gracefully")
-	}
+		var resultsBytes, _ = json.Marshal(results)
+		fmt.Printf("%s\n", string(resultsBytes))
+	*/
+	thisNode.ConnectToRegistry("ws://localhost:8080", nil, nil)
+
+	doneChan := make(chan bool)
+	_ = <-doneChan
+	//fmt.Printf("%+v\n", results)
 }

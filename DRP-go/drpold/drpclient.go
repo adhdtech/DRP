@@ -1,4 +1,4 @@
-package drp
+package drpold
 
 import (
 	"crypto/tls"
@@ -222,6 +222,8 @@ func (dc *Client) Open(wsTarget string, user string, pass string) error {
 			}
 		}
 	}()
+
+	dc.drpNode.
 
 	// Send Hello
 	dc.SendCmdAwait("hello", DRPCmdParams{"userAgent": "go", "user": dc.user, "pass": dc.pass})
