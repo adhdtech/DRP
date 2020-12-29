@@ -252,30 +252,9 @@ func (e *Endpoint) StartListening(wsConn *websocket.Conn) {
 				e.drpNode.Log(fmt.Sprintf("Could not read from wsConn: %s", err), true)
 				break
 			} else {
-				// Need to switch this to use a channel so the receiver isn't tied up
+				// Need to update this so the receive loop isn't tied up processing inbound commands
 				e.ReceiveMessage(p)
 			}
 		}
 	}()
-
-	/*
-		// Start receive loop
-		go func() {
-			for {
-				select {
-				case done:=<-e.closeChan:
-					return
-				case _, p, err := dc.wsConn.ReadMessage():
-				if err != nil {
-					e.drpNode.Log(fmt.Sprintf("WSCLIENT - Could not read from wsConn: %s", err), false)
-					break
-				} else {
-					// Need to switch this to use a channel so the receiver isn't tied up
-					e.ReceiveMessage(p)
-				}
-
-				}
-			}
-		}()
-	*/
 }

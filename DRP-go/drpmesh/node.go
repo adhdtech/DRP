@@ -96,6 +96,26 @@ func (dn *Node) GetTimestamp() string {
 	return timestamp
 }
 
+/*
+TO DO - IMPLEMENT THESE FUNCTIONS
+GetConsumerToken
+GetLastTokenForUser
+EnableREST
+AddSwaggerRouter
+ListClassInstances
+GetServiceDefinition
+GetServiceDefinitions
+GetLocalServiceDefinitions
+GetClassRecords
+SendPathCmdToNode
+GetBaseObj
+FindProvidersForStream
+EvalPath
+GetObjFromPath
+VerifyNodeConnection
+VerifyConsumerConnection
+*/
+
 // ServiceCmd is used to execute a command against a local or remote Service
 func (dn *Node) ServiceCmd(serviceName string, method string, params interface{}, targetNodeID *string, targetServiceInstanceID *string, useControlPlane bool, awaitResponse bool, callingEndpoint interface{}) error {
 	return nil
@@ -177,7 +197,11 @@ func (dn *Node) AddService(serviceObj Service) {
 	thisNode.TopologyTracker.ProcessPacket(addServicePacket, thisNode.NodeID, false)
 }
 
+// RemoveService TO DO - IMPLEMENT
+func (dn *Node) RemoveService() {}
+
 // ApplyGenericEndpointMethods applies a mandatory set of methods to an Endpoint
+// TO DO - REGISTER METHODS AS FUNCTIONS ARE PORTED
 func (dn *Node) ApplyGenericEndpointMethods(targetEndpoint EndpointInterface) {
 	thisNode := dn
 	//type EndpointMethod func(*CmdParams, *websocket.Conn, *int) interface{}
@@ -301,6 +325,7 @@ func (dn *Node) ApplyGenericEndpointMethods(targetEndpoint EndpointInterface) {
 }
 
 // ApplyNodeEndpointMethods applies a set of methods to an Endpoint if the peer is a Node
+// TO DO - REGISTER METHODS AS FUNCTIONS ARE PORTED
 func (dn *Node) ApplyNodeEndpointMethods(targetEndpoint EndpointInterface) {
 	thisNode := dn
 

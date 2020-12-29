@@ -35,10 +35,10 @@ func (tt *TopologyTracker) Initialize(drpNode *Node) {
 	tt.ProcessPacket(addNodePacket, tt.drpNode.NodeID, tt.drpNode.IsRegistry())
 }
 
-// RemoveNextHop does stuff
+// RemoveNextHop TO DO - IMPLEMENT
 func (tt *TopologyTracker) RemoveNextHop() {}
 
-// ProcessPacket does stuff
+// ProcessPacket handles DRP topology packets
 func (tt *TopologyTracker) ProcessPacket(topologyPacket TopologyPacket, srcNodeID string, sourceIsRegistry bool) {
 	thisTopologyTracker := tt
 	thisNode := thisTopologyTracker.drpNode
@@ -243,53 +243,37 @@ func (tt *TopologyTracker) ProcessPacket(topologyPacket TopologyPacket, srcNodeI
 		return
 	}
 
-	// TO DO - IMPLEMENT AFTER ADDING NODE ENDPOINTS
-	/*
-		        // Loop over all connected node endpoints
-		        let nodeIDList = Object.keys(thisTopologyTracker.drpNode.NodeEndpoints);
-		        for (let i = 0; i < nodeIDList.length; i++) {
+	for targetNodeID, thisEndpoint := range thisTopologyTracker.drpNode.NodeEndpoints {
+		relayPacket := thisTopologyTracker.AdvertiseOutCheck(topologyPacketData, &targetNodeID)
 
-		            // By default, do not relay the packet
-		            let relayPacket = false;
-
-		            // Get endpoint NodeID and object
-		            let targetNodeID = nodeIDList[i];
-
-		            // Check to see if we should relay this packet
-		            relayPacket = thisTopologyTracker.AdvertiseOutCheck(topologyEntry, targetNodeID);
-
-		            if (relayPacket) {
-		                thisTopologyTracker.drpNode.NodeEndpoints[targetNodeID].SendCmd("DRP", "topologyUpdate", topologyPacket, false, null);
-		                if (thisNode.Debug) thisNode.log(`Relayed topology packet to node: [${targetNodeID}]`, true);
-		            } else {
-		                if (targetNodeID !== thisNode.NodeID) {
-		                    //thisNode.log(`Not relaying packet to node[${targetNodeID}], roles ${thisTopologyTracker.NodeTable[targetNodeID].Roles}`);
-		                    //console.dir(topologyPacket);
-		                }
-		            }
-				}
-	*/
+		if relayPacket {
+			thisEndpoint.SendCmd("DRP", "topologyUpdate", topologyPacket, nil)
+			thisNode.Log(fmt.Sprintf("Relayed topology packet to node: [%s]", targetNodeID), true)
+		} else {
+			if targetNodeID != thisNode.NodeID {
+				//thisNode.log(`Not relaying packet to node[${targetNodeID}], roles ${thisTopologyTracker.NodeTable[targetNodeID].Roles}`);
+				//console.dir(topologyPacket);
+			}
+		}
+	}
 }
 
-//func (tt *TopologyTracker) ProcessPacket(topologyPacket TopologyPacket, srcNodeID string, sourceIsRegistry bool) {
-//}
-
-// ListServices does stuff
+// ListServices TO DO - IMPLEMENT
 func (tt *TopologyTracker) ListServices() {}
 
-// GetServicesWithProviders does stuff
+// GetServicesWithProviders TO DO - IMPLEMENT
 func (tt *TopologyTracker) GetServicesWithProviders() {}
 
-// FindInstanceOfService does stuff
+// FindInstanceOfService TO DO - IMPLEMENT
 func (tt *TopologyTracker) FindInstanceOfService() {}
 
-// FindInstancesOfService does stuff
+// FindInstancesOfService TO DO - IMPLEMENT
 func (tt *TopologyTracker) FindInstancesOfService() {}
 
-// FindServicePeers does stuff
+// FindServicePeers TO DO - IMPLEMENT
 func (tt *TopologyTracker) FindServicePeers() {}
 
-// AdvertiseOutCheck does stuff
+// AdvertiseOutCheck determines whether or not a TopologyTableEntry should be forwarded to given NodeID
 func (tt *TopologyTracker) AdvertiseOutCheck(topologyEntry *TopologyTableEntry, targetNodeID *string) bool {
 
 	thisTopologyTracker := tt
@@ -380,7 +364,7 @@ func (tt *TopologyTracker) AdvertiseOutCheckService(serviceTableEntry *ServiceTa
 	return true
 }
 
-// GetRegistry does stuff
+// GetRegistry returns a copy of the local Registry (Node and Service tables)
 func (tt *TopologyTracker) GetRegistry(requestingNodeID *string) struct {
 	NodeTable    map[string]*NodeTableEntry
 	ServiceTable map[string]*ServiceTableEntry
@@ -420,9 +404,8 @@ func (tt *TopologyTracker) GetRegistry(requestingNodeID *string) struct {
 	return returnObj
 }
 
-// ProcessNodeConnect does stuff
+// ProcessNodeConnect executes after connecting to a Node endpoint
 func (tt *TopologyTracker) ProcessNodeConnect(remoteEndpoint EndpointInterface, remoteNodeDeclaration *NodeDeclaration, localNodeIsProxy bool) {
-	// TO DO - CONVERT LOGIC FROM node.js function
 	thisTopologyTracker := tt
 	thisNode := thisTopologyTracker.drpNode
 	thisNode.Log(fmt.Sprintf("Connection established with Node [%s] (${declaration.NodeRoles})", remoteNodeDeclaration.NodeID), false)
@@ -482,19 +465,27 @@ func (tt *TopologyTracker) ProcessNodeConnect(remoteEndpoint EndpointInterface, 
 	}
 }
 
-// ProcessNodeDisconnect does stuff
+// ProcessNodeDisconnect TO DO - IMPLEMENT
 func (tt *TopologyTracker) ProcessNodeDisconnect() {}
 
-// GetNextHop does stuff
+// GetNextHop TO DO - IMPLEMENT
 func (tt *TopologyTracker) GetNextHop() {}
 
-// ValidateNodeID does stuff
+// ValidateNodeID tells whether or not a NodeID is present in the NodeTable
 func (tt *TopologyTracker) ValidateNodeID(checkNodeID string) bool {
 	return tt.NodeTable.HasEntry(checkNodeID)
 }
 
-// GetNodeWithURL does stuff
-func (tt *TopologyTracker) GetNodeWithURL() {}
+// GetNodeWithURL returns NodeID with a given NodeURL
+func (tt *TopologyTracker) GetNodeWithURL(checkNodeURL string) *string {
+	thisTopologyTracker := tt
+	for thisNodeID, thisNodeEntry := range *thisTopologyTracker.NodeTable {
+		if thisNodeEntry.NodeURL != nil && *thisNodeEntry.NodeURL == checkNodeURL {
+			return &thisNodeID
+		}
+	}
+	return nil
+}
 
 // StaleEntryCleanup removed stale Node and Service entries
 func (tt *TopologyTracker) StaleEntryCleanup() {
@@ -512,10 +503,10 @@ func (tt *TopologyTracker) StaleEntryCleanup() {
 	}
 }
 
-// ListConnectedRegistryNodes does stuff
+// ListConnectedRegistryNodes TO DO - IMPLEMENT
 func (tt *TopologyTracker) ListConnectedRegistryNodes() {}
 
-// FindRegistriesInZone does stuff
+// FindRegistriesInZone TO DO - IMPLEMENT
 func (tt *TopologyTracker) FindRegistriesInZone() {}
 
 // TopologyTable is used for NodeTable and ServiceTable modules
@@ -572,18 +563,31 @@ func (nte NodeTableEntry) ToJSON() []byte {
 	return entryBytes
 }
 
-// IsRegistry - TO DO
+// IsRegistry - tells whether a Node topology entry hold the Registry role
 func (nte NodeTableEntry) IsRegistry() bool {
+	for _, a := range nte.Roles {
+		if a == "Registry" {
+			return true
+		}
+	}
 	return false
 }
 
-// IsBroker - TO DO
+// IsBroker tells whether a Node topology entry hold the Broker role
 func (nte NodeTableEntry) IsBroker() bool {
+	for _, a := range nte.Roles {
+		if a == "Broker" {
+			return true
+		}
+	}
 	return false
 }
 
-// UsesProxy - TO DO
+// UsesProxy - tells whether a Node topology entry uses a Proxy
 func (nte NodeTableEntry) UsesProxy() bool {
+	if nte.ProxyNodeID != nil {
+		return true
+	}
 	return false
 }
 
