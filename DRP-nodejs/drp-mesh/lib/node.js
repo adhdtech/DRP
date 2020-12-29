@@ -2239,19 +2239,6 @@ class DRP_TopologyTracker {
         this.FindInstanceOfService = this.FindInstanceOfService;
     }
 
-    RemoveNextHop(nextHopNode) {
-        // Loop over NodeEntries, remove all from nextHopNode
-        let instanceIDlist = Object.keys(this.NodeEntries);
-        for (let i = 0; i < instanceIDlist.length; i++) {
-            let instanceID = instanceIDlist[i];
-            if (this.NodeEntries[instanceID].NextHopNode === nextHopNode) {
-                delete this.NodeEntries[instanceID];
-
-                // Add to list of changes?
-            }
-        }
-    }
-
     /**
      * 
      * @param {DRP_TopologyPacket} topologyPacket DRP Topology Packet

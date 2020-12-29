@@ -35,9 +35,6 @@ func (tt *TopologyTracker) Initialize(drpNode *Node) {
 	tt.ProcessPacket(addNodePacket, tt.drpNode.NodeID, tt.drpNode.IsRegistry())
 }
 
-// RemoveNextHop TO DO - IMPLEMENT
-func (tt *TopologyTracker) RemoveNextHop() {}
-
 // ProcessPacket handles DRP topology packets
 func (tt *TopologyTracker) ProcessPacket(topologyPacket TopologyPacket, srcNodeID string, sourceIsRegistry bool) {
 	thisTopologyTracker := tt
@@ -468,8 +465,14 @@ func (tt *TopologyTracker) ProcessNodeConnect(remoteEndpoint EndpointInterface, 
 // ProcessNodeDisconnect TO DO - IMPLEMENT
 func (tt *TopologyTracker) ProcessNodeDisconnect() {}
 
-// GetNextHop TO DO - IMPLEMENT
-func (tt *TopologyTracker) GetNextHop() {}
+// GetNextHop return the next hop to communicate with a given Node ID
+func (tt *TopologyTracker) GetNextHop(checkNodeID string) *string {
+	var checkNodeTableEntry = tt.NodeTable.GetEntry(checkNodeID).(*NodeTableEntry)
+	if checkNodeTableEntry != nil {
+		return checkNodeTableEntry.LearnedFrom
+	}
+	return nil
+}
 
 // ValidateNodeID tells whether or not a NodeID is present in the NodeTable
 func (tt *TopologyTracker) ValidateNodeID(checkNodeID string) bool {

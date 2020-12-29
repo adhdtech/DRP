@@ -117,6 +117,7 @@ VerifyConsumerConnection
 */
 
 // ServiceCmd is used to execute a command against a local or remote Service
+// TO DO - IMPLEMENT
 func (dn *Node) ServiceCmd(serviceName string, method string, params interface{}, targetNodeID *string, targetServiceInstanceID *string, useControlPlane bool, awaitResponse bool, callingEndpoint interface{}) error {
 	return nil
 }
