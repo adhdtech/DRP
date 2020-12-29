@@ -23,7 +23,7 @@ type EndpointInterface interface {
 	GetType() string
 	GetToken() int
 	AddReplyHandler() int
-	DeleteReplyHandler()
+	DeleteReplyHandler(int)
 	RegisterMethod(string, EndpointMethod)
 	SendPacketBytes([]byte)
 	SendCmd(string, string, interface{}, *int)
@@ -83,7 +83,8 @@ func (e *Endpoint) AddReplyHandler() int {
 }
 
 // DeleteReplyHandler removes a reply handler
-func (e *Endpoint) DeleteReplyHandler() {
+func (e *Endpoint) DeleteReplyHandler(handlerToken int) {
+	delete(e.ReplyHandlerQueue, handlerToken)
 	return
 }
 
@@ -160,9 +161,9 @@ func (e *Endpoint) ProcessCmd(msgIn *Cmd) {
 func (e *Endpoint) ProcessReply(msgIn *ReplyIn) {
 	e.ReplyHandlerQueue[*msgIn.Token] <- msgIn
 
-	// Add logic to delete from handler queue!
+	// If the receive is complete, delete handler
 	if msgIn.Status < 2 {
-		delete(e.ReplyHandlerQueue, *msgIn.Token)
+		e.DeleteReplyHandler(*msgIn.Token)
 	}
 }
 
