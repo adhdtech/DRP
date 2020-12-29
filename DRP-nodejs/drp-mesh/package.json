@@ -6,6 +6,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adhdtech/DRP.git"
+  },
   "keywords": [
     "drp",
     "mesh",
@@ -26,6 +30,5 @@
     "tcp-ping": "*",
     "uuid": "*",
     "swagger-ui-express": "^4.1.4"
-  },
-  "publishConfig": { "registry": "https://npm.pkg.github.com/" }
+  }
 }
