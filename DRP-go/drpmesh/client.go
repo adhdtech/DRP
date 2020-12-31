@@ -16,7 +16,7 @@ type Client struct {
 }
 
 // Connect makes an outbound connection to a Node
-func (dc *Client) Connect(wsTarget string, proxy *string, drpNode *Node, endpointID string, retryOnClose bool, openCallback *func(), closeCallback *func()) {
+func (dc *Client) Connect(wsTarget string, proxy *string, drpNode *Node, endpointID *string, retryOnClose bool, openCallback *func(), closeCallback *func()) {
 	dc.Init()
 	dc.wsConn = nil
 	dc.wsTarget = wsTarget

@@ -271,11 +271,33 @@ func (tt *TopologyTracker) ListServices() []string {
 	return uniqueServiceSlice
 }
 
-// GetServicesWithProviders TO DO - IMPLEMENT
-func (tt *TopologyTracker) GetServicesWithProviders() {}
+// GetServicesWithProviders returns a map of services along with the Providers' NodeIDs (used by PathCmd)
+func (tt *TopologyTracker) GetServicesWithProviders() map[string]*struct {
+	ServiceName string
+	Providers   []string
+} {
 
-// FindInstanceOfService TO DO - IMPLEMENT
-func (tt *TopologyTracker) FindInstanceOfService() {}
+	returnObject := make(map[string]*struct {
+		ServiceName string
+		Providers   []string
+	})
+	for _, serviceTableEntry := range *tt.ServiceTable {
+		if _, ok := returnObject[*serviceTableEntry.Name]; !ok {
+			returnObject[*serviceTableEntry.Name] = &struct {
+				ServiceName string
+				Providers   []string
+			}{*serviceTableEntry.Name, []string{}}
+		}
+		newSlice := append(returnObject[*serviceTableEntry.Name].Providers, *serviceTableEntry.NodeID)
+		returnObject[*serviceTableEntry.Name].Providers = newSlice
+	}
+	return returnObject
+}
+
+// FindInstanceOfService TO DO - IMPLEMENT (this is the main service selection function)
+func (tt *TopologyTracker) FindInstanceOfService(serviceName *string, serviceType *string, zone *string, nodeID *string) *ServiceTableEntry {
+	return nil
+}
 
 // FindInstancesOfService TO DO - IMPLEMENT
 func (tt *TopologyTracker) FindInstancesOfService() {}
@@ -447,7 +469,7 @@ func (tt *TopologyTracker) ProcessNodeConnect(remoteEndpoint EndpointInterface, 
 			thisNodeEntry.ProxyNodeID = &thisNode.NodeID
 		}
 		nodeAddPacket := TopologyPacket{*thisNodeEntry.NodeID, "add", "node", *thisNodeEntry.NodeID, *thisNodeEntry.Scope, *thisNodeEntry.Zone, thisNodeEntry.ToJSON()}
-		thisTopologyTracker.ProcessPacket(nodeAddPacket, remoteEndpoint.GetID(), false)
+		thisTopologyTracker.ProcessPacket(nodeAddPacket, *remoteEndpoint.GetID(), false)
 	}
 
 	for _, thisServiceEntry := range remoteRegistry.ServiceTable {
@@ -455,7 +477,7 @@ func (tt *TopologyTracker) ProcessNodeConnect(remoteEndpoint EndpointInterface, 
 			thisServiceEntry.ProxyNodeID = thisServiceEntry.NodeID
 		}
 		serviceAddPacket := TopologyPacket{*thisServiceEntry.NodeID, "add", "service", *thisServiceEntry.InstanceID, *thisServiceEntry.Scope, *thisServiceEntry.Zone, thisServiceEntry.ToJSON()}
-		thisTopologyTracker.ProcessPacket(serviceAddPacket, remoteEndpoint.GetID(), false)
+		thisTopologyTracker.ProcessPacket(serviceAddPacket, *remoteEndpoint.GetID(), false)
 	}
 
 	// Execute onControlPlaneConnect callback

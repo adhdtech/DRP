@@ -135,7 +135,7 @@ func (dn *Node) RegistryClientHandler(nodeClient *Client) {
 			return
 		}
 		registryNodeID := remoteNodeDeclaration.NodeID
-		nodeClient.EndpointID = registryNodeID
+		nodeClient.EndpointID = &registryNodeID
 		thisNode.NodeEndpoints[registryNodeID] = nodeClient
 	} else {
 		return
@@ -158,7 +158,7 @@ func (dn *Node) ConnectToRegistry(registryURL string, openCallback *func(), clos
 	if closeCallback != nil {
 		retryOnClose = false
 	}
-	newRegistryClient.Connect(registryURL, nil, dn, "someEndpointID", retryOnClose, &regClientOpenCallback, closeCallback)
+	newRegistryClient.Connect(registryURL, nil, dn, nil, retryOnClose, &regClientOpenCallback, closeCallback)
 }
 
 // ConnectToBroker attempts a connection to a specific Registry Node URL

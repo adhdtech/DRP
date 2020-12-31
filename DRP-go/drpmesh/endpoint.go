@@ -19,7 +19,7 @@ type EndpointAuthInfo struct {
 
 // EndpointInterface declares the set of functions that should be implemented for any Endpoint object
 type EndpointInterface interface {
-	GetID() string
+	GetID() *string
 	GetType() string
 	GetToken() int
 	AddReplyHandler() int
@@ -34,7 +34,7 @@ type EndpointInterface interface {
 type Endpoint struct {
 	wsConn            *websocket.Conn
 	drpNode           *Node
-	EndpointID        string
+	EndpointID        *string
 	EndpointType      string
 	EndpointCmds      map[string]EndpointMethod
 	AuthInfo          EndpointAuthInfo
@@ -58,7 +58,7 @@ func (e *Endpoint) Init() {
 }
 
 // GetID returns the ID of the Endpoint
-func (e *Endpoint) GetID() string {
+func (e *Endpoint) GetID() *string {
 	return e.EndpointID
 }
 
