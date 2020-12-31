@@ -17,3 +17,10 @@ type Service struct {
 	ClientCmds   map[string]EndpointMethod
 	Classes      map[string]interface{}
 }
+
+/*
+TO DO - ADD THESE METHODS
+AddClass
+GetDefinition
+PeerBroadcast
+*/

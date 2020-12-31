@@ -3,6 +3,7 @@ package drpmesh
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // TopologyTracker keeps track of Nodes and Services in the mesh
@@ -249,14 +250,26 @@ func (tt *TopologyTracker) ProcessPacket(topologyPacket TopologyPacket, srcNodeI
 		} else {
 			if targetNodeID != thisNode.NodeID {
 				//thisNode.log(`Not relaying packet to node[${targetNodeID}], roles ${thisTopologyTracker.NodeTable[targetNodeID].Roles}`);
-				//console.dir(topologyPacket);
 			}
 		}
 	}
 }
 
-// ListServices TO DO - IMPLEMENT
-func (tt *TopologyTracker) ListServices() {}
+// ListServices returns a unique list of service names available for use
+func (tt *TopologyTracker) ListServices() []string {
+	uniqueServiceMap := make(map[string]bool)
+	for _, serviceTableEntry := range *tt.ServiceTable {
+		if !uniqueServiceMap[*serviceTableEntry.Name] {
+			uniqueServiceMap[*serviceTableEntry.Name] = true
+		}
+	}
+
+	uniqueServiceSlice := make([]string, 0, len(uniqueServiceMap))
+	for v := range uniqueServiceMap {
+		uniqueServiceSlice = append(uniqueServiceSlice, v)
+	}
+	return uniqueServiceSlice
+}
 
 // GetServicesWithProviders TO DO - IMPLEMENT
 func (tt *TopologyTracker) GetServicesWithProviders() {}
@@ -405,7 +418,7 @@ func (tt *TopologyTracker) GetRegistry(requestingNodeID *string) struct {
 func (tt *TopologyTracker) ProcessNodeConnect(remoteEndpoint EndpointInterface, remoteNodeDeclaration *NodeDeclaration, localNodeIsProxy bool) {
 	thisTopologyTracker := tt
 	thisNode := thisTopologyTracker.drpNode
-	thisNode.Log(fmt.Sprintf("Connection established with Node [%s] (${declaration.NodeRoles})", remoteNodeDeclaration.NodeID), false)
+	thisNode.Log(fmt.Sprintf("Connection established with Node [%s] (%s)", remoteNodeDeclaration.NodeID, strings.Join(remoteNodeDeclaration.NodeRoles, ",")), false)
 	returnData := remoteEndpoint.SendCmdAwait("DRP", "getRegistry", map[string]string{"reqNodeID": thisNode.NodeID})
 
 	sourceIsRegistry := false
