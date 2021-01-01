@@ -404,6 +404,12 @@ func (dn *Node) IsBroker() bool {
 	return false
 }
 
+// IsConnectedTo tells whether or not the local Node is directly connected to another Node
+func (dn *Node) IsConnectedTo(checkNodeID string) bool {
+	_, ok := dn.NodeEndpoints[checkNodeID]
+	return ok
+}
+
 // ListClientConnections tells whether or not the local Node hold the Broker role
 func (dn *Node) ListClientConnections() map[string]map[string]interface{} {
 	nodeClientConnections := make(map[string]map[string]interface{})

@@ -3,7 +3,11 @@ package drpmesh
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"strings"
+	"time"
+
+	wr "github.com/mroth/weightedrand"
 )
 
 // TopologyTracker keeps track of Nodes and Services in the mesh
@@ -294,13 +298,152 @@ func (tt *TopologyTracker) GetServicesWithProviders() map[string]*struct {
 	return returnObject
 }
 
-// FindInstanceOfService TO DO - IMPLEMENT (this is the main service selection function)
+// FindInstanceOfService finds the best instance of a service to execute a command
 func (tt *TopologyTracker) FindInstanceOfService(serviceName *string, serviceType *string, zone *string, nodeID *string) *ServiceTableEntry {
-	return nil
-}
+	thisTopologyTracker := tt
+	thisNode := thisTopologyTracker.drpNode
 
-// FindInstancesOfService TO DO - IMPLEMENT
-func (tt *TopologyTracker) FindInstancesOfService() {}
+	// Look in this Node's zone unless a zone was specified
+	checkZone := thisNode.Zone
+	if zone != nil {
+		checkZone = *zone
+	}
+
+	// If neither a name nor a type is specified, return null
+	if serviceName == nil && serviceType == nil {
+		return nil
+	}
+
+	/*
+	* Status MUST be 1 (Ready)
+	* Local zone is better than others (if specified, must match)
+	* Lower priority is better
+	* Higher weight is better
+	 */
+
+	var bestServiceEntry *ServiceTableEntry = nil
+	candidateList := []*ServiceTableEntry{}
+
+	for _, serviceTableEntry := range *tt.ServiceTable {
+
+		// Skip if the service isn't ready
+		if serviceTableEntry.Status != 1 {
+			continue
+		}
+
+		// Skip if the service name/type doesn't match
+		if serviceName != nil && serviceName != serviceTableEntry.Name {
+			continue
+		}
+		if serviceType != nil && serviceType != serviceTableEntry.Type {
+			continue
+		}
+
+		// Skip if the node ID doesn't match
+		if nodeID != nil && nodeID != serviceTableEntry.NodeID {
+			continue
+		}
+
+		// If we offer the service locally, select it and continue
+		if *serviceTableEntry.NodeID == thisNode.NodeID {
+			return serviceTableEntry
+		}
+
+		// Skip if the zone is specified and doesn't match
+		switch *serviceTableEntry.Scope {
+		case "local":
+			break
+		case "global":
+			break
+		case "zone":
+			if checkZone != *serviceTableEntry.Zone {
+				continue
+			}
+			break
+		default:
+			// Unrecognized scope option
+			continue
+		}
+
+		// Delete if we don't have a corresponding Node entry
+		if !thisTopologyTracker.NodeTable.HasEntry(*serviceTableEntry.NodeID) {
+			thisNode.Log(fmt.Sprintf("Deleted service table entry [%s], no matching node table entry", *serviceTableEntry.InstanceID), false)
+			thisTopologyTracker.ServiceTable.DeleteEntry(*serviceTableEntry.InstanceID)
+			continue
+		}
+
+		// If this is the first candidate, set it and go
+		if bestServiceEntry == nil {
+			bestServiceEntry = serviceTableEntry
+			candidateList = []*ServiceTableEntry{bestServiceEntry}
+			continue
+		}
+
+		// Check this against the current bestServiceEntry
+
+		// Better zone?
+		if *bestServiceEntry.Zone != checkZone && *serviceTableEntry.Zone == checkZone {
+			// The service being evaluated is in a better zone
+			bestServiceEntry = serviceTableEntry
+			candidateList = []*ServiceTableEntry{bestServiceEntry}
+			continue
+		} else if *bestServiceEntry.Zone == checkZone && *serviceTableEntry.Zone != checkZone {
+			// The service being evaluated is in a different zone
+			continue
+		}
+
+		// Local preference?
+		if *bestServiceEntry.Scope != "local" && *serviceTableEntry.Scope == "local" {
+			bestServiceEntry = serviceTableEntry
+			candidateList = []*ServiceTableEntry{bestServiceEntry}
+			continue
+		}
+
+		// Lower Priority?
+		if bestServiceEntry.Priority > serviceTableEntry.Priority {
+			bestServiceEntry = serviceTableEntry
+			candidateList = []*ServiceTableEntry{bestServiceEntry}
+			continue
+		}
+
+		// Weighted?
+		if bestServiceEntry.Priority == serviceTableEntry.Priority {
+			candidateList = append(candidateList, serviceTableEntry)
+		}
+	}
+
+	// Did we find a match?
+	if len(candidateList) == 1 {
+		// Single match
+	} else if len(candidateList) > 1 {
+		// Multiple matches; select based on weight
+
+		rand.Seed(time.Now().UTC().UnixNano()) // always seed random!
+
+		var choices []wr.Choice = []wr.Choice{}
+		for _, serviceTableEntry := range candidateList {
+			choices = append(choices, wr.Choice{Item: serviceTableEntry, Weight: serviceTableEntry.Weight})
+		}
+
+		chooser, _ := wr.NewChooser(choices...)
+		bestServiceEntry = chooser.Pick().(*ServiceTableEntry)
+		if thisNode.Debug {
+			qualifierText := ""
+			if serviceName != nil {
+				qualifierText = fmt.Sprintf("name[%s]", *serviceName)
+			}
+			if serviceType != nil {
+				if len(qualifierText) != 0 {
+					qualifierText = fmt.Sprintf("%s/", qualifierText)
+				}
+				qualifierText = `${qualifierText}type[${serviceType}]`
+			}
+			thisNode.Log(fmt.Sprintf("Need service %s, randomly selected [%s]", qualifierText, *bestServiceEntry.InstanceID), true)
+		}
+	}
+
+	return bestServiceEntry
+}
 
 // FindServicePeers returns the service peers for a specified instance
 func (tt *TopologyTracker) FindServicePeers(serviceID string) []string {
@@ -547,8 +690,54 @@ func (tt *TopologyTracker) ProcessNodeConnect(remoteEndpoint EndpointInterface, 
 	}
 }
 
-// ProcessNodeDisconnect TO DO - IMPLEMENT
-func (tt *TopologyTracker) ProcessNodeDisconnect() {}
+// ProcessNodeDisconnect processes topology commands for Node disconnect events
+func (tt *TopologyTracker) ProcessNodeDisconnect(disconnectedNodeID string) {
+	thisTopologyTracker := tt
+	thisNode := thisTopologyTracker.drpNode
+
+	// Remove node; this should trigger an autoremoval of entries learned from it
+
+	// If we are not a Registry and we just disconnected from a Registry, hold off on this process!
+	thisNodeEntry := (*thisTopologyTracker.NodeTable)[thisNode.NodeID]
+	disconnectedNodeEntry := (*thisTopologyTracker.NodeTable)[disconnectedNodeID]
+
+	if disconnectedNodeEntry == nil {
+		thisNode.Log(fmt.Sprintf("Ran ProcessNodeDisconnect on non-existent Node [%s]", disconnectedNodeID), false)
+		return
+	}
+
+	thisNode.Log(fmt.Sprintf("Connection terminated with Node [%s] (%s)", *disconnectedNodeEntry.NodeID, strings.Join(disconnectedNodeEntry.Roles, ",")), false)
+
+	// If both the local and remote are non-Registry nodes, skip further processing.  May just be a direct connection timing out.
+	if !thisNodeEntry.IsRegistry() && !disconnectedNodeEntry.IsRegistry() {
+		return
+	}
+
+	// See if we're connected to other Registry Nodes
+	hasAnotherRegistryConnection := len(thisTopologyTracker.ListConnectedRegistryNodes()) > 0
+
+	// Do we need to hold off on purging the Registry?
+	if !thisNodeEntry.IsRegistry() && disconnectedNodeEntry != nil && disconnectedNodeEntry.IsRegistry() && !hasAnotherRegistryConnection {
+		// Do not go through with the cleanup process; delete only the disconnected Registry node
+		// for now and we'll run the StaleEntryCleanup when we connect to the next Registry.
+		thisNode.Log(fmt.Sprintf("We disconnected from Registry Node[%s] and have no other Registry connections", disconnectedNodeID), false)
+		thisTopologyTracker.NodeTable.DeleteEntry(disconnectedNodeID)
+		thisNode.ConnectedToControlPlane = false
+		return
+	}
+
+	// Issue Node Delete topology commands for the disconnected Node or any entries learned from the disconnected Node
+	for _, checkNodeEntry := range *thisTopologyTracker.NodeTable {
+		if *checkNodeEntry.NodeID == disconnectedNodeID || *checkNodeEntry.LearnedFrom == disconnectedNodeID {
+			nodeDeletePacket := TopologyPacket{*thisNodeEntry.NodeID, "delete", "node", *checkNodeEntry.NodeID, *checkNodeEntry.Scope, *checkNodeEntry.Zone, checkNodeEntry.ToJSON()}
+			thisTopologyTracker.ProcessPacket(nodeDeletePacket, *checkNodeEntry.NodeID, checkNodeEntry.IsRegistry())
+		}
+	}
+
+	if thisNode.ConnectedToControlPlane {
+		thisNode.TopologyTracker.StaleEntryCleanup()
+	}
+}
 
 // GetNextHop return the next hop to communicate with a given Node ID
 func (tt *TopologyTracker) GetNextHop(checkNodeID string) *string {
@@ -591,11 +780,33 @@ func (tt *TopologyTracker) StaleEntryCleanup() {
 	}
 }
 
-// ListConnectedRegistryNodes TO DO - IMPLEMENT
-func (tt *TopologyTracker) ListConnectedRegistryNodes() {}
+// ListConnectedRegistryNodes returns a list of connected Registry NodeIDs
+func (tt *TopologyTracker) ListConnectedRegistryNodes() []string {
+	thisTopologyTracker := tt
+	connectedRegistryList := []string{}
 
-// FindRegistriesInZone TO DO - IMPLEMENT
-func (tt *TopologyTracker) FindRegistriesInZone() {}
+	for checkNodeID, checkNodeEntry := range *thisTopologyTracker.NodeTable {
+		if *checkNodeEntry.NodeID != thisTopologyTracker.drpNode.NodeID && checkNodeEntry.IsRegistry() && thisTopologyTracker.drpNode.IsConnectedTo(checkNodeID) {
+			// Remote Node is a Registry and we are connected to it
+			connectedRegistryList = append(connectedRegistryList, checkNodeID)
+		}
+	}
+	return connectedRegistryList
+}
+
+// FindRegistriesInZone returns a list of Registry Nodes in a given zone
+func (tt *TopologyTracker) FindRegistriesInZone(zoneName string) []string {
+	thisTopologyTracker := tt
+	zoneRegistryList := []string{}
+
+	for checkNodeID, checkNodeEntry := range *thisTopologyTracker.NodeTable {
+		if checkNodeEntry.IsRegistry() && *checkNodeEntry.Zone == zoneName {
+			// Remote Node is a Registry and we are connected to it
+			zoneRegistryList = append(zoneRegistryList, checkNodeID)
+		}
+	}
+	return zoneRegistryList
+}
 
 // TopologyTable is used for NodeTable and ServiceTable modules
 type TopologyTable interface {
@@ -736,8 +947,8 @@ type ServiceTableEntry struct {
 	Type         *string
 	InstanceID   *string
 	Sticky       bool
-	Priority     int
-	Weight       int
+	Priority     uint
+	Weight       uint
 	Dependencies []string
 	Streams      []string
 	Status       int

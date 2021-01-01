@@ -7,8 +7,8 @@ type Service struct {
 	Type         string
 	InstanceID   string
 	Sticky       bool
-	Priority     int
-	Weight       int
+	Priority     uint
+	Weight       uint
 	Zone         string
 	Scope        string
 	Dependencies []string

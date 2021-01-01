@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// ConnectionStats provides latency and uptime stats
 type ConnectionStats struct {
 	pingTimeMs    int
 	uptimeSeconds int
