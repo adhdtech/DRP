@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -24,6 +25,14 @@ func main() {
 		fmt.Printf("%s\n", string(resultsBytes))
 	*/
 	thisNode.ConnectToRegistry("ws://localhost:8080", nil, nil)
+
+	//servicesWithProviders := thisNode.TopologyTracker.GetServicesWithProviders()
+	//var resultsBytes, _ = json.Marshal(servicesWithProviders)
+	//fmt.Printf("%s\n", string(resultsBytes))
+
+	drpServiceDef := thisNode.Services["DRP"].GetDefinition()
+	var resultsBytes, _ = json.Marshal(drpServiceDef)
+	fmt.Printf("%s\n", string(resultsBytes))
 
 	doneChan := make(chan bool)
 	_ = <-doneChan

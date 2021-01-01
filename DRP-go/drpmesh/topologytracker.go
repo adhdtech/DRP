@@ -24,8 +24,8 @@ func (tt *TopologyTracker) Initialize(drpNode *Node) {
 	newNodeEntry := NodeTableEntry{}
 	newNodeEntry.NodeID = &tt.drpNode.NodeID
 	newNodeEntry.ProxyNodeID = nil
-	newNodeEntry.Scope = tt.drpNode.scope
-	newNodeEntry.Zone = &tt.drpNode.zone
+	newNodeEntry.Scope = tt.drpNode.Scope
+	newNodeEntry.Zone = &tt.drpNode.Zone
 	newNodeEntry.LearnedFrom = &tt.drpNode.NodeID
 	newNodeEntry.LastModified = &currentTimestamp
 	newNodeEntry.Roles = tt.drpNode.nodeRoles
@@ -302,8 +302,58 @@ func (tt *TopologyTracker) FindInstanceOfService(serviceName *string, serviceTyp
 // FindInstancesOfService TO DO - IMPLEMENT
 func (tt *TopologyTracker) FindInstancesOfService() {}
 
-// FindServicePeers TO DO - IMPLEMENT
-func (tt *TopologyTracker) FindServicePeers() {}
+// FindServicePeers returns the service peers for a specified instance
+func (tt *TopologyTracker) FindServicePeers(serviceID string) []string {
+	thisTopologyTracker := tt
+	peerServiceIDList := []string{}
+	originServiceTableEntry := thisTopologyTracker.ServiceTable.GetEntry(serviceID).(*ServiceTableEntry)
+	if originServiceTableEntry == nil {
+		return peerServiceIDList
+	}
+
+	for _, serviceTableEntry := range *tt.ServiceTable {
+
+		// Skip the instance specified
+		if *serviceTableEntry.InstanceID == serviceID {
+			continue
+		}
+
+		// Skip if the service isn't ready
+		if serviceTableEntry.Status != 1 {
+			continue
+		}
+
+		// Skip if the service name/type doesn't match
+		if originServiceTableEntry.Name != serviceTableEntry.Name {
+			continue
+		}
+		if originServiceTableEntry.Type != serviceTableEntry.Type {
+			continue
+		}
+
+		// Skip if the zone doesn't match
+		switch *originServiceTableEntry.Scope {
+		case "local":
+			if *originServiceTableEntry.NodeID != *serviceTableEntry.NodeID {
+				continue
+			}
+			break
+		case "global":
+			break
+		case "zone":
+			if *originServiceTableEntry.Zone != *serviceTableEntry.Zone {
+				continue
+			}
+			break
+		default:
+			// Unrecognized scope option
+			continue
+		}
+
+		peerServiceIDList = append(peerServiceIDList, *serviceTableEntry.InstanceID)
+	}
+	return peerServiceIDList
+}
 
 // AdvertiseOutCheck determines whether or not a TopologyTableEntry should be forwarded to given NodeID
 func (tt *TopologyTracker) AdvertiseOutCheck(topologyEntry *TopologyTableEntry, targetNodeID *string) bool {

@@ -20,8 +20,8 @@ func CreateNode(nodeRoles []string, hostID string, domainName string, meshKey st
 	newNode.hostID = hostID
 	newNode.domainName = domainName
 	newNode.meshKey = meshKey
-	newNode.zone = zone
-	newNode.scope = &scope
+	newNode.Zone = zone
+	newNode.Scope = &scope
 	newNode.listeningName = listeningName
 	newNode.webServerConfig = webServerConfig
 	newNode.drpRoute = drpRoute
@@ -30,17 +30,17 @@ func CreateNode(nodeRoles []string, hostID string, domainName string, meshKey st
 	newNode.ConnectedToControlPlane = false
 	newNode.HasConnectedToMesh = false
 
-	newNode.NodeDeclaration = &NodeDeclaration{newNode.NodeID, newNode.nodeRoles, newNode.hostID, newNode.listeningName, newNode.domainName, newNode.meshKey, newNode.zone, newNode.scope}
+	newNode.NodeDeclaration = &NodeDeclaration{newNode.NodeID, newNode.nodeRoles, newNode.hostID, newNode.listeningName, newNode.domainName, newNode.meshKey, newNode.Zone, newNode.Scope}
 
 	newNode.NodeEndpoints = make(map[string]EndpointInterface)
-
+	newNode.Services = make(map[string]Service)
 	newNode.TopologyTracker = &TopologyTracker{}
 	newNode.TopologyTracker.Initialize(newNode)
 
 	var localDRPEndpoint = &Endpoint{}
 	localDRPEndpoint.Init()
 	newNode.ApplyNodeEndpointMethods(localDRPEndpoint)
-	var DRPService = Service{"DRP", newNode, "DRP", "", false, 10, 10, newNode.zone, "local", []string{}, []string{}, 1, localDRPEndpoint.EndpointCmds, nil}
+	var DRPService = Service{"DRP", newNode, "DRP", "", false, 10, 10, newNode.Zone, "local", []string{}, []string{}, 1, localDRPEndpoint.EndpointCmds, nil}
 	newNode.AddService(DRPService)
 
 	return newNode
@@ -64,13 +64,14 @@ type Node struct {
 	NodeID                  string
 	domainName              string
 	meshKey                 string
-	zone                    string
-	scope                   *string
+	Zone                    string
+	Scope                   *string
 	webServerConfig         interface{}
 	listeningName           *string
 	drpRoute                *string
 	nodeRoles               []string
 	NodeDeclaration         *NodeDeclaration
+	Services                map[string]Service
 	TopicManager            interface{}
 	TopologyTracker         *TopologyTracker
 	NodeEndpoints           map[string]EndpointInterface
@@ -176,6 +177,8 @@ func (dn *Node) AddService(serviceObj Service) {
 
 	newInstanceID := fmt.Sprintf("%s-%s-%d", dn.NodeID, serviceObj.ServiceName, rand.Intn(9999))
 	serviceObj.InstanceID = newInstanceID
+
+	thisNode.Services[serviceObj.ServiceName] = serviceObj
 
 	newServiceEntry := ServiceTableEntry{}
 	newServiceEntry.NodeID = &thisNode.NodeID
