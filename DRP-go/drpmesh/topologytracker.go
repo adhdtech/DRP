@@ -249,7 +249,7 @@ func (tt *TopologyTracker) ProcessPacket(topologyPacket TopologyPacket, srcNodeI
 		relayPacket := thisTopologyTracker.AdvertiseOutCheck(topologyPacketData, &targetNodeID)
 
 		if relayPacket {
-			thisEndpoint.SendCmd("DRP", "topologyUpdate", topologyPacket, nil)
+			thisEndpoint.SendCmd("DRP", "topologyUpdate", topologyPacket, nil, nil, nil)
 			thisNode.Log(fmt.Sprintf("Relayed topology packet to node: [%s]", targetNodeID), true)
 		} else {
 			if targetNodeID != thisNode.NodeID {
@@ -634,7 +634,7 @@ func (tt *TopologyTracker) ProcessNodeConnect(remoteEndpoint EndpointInterface, 
 	thisTopologyTracker := tt
 	thisNode := thisTopologyTracker.drpNode
 	thisNode.Log(fmt.Sprintf("Connection established with Node [%s] (%s)", remoteNodeDeclaration.NodeID, strings.Join(remoteNodeDeclaration.NodeRoles, ",")), false)
-	returnData := remoteEndpoint.SendCmdAwait("DRP", "getRegistry", map[string]string{"reqNodeID": thisNode.NodeID})
+	returnData := remoteEndpoint.SendCmdAwait("DRP", "getRegistry", map[string]string{"reqNodeID": thisNode.NodeID}, nil, nil)
 
 	sourceIsRegistry := false
 

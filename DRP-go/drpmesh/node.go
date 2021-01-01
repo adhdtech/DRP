@@ -6,8 +6,6 @@ import (
 	"math/rand"
 	"os"
 	"time"
-
-	"github.com/gorilla/websocket"
 )
 
 // CreateNode instantiates and returns a new node
@@ -29,6 +27,7 @@ func CreateNode(nodeRoles []string, hostID string, domainName string, meshKey st
 	newNode.Debug = debug
 	newNode.ConnectedToControlPlane = false
 	newNode.HasConnectedToMesh = false
+	newNode.PacketRelayCount = 0
 
 	newNode.NodeDeclaration = &NodeDeclaration{newNode.NodeID, newNode.nodeRoles, newNode.hostID, newNode.listeningName, newNode.domainName, newNode.meshKey, newNode.Zone, newNode.Scope}
 
@@ -80,6 +79,7 @@ type Node struct {
 	Debug                   bool
 	ConnectedToControlPlane bool
 	HasConnectedToMesh      bool
+	PacketRelayCount        uint
 	onControlPlaneConnect   *func()
 }
 
@@ -108,7 +108,6 @@ AddSwaggerRouter
 ListClassInstances
 GetServiceDefinition
 GetServiceDefinitions
-GetLocalServiceDefinitions
 GetClassRecords
 SendPathCmdToNode
 GetBaseObj
@@ -120,8 +119,129 @@ VerifyConsumerConnection
 */
 
 // ServiceCmd is used to execute a command against a local or remote Service
-// TO DO - IMPLEMENT
-func (dn *Node) ServiceCmd(serviceName string, method string, params interface{}, targetNodeID *string, targetServiceInstanceID *string, useControlPlane bool, awaitResponse bool, callingEndpoint interface{}) error {
+func (dn *Node) ServiceCmd(serviceName string, method string, params interface{}, targetNodeID *string, targetServiceInstanceID *string, useControlPlane bool, awaitResponse bool, callingEndpoint EndpointInterface) interface{} {
+	thisNode := dn
+	baseErrMsg := "ERROR - "
+
+	// If if no service or command is provided, return null
+	if serviceName == "" || method == "" {
+		return "ServiceCmd: must provide serviceName and method"
+	}
+
+	// If no targetNodeID was provided, we need to find a record in the ServiceTable
+	if targetNodeID == nil {
+
+		// If no targetServiceInstanceID was provided, we should attempt to locate a service instance
+
+		var targetServiceRecord *ServiceTableEntry = nil
+
+		if targetServiceInstanceID == nil {
+			// Update to use the DRP_TopologyTracker object
+			targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(&serviceName, nil, nil, nil)
+
+			// If no match is found then return null
+			if targetServiceRecord == nil {
+				return nil
+			}
+
+			// Assign target Node & Instance IDs
+			targetServiceInstanceID = targetServiceRecord.InstanceID
+			targetNodeID = targetServiceRecord.NodeID
+
+			thisNode.Log(fmt.Sprintf("Best instance of service [%s] is [%s] on node [%s]", serviceName, *targetServiceRecord.InstanceID, *targetServiceRecord.NodeID), true)
+		} else {
+			targetServiceRecord = thisNode.TopologyTracker.ServiceTable.GetEntry(*targetServiceInstanceID).(*ServiceTableEntry)
+
+			// If no match is found then return null
+			if targetServiceRecord == nil {
+				return nil
+			}
+
+			// Assign target Node
+			targetNodeID = targetServiceRecord.NodeID
+		}
+	}
+
+	// We don't have a target NodeID
+	if targetNodeID == nil || !thisNode.TopologyTracker.NodeTable.HasEntry(*targetNodeID) {
+		return nil
+	}
+
+	// Where is the service?
+	if *targetNodeID == thisNode.NodeID {
+		// Execute locally
+		var localServiceProvider map[string]EndpointMethod = nil
+		if serviceName == "DRP" && callingEndpoint != nil {
+			// If the service is DRP and the caller is a remote endpoint, execute from that caller's EndpointCmds
+			localServiceProvider = callingEndpoint.GetEndpointCmds()
+		} else {
+			if _, ok := thisNode.Services[serviceName]; ok {
+				localServiceProvider = thisNode.Services[serviceName].ClientCmds
+			}
+		}
+
+		if localServiceProvider == nil {
+			thisNode.Log(fmt.Sprintf("%s service %s does not exist", baseErrMsg, serviceName), true)
+			return nil
+		}
+
+		if _, ok := localServiceProvider[method]; !ok {
+			thisNode.Log(fmt.Sprintf("%s service %s does not have method %s", baseErrMsg, serviceName, method), true)
+			return nil
+		}
+
+		if awaitResponse {
+			results := localServiceProvider[method](params.(*CmdParams), callingEndpoint, nil)
+			return results
+		}
+
+		localServiceProvider[method](params.(*CmdParams), callingEndpoint, nil)
+		return nil
+	}
+
+	// Execute on another Node
+	routeNodeID := targetNodeID
+	routeOptions := RouteOptions{}
+
+	if !useControlPlane {
+		// Make sure either the local Node or remote Node are listening; if not, route via control plane
+		localNodeEntry := thisNode.TopologyTracker.NodeTable.GetEntry(thisNode.NodeID).(*NodeTableEntry)
+		remoteNodeEntry := thisNode.TopologyTracker.NodeTable.GetEntry(*targetNodeID).(*NodeTableEntry)
+
+		if remoteNodeEntry == nil {
+			return fmt.Sprintf("Tried to contact Node[%s], not in NodeTable", *targetNodeID)
+		}
+
+		if localNodeEntry.NodeURL == nil && remoteNodeEntry.NodeURL == nil {
+			// Neither the local node nor the remote node are listening, use control plane
+			useControlPlane = true
+		}
+	}
+
+	if useControlPlane {
+		// We want to use to use the control plane instead of connecting directly to the target
+		if thisNode.ConnectedToControlPlane {
+			routeNodeID = thisNode.TopologyTracker.GetNextHop(*targetNodeID)
+			routeOptions = RouteOptions{&thisNode.NodeID, targetNodeID, []string{}}
+		} else {
+			// We're not connected to a Registry; fallback to VerifyNodeConnection
+			routeNodeID = targetNodeID
+		}
+	}
+
+	routeNodeConnection := thisNode.VerifyNodeConnection(*routeNodeID)
+
+	if routeNodeConnection == nil {
+		errMsg := fmt.Sprintf("Could not establish connection from Node[%s] to Node[%s]", thisNode.NodeID, *routeNodeID)
+		thisNode.Log(fmt.Sprintf("ERROR - %s", errMsg), false)
+		return errMsg
+	}
+
+	if awaitResponse {
+		cmdResponse := routeNodeConnection.SendCmdAwait(serviceName, method, params, &routeOptions, targetServiceInstanceID)
+		return cmdResponse.Payload
+	}
+	routeNodeConnection.SendCmd(serviceName, method, params, nil, &routeOptions, targetServiceInstanceID)
 	return nil
 }
 
@@ -129,7 +249,7 @@ func (dn *Node) ServiceCmd(serviceName string, method string, params interface{}
 func (dn *Node) RegistryClientHandler(nodeClient *Client) {
 	thisNode := dn
 	// Get peer info
-	getDeclarationResponse := nodeClient.SendCmdAwait("DRP", "getNodeDeclaration", nil)
+	getDeclarationResponse := nodeClient.SendCmdAwait("DRP", "getNodeDeclaration", nil, nil, nil)
 	remoteNodeDeclaration := &NodeDeclaration{}
 	if getDeclarationResponse != nil && getDeclarationResponse.Payload != nil {
 		err := json.Unmarshal(*getDeclarationResponse.Payload, remoteNodeDeclaration)
@@ -211,11 +331,11 @@ func (dn *Node) RemoveService() {}
 func (dn *Node) ApplyGenericEndpointMethods(targetEndpoint EndpointInterface) {
 	thisNode := dn
 	//type EndpointMethod func(*CmdParams, *websocket.Conn, *int) interface{}
-	targetEndpoint.RegisterMethod("getEndpointID", func(params *CmdParams, wsConn *websocket.Conn, token *int) interface{} {
+	targetEndpoint.RegisterMethod("getEndpointID", func(params *CmdParams, callingEndpoint EndpointInterface, token *int) interface{} {
 		return targetEndpoint.GetID()
 	})
 
-	targetEndpoint.RegisterMethod("getNodeDeclaration", func(params *CmdParams, wsConn *websocket.Conn, token *int) interface{} {
+	targetEndpoint.RegisterMethod("getNodeDeclaration", func(params *CmdParams, callingEndpoint EndpointInterface, token *int) interface{} {
 		return thisNode.NodeDeclaration
 	})
 	/*
@@ -223,7 +343,7 @@ func (dn *Node) ApplyGenericEndpointMethods(targetEndpoint EndpointInterface) {
 			return await thisNode.GetObjFromPath(params, thisNode.GetBaseObj(), srcEndpoint);
 		});
 	*/
-	targetEndpoint.RegisterMethod("getRegistry", func(params *CmdParams, wsConn *websocket.Conn, token *int) interface{} {
+	targetEndpoint.RegisterMethod("getRegistry", func(params *CmdParams, callingEndpoint EndpointInterface, token *int) interface{} {
 		var reqNodeID *string = nil
 		if params != nil {
 			valueJSON := (*params)["reqNodeID"]
@@ -242,7 +362,7 @@ func (dn *Node) ApplyGenericEndpointMethods(targetEndpoint EndpointInterface) {
 			return await thisNode.GetServiceDefinitions(...args);
 		});
 	*/
-	targetEndpoint.RegisterMethod("getLocalServiceDefinitions", func(params *CmdParams, wsConn *websocket.Conn, token *int) interface{} {
+	targetEndpoint.RegisterMethod("getLocalServiceDefinitions", func(params *CmdParams, callingEndpoint EndpointInterface, token *int) interface{} {
 		var serviceName *string = nil
 		if params != nil {
 			valueJSON := (*params)["serviceName"]
@@ -272,7 +392,7 @@ func (dn *Node) ApplyGenericEndpointMethods(targetEndpoint EndpointInterface) {
 			return await thisNode.GetTopology(...args);
 		});
 	*/
-	targetEndpoint.RegisterMethod("listClientConnections", func(params *CmdParams, wsConn *websocket.Conn, token *int) interface{} {
+	targetEndpoint.RegisterMethod("listClientConnections", func(params *CmdParams, callingEndpoint EndpointInterface, token *int) interface{} {
 		var clientConnectionData = thisNode.ListClientConnections()
 		return clientConnectionData
 	})
@@ -445,4 +565,99 @@ func (dn *Node) GetLocalServiceDefinitions(checkServiceName *string) map[string]
 	}
 
 	return serviceDefinitions
+}
+
+// VerifyNodeConnection tells whether or not the local Node hold the Broker role
+func (dn *Node) VerifyNodeConnection(remoteNodeID string) EndpointInterface {
+
+	thisNode := dn
+
+	thisNodeEntry := thisNode.TopologyTracker.NodeTable.GetEntry(remoteNodeID).(*NodeTableEntry)
+	if thisNodeEntry == nil {
+		return nil
+	}
+
+	thisNodeEndpoint := thisNode.NodeEndpoints[remoteNodeID]
+
+	// Is the remote node listening?  If so, try to connect
+	if thisNodeEndpoint == nil && thisNodeEntry.NodeURL != nil {
+		targetNodeURL := thisNodeEntry.NodeURL
+
+		// We have a target URL, wait a few seconds for connection to initiate
+		thisNode.Log(fmt.Sprintf("Connecting to Node [%s] @ '%s'", remoteNodeID, *targetNodeURL), true)
+
+		thisNodeEndpoint := &Client{}
+		thisNodeEndpoint.Connect(*targetNodeURL, nil, dn, &remoteNodeID, false, nil, nil)
+
+		thisNode.NodeEndpoints[remoteNodeID] = thisNodeEndpoint
+
+		for i := 0; i < 50; i++ {
+
+			// Are we still trying?
+			if thisNodeEndpoint.IsConnecting() {
+				// Yes - wait
+				time.Sleep(100 * time.Millisecond)
+			} else {
+				// No - break the for loop
+				break
+			}
+		}
+	}
+
+	// If this node is listening, try sending a back connection request to the remote node via the registry
+	if (thisNodeEndpoint != nil || !thisNodeEndpoint.IsReady()) && thisNode.listeningName != nil {
+
+		thisNode.Log("Sending back request...", true)
+		// Let's try having the Provider call us; send command through Registry
+
+		// Get next hop
+		nextHopNodeID := thisNode.TopologyTracker.GetNextHop(remoteNodeID)
+
+		if nextHopNodeID != nil {
+			// Found the next hop
+			thisNode.Log(fmt.Sprintf("Sending back request to %s, relaying to [%s]", remoteNodeID, *nextHopNodeID), true)
+			routeOptions := RouteOptions{
+				&thisNode.NodeID,
+				&remoteNodeID,
+				[]string{},
+			}
+			cmdParams := make(map[string]string)
+			cmdParams["targetNodeID"] = thisNode.NodeID
+			cmdParams["targetURL"] = *thisNode.listeningName
+			thisNode.NodeEndpoints[*nextHopNodeID].SendCmd("DRP", "connectToNode", cmdParams, nil, &routeOptions, nil)
+		} else {
+			// Could not find the next hop
+			thisNode.Log(fmt.Sprintf("Could not find next hop to [%s]", remoteNodeID), false)
+		}
+
+		thisNode.Log("Starting wait...", true)
+		// Wait a few seconds
+		for i := 0; i < 50; i++ {
+
+			// Are we still trying?
+			newEndpoint, ok := thisNode.NodeEndpoints[remoteNodeID]
+			if !ok || !newEndpoint.IsReady() {
+				// Yes - wait
+				time.Sleep(100 * time.Millisecond)
+			} else {
+				// No - break the for loop
+				thisNode.Log(fmt.Sprintf("Received back connection from remote node [%s]", remoteNodeID), true)
+				i = 50
+			}
+		}
+
+		// If still not successful, delete DRP_NodeClient
+		newEndpoint, ok := thisNode.NodeEndpoints[remoteNodeID]
+		if !ok || !newEndpoint.IsReady() {
+			thisNode.Log(fmt.Sprintf("Could not open connection to Node [%s]", remoteNodeID), true)
+			if ok {
+				delete(thisNode.NodeEndpoints, remoteNodeID)
+			}
+			//throw new Error(`Could not get connection to Provider ${remoteNodeID}`);
+		} else {
+			thisNodeEndpoint = thisNode.NodeEndpoints[remoteNodeID]
+		}
+	}
+
+	return thisNodeEndpoint
 }

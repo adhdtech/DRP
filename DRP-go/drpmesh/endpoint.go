@@ -14,7 +14,7 @@ type ConnectionStats struct {
 }
 
 // EndpointMethod defines the interface for a DRP Endpoint method
-type EndpointMethod func(*CmdParams, *websocket.Conn, *int) interface{}
+type EndpointMethod func(*CmdParams, EndpointInterface, *int) interface{}
 
 // EndpointAuthInfo tracks the auth info provided by a remote Node
 type EndpointAuthInfo struct {
@@ -32,10 +32,13 @@ type EndpointInterface interface {
 	DeleteReplyHandler(int)
 	RegisterMethod(string, EndpointMethod)
 	SendPacketBytes([]byte)
-	SendCmd(string, string, interface{}, *int)
-	SendCmdAwait(string, string, interface{}) *ReplyIn
+	SendCmd(string, string, interface{}, *int, *RouteOptions, *string)
+	SendCmdAwait(string, string, interface{}, *RouteOptions, *string) *ReplyIn
 	IsServer() bool
 	ConnectionStats() ConnectionStats
+	GetEndpointCmds() map[string]EndpointMethod
+	IsReady() bool
+	IsConnecting() bool
 }
 
 // Endpoint - DRP endpoint
@@ -112,13 +115,15 @@ func (e *Endpoint) SendPacketBytes(drpPacketBytes []byte) {
 }
 
 // SendCmd sends a command to a remote Endpoint
-func (e *Endpoint) SendCmd(serviceName string, methodName string, cmdParams interface{}, token *int) {
+func (e *Endpoint) SendCmd(serviceName string, methodName string, cmdParams interface{}, token *int, routeOptions *RouteOptions, serviceInstanceID *string) {
 	sendCmd := &CmdOut{}
 	sendCmd.ServiceName = &serviceName
 	sendCmd.Type = "cmd"
 	sendCmd.Method = &methodName
 	sendCmd.Params = cmdParams
 	sendCmd.Token = token
+	sendCmd.RouteOptions = routeOptions
+	sendCmd.ServiceInstanceID = serviceInstanceID
 
 	packetBytes := sendCmd.ToJSON()
 	e.SendPacketBytes(packetBytes)
@@ -126,9 +131,9 @@ func (e *Endpoint) SendCmd(serviceName string, methodName string, cmdParams inte
 }
 
 // SendCmdAwait sends a command to a remote Endpoint and awaits a response
-func (e *Endpoint) SendCmdAwait(serviceName string, cmdName string, cmdParams interface{}) *ReplyIn {
+func (e *Endpoint) SendCmdAwait(serviceName string, cmdName string, cmdParams interface{}, routeOptions *RouteOptions, serviceInstanceID *string) *ReplyIn {
 	replyToken := e.AddReplyHandler()
-	e.SendCmd(serviceName, cmdName, cmdParams, &replyToken)
+	e.SendCmd(serviceName, cmdName, cmdParams, &replyToken, routeOptions, serviceInstanceID)
 	responseData := <-e.ReplyHandlerQueue[replyToken]
 
 	return responseData
@@ -156,7 +161,7 @@ func (e *Endpoint) ProcessCmd(msgIn *Cmd) {
 	if _, ok := e.EndpointCmds[*msgIn.Method]; ok {
 		// Execute command
 		e.drpNode.Log(fmt.Sprintf("Executing method '%s'...", *msgIn.Method), true)
-		cmdResults["output"] = e.EndpointCmds[*msgIn.Method](msgIn.Params, e.wsConn, msgIn.Token)
+		cmdResults["output"] = e.EndpointCmds[*msgIn.Method](msgIn.Params, e, msgIn.Token)
 		cmdResults["status"] = 1
 	} else {
 		cmdResults["output"] = "Endpoint does not have this method"
@@ -195,7 +200,7 @@ func (e *Endpoint) ReceiveMessage(rawMessage []byte) {
 	}
 
 	if e.ShouldRelay(basePacket) {
-		e.RelayPacket(rawMessage)
+		e.RelayPacket(basePacket, rawMessage)
 		return
 	}
 
@@ -220,7 +225,46 @@ func (e *Endpoint) ReceiveMessage(rawMessage []byte) {
 }
 
 // RelayPacket routes a packet to another Node
-func (e *Endpoint) RelayPacket(rawMessage []byte) {
+func (e *Endpoint) RelayPacket(basePacket *Packet, rawMessage []byte) {
+	thisEndpoint := e
+	var errMsg *string = nil
+
+	// Validate sending endpoint
+	if thisEndpoint.EndpointID == nil {
+
+		// Sending endpoint has not authenticated
+		tmpErr := "sending endpoint has not authenticated"
+		errMsg = &tmpErr
+
+		// Validate source node
+	} else if !thisEndpoint.drpNode.TopologyTracker.ValidateNodeID(*basePacket.RouteOptions.SrcNodeID) {
+
+		// Source NodeID is invalid
+		tmpErr := fmt.Sprintf("srcNodeID %s not found", *basePacket.RouteOptions.SrcNodeID)
+		errMsg = &tmpErr
+
+		// Validate destination node
+	} else if !thisEndpoint.drpNode.TopologyTracker.ValidateNodeID(*basePacket.RouteOptions.TgtNodeID) {
+		// Target NodeID is invalid
+		tmpErr := fmt.Sprintf("tgtNodeID %s not found", *basePacket.RouteOptions.TgtNodeID)
+		errMsg = &tmpErr
+	}
+
+	if errMsg != nil {
+		thisEndpoint.drpNode.Log(fmt.Sprintf("Could not relay message: %s", *errMsg), false)
+	}
+
+	nextHopNodeID := thisEndpoint.drpNode.TopologyTracker.GetNextHop(*basePacket.RouteOptions.TgtNodeID)
+	targetNodeEndpoint := thisEndpoint.drpNode.VerifyNodeConnection(*nextHopNodeID)
+
+	// Add this node to the routing history
+	// TO DO - FIX SO WE CAN ADD THIS NODE TO THE ROUTE HISTORY
+	//drpPacket.routeOptions.routeHistory.push(thisEndpoint.drpNode.NodeID)
+
+	// We do not need to await the results; any target replies will automatically be routed
+	targetNodeEndpoint.SendPacketBytes(rawMessage)
+	thisEndpoint.drpNode.PacketRelayCount++
+
 	return
 }
 
@@ -282,10 +326,27 @@ func (e *Endpoint) UpTime() int {
 	return 0
 }
 
+// IsReady tells whether or not the Endpoint's socket connection is ready to communicate
+// TO DO - IMPLEMENT
+func (e *Endpoint) IsReady() bool {
+	return true
+}
+
+// IsConnecting tells whether or not the Endpoint's socket connection is attempting to establish a connection
+// TO DO - IMPLEMENT
+func (e *Endpoint) IsConnecting() bool {
+	return false
+}
+
 // ConnectionStats returns uptime and latency info
 func (e *Endpoint) ConnectionStats() ConnectionStats {
 	return ConnectionStats{
 		e.PingTime(),
 		e.UpTime(),
 	}
+}
+
+// GetEndpointCmds returns the commands available to be executed on this endpoint
+func (e *Endpoint) GetEndpointCmds() map[string]EndpointMethod {
+	return e.EndpointCmds
 }

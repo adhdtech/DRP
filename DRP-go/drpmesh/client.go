@@ -60,7 +60,7 @@ func (dc *Client) Connect(wsTarget string, proxy *string, drpNode *Node, endpoin
 
 	dc.drpNode.Log("Sending hello...", false)
 	//responsePacket := dc.SendCmdAwait("DRP", "hello", &CmdParams{"userAgent": "go", "user": "Gopher", "pass": "supersecret"})
-	responsePacket := dc.SendCmdAwait("DRP", "hello", dc.drpNode.NodeDeclaration)
+	responsePacket := dc.SendCmdAwait("DRP", "hello", dc.drpNode.NodeDeclaration, nil, nil)
 	dc.drpNode.Log("Received response from hello", false)
 	dc.drpNode.Log(string(responsePacket.ToJSON()), false)
 
