@@ -7,6 +7,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type ConnectionStats struct {
+	pingTimeMs    int
+	uptimeSeconds int
+}
+
 // EndpointMethod defines the interface for a DRP Endpoint method
 type EndpointMethod func(*CmdParams, *websocket.Conn, *int) interface{}
 
@@ -28,6 +33,8 @@ type EndpointInterface interface {
 	SendPacketBytes([]byte)
 	SendCmd(string, string, interface{}, *int)
 	SendCmdAwait(string, string, interface{}) *ReplyIn
+	IsServer() bool
+	ConnectionStats() ConnectionStats
 }
 
 // Endpoint - DRP endpoint
@@ -257,4 +264,27 @@ func (e *Endpoint) StartListening(wsConn *websocket.Conn) {
 			}
 		}
 	}()
+}
+
+// IsServer tells whether or not this endpoint is the server side of the connection
+func (e *Endpoint) IsServer() bool {
+	return false
+}
+
+// PingTime TO DO - IMPLEMENT
+func (e *Endpoint) PingTime() int {
+	return 0
+}
+
+// UpTime TO DO - IMPLEMENT
+func (e *Endpoint) UpTime() int {
+	return 0
+}
+
+// ConnectionStats returns uptime and latency info
+func (e *Endpoint) ConnectionStats() ConnectionStats {
+	return ConnectionStats{
+		e.PingTime(),
+		e.UpTime(),
+	}
 }

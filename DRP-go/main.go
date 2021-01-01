@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"os"
 
-	drp "./drpmesh"
+	"./drpmesh"
 )
 
 func main() {
 	fmt.Println("Test DRP_Node Instantiation:")
 	//listeningName := "ws://somehost.domain.com:8080"
 	nodeHostname, _ := os.Hostname()
-	thisNode := drp.CreateNode([]string{"Provider"}, nodeHostname, "mydomain.xyz", "supersecretkey", "zone1", "global", nil, nil, nil, true)
+	thisNode := drpmesh.CreateNode([]string{"Provider"}, nodeHostname, "mydomain.xyz", "supersecretkey", "zone1", "global", nil, nil, nil, true)
 	thisNode.Log("Node created", false)
 	//fmt.Printf("%+v\n", thisNode)
 	//thisNode.ConnectToBroker("ws://localhost:8080", nil)

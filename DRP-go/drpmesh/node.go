@@ -33,6 +33,7 @@ func CreateNode(nodeRoles []string, hostID string, domainName string, meshKey st
 	newNode.NodeDeclaration = &NodeDeclaration{newNode.NodeID, newNode.nodeRoles, newNode.hostID, newNode.listeningName, newNode.domainName, newNode.meshKey, newNode.Zone, newNode.Scope}
 
 	newNode.NodeEndpoints = make(map[string]EndpointInterface)
+	newNode.ConsumerEndpoints = make(map[string]EndpointInterface)
 	newNode.Services = make(map[string]Service)
 	newNode.TopologyTracker = &TopologyTracker{}
 	newNode.TopologyTracker.Initialize(newNode)
@@ -75,6 +76,7 @@ type Node struct {
 	TopicManager            interface{}
 	TopologyTracker         *TopologyTracker
 	NodeEndpoints           map[string]EndpointInterface
+	ConsumerEndpoints       map[string]EndpointInterface
 	Debug                   bool
 	ConnectedToControlPlane bool
 	HasConnectedToMesh      bool
@@ -223,9 +225,11 @@ func (dn *Node) ApplyGenericEndpointMethods(targetEndpoint EndpointInterface) {
 	*/
 	targetEndpoint.RegisterMethod("getRegistry", func(params *CmdParams, wsConn *websocket.Conn, token *int) interface{} {
 		var reqNodeID *string = nil
-		valueJSON := (*params)["reqNodeID"]
-		if valueJSON != nil {
-			json.Unmarshal(*valueJSON, reqNodeID)
+		if params != nil {
+			valueJSON := (*params)["reqNodeID"]
+			if valueJSON != nil {
+				json.Unmarshal(*valueJSON, reqNodeID)
+			}
 		}
 		return thisNode.TopologyTracker.GetRegistry(reqNodeID)
 	})
@@ -237,10 +241,20 @@ func (dn *Node) ApplyGenericEndpointMethods(targetEndpoint EndpointInterface) {
 		targetEndpoint.RegisterMethod("getServiceDefinitions", async function (...args) {
 			return await thisNode.GetServiceDefinitions(...args);
 		});
+	*/
+	targetEndpoint.RegisterMethod("getLocalServiceDefinitions", func(params *CmdParams, wsConn *websocket.Conn, token *int) interface{} {
+		var serviceName *string = nil
+		if params != nil {
+			valueJSON := (*params)["serviceName"]
+			if valueJSON != nil {
+				json.Unmarshal(*valueJSON, serviceName)
+			}
+		}
+		var clientConnectionData = thisNode.GetLocalServiceDefinitions(serviceName)
+		return clientConnectionData
+	})
 
-		targetEndpoint.RegisterMethod("getLocalServiceDefinitions", function (...args) {
-			return thisNode.GetLocalServiceDefinitions(...args);
-		});
+	/*
 
 		targetEndpoint.RegisterMethod("getClassRecords", async (...args) => {
 			return await thisNode.GetClassRecords(...args);
@@ -257,11 +271,12 @@ func (dn *Node) ApplyGenericEndpointMethods(targetEndpoint EndpointInterface) {
 		targetEndpoint.RegisterMethod("getTopology", async function (...args) {
 			return await thisNode.GetTopology(...args);
 		});
-
-		targetEndpoint.RegisterMethod("listClientConnections", function (...args) {
-			return thisNode.ListClientConnections(...args);
-		});
-
+	*/
+	targetEndpoint.RegisterMethod("listClientConnections", func(params *CmdParams, wsConn *websocket.Conn, token *int) interface{} {
+		var clientConnectionData = thisNode.ListClientConnections()
+		return clientConnectionData
+	})
+	/*
 		targetEndpoint.RegisterMethod("tcpPing", async (...args) => {
 			return thisNode.TCPPing(...args);
 		});
@@ -387,4 +402,41 @@ func (dn *Node) IsBroker() bool {
 		}
 	}
 	return false
+}
+
+// ListClientConnections tells whether or not the local Node hold the Broker role
+func (dn *Node) ListClientConnections() map[string]map[string]interface{} {
+	nodeClientConnections := make(map[string]map[string]interface{})
+
+	nodeClientConnections["nodeClients"] = make(map[string]interface{})
+	nodeClientConnections["consumerClients"] = make(map[string]interface{})
+
+	// Loop over Node Endpoints
+	for nodeID, thisEndpoint := range dn.NodeEndpoints {
+		if thisEndpoint.IsServer() {
+			nodeClientConnections["nodeClients"][nodeID] = thisEndpoint.ConnectionStats()
+		}
+	}
+
+	// Loop over Client Endpoints
+	for consumerID, thisEndpoint := range dn.ConsumerEndpoints {
+		nodeClientConnections["consumerClients"][consumerID] = thisEndpoint.ConnectionStats()
+	}
+
+	return nodeClientConnections
+}
+
+// GetLocalServiceDefinitions return local service definitions
+func (dn *Node) GetLocalServiceDefinitions(checkServiceName *string) map[string]ServiceDefinition {
+	serviceDefinitions := make(map[string]ServiceDefinition)
+
+	for serviceName, localServiceObj := range dn.Services {
+		if serviceName == "DRP" || checkServiceName != nil && *checkServiceName != serviceName {
+			continue
+		}
+		serviceDefinition := localServiceObj.GetDefinition()
+		serviceDefinitions[serviceName] = serviceDefinition
+	}
+
+	return serviceDefinitions
 }

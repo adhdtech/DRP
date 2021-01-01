@@ -73,3 +73,8 @@ func (dc *Client) Connect(wsTarget string, proxy *string, drpNode *Node, endpoin
 func (dc *Client) RetryConnection() {
 	return
 }
+
+// IsServer tells whether or not this endpoint is the server side of the connection
+func (dc *Client) IsServer() bool {
+	return false
+}
