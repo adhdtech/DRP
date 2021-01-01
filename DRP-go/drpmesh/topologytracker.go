@@ -332,15 +332,15 @@ func (tt *TopologyTracker) FindInstanceOfService(serviceName *string, serviceTyp
 		}
 
 		// Skip if the service name/type doesn't match
-		if serviceName != nil && serviceName != serviceTableEntry.Name {
+		if serviceName != nil && *serviceName != *serviceTableEntry.Name {
 			continue
 		}
-		if serviceType != nil && serviceType != serviceTableEntry.Type {
+		if serviceType != nil && *serviceType != *serviceTableEntry.Type {
 			continue
 		}
 
 		// Skip if the node ID doesn't match
-		if nodeID != nil && nodeID != serviceTableEntry.NodeID {
+		if nodeID != nil && *nodeID != *serviceTableEntry.NodeID {
 			continue
 		}
 
