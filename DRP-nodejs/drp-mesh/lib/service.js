@@ -176,16 +176,15 @@ class DRP_Service {
     }
 
     /**
-     * Send a command to peer services within a given scope
+     * Send a command to peer services
      * @param {string} method Method name
      * @param {object} params Method parameters
-     * @param {('local'|'zone'|'global')} scope Scope to search for peers
      */
-    PeerBroadcast(method, params, scope) {
+    PeerBroadcast(method, params) {
         let thisService = this;
 
         // Get list of peer service IDs
-        let peerServiceIDList = thisService.drpNode.TopologyTracker.FindServicePeers(thisService.InstanceID, scope);
+        let peerServiceIDList = thisService.drpNode.TopologyTracker.FindServicePeers(thisService.InstanceID);
 
         // Loop over peers, broadcast command
         for (let i = 0; i < peerServiceIDList.length; i++) {

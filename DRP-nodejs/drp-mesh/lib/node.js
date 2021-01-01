@@ -2672,10 +2672,9 @@ class DRP_TopologyTracker {
     /**
      * Find peers of a specified service instance
      * @param {string} serviceID Service instance to find peers of
-     * @param {('local'|'zone'|'global')} searchScope Scope to search
      * @returns {string[]} List of peers
      */
-    FindServicePeers(serviceID, searchScope) {
+    FindServicePeers(serviceID) {
         let thisTopologyTracker = this;
         let peerServiceIDList = [];
 
@@ -2703,12 +2702,12 @@ class DRP_TopologyTracker {
             // Skip if the zone doesn't match
             switch (searchScope) {
                 case "local":
-                    if (serviceTableEntry.NodeID !== thisTopologyTracker.drpNode.NodeID) continue;
+                    if (originServiceTableEntry.NodeID !== serviceTableEntry.NodeID) continue;
                     break;
                 case "global":
                     break;
                 case "zone":
-                    if (thisTopologyTracker.drpNode.Zone !== serviceTableEntry.Zone) continue;
+                    if (originServiceTableEntry.Zone !== serviceTableEntry.Zone) continue;
                     break;
                 default:
                     // Unrecognized scope option
