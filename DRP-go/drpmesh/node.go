@@ -20,7 +20,7 @@ func CreateNode(nodeRoles []string, hostID string, domainName string, meshKey st
 	newNode.meshKey = meshKey
 	newNode.Zone = zone
 	newNode.Scope = &scope
-	newNode.RegistryUrl = nil
+	newNode.RegistryURL = nil
 	newNode.listeningName = listeningName
 	newNode.webServerConfig = webServerConfig
 	newNode.drpRoute = drpRoute
@@ -67,7 +67,7 @@ type Node struct {
 	meshKey                 string
 	Zone                    string
 	Scope                   *string
-	RegistryUrl             *string
+	RegistryURL             *string
 	webServerConfig         interface{}
 	listeningName           *string
 	drpRoute                *string
@@ -246,23 +246,23 @@ func (dn *Node) ServiceCmd(serviceName string, method string, params interface{}
 	return nil
 }
 
-// TcpPingResults contains the TCP ping results to a given host and port
-type TcpPingResults struct {
+// TCPPingResults contains the TCP ping results to a given host and port
+type TCPPingResults struct {
 	name     string
 	port     uint
-	pingInfo TcpPingMetrics
+	pingInfo TCPPingMetrics
 }
 
-// TcpPingResults contains the metrics from a TCP ping
-type TcpPingMetrics struct {
+// TCPPingMetrics contains the metrics from a TCP ping
+type TCPPingMetrics struct {
 	min uint
 	max uint
 	avg uint
 }
 
 // PingDomainRegistries returns the SRV records for a domain
-func (dn *Node) PingDomainRegistries() map[string]TcpPingResults {
-	returnMap := make(map[string]TcpPingResults)
+func (dn *Node) PingDomainRegistries() map[string]TCPPingResults {
+	returnMap := make(map[string]TCPPingResults)
 
 	// Look up the SRV records
 	// TO DO - IMPLEMENT TCPPING LOGIC!
@@ -336,9 +336,9 @@ func (dn *Node) ConnectToMesh(onControlPlaneConnect func()) {
 			(*thisNode.onControlPlaneConnect)()
 		}
 	} else {
-		if thisNode.RegistryUrl != nil {
+		if thisNode.RegistryURL != nil {
 			// A specific Registry URL was provided
-			thisNode.ConnectToRegistry(*thisNode.RegistryUrl, nil, nil)
+			thisNode.ConnectToRegistry(*thisNode.RegistryURL, nil, nil)
 		} else if thisNode.DomainName != "" {
 			// A domain name was provided; attempt to connect to a registry host
 			thisNode.ConnectToRegistryByDomain()
