@@ -141,7 +141,7 @@ func (e *Endpoint) SendCmdAwait(serviceName string, cmdName string, cmdParams in
 
 // SendReply returns data to a remote Endpoint which originally executed a command
 func (e *Endpoint) SendReply(replyToken *int, returnStatus int, returnPayload interface{}) {
-	replyCmd := &Reply{}
+	replyCmd := &ReplyOut{}
 	replyCmd.Type = "reply"
 	replyCmd.Token = replyToken
 	replyCmd.Status = returnStatus
@@ -181,7 +181,7 @@ func (e *Endpoint) ProcessReply(msgIn *ReplyIn) {
 }
 
 // ShouldRelay determines whether or not an inbound packet should be relayed
-func (e *Endpoint) ShouldRelay(msgIn *Packet) bool {
+func (e *Endpoint) ShouldRelay(msgIn *PacketIn) bool {
 	var shouldForward = false
 	if msgIn.RouteOptions != nil && msgIn.RouteOptions.TgtNodeID != nil && *msgIn.RouteOptions.TgtNodeID != e.drpNode.NodeID {
 		shouldForward = true
@@ -192,19 +192,19 @@ func (e *Endpoint) ShouldRelay(msgIn *Packet) bool {
 // ReceiveMessage determines whether a packet should be relayed or processed locally
 func (e *Endpoint) ReceiveMessage(rawMessage []byte) {
 
-	basePacket := &Packet{}
-	err := json.Unmarshal(rawMessage, basePacket)
+	packetIn := &PacketIn{}
+	err := json.Unmarshal(rawMessage, packetIn)
 	if err != nil {
 		e.drpNode.Log(fmt.Sprintf("ReceiveMessage Packet unmarshal error: %s", err), false)
 		return
 	}
 
-	if e.ShouldRelay(basePacket) {
-		e.RelayPacket(basePacket, rawMessage)
+	if e.ShouldRelay(packetIn) {
+		e.RelayPacket(packetIn)
 		return
 	}
 
-	switch basePacket.Type {
+	switch packetIn.Type {
 	case "cmd":
 		cmdPacket := &Cmd{}
 		err := json.Unmarshal(rawMessage, cmdPacket)
@@ -225,7 +225,7 @@ func (e *Endpoint) ReceiveMessage(rawMessage []byte) {
 }
 
 // RelayPacket routes a packet to another Node
-func (e *Endpoint) RelayPacket(basePacket *Packet, rawMessage []byte) {
+func (e *Endpoint) RelayPacket(packetIn *PacketIn) {
 	thisEndpoint := e
 	var errMsg *string = nil
 
@@ -237,32 +237,63 @@ func (e *Endpoint) RelayPacket(basePacket *Packet, rawMessage []byte) {
 		errMsg = &tmpErr
 
 		// Validate source node
-	} else if !thisEndpoint.drpNode.TopologyTracker.ValidateNodeID(*basePacket.RouteOptions.SrcNodeID) {
+	} else if !thisEndpoint.drpNode.TopologyTracker.ValidateNodeID(*packetIn.RouteOptions.SrcNodeID) {
 
 		// Source NodeID is invalid
-		tmpErr := fmt.Sprintf("srcNodeID %s not found", *basePacket.RouteOptions.SrcNodeID)
+		tmpErr := fmt.Sprintf("srcNodeID %s not found", *packetIn.RouteOptions.SrcNodeID)
 		errMsg = &tmpErr
 
 		// Validate destination node
-	} else if !thisEndpoint.drpNode.TopologyTracker.ValidateNodeID(*basePacket.RouteOptions.TgtNodeID) {
+	} else if !thisEndpoint.drpNode.TopologyTracker.ValidateNodeID(*packetIn.RouteOptions.TgtNodeID) {
 		// Target NodeID is invalid
-		tmpErr := fmt.Sprintf("tgtNodeID %s not found", *basePacket.RouteOptions.TgtNodeID)
+		tmpErr := fmt.Sprintf("tgtNodeID %s not found", *packetIn.RouteOptions.TgtNodeID)
 		errMsg = &tmpErr
 	}
 
 	if errMsg != nil {
 		thisEndpoint.drpNode.Log(fmt.Sprintf("Could not relay message: %s", *errMsg), false)
+		return
 	}
 
-	nextHopNodeID := thisEndpoint.drpNode.TopologyTracker.GetNextHop(*basePacket.RouteOptions.TgtNodeID)
+	nextHopNodeID := thisEndpoint.drpNode.TopologyTracker.GetNextHop(*packetIn.RouteOptions.TgtNodeID)
 	targetNodeEndpoint := thisEndpoint.drpNode.VerifyNodeConnection(*nextHopNodeID)
 
 	// Add this node to the routing history
-	// TO DO - FIX SO WE CAN ADD THIS NODE TO THE ROUTE HISTORY
-	//drpPacket.routeOptions.routeHistory.push(thisEndpoint.drpNode.NodeID)
+	packetIn.RouteOptions.RouteHistory = append(packetIn.RouteOptions.RouteHistory, thisEndpoint.drpNode.NodeID)
 
-	// We do not need to await the results; any target replies will automatically be routed
-	targetNodeEndpoint.SendPacketBytes(rawMessage)
+	// Repackage
+	packetBytesOut := []byte{}
+	switch packetIn.Type {
+	case "cmd":
+		cmdPacket := &Cmd{
+			BasePacket{
+				packetIn.Type,
+				packetIn.RouteOptions,
+				packetIn.Token,
+			},
+			packetIn.Method,
+			packetIn.Params,
+			packetIn.ServiceName,
+			packetIn.ServiceInstanceID,
+		}
+		packetBytesOut = cmdPacket.ToJSON()
+	case "reply":
+		replyPacket := &ReplyIn{
+			BasePacket{
+				packetIn.Type,
+				packetIn.RouteOptions,
+				packetIn.Token,
+			},
+			packetIn.Status,
+			packetIn.Payload,
+		}
+		packetBytesOut = replyPacket.ToJSON()
+	}
+
+	// Send packet to next hop
+	targetNodeEndpoint.SendPacketBytes(packetBytesOut)
+
+	// Increment local Node's PacketRelayCount
 	thisEndpoint.drpNode.PacketRelayCount++
 
 	return

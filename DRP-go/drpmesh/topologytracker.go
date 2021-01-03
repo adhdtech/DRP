@@ -32,9 +32,9 @@ func (tt *TopologyTracker) Initialize(drpNode *Node) {
 	newNodeEntry.Zone = &tt.drpNode.Zone
 	newNodeEntry.LearnedFrom = &tt.drpNode.NodeID
 	newNodeEntry.LastModified = &currentTimestamp
-	newNodeEntry.Roles = tt.drpNode.nodeRoles
+	newNodeEntry.Roles = tt.drpNode.NodeRoles
 	newNodeEntry.NodeURL = tt.drpNode.listeningName
-	newNodeEntry.HostID = &tt.drpNode.hostID
+	newNodeEntry.HostID = &tt.drpNode.HostID
 
 	addNodePacket := TopologyPacket{*newNodeEntry.NodeID, "add", "node", *newNodeEntry.NodeID, *newNodeEntry.Scope, *newNodeEntry.Zone, newNodeEntry.ToJSON()}
 	tt.ProcessPacket(addNodePacket, tt.drpNode.NodeID, tt.drpNode.IsRegistry())

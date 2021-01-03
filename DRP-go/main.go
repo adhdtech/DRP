@@ -24,6 +24,7 @@ func main() {
 		fmt.Printf("%s\n", string(resultsBytes))
 	*/
 	thisNode.ConnectToRegistry("ws://localhost:8080", nil, nil)
+	//thisNode.ConnectToMesh()
 
 	//servicesWithProviders := thisNode.TopologyTracker.GetServicesWithProviders()
 	//var resultsBytes, _ = json.Marshal(servicesWithProviders)

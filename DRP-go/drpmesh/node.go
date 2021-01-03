@@ -14,12 +14,13 @@ func CreateNode(nodeRoles []string, hostID string, domainName string, meshKey st
 	nodePID := os.Getpid()
 
 	newNode := &Node{}
-	newNode.nodeRoles = nodeRoles
-	newNode.hostID = hostID
-	newNode.domainName = domainName
+	newNode.NodeRoles = nodeRoles
+	newNode.HostID = hostID
+	newNode.DomainName = domainName
 	newNode.meshKey = meshKey
 	newNode.Zone = zone
 	newNode.Scope = &scope
+	newNode.RegistryUrl = nil
 	newNode.listeningName = listeningName
 	newNode.webServerConfig = webServerConfig
 	newNode.drpRoute = drpRoute
@@ -29,7 +30,7 @@ func CreateNode(nodeRoles []string, hostID string, domainName string, meshKey st
 	newNode.HasConnectedToMesh = false
 	newNode.PacketRelayCount = 0
 
-	newNode.NodeDeclaration = &NodeDeclaration{newNode.NodeID, newNode.nodeRoles, newNode.hostID, newNode.listeningName, newNode.domainName, newNode.meshKey, newNode.Zone, newNode.Scope}
+	newNode.NodeDeclaration = &NodeDeclaration{newNode.NodeID, newNode.NodeRoles, newNode.HostID, newNode.listeningName, newNode.DomainName, newNode.meshKey, newNode.Zone, newNode.Scope}
 
 	newNode.NodeEndpoints = make(map[string]EndpointInterface)
 	newNode.ConsumerEndpoints = make(map[string]EndpointInterface)
@@ -60,16 +61,17 @@ type NodeDeclaration struct {
 
 // Node is the base object for DRP operations; service and endpoints are bound to this
 type Node struct {
-	hostID                  string
+	HostID                  string
 	NodeID                  string
-	domainName              string
+	DomainName              string
 	meshKey                 string
 	Zone                    string
 	Scope                   *string
+	RegistryUrl             *string
 	webServerConfig         interface{}
 	listeningName           *string
 	drpRoute                *string
-	nodeRoles               []string
+	NodeRoles               []string
 	NodeDeclaration         *NodeDeclaration
 	Services                map[string]Service
 	TopicManager            interface{}
@@ -114,7 +116,6 @@ GetBaseObj
 FindProvidersForStream
 EvalPath
 GetObjFromPath
-VerifyNodeConnection
 VerifyConsumerConnection
 */
 
@@ -245,6 +246,30 @@ func (dn *Node) ServiceCmd(serviceName string, method string, params interface{}
 	return nil
 }
 
+// TcpPingResults contains the TCP ping results to a given host and port
+type TcpPingResults struct {
+	name     string
+	port     uint
+	pingInfo TcpPingMetrics
+}
+
+// TcpPingResults contains the metrics from a TCP ping
+type TcpPingMetrics struct {
+	min uint
+	max uint
+	avg uint
+}
+
+// PingDomainRegistries returns the SRV records for a domain
+func (dn *Node) PingDomainRegistries() map[string]TcpPingResults {
+	returnMap := make(map[string]TcpPingResults)
+
+	// Look up the SRV records
+	// TO DO - IMPLEMENT TCPPING LOGIC!
+
+	return returnMap
+}
+
 // RegistryClientHandler handles connection logic when making an outbound connection to a Registry Node
 func (dn *Node) RegistryClientHandler(nodeClient *Client) {
 	thisNode := dn
@@ -282,6 +307,62 @@ func (dn *Node) ConnectToRegistry(registryURL string, openCallback *func(), clos
 		retryOnClose = false
 	}
 	newRegistryClient.Connect(registryURL, nil, dn, nil, retryOnClose, &regClientOpenCallback, closeCallback)
+}
+
+// ConnectToRegistryByDomain locates a Registry for a given domain
+func (dn *Node) ConnectToRegistryByDomain() {
+	// TO DO - IMPLEMENT
+}
+
+// ConnectToOtherRegistries locates other Registries for a given domain
+func (dn *Node) ConnectToOtherRegistries() {
+	// TO DO - IMPLEMENT
+}
+
+// ConnectToMesh attempts to locate and connect to a Registry in the Node's domain
+func (dn *Node) ConnectToMesh(onControlPlaneConnect func()) {
+	thisNode := dn
+	if onControlPlaneConnect != nil {
+		*thisNode.onControlPlaneConnect = onControlPlaneConnect
+	}
+	// If this is a Registry, seed the Registry with it's own declaration
+	if thisNode.IsRegistry() {
+		if thisNode.DomainName != "" {
+			// A domain name was provided; attempt to cluster with other registry hosts
+			thisNode.Log(fmt.Sprintf("This node is a Registry for %s, attempting to contact other Registry nodes", thisNode.DomainName), false)
+			thisNode.ConnectToOtherRegistries()
+		}
+		if thisNode.onControlPlaneConnect != nil {
+			(*thisNode.onControlPlaneConnect)()
+		}
+	} else {
+		if thisNode.RegistryUrl != nil {
+			// A specific Registry URL was provided
+			thisNode.ConnectToRegistry(*thisNode.RegistryUrl, nil, nil)
+		} else if thisNode.DomainName != "" {
+			// A domain name was provided; attempt to connect to a registry host
+			thisNode.ConnectToRegistryByDomain()
+		} else {
+			// No Registry URL or domain provided
+			panic("No DomainName or RegistryURL provided!")
+		}
+	}
+}
+
+// ConnectToNode attempts a connection to a specific Registry Node URL
+func (dn *Node) ConnectToNode(targetNodeID string, targetURL string) {
+	thisNode := dn
+	// Initiate Node Connection
+	targetEndpoint := thisNode.NodeEndpoints[targetNodeID]
+	if targetEndpoint != nil && targetEndpoint.IsConnecting() {
+		// We already have this NodeEndpoint registered and the wsConn is opening or open
+		thisNode.Log(fmt.Sprintf("Received back request, already have NodeEndpoints[%s]", targetNodeID), true)
+	} else {
+		thisNode.Log(fmt.Sprintf("Received back request, connecting to [%s] @ %s", targetNodeID, targetURL), true)
+		thisNodeEndpoint := &Client{}
+		thisNode.NodeEndpoints[targetNodeID] = thisNodeEndpoint
+		thisNodeEndpoint.Connect(targetURL, nil, dn, &targetNodeID, false, nil, nil)
+	}
 }
 
 // ConnectToBroker attempts a connection to a specific Registry Node URL
@@ -473,11 +554,24 @@ func (dn *Node) ApplyNodeEndpointMethods(targetEndpoint EndpointInterface) {
 		targetEndpoint.RegisterMethod("topologyUpdate", async function (...args) {
 			return thisNode.TopologyUpdate(...args);
 		});
-
-		targetEndpoint.RegisterMethod("connectToNode", async function (...args) {
-			return await thisNode.ConnectToNode(...args);
-		});
-
+	*/
+	targetEndpoint.RegisterMethod("connectToNode", func(params *CmdParams, callingEndpoint EndpointInterface, token *int) interface{} {
+		var targetNodeID *string = nil
+		var targetURL *string = nil
+		if params != nil {
+			targetNodeIDJSON := (*params)["targetNodeID"]
+			if targetNodeIDJSON != nil {
+				json.Unmarshal(*targetNodeIDJSON, targetNodeID)
+			}
+			targetURLJSON := (*params)["targetURL"]
+			if targetURLJSON != nil {
+				json.Unmarshal(*targetURLJSON, targetURL)
+			}
+		}
+		thisNode.ConnectToNode(*targetNodeID, *targetURL)
+		return nil
+	})
+	/*
 		targetEndpoint.RegisterMethod("addConsumerToken", async function (params, srcEndpoint, token) {
 			if (params.tokenPacket) {
 				thisNode.ConsumerTokens[params.tokenPacket.Token] = params.tokenPacket;
@@ -506,7 +600,7 @@ func (dn *Node) RawMessageToString(rawMessage *json.RawMessage) *string {
 
 // IsRegistry tells whether or not the local Node holds the Registry role
 func (dn *Node) IsRegistry() bool {
-	for _, a := range dn.nodeRoles {
+	for _, a := range dn.NodeRoles {
 		if a == "Registry" {
 			return true
 		}
@@ -516,7 +610,7 @@ func (dn *Node) IsRegistry() bool {
 
 // IsBroker tells whether or not the local Node hold the Broker role
 func (dn *Node) IsBroker() bool {
-	for _, a := range dn.nodeRoles {
+	for _, a := range dn.NodeRoles {
 		if a == "Broker" {
 			return true
 		}

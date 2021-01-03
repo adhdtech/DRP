@@ -18,8 +18,8 @@ func CreateCmd(method *string, params *CmdParams, serviceName *string, token *in
 }
 
 // CreateReply returns a Reply object
-func CreateReply(status int, payload interface{}, token *int, routeOptions *RouteOptions) *Reply {
-	drpReply := &Reply{}
+func CreateReply(status int, payload interface{}, token *int, routeOptions *RouteOptions) *ReplyOut {
+	drpReply := &ReplyOut{}
 	drpReply.Type = "reply"
 	drpReply.RouteOptions = routeOptions
 	drpReply.Token = token
@@ -28,16 +28,27 @@ func CreateReply(status int, payload interface{}, token *int, routeOptions *Rout
 	return drpReply
 }
 
-// Packet describes the base attributes of a DRP packet
-type Packet struct {
+// BasePacket describes the base attributes common in all DRP packets
+type BasePacket struct {
 	Type         string        `json:"type"`
 	RouteOptions *RouteOptions `json:"routeOptions"`
 	Token        *int          `json:"token"`
 }
 
+// PacketIn includes all possible attributes necessary to unmarshal inbound packets
+type PacketIn struct {
+	BasePacket
+	Method            *string          `json:"method"`
+	Params            *CmdParams       `json:"params"`
+	ServiceName       *string          `json:"serviceName"`
+	ServiceInstanceID *string          `json:"serviceInstanceID"`
+	Status            int              `json:"status"`
+	Payload           *json.RawMessage `json:"payload"`
+}
+
 // Cmd is a DRP packet sent when issuing a command
 type Cmd struct {
-	Packet
+	BasePacket
 	Method            *string    `json:"method"`
 	Params            *CmdParams `json:"params"`
 	ServiceName       *string    `json:"serviceName"`
@@ -55,7 +66,7 @@ func (dc *Cmd) ToJSON() []byte {
 
 // CmdOut is a DRP packet sent when issuing a command
 type CmdOut struct {
-	Packet
+	BasePacket
 	Method            *string     `json:"method"`
 	Params            interface{} `json:"params"`
 	ServiceName       *string     `json:"serviceName"`
@@ -68,22 +79,22 @@ func (dc *CmdOut) ToJSON() []byte {
 	return buff
 }
 
-// Reply is a DRP packet sent when replying to a command
-type Reply struct {
-	Packet
+// ReplyOut is a DRP packet sent when replying to a command
+type ReplyOut struct {
+	BasePacket
 	Status  int         `json:"status"`
 	Payload interface{} `json:"payload"`
 }
 
 // ToJSON converts the packet to a JSON byte array
-func (dr *Reply) ToJSON() []byte {
+func (dr *ReplyOut) ToJSON() []byte {
 	buff, _ := json.Marshal(dr)
 	return buff
 }
 
 // ReplyIn is used to unmarshal Reply packets we get back after sending a command
 type ReplyIn struct {
-	Packet
+	BasePacket
 	Status  int              `json:"status"`
 	Payload *json.RawMessage `json:"payload"`
 }
