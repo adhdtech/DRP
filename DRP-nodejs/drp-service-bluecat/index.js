@@ -705,6 +705,18 @@ class BlueCatManager extends DRP_Service {
                 }
                 if (entityId) returnObj = await thisBcMgr.activeMember.GetEntityByID(entityId);
                 return returnObj;
+            },
+            "deployEntityId": async (cmdObj) => {
+                let entityId = null;
+                let returnObj = null;
+                if (cmdObj.pathList && cmdObj.pathList.length >= 1) {
+                    entityId = cmdObj.pathList[0];
+                }
+                if (cmdObj.entityId) {
+                    entityId = cmdObj.entityId;
+                }
+                if (entityId) returnObj = await thisBcMgr.activeMember.SelectiveDeploy([entityId]);
+                return returnObj;
             }
         };
     }
