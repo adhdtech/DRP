@@ -646,7 +646,7 @@ class DRP_Node {
             oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
         } else {
             try {
-                oReturnObject = await thisNode.ServiceCmd("DRP", "pathCmd", params, targetNodeID, null, false, true, null);
+                oReturnObject = await thisNode.ServiceCmd("DRP", "pathCmd", params, targetNodeID, null, true, true, null);
             } catch (ex) {
                 thisNode.log(`Could not find instance of DRP service for NodeID [${targetNodeID}]`);
             }
@@ -1188,7 +1188,7 @@ class DRP_Node {
                 let localNodeEntry = thisNode.TopologyTracker.NodeTable[thisNode.NodeID];
                 let remoteNodeEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
 
-                if (!remoteNodeEntry) return `Tried to contact Node[${targetNodeID}], not in NodeTable`;
+                if (!remoteNodeEntry) return `Node ${targetNodeID} not found in NodeTable`;
 
                 if (!localNodeEntry.NodeURL && !remoteNodeEntry.NodeURL) {
                     // Neither the local node nor the remote node are listening, use control plane
