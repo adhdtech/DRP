@@ -2165,6 +2165,31 @@ class DRP_Node {
             setTimeout(resolve, ms);
         });
     }
+
+    IsRestricted(securityObj, params) {
+        let authInfo = params.authInfo;
+        try {
+            if (authInfo && authInfo.type) {
+                // Is it a token or a key?
+                switch (authInfo.type) {
+                    case 'key':
+                        if (securityObj.Keys.indexOf(authInfo.value) >= 0) return false;
+                        break;
+                    case 'token':
+                        // We need to look over the user's groups and see if any are in the group list
+                        for (let i = 0; i < authInfo.userInfo.Groups.length; i++) {
+                            let userGroupName = authInfo.userInfo.Groups[i];
+                            if (securityObj.Groups.indexOf(userGroupName) >= 0) return false;
+                        }
+                        break;
+                    default:
+                }
+            }
+            return true;
+        } catch (ex) {
+            return false;
+        }
+    }
 }
 
 class DRP_NodeClient extends DRP_Client {
