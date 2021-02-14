@@ -149,6 +149,11 @@ class DRP_Node {
         this.GetServiceDefinitions = this.GetServiceDefinitions;
         this.ListClassInstances = this.ListClassInstances;
 
+        this.Mesh = async (params, callingEndpoint) => {
+            let pathData = await thisNode.EvalPath(thisNode.GetBaseObj().Mesh, params, callingEndpoint);
+            return pathData;
+        }
+
         let localDRPEndpoint = new DRP_Endpoint(null, this, "Local");
         this.ApplyNodeEndpointMethods(localDRPEndpoint);
 
