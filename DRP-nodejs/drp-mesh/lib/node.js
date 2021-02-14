@@ -1184,14 +1184,20 @@ class DRP_Node {
             let routeOptions = {};
 
             if (!useControlPlane) {
-                // Make sure either the local Node or remote Node are listening; if not, route via control plane
                 let localNodeEntry = thisNode.TopologyTracker.NodeTable[thisNode.NodeID];
                 let remoteNodeEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
 
+                // If the remote Node isn't found, return error message
                 if (!remoteNodeEntry) return `Node ${targetNodeID} not found in NodeTable`;
 
+                // Make sure either the local Node or remote Node are listening; if not, route via control plane
                 if (!localNodeEntry.NodeURL && !remoteNodeEntry.NodeURL) {
                     // Neither the local node nor the remote node are listening, use control plane
+                    useControlPlane = true;
+                }
+
+                // If the local Node is not a Registry and the remote Node is a non-connected Registry, route via control plane
+                if (!useControlPlane && !localNodeEntry.IsRegistry() && remoteNodeEntry.IsRegistry() && !thisNode.NodeEndpoints[targetNodeID]) {
                     useControlPlane = true;
                 }
             }

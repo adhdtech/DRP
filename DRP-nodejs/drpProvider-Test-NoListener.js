@@ -157,7 +157,7 @@ class TestService extends DRP_Service {
                 drpNode.log(`Peer service sent a broadcast test - ${params.message}`);
             },
             sendPeerBroadcastTest: async function (params) {
-                thisService.PeerBroadcast("peerBroadcastTest", { message: `From serviceID ${thisService.InstanceID}` }, "global");
+                thisService.PeerBroadcast("peerBroadcastTest", { message: `From serviceID ${thisService.InstanceID}` });
                 drpNode.log(`Sent a peer broadcast`);
             }
         };
