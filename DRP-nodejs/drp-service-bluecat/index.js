@@ -358,6 +358,26 @@ class BlueCatMgmtHost {
 
     }
 
+    async AddAliasRecord(viewName, aliasFQDN, targetFQDN, ttl) {
+        let thisBcMgmtHost = this;
+
+        // Make sure viewName is specified and exists in BAM
+        if (!viewName || !thisBcMgmtHost.config.Views[viewName]) return `ERROR - BlueCat view named ${viewName} does not exist`;
+
+        // Get view ID
+        let viewId = thisBcMgmtHost.config.Views[viewName].id;
+
+        // Get Configuration ObjectID
+        let response = await thisBcMgmtHost.ExecuteCommand("addAliasRecord", {
+            viewId: viewId,
+            absoluteName: aliasFQDN,
+            linkedRecordName: targetFQDN,
+            ttl: ttl || "-1",
+            properties: ""
+        }, "post", true);
+        return response; //[0].id;
+    }
+
     async GetLinkedEntities(entityId, type) {
         let thisBcMgmtHost = this;
         // Get Configuration ObjectID
@@ -611,6 +631,31 @@ class BlueCatManager extends DRP_Service {
                     if (cmdObj.hostName) hostName = cmdObj.hostName;
                 }
                 if (ipAddress) returnObj = await thisBcMgr.activeMember.UnassignIP4Address(thisBcMgr.activeMember.config.ConfigurationID, ipAddress, hostName);
+                return returnObj;
+            },
+            "addAliasRecord": async function (cmdObj) {
+                let viewName = null;
+                let aliasFQDN = null;
+                let targetFQDN = null;
+                let ttl = null;
+
+                let returnObj = null;
+                if (cmdObj.pathList && cmdObj.pathList.length >= 1) {
+                    viewName = cmdObj.pathList[0];
+                    aliasFQDN = cmdObj.pathList[1];
+                    targetFQDN = cmdObj.pathList[2];
+                    ttl = cmdObj.pathList[3];
+                }
+                if (cmdObj.viewName) viewName = cmdObj.viewName;
+                if (cmdObj.aliasFQDN) aliasFQDN = cmdObj.aliasFQDN;
+                if (cmdObj.targetFQDN) targetFQDN = cmdObj.targetFQDN;
+                if (cmdObj.ttl) ttl = cmdObj.ttl;
+
+                if (viewName && aliasFQDN && targetFQDN) {
+                    returnObj = await thisBcMgr.activeMember.AddAliasRecord(viewName, aliasFQDN, targetFQDN, ttl);
+                } else {
+                    returnObj = "ERROR - expecting viewName/aliasFQDN/targetFQDN/{ttl}";
+                }
                 return returnObj;
             },
             "searchByObjectTypes": async function () {
