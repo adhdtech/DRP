@@ -11,156 +11,194 @@
             "searchEmptyPlaceholder": "Search...",
             "searchField": null
         };
-		/*
-		myApp.menuQuery = {
-		"queryEmptyPlaceholder": "Query...",
-		"queryField": null
-		}
-		 */
+        /*
+        myApp.menuQuery = {
+        "queryEmptyPlaceholder": "Query...",
+        "queryField": null
+        }
+         */
 
         myApp.appFuncs = {
             execDRPShell: async (term, commandLine) => {
+                let pipeData = null;
                 //term.write(`\r\nRunning command >>>${commandLine}<<<`);
                 term.write(`\r\n`);
-                let cmdParts = commandLine.match(/^(\S*)(?: (.*))?$/);
-                if (cmdParts) {
-                    let cmdVerb = cmdParts[1];
-                    let cmdParams = cmdParts[2] || "";
-                    let results = null;
-                    let pathList = [];
-                    //console.dir({ cmdVerb: cmdVerb, cmdParams: cmdParams });
-                    try {
-                        switch (cmdVerb) {
-                            case '?':
-                            case 'help':
-                                //term.write(`\x1B[0mDRP Shell commands:\x1B[0m\r\n`);
-                                ['help', 'ls', 'cat', 'clear', 'topology', 'whoami', 'token', 'endpointid', 'exit'].forEach(thisCmd => {
-                                    term.write(`\x1B[95m  ${thisCmd}\x1B[0m\r\n`);
-                                });
-                                break;
-                            case 'cls':
-                            case 'clear':
-                                term.clear();
-                                break;
-                            case 'exit':
-                            case 'quit':
-                                myApp.vdmDesktop.closeWindow(myApp);
-                                break;
-                            case 'ls':
-                            case 'dir':
-                                if (cmdParams.length > 0) pathList = cmdParams.split(/[\/\\]/g);
-
-                                let namePadSize = 0;
-                                let typePadSize = 0;
-
-                                // Remove leading empty entries
-                                while (pathList.length > 0 && pathList[0] === "") pathList.shift();
-
-                                // Remove trailing empty entries
-                                while (pathList.length > 0 && pathList[pathList.length-1] === "") pathList.pop();
-
-                                results = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: true }, true);
-                                if (results && results.pathItemList && results.pathItemList.length > 0) {
-                                    // First, iterate over all and get the max length of the Name and Type fields
-                                    for (let i = 0; i < results.pathItemList.length; i++) {
-                                        let entryObj = results.pathItemList[i];
-                                        if (entryObj.Name && (!namePadSize || entryObj.Name.length > namePadSize)) {
-                                            namePadSize = entryObj.Name.length;
-                                        }
-                                        if (entryObj.Type && (!typePadSize || entryObj.Type.length > typePadSize)) {
-                                            typePadSize = entryObj.Type.length;
-                                        }
-                                    }
-
-                                    // We have a directory listing
-                                    for (let i = 0; i < results.pathItemList.length; i++) {
-                                        let entryObj = results.pathItemList[i];
-                                        if (!entryObj.Name) {
-                                            console.log("This entry could not be printed, has a null name");
-                                            console.dir(entryObj);
-                                            continue;
-                                        }
-                                        switch (entryObj.Type) {
-                                            case null:
-                                            case 'Boolean':
-                                            case 'Number':
-                                            case 'String':
-                                                term.write(`\x1B[0m${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type ? entryObj.Type.padEnd(typePadSize) : "null".padEnd(16)}\t${entryObj.Value}\x1B[0m\r\n`);
-                                                break;
-                                            case 'Function':
-                                            case 'AsyncFunction':
-                                                term.write(`\x1B[92m${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type.padEnd(typePadSize)}\x1B[0m\r\n`);
-                                                break;
-                                            default:
-                                                // Must be some sort of object
-                                                term.write(`\x1B[1;34m${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type.padEnd(typePadSize)}\t${entryObj.Value}\x1B[0m\r\n`);
-                                                break;
-                                        }
-                                    }
-                                } else {
-                                    term.write(`\x1B[31mNo results\x1B[0m`);
-                                }
-                                break;
-                            case 'gi':
-                            case 'cat':
-                                if (cmdParams.length > 0) pathList = cmdParams.split(/[\/\\]/g);
-
-                                // Remove leading empty entries
-                                while (pathList.length > 0 && pathList[0] === "") pathList.shift();
-
-                                // Remove trailing empty entries
-                                while (pathList.length > 0 && pathList[pathList.length - 1] === "") pathList.pop();
-
-                                if (pathList.length === 0) {
-                                    // Error
-                                    term.write(`\x1B[31mNo target specified\x1B[0m\r\n`);
+                let cmdArray = commandLine.split(" | ");
+                for (let i = 0; i < cmdArray.length; i++) {
+                    let cmdParts = cmdArray[i].match(/^(\S*)(?: (.*))?$/);
+                    if (cmdParts) {
+                        let cmdVerb = cmdParts[1];
+                        let cmdParams = cmdParts[2] || "";
+                        let results = null;
+                        let pathList = [];
+                        let doPipeOut = (i+1 < cmdArray.length);
+                        let pipeDataIn = pipeData;
+                        pipeData = "";
+                        //console.dir({ cmdVerb: cmdVerb, cmdParams: cmdParams });
+                        try {
+                            switch (cmdVerb) {
+                                case '?':
+                                case 'help':
+                                    //term.write(`\x1B[0mDRP Shell commands:\x1B[0m\r\n`);
+                                    ['help', 'ls', 'cat', 'clear', 'topology', 'whoami', 'token', 'endpointid', 'exit'].forEach(thisCmd => {
+                                        if (doPipeOut) pipeData += `  ${thisCmd}`;
+                                        else term.write(`\x1B[95m  ${thisCmd}\x1B[0m\r\n`);
+                                    });
                                     break;
-                                }
+                                case 'cls':
+                                case 'clear':
+                                    term.clear();
+                                    break;
+                                case 'exit':
+                                case 'quit':
+                                    myApp.vdmDesktop.closeWindow(myApp);
+                                    break;
+                                case 'ls':
+                                case 'dir':
+                                    if (cmdParams.length > 0) pathList = cmdParams.split(/[\/\\]/g);
 
-                                results = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: false }, true);
-                                if (typeof results === "string") {
-                                    // Error
-                                    term.write(`\x1B[31m${results}\x1B[0m\r\n`);
-                                } else if (results && results.pathItem) {
-                                    // Have pathItem
-                                    if (typeof results.pathItem === "object") {
-                                        term.write(`\x1B[0m${JSON.stringify(results.pathItem, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
-                                    } else if (typeof results.pathItem === "string") {
-                                        term.write(`\x1B[0m${results.pathItem.replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                                    let namePadSize = 0;
+                                    let typePadSize = 0;
+                                    let dataOut = null;
+
+                                    // Remove leading empty entries
+                                    while (pathList.length > 0 && pathList[0] === "") pathList.shift();
+
+                                    // Remove trailing empty entries
+                                    while (pathList.length > 0 && pathList[pathList.length - 1] === "") pathList.pop();
+
+                                    results = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: true }, true);
+                                    if (results && results.pathItemList && results.pathItemList.length > 0) {
+                                        // First, iterate over all and get the max length of the Name and Type fields
+                                        for (let i = 0; i < results.pathItemList.length; i++) {
+                                            let entryObj = results.pathItemList[i];
+                                            if (entryObj.Name && (!namePadSize || entryObj.Name.length > namePadSize)) {
+                                                namePadSize = entryObj.Name.length;
+                                            }
+                                            if (entryObj.Type && (!typePadSize || entryObj.Type.length > typePadSize)) {
+                                                typePadSize = entryObj.Type.length;
+                                            }
+                                        }
+
+                                        // We have a directory listing
+                                        for (let i = 0; i < results.pathItemList.length; i++) {
+                                            let entryObj = results.pathItemList[i];
+                                            if (!entryObj.Name) {
+                                                console.log("This entry could not be printed, has a null name");
+                                                console.dir(entryObj);
+                                                continue;
+                                            }
+                                            switch (entryObj.Type) {
+                                                case null:
+                                                case 'Boolean':
+                                                case 'Number':
+                                                case 'String':
+                                                    dataOut = `${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type ? entryObj.Type.padEnd(typePadSize) : "null".padEnd(16)}\t${entryObj.Value}`;
+                                                    if (doPipeOut) pipeData += dataOut + "\r\n";
+                                                    else term.write(`\x1B[0m${dataOut}\x1B[0m\r\n`);
+                                                    break;
+                                                case 'Function':
+                                                case 'AsyncFunction':
+                                                    dataOut = `${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type.padEnd(typePadSize)}`;
+                                                    if (doPipeOut) pipeData += dataOut + "\r\n";
+                                                    else term.write(`\x1B[92m${dataOut}\x1B[0m\r\n`);
+                                                    break;
+                                                default:
+                                                    // Must be some sort of object
+                                                    dataOut = `${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type.padEnd(typePadSize)}\t${entryObj.Value}`;
+                                                    if (doPipeOut) pipeData += dataOut + "\r\n";
+                                                    else term.write(`\x1B[1;34m${dataOut}\x1B[0m\r\n`);
+                                                    break;
+                                            }
+                                        }
                                     } else {
-                                        term.write(`\x1B[0m${results.pathItem}\x1B[0m\r\n`);
+                                        dataOut = `No results`;
+                                        if (doPipeOut) pipeData += dataOut;
+                                        term.write(`\x1B[31m${dataOut}\x1B[0m`);
                                     }
-                                } else {
-                                    term.write(`\x1B[0m${results}\x1B[0m\r\n`);
-                                }
-                                break;
-                            case 'topology':
-                                results = await myApp.sendCmd("DRP", "getTopology", null, true);
-                                //term.write(`\x1B[32m${JSON.stringify(results)}\x1B[0m`);
-                                term.write(`\x1B[36m${JSON.stringify(results, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
-                                break;
-                            case 'whoami':
-                                term.write(`\x1B[33mUserName: \x1B[0m${myApp.appVars.UserInfo.UserName}`);
-                                term.write(`\r\n\x1B[33mFullName: \x1B[0m${myApp.appVars.UserInfo.FullName}`);
-                                term.write(`\r\n\x1B[33m  Groups: \x1B[0m${myApp.appVars.UserInfo.Groups.join('\r\n          ')}`);
-                                term.write(`\r\n`);
-                                //term.write(`\x1B[36m${JSON.stringify(myApp.appVars.UserInfo, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
-                                break;
-                            case 'token':
-                                term.write(`\x1B[33mToken: \x1B[0m${myApp.appVars.UserInfo.Token}`);
-                                term.write(`\r\n`);
-                                break;
-                            case 'endpointid':
-                                term.write(`\x1B[33mEndpointID: \x1B[0m${myApp.appVars.EndpointID}`);
-                                term.write(`\r\n`);
-                                break;
-                            default:
-                                term.write(`\x1B[31mInvalid command [${cmdVerb}]\x1B[0m`);
-                                term.write(`\r\n`);
-                                break;
+                                    break;
+                                case 'gi':
+                                case 'cat':
+                                    if (cmdParams.length > 0) pathList = cmdParams.split(/[\/\\]/g);
+
+                                    // Remove leading empty entries
+                                    while (pathList.length > 0 && pathList[0] === "") pathList.shift();
+
+                                    // Remove trailing empty entries
+                                    while (pathList.length > 0 && pathList[pathList.length - 1] === "") pathList.pop();
+
+                                    if (pathList.length === 0) {
+                                        // Error
+                                        term.write(`\x1B[31mNo target specified\x1B[0m\r\n`);
+                                        break;
+                                    }
+
+                                    results = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: false }, true);
+                                    if (typeof results === "string") {
+                                        // Error
+                                        term.write(`\x1B[31m${results}\x1B[0m\r\n`);
+                                    } else if (results && results.pathItem) {
+                                        // Have pathItem
+                                        if (doPipeOut) pipeData = results.pathItem;
+                                        else {
+                                            if (typeof results.pathItem === "object") {
+                                                term.write(`\x1B[0m${JSON.stringify(results.pathItem, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                                            } else if (typeof results.pathItem === "string") {
+                                                term.write(`\x1B[0m${results.pathItem.replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                                            } else {
+                                                term.write(`\x1B[0m${results.pathItem}\x1B[0m\r\n`);
+                                            }
+                                        }
+                                    } else {
+                                        if (doPipeOut) pipeData = results;
+                                        else term.write(`\x1B[0m${results}\x1B[0m\r\n`);
+                                    }
+                                    break;
+                                case 'topology':
+                                    results = await myApp.sendCmd("DRP", "getTopology", null, true);
+                                    //term.write(`\x1B[32m${JSON.stringify(results)}\x1B[0m`);
+                                    if (doPipeOut) pipeData = results
+                                    else term.write(`\x1B[36m${JSON.stringify(results, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
+                                    break;
+                                case 'whoami':
+                                    term.write(`\x1B[33mUserName: \x1B[0m${myApp.appVars.UserInfo.UserName}`);
+                                    term.write(`\r\n\x1B[33mFullName: \x1B[0m${myApp.appVars.UserInfo.FullName}`);
+                                    term.write(`\r\n\x1B[33m  Groups: \x1B[0m${myApp.appVars.UserInfo.Groups.join('\r\n          ')}`);
+                                    term.write(`\r\n`);
+                                    //term.write(`\x1B[36m${JSON.stringify(myApp.appVars.UserInfo, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
+                                    break;
+                                case 'token':
+                                    term.write(`\x1B[33mToken: \x1B[0m${myApp.appVars.UserInfo.Token}`);
+                                    term.write(`\r\n`);
+                                    break;
+                                case 'endpointid':
+                                    term.write(`\x1B[33mEndpointID: \x1B[0m${myApp.appVars.EndpointID}`);
+                                    term.write(`\r\n`);
+                                    break;
+                                case 'download':
+                                    term.write(`\x1B[33mDownloading output\x1B[0m`);
+                                    term.write(`\r\n`);
+                                    let downloadFileName = "download.txt";
+                                    if (cmdParams.length > 0) downloadFileName = cmdParams;
+                                    var pom = document.createElement('a');
+                                    let downloadData = null;
+                                    if (typeof pipeDataIn === 'string') {
+                                        downloadData = pipeDataIn;
+                                    } else {
+                                        downloadData = JSON.stringify(pipeDataIn, null, 2);
+                                    }
+                                    pom.setAttribute('href', 'data:application/xml;charset=utf-8,' + encodeURIComponent(downloadData));
+                                    pom.setAttribute('download', downloadFileName);
+                                    pom.click();
+                                    break;
+                                default:
+                                    term.write(`\x1B[31mInvalid command [${cmdVerb}]\x1B[0m`);
+                                    term.write(`\r\n`);
+                                    break;
+                            }
+                        } catch (ex) {
+                            term.write(`\x1B[31mError executing command [${cmdVerb}]: ${ex}\x1B[0m\r\n`);
                         }
-                    } catch (ex) {
-                        term.write(`\x1B[31mError executing command [${cmdVerb}]: ${ex}\x1B[0m\r\n`);
                     }
                 }
             }
