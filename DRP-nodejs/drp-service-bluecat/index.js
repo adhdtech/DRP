@@ -390,6 +390,28 @@ class BlueCatMgmtHost {
         return response; //[0].id;
     }
 
+    async ResizeRange(objectId, range, convertOrphanedIPAddressesTo) {
+        let thisBcMgmtHost = this;
+        // Update Object
+        let response = await thisBcMgmtHost.ExecuteCommand("resizeRange", {
+            objectId: objectId,
+            range: range,
+            convertOrphanedIPAddressesTo: convertOrphanedIPAddressesTo
+        }, "put", true);
+        return response;
+    }
+
+    async SplitIP4Network(networkId, numberOfParts, options) {
+        let thisBcMgmtHost = this;
+        // Update Object
+        let response = await thisBcMgmtHost.ExecuteCommand("splitIP4Network", {
+            networkId: networkId,
+            numberOfParts: numberOfParts,
+            options: options
+        }, "post", true);
+        return response;
+    }
+
     async Update(bcObject) {
         let thisBcMgmtHost = this;
         // Update Object
@@ -456,7 +478,11 @@ class BlueCatMgmtHost {
                     returnObj = response.data;
                     break;
                 case "put":
-                    response = await thisBcMgmtHost.restAgent.put(command, parameters, { headers: { "Content-Type": "application/json" } });
+                    if (paramsInQuery) {
+                        response = await thisBcMgmtHost.restAgent.put(command, null, { params: parameters });
+                    } else {
+                        response = await thisBcMgmtHost.restAgent.put(command, parameters, { headers: { "Content-Type": "application/json" } });
+                    }
                     returnObj = response;
                     break;
                 case "post":
@@ -560,6 +586,47 @@ class BlueCatManager extends DRP_Service {
             "refreshConfigs": async function () {
                 return thisBcMgr.RefreshConfigs();
             },
+            "getEntityByName": async (cmdObj) => {
+                let methodParams = ['parentId', 'name', 'type'];
+                let params = thisBcMgr.GetParams(cmdObj, methodParams);
+                let returnObj = null;
+
+                if (params.parentId && params.name && params.type) returnObj = await thisBcMgr.activeMember.GetEntityByName(params.parentId, params.name, params.type)
+                else returnObj = { err: `Required params: ${methodParams}`}
+                return returnObj;
+            },
+            "getEntities": async (cmdObj) => {
+                let methodParams = ['parentId', 'type', 'start', 'count'];
+                let params = thisBcMgr.GetParams(cmdObj, methodParams);
+                let returnObj = null;
+
+                if (params.parentId && params.type && params.count) returnObj = await thisBcMgr.activeMember.GetEntities(params.parentId, params.type, params.start, params.count)
+                else returnObj = { err: `Required params: ${methodParams}` }
+                return returnObj;
+            },
+            "resizeRange": async (cmdObj) => {
+                let methodParams = ['objectId', 'range', 'convertOrphanedIPAddressesTo'];
+                let params = thisBcMgr.GetParams(cmdObj, methodParams);
+                let returnObj = {
+                    err: null,
+                    msg: null
+                };
+                if (params.objectId && params.range && params.convertOrphanedIPAddressesTo) {
+                    let response = await thisBcMgr.activeMember.ResizeRange(params.objectId, params.range, params.convertOrphanedIPAddressesTo);
+                    returnObj.msg = response.status;
+                }
+                else returnObj.err = `Required params: ${methodParams}`;
+                return returnObj;
+            },
+            "splitIP4Network": async (cmdObj) => {
+                let methodParams = ['networkId', 'numberOfParts', 'options'];
+                let params = thisBcMgr.GetParams(cmdObj, methodParams);
+                let returnObj = null;
+
+                if (params.networkId && params.numberOfParts && params.options) returnObj = await thisBcMgr.activeMember.SplitIP4Network(params.networkId, params.numberOfParts, params.options)
+                else returnObj = { err: `Required params: ${methodParams}` }
+                return returnObj;
+            },
             "getIP4Address": async (cmdObj) => {
                 let ipAddress = null;
                 let returnObj = null;
@@ -573,16 +640,12 @@ class BlueCatManager extends DRP_Service {
                 return returnObj;
             },
             "getIPRangedByIP": async function (cmdObj) {
-                let ipAddress = null;
+                let methodParams = ['ipAddress'];
+                let params = thisBcMgr.GetParams(cmdObj, methodParams);
                 let returnObj = null;
-                if (cmdObj.pathList && cmdObj.pathList.length >= 1) {
-                    ipAddress = cmdObj.pathList[0];
-                }
-                if (cmdObj.ipAddress) {
-                    ipAddress = cmdObj.ipAddress;
-                }
 
-                if (ipAddress) returnObj = thisBcMgr.activeMember.GetIPRangedByIP(thisBcMgr.activeMember.config.ConfigurationID, ipAddress);
+                if (params.ipAddress) returnObj = thisBcMgr.activeMember.GetIPRangedByIP(thisBcMgr.activeMember.config.ConfigurationID, params.ipAddress)
+                else returnObj = { err: `Required params: ${methodParams}` };
                 return returnObj;
             },
             "getNextAvailableIP": async function (cmdObj) {
@@ -721,21 +784,27 @@ class BlueCatManager extends DRP_Service {
                     err: null,
                     msg: null
                 };
-                if (!cmdObj.updateObj) {
+
+                let methodParams = ['updateObj'];
+                let params = thisBcMgr.GetParams(cmdObj, methodParams);
+
+                if (!params.updateObj) {
                     returnObj.err = "param updateObj not provided";
                 }
-                if (!cmdObj.updateObj.id) {
+                if (!params.updateObj.id) {
                     returnObj.err = "param updateObj.id attribute not provided";
                 } else {
                     // Let's try to update the object
-                    let response = await thisBcMgr.activeMember.Update(cmdObj.updateObj);
+                    let response = await thisBcMgr.activeMember.Update(params.updateObj);
                     returnObj.msg = response.status;
-                    thisBcMgr.drpNode.TopicManager.SendToTopic("BlueCat", `Updating Object: ${JSON.stringify(cmdObj.updateObj)}`);
+                    /*
+                    thisBcMgr.drpNode.TopicManager.SendToTopic("BlueCat", `Updating Object: ${JSON.stringify(params.updateObj)}`);
                     if (response && response.status && response.status === 200) {
-                        thisBcMgr.DeployObjectId(cmdObj.updateObj.id);
+                        thisBcMgr.DeployObjectId(params.updateObj.id);
                     } else {
-                        thisBcMgr.drpNode.TopicManager.SendToTopic("BlueCat", `Update of Object: ${JSON.stringify(cmdObj.updateObj)} failed, response status <${response.status}>`);
+                        thisBcMgr.drpNode.TopicManager.SendToTopic("BlueCat", `Update of Object: ${JSON.stringify(params.updateObj)} failed, response status <${response.status}>`);
                     }
+                    */
                 }
                 return returnObj;
             },
@@ -760,7 +829,10 @@ class BlueCatManager extends DRP_Service {
                 if (cmdObj.entityId) {
                     entityId = cmdObj.entityId;
                 }
-                if (entityId) returnObj = await thisBcMgr.activeMember.SelectiveDeploy([entityId]);
+                if (entityId) {
+                    thisBcMgr.DeployObjectId(entityId); //await thisBcMgr.activeMember.SelectiveDeploy([entityId]);
+                    returnObj = "Queued for deployment"
+                }
                 return returnObj;
             }
         };

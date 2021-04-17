@@ -192,6 +192,50 @@ class DRP_Service {
             thisService.drpNode.ServiceCmd(thisService.serviceName, method, params, null, peerServiceID);
         }
     }
+
+    /**
+     * Get parameters for Service Method
+     * @param {DRP_SvcMethodParams} params Parameters object
+     * @param {string[]} paramNames Ordered list of parameters to extract
+     * @returns {object}
+     */
+    GetParams(params, paramNames) {
+        /*
+         * Parameters can be passed three ways:
+         *   - Ordered list of remaining path elements (params.pathList[paramNames[x]])
+         *   - POST or PUT body (params.body.myVar)
+         *   - Directly in params (params.myVar)
+        */
+        let returnObj = {};
+        if (!paramNames || !Array.isArray(paramNames)) return returnObj;
+        for (let i = 0; i < paramNames.length; i++) {
+            returnObj[paramNames[i]] = null;
+            // First, see if the parameters were part of the remaining path (CLI or REST)
+            if (params.pathList && Array.isArray(params.pathList)) {
+                if (typeof params.pathList[i] !== 'undefined') {
+                    returnObj[paramNames[i]] = params.pathList[i];
+                }
+            }
+
+            // Second, see if the parameters were passed in the body (REST)
+            if (params.body && typeof params.body[paramNames[i]] !== 'undefined') {
+                returnObj[paramNames[i]] = params.body[paramNames[i]];
+            }
+
+            // Third, see if the parameters were passed directly in the params (DRP Exec)
+            if (typeof params[paramNames[i]] !== 'undefined') {
+                returnObj[paramNames[i]] = params[paramNames[i]];
+            }
+        }
+        return returnObj;
+    }
+}
+
+class DRP_SvcMethodParams {
+    constructor() {
+        this.body = {};
+        this.pathList = [];
+    }
 }
 
 module.exports = DRP_Service;
