@@ -338,22 +338,33 @@ class BlueCatMgmtHost {
 
         // Make sure hostname is bound to IP ObjectID
         let foundMatch = false;
+        let deleteHostFQDNObjectId = null;
         let linkedEntities = await thisBcMgmtHost.GetLinkedEntities(ipObject.id, "HostRecord");
         for (let i = 0; i < linkedEntities.length; i++) {
             let thisEntity = linkedEntities[i];
             let propertiesObj = APIEntity.prototype.PropertiesToObject(thisEntity.properties);
             if (propertiesObj.absoluteName === hostName) {
                 foundMatch = true;
+                deleteHostFQDNObjectId = thisEntity.id;
                 break;
             }
         }
 
         if (!foundMatch) return `Could not find HostRecord ${hostName} pointing to IP ${ipAddress}`;
 
+        let response;
+
+        response = await thisBcMgmtHost.ExecuteCommand("delete", {
+            objectId: deleteHostFQDNObjectId
+        }, "delete");
+
         // Get Configuration ObjectID
-        let response = await thisBcMgmtHost.ExecuteCommand("delete", {
+        response = await thisBcMgmtHost.ExecuteCommand("delete", {
             objectId: ipObject.id
         }, "delete");
+
+        await thisBcMgmtHost.SelectiveDeploy([deleteHostFQDNObjectId, ipObject.id]);
+
         return response; //[0].id;
 
     }
