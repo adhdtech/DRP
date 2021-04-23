@@ -79,8 +79,8 @@ class DRP_Node {
         this.SwaggerRouters = {};
         this.drpRoute = drpRoute || "/";
         this.DomainName = domainName;
-        this.MeshKey = meshKey;
-        if (!this.MeshKey) this.Die("No MeshKey provided");
+        this.__MeshKey = meshKey;
+        if (!this.__MeshKey) this.Die("No MeshKey provided");
         this.Zone = zone || "default";
         /** @type{string} */
         this.RegistryUrl = null;
@@ -138,8 +138,6 @@ class DRP_Node {
         /** @type Object.<string,DRP_AuthResponse> */
         this.ConsumerTokens = {};
 
-        this.NodeDeclaration = new DRP_NodeDeclaration(this.NodeID, this.NodeRoles, this.HostID, this.ListeningName, this.DomainName, this.MeshKey, this.Zone);
-
         // Add a route handler even if we don't have an Express server (needed for stream relays)
         this.RouteHandler = new DRP_RouteHandler(this, this.drpRoute);
 
@@ -162,6 +160,13 @@ class DRP_Node {
 
         this.AddService(DRPService);
     }
+
+    get Debug() { return this.__debug }
+    set Debug(val) { this.__debug = this.IsTrue(val) }
+
+    get TestMode() { return this.__testMode }
+    set TestMode(val) { this.__testMode = this.IsTrue(val) }
+
     /**
      * Print message to stdout
      * @param {string} message Message to output
@@ -188,6 +193,11 @@ class DRP_Node {
         let day = date.getDate();
         day = (day < 10 ? "0" : "") + day;
         return year + "" + month + "" + day + "" + hour + "" + min + "" + sec;
+    }
+
+    __GetNodeDeclaration() {
+        let thisNode = this;
+        return new DRP_NodeDeclaration(thisNode.NodeID, thisNode.NodeRoles, thisNode.HostID, thisNode.ListeningName, thisNode.DomainName, thisNode.__MeshKey, thisNode.Zone);
     }
 
     async GetConsumerToken(username, password) {
@@ -753,56 +763,27 @@ class DRP_Node {
                 },
                 Streams: async function (params) {
                     //console.log("Checking Streams...");
-                    let remainingChildPath = params.pathList;
                     let oReturnObject = {};
-                    if (remainingChildPath && remainingChildPath.length > 0) {
 
-                        let streamInstanceID = remainingChildPath.shift();
-
-                        params.pathList = remainingChildPath;
-
-                        if (remainingChildPath && remainingChildPath.length > 0) {
-                            // Route to target node's topic manager
-                            let targetNodeID = remainingChildPath.shift();
-                            params.pathList = ['Streams', streamInstanceID].concat(remainingChildPath);
-                            oReturnObject = await thisNode.SendPathCmdToNode(targetNodeID, params);
-                        } else {
-                            // Just list the Nodes with this topic
-                            let providerNames = Object.keys(thisNode.NodeDeclarations);
-                            for (let i = 0; i < providerNames.length; i++) {
-                                let providerName = providerNames[i];
-                                let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
-                                // Loop over Streams
-                                if (!thisNodeDeclaration.Streams) continue;
-                                let streamInstanceList = Object.keys(thisNodeDeclaration.Streams);
-                                for (let j = 0; j < streamInstanceList.length; j++) {
-                                    if (streamInstanceID === streamInstanceList[j]) {
-                                        oReturnObject[providerName] = () => { };
-                                    }
-                                }
-                            }
-                        }
-
-                    } else {
-                        // Return list of Streams
-                        let providerNames = Object.keys(thisNode.NodeDeclarations);
-                        for (let i = 0; i < providerNames.length; i++) {
-                            let providerName = providerNames[i];
-                            let thisNodeDeclaration = thisNode.NodeDeclarations[providerName];
-                            // Loop over Streams
-                            if (!thisNodeDeclaration.Streams) continue;
-                            let streamInstanceList = Object.keys(thisNodeDeclaration.Streams);
-                            for (let j = 0; j < streamInstanceList.length; j++) {
-                                let streamInstanceID = streamInstanceList[j];
-                                if (!oReturnObject[streamInstanceID]) oReturnObject[streamInstanceID] = {
-                                    "StreamName": streamInstanceID,
-                                    "Providers": []
-                                };
-
-                                oReturnObject[streamInstanceID].Providers.push(providerName);
+                    // We need to evaluate the service table, get distinct list of stream names
+                    let streamHash = {};
+                    let thisSubMgr = thisNode.SubscriptionManager;
+                    let serviceTable = thisSubMgr.drpNode.TopologyTracker.ServiceTable;
+                    let serviceEntryIDList = Object.keys(serviceTable);
+                    for (let i = 0; i < serviceEntryIDList.length; i++) {
+                        let serviceEntry = serviceTable[serviceEntryIDList[i]];
+                        for (let j = 0; j < serviceEntry.Streams.length; j++) {
+                            let thisStreamName = serviceEntry.Streams[j];
+                            if (!streamHash[thisStreamName]) streamHash[thisStreamName] = {};
+                            streamHash[thisStreamName][serviceEntry.NodeID] = async (params) => {
+                                params.pathList = ['NodeObj', 'TopicManager', 'Topics', thisStreamName].concat(params.pathList);
+                                let returnObj = await thisNode.SendPathCmdToNode(serviceEntry.NodeID, params);
+                                return returnObj;
                             }
                         }
                     }
+
+                    oReturnObject = thisNode.GetObjFromPath(params, streamHash);
                     return oReturnObject;
                 },
                 Services: async function (params) {
@@ -833,34 +814,6 @@ class DRP_Node {
         };
     }
 
-    /**
-    * Find Providers for a given Stream
-    * @param {string} streamName Stream to find
-    * @returns {string[]} List of Providers offering Stream
-    */
-    FindProvidersForStream(streamName) {
-        let thisNode = this;
-        let myRegistry = thisNode.NodeDeclarations;
-        let providerList = [];
-
-        let providerNames = Object.keys(myRegistry);
-
-        for (let i = 0; i < providerNames.length; i++) {
-            let providerName = providerNames[i];
-            //console.log("Looping over providerName: " + providerName);
-            let thisNodeDeclaration = myRegistry[providerName];
-            // Loop over Streams
-            if (!thisNodeDeclaration.Streams) continue;
-            let streamList = Object.keys(thisNodeDeclaration.Streams);
-            for (let j = 0; j < streamList.length; j++) {
-                if (streamName === streamList[j]) {
-                    providerList.push(providerName);
-                }
-            }
-        }
-        return providerList;
-    }
-
     async EvalPath(oCurrentObject, params, callingEndpoint) {
         let oReturnObject = null;
 
@@ -875,27 +828,32 @@ class DRP_Node {
             PathLoop:
             for (let i = 0; i < aChildPathArray.length; i++) {
 
+                let pathItemName = aChildPathArray[i];
+
+                // User is trying to access a hidden attribute; return null
+                if (pathItemName.substring(0, 2) === '__') return null;
+
                 // Does the child exist?
-                if (oCurrentObject.hasOwnProperty(aChildPathArray[i])) {
+                if (pathItemName in oCurrentObject) {
 
                     // See what we're dealing with
-                    let objectType = typeof oCurrentObject[aChildPathArray[i]];
+                    let objectType = typeof oCurrentObject[pathItemName];
                     switch (objectType) {
                         case 'object':
                             // Special handling needed for Set objects
-                            let attrType = Object.prototype.toString.call(oCurrentObject[aChildPathArray[i]]).match(/^\[object (.*)\]$/)[1];
+                            let attrType = Object.prototype.toString.call(oCurrentObject[pathItemName]).match(/^\[object (.*)\]$/)[1];
 
                             switch (attrType) {
                                 case "Set":
                                     // Set current object
-                                    oCurrentObject = oCurrentObject[aChildPathArray[i]];
+                                    oCurrentObject = oCurrentObject[pathItemName];
                                     if (i + 1 === aChildPathArray.length) {
                                         // Last one - make this the return object
                                         oReturnObject = [...oCurrentObject];
                                     } else {
                                         // More to the path; skip to the next one
                                         i++;
-                                        let setIndexString = aChildPathArray[i];
+                                        let setIndexString = pathItemName;
                                         // If the provided index isn't a number, return
                                         if (isNaN(setIndexString)) return oReturnObject;
                                         let setIndexInt = parseInt(setIndexString);
@@ -911,7 +869,7 @@ class DRP_Node {
                                     break;
                                 default:
                                     // Set current object
-                                    oCurrentObject = oCurrentObject[aChildPathArray[i]];
+                                    oCurrentObject = oCurrentObject[pathItemName];
                                     if (i + 1 === aChildPathArray.length) {
                                         // Last one - make this the return object
                                         oReturnObject = oCurrentObject;
@@ -922,16 +880,16 @@ class DRP_Node {
                             // Send the rest of the path to a function
                             let remainingPath = aChildPathArray.splice(i + 1);
                             params.pathList = remainingPath;
-                            oReturnObject = await oCurrentObject[aChildPathArray[i]](params, callingEndpoint);
+                            oReturnObject = await oCurrentObject[pathItemName](params, callingEndpoint);
                             break PathLoop;
                         case 'string':
-                            oReturnObject = oCurrentObject[aChildPathArray[i]];
+                            oReturnObject = oCurrentObject[pathItemName];
                             break PathLoop;
                         case 'number':
-                            oReturnObject = oCurrentObject[aChildPathArray[i]];
+                            oReturnObject = oCurrentObject[pathItemName];
                             break PathLoop;
                         case 'boolean':
-                            oReturnObject = oCurrentObject[aChildPathArray[i]];
+                            oReturnObject = oCurrentObject[pathItemName];
                             break PathLoop;
                         default:
                             break PathLoop;
@@ -1100,6 +1058,12 @@ class DRP_Node {
         if (serviceObj && serviceObj.serviceName && serviceObj.ClientCmds) {
             thisNode.Services[serviceObj.serviceName] = serviceObj;
 
+            // Create topics for service
+            for (let i = 0; i < serviceObj.Streams.length; i++) {
+                let streamName = serviceObj.Streams[i];
+                if (!thisNode.TopicManager.Topics[streamName]) thisNode.TopicManager.CreateTopic(streamName, 1000);
+            }
+
             let newServiceEntry = new DRP_ServiceTableEntry(thisNode.NodeID, null, serviceObj.serviceName, serviceObj.Type, serviceObj.InstanceID, serviceObj.Zone, serviceObj.Sticky, serviceObj.Priority, serviceObj.Weight, serviceObj.Scope, serviceObj.Dependencies, serviceObj.Streams, serviceObj.Status);
             let addServicePacket = new DRP_TopologyPacket(thisNode.NodeID, "add", "service", newServiceEntry.InstanceID, newServiceEntry.Scope, newServiceEntry.Zone, newServiceEntry);
             thisNode.TopologyTracker.ProcessPacket(addServicePacket, thisNode.NodeID);
@@ -1108,9 +1072,16 @@ class DRP_Node {
 
     async RemoveService(serviceName) {
         let thisNode = this;
-        if (serviceName && thisNode.NodeDeclaration.Services[serviceName]) {
-            delete this.NodeDeclaration.Services[serviceName];
-        }
+        /*
+         * TO DO - Add code to:
+         * 1. Remove from thisNode.Services[]
+         * 2. Create a delete Topology packet
+         * 3. Execute ProcessPacket
+         * 
+         * This function is not currently used anywhere since services are normally
+         * removed with the termination of the entire process.  Multiple instances
+         * of a single service type should not be run from a single process.
+         */
     }
 
     // Execute a service command with the option of routing via the control plane
@@ -1255,7 +1226,7 @@ class DRP_Node {
         // Do the domains match?
         if (!thisNode.DomainName && !declaration.DomainName || thisNode.DomainName === declaration.DomainName) {
             // Do the domain keys match?
-            if (!thisNode.MeshKey && !declaration.MeshKey || thisNode.MeshKey === declaration.MeshKey) {
+            if (!thisNode.__MeshKey && !declaration.MeshKey || thisNode.__MeshKey === declaration.MeshKey) {
                 // Yes - allow the remote node to connect
                 returnVal = true;
             }
@@ -1394,7 +1365,7 @@ class DRP_Node {
 
         let srvHash = null;
 
-        if (thisNode.TestMode && thisNode.TestMode === "true") {
+        if (thisNode.TestMode) {
             thisNode.log("TESTMODE is set - overriding domain, using localhost:8082-8085");
             srvHash = {
                 "localhost-8082": { "name": os.hostname(), "port": 8082 },
@@ -1690,10 +1661,10 @@ class DRP_Node {
         // Return only child keys and data types
         let pathObjList = [];
         if (oTargetObject && typeof oTargetObject === 'object') {
-            let objKeys = Object.keys(oTargetObject);
-            for (let i = 0; i < objKeys.length; i++) {
+            for (let attrName in oTargetObject) {
+                if (attrName.substring(0, 2) === '__') continue;
                 let returnVal;
-                let childAttrObj = oTargetObject[objKeys[i]];
+                let childAttrObj = oTargetObject[attrName];
                 let attrType = Object.prototype.toString.call(childAttrObj).match(/^\[object (.*)\]$/)[1];
 
                 switch (attrType) {
@@ -1714,7 +1685,7 @@ class DRP_Node {
                 }
 
                 let pathObj = {
-                    "Name": objKeys[i],
+                    "Name": attrName,
                     "Type": attrType,
                     "Value": returnVal
                 };
@@ -1887,7 +1858,7 @@ class DRP_Node {
         });
 
         targetEndpoint.RegisterMethod("getNodeDeclaration", async function (...args) {
-            return thisNode.NodeDeclaration;
+            return thisNode.__GetNodeDeclaration();
         });
 
         targetEndpoint.RegisterMethod("pathCmd", async (params, srcEndpoint, token) => {
@@ -2206,6 +2177,24 @@ class DRP_Node {
             return false;
         }
     }
+
+    IsTrue(value) {
+        if (typeof (value) === 'string') {
+            value = value.trim().toLowerCase();
+        }
+        switch (value) {
+            case true:
+            case "true":
+            case 1:
+            case "1":
+            case "on":
+            case "y":
+            case "yes":
+                return true;
+            default:
+                return false;
+        }
+    }
 }
 
 class DRP_NodeClient extends DRP_Client {
@@ -2234,7 +2223,7 @@ class DRP_NodeClient extends DRP_Client {
     async OpenHandler() {
         super.OpenHandler();
         if (this.drpNode.Debug) this.drpNode.log("Node client [" + this.RemoteAddress() + ":" + this.RemotePort() + "] opened");
-        let response = await this.SendCmd("DRP", "hello", this.drpNode.NodeDeclaration, true, null);
+        let response = await this.SendCmd("DRP", "hello", this.drpNode.__GetNodeDeclaration(), true, null);
         if (this.openCallback && typeof this.openCallback === 'function') {
             this.openCallback(response);
         }
