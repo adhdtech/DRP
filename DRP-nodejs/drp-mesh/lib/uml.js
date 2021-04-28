@@ -54,6 +54,10 @@ class UMLDataObject {
         this._serviceName = serviceName;
         this._snapTime = snapTime;
     }
+
+    ToString() {
+        return JSON.stringify(this);
+    }
 }
 
 class UMLClass {

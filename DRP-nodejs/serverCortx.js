@@ -40,11 +40,89 @@ let drpWSRoute = "";
 class DRP_Service_CortxStorage extends DRP_Service {
     constructor(serviceName, drpNode, type, instanceID, sticky, priority, weight, zone, scope, dependencies, streams, status, s3Endpoint, s3AccessKeyID, s3SecretAccessKey) {
         super(serviceName, drpNode, type, instanceID, sticky, priority, weight, zone, scope, dependencies, streams, status);
-
+        let thisService = this;
         this.__S3 = new AWS.S3();
         this.__S3.config.s3ForcePathStyle = true;
         this.__S3.config.credentials = new AWS.Credentials(s3AccessKeyID, s3SecretAccessKey);
         this.__S3.endpoint = s3Endpoint;
+        this.s3BucketName = this.serviceName.toLowerCase();
+
+        this.CreateBucketIfNotExists();
+
+        Object.assign(this.ClientCmds, {
+            listBuckets: async (params) => {
+                let returnObj = await this.__S3.listBuckets().promise();
+                return returnObj;
+            },
+            listObjects: async (params) => {
+                let methodParams = ['bucket'];
+                let parsedParams = thisService.GetParams(params, methodParams);
+                let returnObj = null;
+                if (!parsedParams.bucket) return "Must provide bucket name";
+                returnObj = await this.ListObjects(parsedParams.bucket);
+                return returnObj;
+            },
+            getObject: async (params) => {
+                let methodParams = ['bucket', 'key'];
+                let parsedParams = thisService.GetParams(params, methodParams);
+                let returnObj = null;
+                if (!parsedParams.bucket) return "Must provide bucket name";
+                returnObj = await this.GetObject(parsedParams.bucket, parsedParams.key);
+                return returnObj;
+            },
+            getObjectFromJSON: async (params) => {
+                let methodParams = ['bucket', 'key'];
+                let parsedParams = thisService.GetParams(params, methodParams);
+                let returnObj = null;
+                if (!parsedParams.bucket) return "Must provide bucket name";
+                returnObj = await this.GetObject(parsedParams.bucket, parsedParams.key, true);
+                return returnObj;
+            },
+            putObject: async (params) => {
+                let methodParams = ['bucket', 'key', 'body'];
+                let parsedParams = thisService.GetParams(params, methodParams);
+                let returnObj = null;
+                if (!parsedParams.bucket) return "Must provide bucket name";
+                returnObj = await this.PutObject(parsedParams.bucket, parsedParams.key, parsedParams.body);
+                return returnObj;
+            },
+            getAllObjects: async (params) => {
+                let methodParams = ['bucket'];
+                let parsedParams = thisService.GetParams(params, methodParams);
+                let returnObj = null;
+                if (!parsedParams.bucket) return "Must provide bucket name";
+                returnObj = await this.SearchObjects(parsedParams.bucket, {});
+                return returnObj;
+            }
+        });
+    }
+
+    async VerifyS3Connection() {
+        try {
+            await this.__S3.listBuckets().promise();
+            return null;
+        } catch (ex) {
+            return ex;
+        }
+    }
+
+    async CreateBucketIfNotExists() {
+        let listBucketResponse = await this.ListBuckets();
+        let bucketExists = false;
+        for (let bucketObj of listBucketResponse.Buckets) {
+            if (bucketObj.Name === this.s3BucketName) {
+                bucketExists = true;
+                break;
+            }
+        }
+        if (!bucketExists) {
+            try {
+                let createResponse = await this.__S3.createBucket({ Bucket: this.s3BucketName }).promise();
+                this.drpNode.log(`Created S3 Bucket for service ${this.serviceName}`);
+            } catch (ex) {
+                this.drpNode.log(`Error creating S3 Bucket for service ${this.serviceName}: ${ex}`);
+            }
+        }
     }
 
     async ListBuckets() {
@@ -58,8 +136,9 @@ class DRP_Service_CortxStorage extends DRP_Service {
     }
 
     async GetObject(bucketName, objectKey, convertFromJSON) {
-        let returnObj = await this.__S3.getObject({ Bucket: bucketName, Key: objectKey }).promise();
-        let attachment = returnObj.Body.toString();
+        let returnObj = null;
+        let getObjectResponse = await this.__S3.getObject({ Bucket: bucketName, Key: objectKey }).promise();
+        let attachment = getObjectResponse.Body.toString();
         if (convertFromJSON) {
             returnObj = JSON.parse(attachment);
         } else {
@@ -106,61 +185,32 @@ class DRP_Service_CortxStorage extends DRP_Service {
         }
         return searchResults;
     }
-}
 
-// Create Cortx service class
-class CortxService extends DRP_Service_CortxStorage {
-    constructor(serviceName, drpNode, priority, weight, scope, s3Endpoint, s3AccessKeyID, s3SecretAccessKey) {
-        super(serviceName, drpNode, "CortxService", null, false, priority, weight, drpNode.Zone, scope, null, [], 1, s3Endpoint, s3AccessKeyID, s3SecretAccessKey);
-        let thisService = this;
-
-        // Define global methods
-        this.ClientCmds = {
-            listBuckets: async (params) => {
-                let returnObj = await this.__S3.listBuckets().promise();
-                return returnObj;
-            },
-            listObjects: async (params) => {
-                let methodParams = ['bucket'];
-                let parsedParams = thisService.GetParams(params, methodParams);
-                let returnObj = null;
-                if (!parsedParams.bucket) return "Must provide bucket name";
-                returnObj = await this.ListObjects(parsedParams.bucket);
-                return returnObj;
-            },
-            getObject: async (params) => {
-                let methodParams = ['bucket', 'key'];
-                let parsedParams = thisService.GetParams(params, methodParams);
-                let returnObj = null;
-                if (!parsedParams.bucket) return "Must provide bucket name";
-                returnObj = await this.GetObject(parsedParams.bucket, parsedParams.key);
-                return returnObj;
-            },
-            getObjectFromJSON: async (params) => {
-                let methodParams = ['bucket', 'key'];
-                let parsedParams = thisService.GetParams(params, methodParams);
-                let returnObj = null;
-                if (!parsedParams.bucket) return "Must provide bucket name";
-                returnObj = await this.GetObject(parsedParams.bucket, parsedParams.key, true);
-                return returnObj;
-            },
-            putObject: async (params) => {
-                let methodParams = ['bucket', 'key', 'body'];
-                let parsedParams = thisService.GetParams(params, methodParams);
-                let returnObj = null;
-                if (!parsedParams.bucket) return "Must provide bucket name";
-                returnObj = await this.PutObject(parsedParams.bucket, parsedParams.key, parsedParams.body);
-                return returnObj;
-            },
-            getAllObjects: async (params) => {
-                let methodParams = ['bucket'];
-                let parsedParams = thisService.GetParams(params, methodParams);
-                let returnObj = null;
-                if (!parsedParams.bucket) return "Must provide bucket name";
-                returnObj = await this.SearchObjects(parsedParams.bucket, {});
-                return returnObj;
+    async WriteCacheToCortx() {
+        let classNameList = Object.keys(this.Classes);
+        for (let i = 0; i < classNameList.length; i++) {
+            let thisClassName = classNameList[i];
+            // Loop over records
+            let classObjectKeyList = Object.keys(this.Classes[thisClassName].cache);
+            for (let j = 0; j < classObjectKeyList.length; j++) {
+                let thisClassObjectKey = classObjectKeyList[j];
+                let thisClassObjectData = this.Classes[thisClassName].cache[thisClassObjectKey];
+                let objectKey = `${thisClassName}-${thisClassObjectKey}`;
+                try {
+                    let results = await this.PutObject(this.s3BucketName, objectKey, thisClassObjectData.ToString());
+                } catch (ex) {
+                    this.drpNode.log(`Could not create S3 object ${this.s3BucketName}:${objectKey}: ${ex}`);
+                }
             }
-        };
+        }
+    }
+
+    async ReadCacheFromCortx() {
+        let objectListResponse = await this.ListObjects(this.s3BucketName);
+        for (let objectRecord of objectListResponse.Contents) {
+            let objectData = await this.GetObject(this.s3BucketName, objectRecord.Key, true);
+            this.Classes[objectData['_objClass']].AddRecord(objectData, objectData['_serviceName'], objectData['_snapTime']);
+        }
     }
 }
 
@@ -169,7 +219,10 @@ class FireDept extends DRP_Service_CortxStorage {
     constructor(serviceName, drpNode, priority, weight, scope, s3Endpoint, s3AccessKeyID, s3SecretAccessKey) {
         super(serviceName, drpNode, "FireDept", null, false, priority, weight, drpNode.Zone, scope, null, [], 1, s3Endpoint, s3AccessKeyID, s3SecretAccessKey);
         let thisService = this;
+        this.Startup();
+    }
 
+    async Startup() {
         // Define data classes for this Provider
         this.AddClass(new DRP_UMLClass("Station", [],
             [
@@ -203,73 +256,83 @@ class FireDept extends DRP_Service_CortxStorage {
             []
         ));
 
-        let snapTime = "2021-04-27T08:00:00.000Z";
+        // If sample data doesn't exist in CORTX, add it
+        let objectListResponse = await this.ListObjects(this.s3BucketName);
+        if (objectListResponse.Contents.length === 0) {
+            let snapTime = "2021-04-27T08:00:00.000Z";
 
-        // Add sample data records
-        this.Classes['Station'].AddRecord({
-            "stationID": 1000,
-            "description": "East side of town",
-            "city": "Springfield",
-            "address": "123 Pine St"
-        }, this.serviceName, snapTime);
+            // Add sample data records
+            this.Classes['Station'].AddRecord({
+                "stationID": 1000,
+                "description": "East side of town",
+                "city": "Springfield",
+                "address": "123 Pine St"
+            }, this.serviceName, snapTime);
 
-        // Add sample data records
-        this.Classes['Person'].AddRecord({
-            "personID": 1001,
-            "stationID": 1000,
-            "firstName": "John",
-            "lastName": "Smith",
-            "title": "Firefighter"
-        }, this.serviceName, snapTime);
+            // Add sample data records
+            this.Classes['Person'].AddRecord({
+                "personID": 1001,
+                "stationID": 1000,
+                "firstName": "John",
+                "lastName": "Smith",
+                "title": "Firefighter"
+            }, this.serviceName, snapTime);
 
-        // Add sample data records
-        this.Classes['Person'].AddRecord({
-            "personID": 1002,
-            "stationID": 1000,
-            "firstName": "Bob",
-            "lastName": "Smith",
-            "title": "Firefighter"
-        }, this.serviceName, snapTime);
+            // Add sample data records
+            this.Classes['Person'].AddRecord({
+                "personID": 1002,
+                "stationID": 1000,
+                "firstName": "Bob",
+                "lastName": "Smith",
+                "title": "Firefighter"
+            }, this.serviceName, snapTime);
 
-        this.Classes['Equipment'].AddRecord({
-            "stationID": 1000,
-            "equipmentID": 1100,
-            "description": "Old truck",
-            "status": 0
-        }, this.serviceName, snapTime);
+            this.Classes['Equipment'].AddRecord({
+                "stationID": 1000,
+                "equipmentID": 1100,
+                "description": "Old truck",
+                "status": 0
+            }, this.serviceName, snapTime);
 
-        // Add sample data records
-        this.Classes['Station'].AddRecord({
-            "stationID": 2000,
-            "description": "East side of town",
-            "city": "Springfield",
-            "address": "234 Lake St"
-        }, this.serviceName, snapTime);
+            // Add sample data records
+            this.Classes['Station'].AddRecord({
+                "stationID": 2000,
+                "description": "East side of town",
+                "city": "Springfield",
+                "address": "234 Lake St"
+            }, this.serviceName, snapTime);
 
-        // Add sample data records
-        this.Classes['Person'].AddRecord({
-            "personID": 2001,
-            "stationID": 2000,
-            "firstName": "Ted",
-            "lastName": "Smith",
-            "title": "Firefighter"
-        }, this.serviceName, snapTime);
+            // Add sample data records
+            this.Classes['Person'].AddRecord({
+                "personID": 2001,
+                "stationID": 2000,
+                "firstName": "Ted",
+                "lastName": "Smith",
+                "title": "Firefighter"
+            }, this.serviceName, snapTime);
 
-        // Add sample data records
-        this.Classes['Person'].AddRecord({
-            "personID": 2002,
-            "stationID": 2000,
-            "firstName": "Bill",
-            "lastName": "Smith",
-            "title": "Firefighter"
-        }, this.serviceName, snapTime);
+            // Add sample data records
+            this.Classes['Person'].AddRecord({
+                "personID": 2002,
+                "stationID": 2000,
+                "firstName": "Bill",
+                "lastName": "Smith",
+                "title": "Firefighter"
+            }, this.serviceName, snapTime);
 
-        this.Classes['Equipment'].AddRecord({
-            "stationID": 2000,
-            "equipmentID": 2100,
-            "description": "New truck",
-            "status": 1
-        }, this.serviceName, snapTime);
+            this.Classes['Equipment'].AddRecord({
+                "stationID": 2000,
+                "equipmentID": 2100,
+                "description": "New truck",
+                "status": 1
+            }, this.serviceName, snapTime);
+
+            // Write demo data to CORTX
+            await this.WriteCacheToCortx();
+        }
+
+        // Read demo data from CORTX
+        await this.ReadCacheFromCortx();
 
         // Mark cache loading as complete
         this.Classes['Station'].loadedCache = true;
@@ -289,7 +352,10 @@ class PoliceDept extends DRP_Service_CortxStorage {
     constructor(serviceName, drpNode, priority, weight, scope, s3Endpoint, s3AccessKeyID, s3SecretAccessKey) {
         super(serviceName, drpNode, "PoliceDept", null, false, priority, weight, drpNode.Zone, scope, null, [], 1, s3Endpoint, s3AccessKeyID, s3SecretAccessKey);
         let thisService = this;
+        this.Startup();        
+    }
 
+    async Startup() {
         // Define data classes for this Provider
         this.AddClass(new DRP_UMLClass("Station", [],
             [
@@ -312,59 +378,70 @@ class PoliceDept extends DRP_Service_CortxStorage {
             []
         ));
 
-        let snapTime = "2021-04-27T08:00:00.000Z";
+        // If sample data doesn't exist in CORTX, add it
+        let objectListResponse = await this.ListObjects(this.s3BucketName);
+        if (objectListResponse.Contents.length === 0) {
 
-        // Add sample data records
-        this.Classes['Station'].AddRecord({
-            "stationID": 3000,
-            "description": "East side of town",
-            "city": "Springfield",
-            "address": "123 Pine St"
-        }, this.serviceName, snapTime);
+            let snapTime = "2021-04-27T08:00:00.000Z";
 
-        // Add sample data records
-        this.Classes['Person'].AddRecord({
-            "personID": 3001,
-            "stationID": 3000,
-            "firstName": "John",
-            "lastName": "Smith",
-            "title": "Officer"
-        }, this.serviceName, snapTime);
+            // Add sample data records
+            this.Classes['Station'].AddRecord({
+                "stationID": 3000,
+                "description": "East side of town",
+                "city": "Springfield",
+                "address": "123 Pine St"
+            }, this.serviceName, snapTime);
 
-        // Add sample data records
-        this.Classes['Person'].AddRecord({
-            "personID": 3002,
-            "stationID": 3000,
-            "firstName": "Bob",
-            "lastName": "Smith",
-            "title": "Officer"
-        }, this.serviceName, snapTime);
+            // Add sample data records
+            this.Classes['Person'].AddRecord({
+                "personID": 3001,
+                "stationID": 3000,
+                "firstName": "John",
+                "lastName": "Smith",
+                "title": "Officer"
+            }, this.serviceName, snapTime);
 
-        // Add sample data records
-        this.Classes['Station'].AddRecord({
-            "stationID": 4000,
-            "description": "East side of town",
-            "city": "Springfield",
-            "address": "234 Lake St"
-        }, this.serviceName, snapTime);
+            // Add sample data records
+            this.Classes['Person'].AddRecord({
+                "personID": 3002,
+                "stationID": 3000,
+                "firstName": "Bob",
+                "lastName": "Smith",
+                "title": "Officer"
+            }, this.serviceName, snapTime);
 
-        // Add sample data records
-        this.Classes['Person'].AddRecord({
-            "personID": 4001,
-            "stationID": 4000,
-            "firstName": "Ted",
-            "lastName": "Smith",
-            "title": "Officer"
-        }, this.serviceName, snapTime);
+            // Add sample data records
+            this.Classes['Station'].AddRecord({
+                "stationID": 4000,
+                "description": "East side of town",
+                "city": "Springfield",
+                "address": "234 Lake St"
+            }, this.serviceName, snapTime);
 
-        // Add sample data records
-        this.Classes['Person'].AddRecord({
-            "personID": 4002,
-            "stationID": 4000,
-            "firstName": "Bill",
-            "lastName": "Smith",
-            "title": "Officer"
-        }, this.serviceName, snapTime);
+            // Add sample data records
+            this.Classes['Person'].AddRecord({
+                "personID": 4001,
+                "stationID": 4000,
+                "firstName": "Ted",
+                "lastName": "Smith",
+                "title": "Officer"
+            }, this.serviceName, snapTime);
+
+            // Add sample data records
+            this.Classes['Person'].AddRecord({
+                "personID": 4002,
+                "stationID": 4000,
+                "firstName": "Bill",
+                "lastName": "Smith",
+                "title": "Officer"
+            }, this.serviceName, snapTime);
+
+            // Write demo data to CORTX
+            await this.WriteCacheToCortx();
+        }
+
+        // Read demo data from CORTX
+        await this.ReadCacheFromCortx();
 
         // Mark cache loading as complete
         this.Classes['Station'].loadedCache = true;
@@ -440,10 +517,24 @@ myNode.ConnectToMesh(async () => {
     //myNode.AddService(cortxService);
 
     let fireService = new FireDept("FireDept", myNode, 10, 10, "global", s3Endpoint, s3AccessKeyID, s3SecretAccessKey);
+    let verifyS3ConnErr = await fireService.VerifyS3Connection()
+    if (verifyS3ConnErr) {
+        myNode.log(`Error connecting to S3: ${verifyS3ConnErr}`);
+        process.exit(1);
+    }
     myNode.AddService(fireService);
 
     let policeService = new PoliceDept("PoliceDept", myNode, 10, 10, "global", s3Endpoint, s3AccessKeyID, s3SecretAccessKey);
     myNode.AddService(policeService);
+
+    async function wait(ms) {
+        return new Promise(resolve => {
+            setTimeout(resolve, ms);
+        });
+    }
+
+    // Wait for services to load cache since their startup processes are async
+    await wait(3000);
 
     let hiveService = new rSageHive("Hive", myNode, 10, 10, "global");
     hiveService.Start(async () => {
