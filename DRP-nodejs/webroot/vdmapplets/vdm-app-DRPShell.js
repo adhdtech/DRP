@@ -31,9 +31,21 @@
                         let cmdParams = cmdParts[2] || "";
                         let results = null;
                         let pathList = [];
-                        let doPipeOut = (i+1 < cmdArray.length);
+                        let doPipeOut = (i + 1 < cmdArray.length);
                         let pipeDataIn = pipeData;
                         pipeData = "";
+                        let cmdSwitches = {};
+                        let cmdData = [];
+                        let cmdParamsList = cmdParams.split(" ")
+                        for (let i = 0; i < cmdParamsList.length; i++) {
+                            let thisParam = cmdParamsList[i];
+                            let switchParts = thisParam.match(/^-([\w])=(.*)$/);
+                            if (switchParts) {
+                                cmdSwitches[switchParts[1]] = switchParts[2];
+                            } else {
+                                cmdData.push(thisParam);
+                            }
+                        }
                         //console.dir({ cmdVerb: cmdVerb, cmdParams: cmdParams });
                         try {
                             switch (cmdVerb) {
@@ -114,7 +126,7 @@
                                     } else {
                                         dataOut = `No results`;
                                         if (doPipeOut) pipeData += dataOut;
-                                        term.write(`\x1B[31m${dataOut}\x1B[0m`);
+                                        term.write(`\x1B[91m${dataOut}\x1B[0m`);
                                     }
                                     break;
                                 case 'gi':
@@ -129,14 +141,14 @@
 
                                     if (pathList.length === 0) {
                                         // Error
-                                        term.write(`\x1B[31mNo target specified\x1B[0m\r\n`);
+                                        term.write(`\x1B[91mNo target specified\x1B[0m\r\n`);
                                         break;
                                     }
 
                                     results = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: false }, true);
                                     if (typeof results === "string") {
                                         // Error
-                                        term.write(`\x1B[31m${results}\x1B[0m\r\n`);
+                                        term.write(`\x1B[91m${results}\x1B[0m\r\n`);
                                     } else if (results && results.pathItem) {
                                         // Have pathItem
                                         if (doPipeOut) pipeData = results.pathItem;
@@ -158,7 +170,7 @@
                                     results = await myApp.sendCmd("DRP", "getTopology", null, true);
                                     //term.write(`\x1B[32m${JSON.stringify(results)}\x1B[0m`);
                                     if (doPipeOut) pipeData = results
-                                    else term.write(`\x1B[36m${JSON.stringify(results, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
+                                    else term.write(`\x1B[96m${JSON.stringify(results, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
                                     break;
                                 case 'whoami':
                                     term.write(`\x1B[33mUserName: \x1B[0m${myApp.appVars.UserInfo.UserName}`);
@@ -191,13 +203,41 @@
                                     pom.setAttribute('download', downloadFileName);
                                     pom.click();
                                     break;
+                                case 'watch':
+                                    // Open a new window and stream output
+                                    let scope;
+                                    switch (cmdSwitches["s"]) {
+                                        case 'global':
+                                            scope = "global";
+                                            break;
+                                        case 'zone':
+                                            scope = "zone";
+                                            break;
+                                        default:
+                                            scope = "local";
+                                    }
+                                    if (cmdData[0]) {
+                                        let topicName = cmdData[0];
+                                        myApp.sendCmd_StreamHandler("DRP", "subscribe", { topicName: topicName, scope: scope }, (streamData) => {
+                                            if (typeof streamData.payload === "string") {
+                                                term.write(`\x1B[94m[${topicName}] \x1B[92m${streamData.payload}\x1B[0m\r\n`);
+                                            } else {
+                                                term.write(`\x1B[94m[${topicName}] \x1B[92m${JSON.stringify(streamData.payload)}\x1B[0m\r\n`);
+                                            }
+                                        });
+                                        term.write(`\x1B[33mSubscribed to stream ${topicName}\x1B[0m`);
+                                        term.write(`\r\n`);
+                                    } else {
+                                        term.write(`\x1B[91mSyntax: watch [-s local|zone|global] {streamName}\x1B[0m\r\n`);
+                                    }
+                                    break;
                                 default:
-                                    term.write(`\x1B[31mInvalid command [${cmdVerb}]\x1B[0m`);
+                                    term.write(`\x1B[91mInvalid command [${cmdVerb}]\x1B[0m`);
                                     term.write(`\r\n`);
                                     break;
                             }
                         } catch (ex) {
-                            term.write(`\x1B[31mError executing command [${cmdVerb}]: ${ex}\x1B[0m\r\n`);
+                            term.write(`\x1B[91mError executing command [${cmdVerb}]: ${ex}\x1B[0m\r\n`);
                         }
                     }
                 }

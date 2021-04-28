@@ -35,6 +35,7 @@ COPY drpProvider-BlueCat.js .
 COPY drpProvider-NetScaler.js .
 COPY drpProvider-Test-Authenticator.js .
 COPY drpProvider-LDAP-Authenticator.js .
+COPY serverCortx.js .
 
 RUN npm install
 # If you are building your code for production

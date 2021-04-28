@@ -261,7 +261,7 @@ class VDMServer extends DRP_Service {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>rSage Desktop</title>
+    <title>DRP Desktop</title>
     <meta name="msapplication-TileColor" content="#5bc0de" />
 
     <!-- External CSS -->
@@ -305,7 +305,7 @@ window.onload = function () {
     // Set applets path
     let vdmAppletsPath = "${thisVDMServer.vdmAppletsDir}";
 
-    let myVDMDesktop = new VDMDesktop(mainPage, "rSage Desktop", vdmAppletsPath);
+    let myVDMDesktop = new VDMDesktop(mainPage, "DRP Desktop", vdmAppletsPath);
 
     let vdmClient = new VDMClient(myVDMDesktop);
 

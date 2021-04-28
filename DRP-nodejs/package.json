@@ -17,13 +17,14 @@
   "author": "Pete Brown <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
+    "aws-sdk": "^2.892.0",
     "cucm-sql-async": "./cucm-sql-async",
     "drp-mesh": "./drp-mesh",
     "drp-service-bluecat": "./drp-service-bluecat",
     "drp-service-cache": "./drp-service-cache",
-    "drp-service-logger": "./drp-service-logger",
     "drp-service-docmgr": "./drp-service-docmgr",
     "drp-service-ldap": "./drp-service-ldap",
+    "drp-service-logger": "./drp-service-logger",
     "drp-service-netscaler": "./drp-service-netscaler",
     "drp-service-rsage": "./drp-service-rsage"
   }
