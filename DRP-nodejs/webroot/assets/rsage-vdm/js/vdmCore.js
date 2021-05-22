@@ -443,7 +443,7 @@ class VDMDesktop {
         $(newAppletObj.windowDiv).children(".vdmWindowHeader").children(".ctrls").append(ctrlAnch);
 
         // If we have a Startup Script, run it
-        if (newAppletObj.appletName && thisVDMDesktop.appletProfiles[newAppletObj.appletName].startupScript !== '') {
+        if (newAppletObj.appletName && thisVDMDesktop.appletProfiles[newAppletObj.appletName] && thisVDMDesktop.appletProfiles[newAppletObj.appletName].startupScript !== '') {
             thisVDMDesktop.evalWithinContext(newAppletObj, thisVDMDesktop.appletProfiles[newAppletObj.appletName].startupScript);
         }
 

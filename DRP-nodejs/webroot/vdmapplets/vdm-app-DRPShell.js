@@ -40,6 +40,69 @@
     async runStartup() {
         let myApp = this;
 
+        let watchWindowApplet = {
+            appletName: "TopicWatch",
+            title: "Topic Watch",
+            sizeX: 620,
+            sizeY: 400,
+            vdmClient: myApp.vdmClient,
+            appletClass: (class extends rSageApplet {
+                constructor(appletProfile, startupParams) {
+                    super(appletProfile);
+                    let myApp = this;
+
+                    // Prerequisites
+                    myApp.preReqs = [
+                    ];
+
+                    // Dropdown menu items
+                    myApp.menu = {
+                    };
+
+                    myApp.appFuncs = {
+                    };
+
+                    myApp.appVars = {
+                        startupParams: startupParams
+                    };
+
+                    myApp.recvCmd = {
+                    };
+
+                }
+
+                runStartup() {
+                    let myApp = this;
+
+                    myApp.appVars.termDiv = myApp.windowParts["data"];
+                    myApp.appVars.termDiv.style.backgroundColor = "black";
+                    let term = new Terminal();
+                    myApp.appVars.term = term;
+                    myApp.appVars.fitaddon = new FitAddon.FitAddon();
+                    term.loadAddon(myApp.appVars.fitaddon);
+                    term.open(myApp.appVars.termDiv);
+                    term.setOption('cursorBlink', true);
+                    term.setOption('bellStyle', 'sound');
+
+                    let topicName = myApp.appVars.startupParams.topicName;
+                    let scope = myApp.appVars.startupParams.scope;
+
+                    myApp.sendCmd_StreamHandler("DRP", "subscribe", { topicName: topicName, scope: scope }, (streamData) => {
+                        if (typeof streamData.payload === "string") {
+                            term.write(`\x1B[94m[${topicName}] \x1B[92m${streamData.payload}\x1B[0m\r\n`);
+                        } else {
+                            term.write(`\x1B[94m[${topicName}] \x1B[92m${JSON.stringify(streamData.payload)}\x1B[0m\r\n`);
+                        }
+                    });
+
+                    myApp.resizeMovingHook = function () {
+                        myApp.appVars.fitaddon.fit();
+                    };
+
+                    myApp.appVars.fitaddon.fit();
+                }
+            })
+        }
 
         class drpMethodSwitch {
             constructor(switchName, dataType, description) {
@@ -415,18 +478,39 @@
 
                         if (switchesAndData.data) {
                             let topicName = switchesAndData.data;
-                            this.vdmApp.sendCmd_StreamHandler("DRP", "subscribe", { topicName: topicName, scope: scope }, (streamData) => {
-                                if (typeof streamData.payload === "string") {
-                                    term.write(`\x1B[94m[${topicName}] \x1B[92m${streamData.payload}\x1B[0m\r\n`);
-                                } else {
-                                    term.write(`\x1B[94m[${topicName}] \x1B[92m${JSON.stringify(streamData.payload)}\x1B[0m\r\n`);
-                                }
-                            });
-                            term.write(`\x1B[33mSubscribed to stream ${topicName}\x1B[0m`);
+                            let scope = switchesAndData.scope;
+
+                            let newApp = new watchWindowApplet.appletClass(watchWindowApplet, { topicName: topicName, scope: scope });
+                            await myApp.vdmDesktop.newWindow(newApp);
+                            myApp.vdmDesktop.appletInstances[newApp.appletIndex] = newApp;
+
+                            //term.write(`\x1B[33mSubscribed to stream ${topicName}\x1B[0m`);
+                            term.write(`\x1B[33mOpened new window for streaming data\x1B[0m`);
                             term.write(`\r\n`);
                         } else {
                             term.write(`\x1B[91mSyntax: watch [-s local|zone|global] {streamName}\x1B[0m\r\n`);
                         }
+                    }));
+
+                this.AddMethod(new drpMethod("scrollback",
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        console.log("Usage: scrollback [MAXLINES]");
+                        console.log("Set the terminal scrollback.\n");
+                        console.log("Optional arguments:");
+                        console.log("  (none)");
+                    }, null,
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        let returnObj = null;
+                        if (switchesAndData.data) {
+                            myApp.appVars.term.setOption('scrollback', switchesAndData.data);
+                            term.write(`\x1B[33mScrollback set to \x1B[0m${switchesAndData.data}\x1B[33m lines.`);
+                            term.write(`\r\n`);
+                        } else {
+                            let scrollbackLinesCount = myApp.appVars.term.getOption('scrollback');
+                            term.write(`\x1B[33mScrollback currently \x1B[0m${scrollbackLinesCount}\x1B[33m lines.`);
+                            term.write(`\r\n`);
+                        }
+                        return returnObj;
                     }));
 
                 this.AddMethod(new drpMethod("grep",
