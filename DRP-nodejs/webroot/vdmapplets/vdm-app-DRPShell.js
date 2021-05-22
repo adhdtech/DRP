@@ -19,233 +19,16 @@
          */
 
         myApp.appFuncs = {
-            execDRPShell: async (term, commandLine) => {
-                let pipeData = null;
-                //term.write(`\r\nRunning command >>>${commandLine}<<<`);
-                term.write(`\r\n`);
-                let cmdArray = commandLine.split(" | ");
-                for (let i = 0; i < cmdArray.length; i++) {
-                    let cmdParts = cmdArray[i].match(/^(\S*)(?: (.*))?$/);
-                    if (cmdParts) {
-                        let cmdVerb = cmdParts[1];
-                        let cmdParams = cmdParts[2] || "";
-                        let results = null;
-                        let pathList = [];
-                        let doPipeOut = (i + 1 < cmdArray.length);
-                        let pipeDataIn = pipeData;
-                        pipeData = "";
-                        let cmdSwitches = {};
-                        let cmdData = [];
-                        let cmdParamsList = cmdParams.split(" ")
-                        for (let i = 0; i < cmdParamsList.length; i++) {
-                            let thisParam = cmdParamsList[i];
-                            let switchParts = thisParam.match(/^-([\w])=(.*)$/);
-                            if (switchParts) {
-                                cmdSwitches[switchParts[1]] = switchParts[2];
-                            } else {
-                                cmdData.push(thisParam);
-                            }
-                        }
-                        //console.dir({ cmdVerb: cmdVerb, cmdParams: cmdParams });
-                        try {
-                            switch (cmdVerb) {
-                                case '?':
-                                case 'help':
-                                    //term.write(`\x1B[0mDRP Shell commands:\x1B[0m\r\n`);
-                                    ['help', 'ls', 'cat', 'clear', 'topology', 'whoami', 'token', 'endpointid', 'exit'].forEach(thisCmd => {
-                                        if (doPipeOut) pipeData += `  ${thisCmd}`;
-                                        else term.write(`\x1B[95m  ${thisCmd}\x1B[0m\r\n`);
-                                    });
-                                    break;
-                                case 'cls':
-                                case 'clear':
-                                    term.clear();
-                                    break;
-                                case 'exit':
-                                case 'quit':
-                                    myApp.vdmDesktop.closeWindow(myApp);
-                                    break;
-                                case 'ls':
-                                case 'dir':
-                                    if (cmdParams.length > 0) pathList = cmdParams.split(/[\/\\]/g);
-
-                                    let namePadSize = 0;
-                                    let typePadSize = 0;
-                                    let dataOut = null;
-
-                                    // Remove leading empty entries
-                                    while (pathList.length > 0 && pathList[0] === "") pathList.shift();
-
-                                    // Remove trailing empty entries
-                                    while (pathList.length > 0 && pathList[pathList.length - 1] === "") pathList.pop();
-
-                                    results = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: true }, true);
-                                    if (results && results.pathItemList && results.pathItemList.length > 0) {
-                                        // First, iterate over all and get the max length of the Name and Type fields
-                                        for (let i = 0; i < results.pathItemList.length; i++) {
-                                            let entryObj = results.pathItemList[i];
-                                            if (entryObj.Name && (!namePadSize || entryObj.Name.length > namePadSize)) {
-                                                namePadSize = entryObj.Name.length;
-                                            }
-                                            if (entryObj.Type && (!typePadSize || entryObj.Type.length > typePadSize)) {
-                                                typePadSize = entryObj.Type.length;
-                                            }
-                                        }
-
-                                        // We have a directory listing
-                                        for (let i = 0; i < results.pathItemList.length; i++) {
-                                            let entryObj = results.pathItemList[i];
-                                            if (!entryObj.Name) {
-                                                console.log("This entry could not be printed, has a null name");
-                                                console.dir(entryObj);
-                                                continue;
-                                            }
-                                            switch (entryObj.Type) {
-                                                case null:
-                                                case 'Boolean':
-                                                case 'Number':
-                                                case 'String':
-                                                    dataOut = `${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type ? entryObj.Type.padEnd(typePadSize) : "null".padEnd(16)}\t${entryObj.Value}`;
-                                                    if (doPipeOut) pipeData += dataOut + "\r\n";
-                                                    else term.write(`\x1B[0m${dataOut}\x1B[0m\r\n`);
-                                                    break;
-                                                case 'Function':
-                                                case 'AsyncFunction':
-                                                    dataOut = `${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type.padEnd(typePadSize)}`;
-                                                    if (doPipeOut) pipeData += dataOut + "\r\n";
-                                                    else term.write(`\x1B[92m${dataOut}\x1B[0m\r\n`);
-                                                    break;
-                                                default:
-                                                    // Must be some sort of object
-                                                    dataOut = `${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type.padEnd(typePadSize)}\t${entryObj.Value}`;
-                                                    if (doPipeOut) pipeData += dataOut + "\r\n";
-                                                    else term.write(`\x1B[1;34m${dataOut}\x1B[0m\r\n`);
-                                                    break;
-                                            }
-                                        }
-                                    } else {
-                                        dataOut = `No results`;
-                                        if (doPipeOut) pipeData += dataOut;
-                                        term.write(`\x1B[91m${dataOut}\x1B[0m`);
-                                    }
-                                    break;
-                                case 'gi':
-                                case 'cat':
-                                    if (cmdParams.length > 0) pathList = cmdParams.split(/[\/\\]/g);
-
-                                    // Remove leading empty entries
-                                    while (pathList.length > 0 && pathList[0] === "") pathList.shift();
-
-                                    // Remove trailing empty entries
-                                    while (pathList.length > 0 && pathList[pathList.length - 1] === "") pathList.pop();
-
-                                    if (pathList.length === 0) {
-                                        // Error
-                                        term.write(`\x1B[91mNo target specified\x1B[0m\r\n`);
-                                        break;
-                                    }
-
-                                    results = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: false }, true);
-                                    if (typeof results === "string") {
-                                        // Error
-                                        term.write(`\x1B[91m${results}\x1B[0m\r\n`);
-                                    } else if (results && results.pathItem) {
-                                        // Have pathItem
-                                        if (doPipeOut) pipeData = results.pathItem;
-                                        else {
-                                            if (typeof results.pathItem === "object") {
-                                                term.write(`\x1B[0m${JSON.stringify(results.pathItem, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
-                                            } else if (typeof results.pathItem === "string") {
-                                                term.write(`\x1B[0m${results.pathItem.replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
-                                            } else {
-                                                term.write(`\x1B[0m${results.pathItem}\x1B[0m\r\n`);
-                                            }
-                                        }
-                                    } else {
-                                        if (doPipeOut) pipeData = results;
-                                        else term.write(`\x1B[0m${results}\x1B[0m\r\n`);
-                                    }
-                                    break;
-                                case 'topology':
-                                    results = await myApp.sendCmd("DRP", "getTopology", null, true);
-                                    //term.write(`\x1B[32m${JSON.stringify(results)}\x1B[0m`);
-                                    if (doPipeOut) pipeData = results
-                                    else term.write(`\x1B[96m${JSON.stringify(results, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
-                                    break;
-                                case 'whoami':
-                                    term.write(`\x1B[33mUserName: \x1B[0m${myApp.appVars.UserInfo.UserName}`);
-                                    term.write(`\r\n\x1B[33mFullName: \x1B[0m${myApp.appVars.UserInfo.FullName}`);
-                                    term.write(`\r\n\x1B[33m  Groups: \x1B[0m${myApp.appVars.UserInfo.Groups.join('\r\n          ')}`);
-                                    term.write(`\r\n`);
-                                    //term.write(`\x1B[36m${JSON.stringify(myApp.appVars.UserInfo, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
-                                    break;
-                                case 'token':
-                                    term.write(`\x1B[33mToken: \x1B[0m${myApp.appVars.UserInfo.Token}`);
-                                    term.write(`\r\n`);
-                                    break;
-                                case 'endpointid':
-                                    term.write(`\x1B[33mEndpointID: \x1B[0m${myApp.appVars.EndpointID}`);
-                                    term.write(`\r\n`);
-                                    break;
-                                case 'download':
-                                    term.write(`\x1B[33mDownloading output\x1B[0m`);
-                                    term.write(`\r\n`);
-                                    let downloadFileName = "download.txt";
-                                    if (cmdParams.length > 0) downloadFileName = cmdParams;
-                                    var pom = document.createElement('a');
-                                    let downloadData = null;
-                                    if (typeof pipeDataIn === 'string') {
-                                        downloadData = pipeDataIn;
-                                    } else {
-                                        downloadData = JSON.stringify(pipeDataIn, null, 2);
-                                    }
-                                    pom.setAttribute('href', 'data:application/xml;charset=utf-8,' + encodeURIComponent(downloadData));
-                                    pom.setAttribute('download', downloadFileName);
-                                    pom.click();
-                                    break;
-                                case 'watch':
-                                    // Open a new window and stream output
-                                    let scope;
-                                    switch (cmdSwitches["s"]) {
-                                        case 'global':
-                                            scope = "global";
-                                            break;
-                                        case 'zone':
-                                            scope = "zone";
-                                            break;
-                                        default:
-                                            scope = "local";
-                                    }
-                                    if (cmdData[0]) {
-                                        let topicName = cmdData[0];
-                                        myApp.sendCmd_StreamHandler("DRP", "subscribe", { topicName: topicName, scope: scope }, (streamData) => {
-                                            if (typeof streamData.payload === "string") {
-                                                term.write(`\x1B[94m[${topicName}] \x1B[92m${streamData.payload}\x1B[0m\r\n`);
-                                            } else {
-                                                term.write(`\x1B[94m[${topicName}] \x1B[92m${JSON.stringify(streamData.payload)}\x1B[0m\r\n`);
-                                            }
-                                        });
-                                        term.write(`\x1B[33mSubscribed to stream ${topicName}\x1B[0m`);
-                                        term.write(`\r\n`);
-                                    } else {
-                                        term.write(`\x1B[91mSyntax: watch [-s local|zone|global] {streamName}\x1B[0m\r\n`);
-                                    }
-                                    break;
-                                default:
-                                    term.write(`\x1B[91mInvalid command [${cmdVerb}]\x1B[0m`);
-                                    term.write(`\r\n`);
-                                    break;
-                            }
-                        } catch (ex) {
-                            term.write(`\x1B[91mError executing command [${cmdVerb}]: ${ex}\x1B[0m\r\n`);
-                        }
-                    }
-                }
-            }
         };
 
         myApp.appVars = {
-            dataStructs: {},
+            aliases: {
+                '?': 'help',
+                'dir': 'ls',
+                'gi': 'cat',
+                'cls': 'clear',
+                'quit': 'exit'
+            },
             term: null,
             termDiv: null
         };
@@ -256,6 +39,484 @@
 
     async runStartup() {
         let myApp = this;
+
+
+        class drpMethodSwitch {
+            constructor(switchName, dataType, description) {
+                this.switchName = switchName;
+                this.dataType = dataType;
+                this.description = description;
+            }
+        }
+
+        class drpMethod {
+            /**
+             * 
+             * @param {string} name
+             * @param {string} showHelp
+             * @param {Object.<string,drpMethodSwitch>} switches
+             * @param {Function} func
+             */
+            constructor(name, showHelp, switches, func) {
+                this.name = name;
+                this.showHelp = showHelp;
+                this.switches = switches;
+                this.func = func;
+            }
+
+            parseSwitchesAndData(switchesAndData) {
+                let returnObj = {
+                    switches: {},
+                    data: ""
+                }
+                if (!switchesAndData) return returnObj;
+                // Built regex
+                /**
+                 * 1. Define empty array for switch regex patterns
+                 * 2. Iterate over switches, add switch regex to array
+                 * 3. Join with OR into string
+                 * 4. Add to template
+                 * 5. Evaluate
+                 **/
+                let switchDataRegExList = [];
+                if (this.switches) {
+                    let switchList = Object.keys(this.switches);
+                    for (let i = 0; i < switchList.length; i++) {
+                        let thisSwitchDataRegEx;
+                        let thisParameter = this.switches[switchList[i]];
+                        if (thisParameter.dataType) {
+                            thisSwitchDataRegEx = `(?: ?-(?:${thisParameter.switchName}) (?:(?:".*?")|(?:'.*?')|(?:[^-][^ ?]*)))`
+                        } else {
+                            thisSwitchDataRegEx = `(?: ?-(?:${thisParameter.switchName}))`
+                        }
+                        switchDataRegExList.push(thisSwitchDataRegEx);
+                    }
+                }
+                let switchDataRegEx = new RegExp('^((?:' + switchDataRegExList.join('|') + ')*)?(?: ?([^-].*))?$');
+                try {
+                    let switchRegEx = / ?-(\w)(?: ((?:".*?")|(?:'.*?')|(?:[^-][^ ?]*)))?/g;
+                    let switchDataMatch = switchesAndData.match(switchDataRegEx);
+                    if (switchDataMatch) {
+                        let switchHash = {};
+                        let switchMatch;
+                        while (switchMatch = switchRegEx.exec(switchDataMatch[1])) {
+                            switchHash[switchMatch[1]] = switchMatch[2] || null;
+                        }
+                        returnObj.switches = switchHash;
+                        returnObj.data = switchDataMatch[2] || "";
+                    }
+                } catch (ex) {
+                    let ted = 1;
+                }
+                return returnObj;
+            }
+
+            async execute(switchesAndData, doPipeOut, pipeDataIn) {
+                // Parse params
+                let switchesAndDataObj = this.parseSwitchesAndData(switchesAndData);
+
+                // If the help switch was specified, display help and return
+                let results = await this.func(switchesAndDataObj, doPipeOut, pipeDataIn);
+                return results;
+            }
+        }
+
+        class drpShell {
+            constructor(vdmApp, term) {
+                /** @type VDMApplet */
+                this.vdmApp = vdmApp;
+                /** @type Terminal */
+                this.term = term;
+                /** @type Object.<string,drpMethod> */
+                this.drpMethods = {};
+
+                this.AddMethod(new drpMethod("help",
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        let methodList = Object.keys(this.drpMethods);
+                        methodList.forEach(thisCmd => {
+                            if (doPipeOut) pipeData += `  ${thisCmd}`;
+                            else term.write(`\x1B[95m  ${thisCmd}\x1B[0m\r\n`);
+                        });
+                    }, null,
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        let methodList = Object.keys(this.drpMethods);
+                        methodList.forEach(thisCmd => {
+                            if (doPipeOut) pipeData += `  ${thisCmd}`;
+                            else term.write(`\x1B[95m  ${thisCmd}\x1B[0m\r\n`);
+                        });
+                    }));
+
+                this.AddMethod(new drpMethod("clear",
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        console.log("Usage: clear");
+                        console.log("Clear screen.\n");
+                        console.log("Optional arguments:");
+                        console.log("  (none)");
+                    }, null,
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        term.clear();
+                    }));
+
+                this.AddMethod(new drpMethod("exit",
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        console.log("Usage: exit");
+                        console.log("Exit DRP Shell.\n");
+                        console.log("Optional arguments:");
+                        console.log("  (none)");
+                    }, null,
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        vdmApp.vdmDesktop.closeWindow(myApp);
+                    }));
+
+                this.AddMethod(new drpMethod("ls",
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        console.log("Usage: ls [OPTIONS]... [PATH]");
+                        console.log("List path contents.\n");
+                        console.log("Optional arguments:");
+                        console.log("  ... need to add formatting options...");
+                    }, null,
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        let returnObj = "";
+                        let dataOut = null;
+                        let pathList = [];
+                        if (switchesAndData.data.length > 0) pathList = switchesAndData.data.split(/[\/\\]/g);
+
+                        let namePadSize = 0;
+                        let typePadSize = 0;
+
+                        // Remove leading empty entries
+                        while (pathList.length > 0 && pathList[0] === "") pathList.shift();
+
+                        // Remove trailing empty entries
+                        while (pathList.length > 0 && pathList[pathList.length - 1] === "") pathList.pop();
+
+                        let results = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: true }, true);
+                        if (results && results.pathItemList && results.pathItemList.length > 0) {
+                            // First, iterate over all and get the max length of the Name and Type fields
+                            for (let i = 0; i < results.pathItemList.length; i++) {
+                                let entryObj = results.pathItemList[i];
+                                if (entryObj.Name && (!namePadSize || entryObj.Name.length > namePadSize)) {
+                                    namePadSize = entryObj.Name.length;
+                                }
+                                if (entryObj.Type && (!typePadSize || entryObj.Type.length > typePadSize)) {
+                                    typePadSize = entryObj.Type.length;
+                                }
+                            }
+
+                            // We have a directory listing
+                            for (let i = 0; i < results.pathItemList.length; i++) {
+                                let entryObj = results.pathItemList[i];
+                                if (!entryObj.Name) {
+                                    console.log("This entry could not be printed, has a null name");
+                                    console.dir(entryObj);
+                                    continue;
+                                }
+                                switch (entryObj.Type) {
+                                    case null:
+                                    case 'Boolean':
+                                    case 'Number':
+                                    case 'String':
+                                        dataOut = `${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type ? entryObj.Type.padEnd(typePadSize) : "null".padEnd(16)}\t${entryObj.Value}`;
+                                        if (doPipeOut) returnObj += dataOut + "\r\n";
+                                        else term.write(`\x1B[0m${dataOut}\x1B[0m\r\n`);
+                                        break;
+                                    case 'Function':
+                                    case 'AsyncFunction':
+                                        dataOut = `${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type.padEnd(typePadSize)}`;
+                                        if (doPipeOut) returnObj += dataOut + "\r\n";
+                                        else term.write(`\x1B[92m${dataOut}\x1B[0m\r\n`);
+                                        break;
+                                    default:
+                                        // Must be some sort of object
+                                        dataOut = `${entryObj.Name.padEnd(namePadSize)}\t${entryObj.Type.padEnd(typePadSize)}\t${entryObj.Value}`;
+                                        if (doPipeOut) returnObj += dataOut + "\r\n";
+                                        else term.write(`\x1B[1;34m${dataOut}\x1B[0m\r\n`);
+                                        break;
+                                }
+                            }
+                        } else {
+                            dataOut = `No results`;
+                            if (doPipeOut) {
+                                returnObj += dataOut;
+                            } else {
+                                term.write(`\x1B[91m${dataOut}\x1B[0m`);
+                            }
+                        }
+                        return returnObj;
+                    }));
+
+                this.AddMethod(new drpMethod("cat",
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        console.log("Usage: cat [OPTIONS]... [PATH]");
+                        console.log("Get object from path.\n");
+                        console.log("Optional arguments:");
+                        console.log("  ... need to add formatting options...");
+                    }, null,
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        let returnObj = null;
+                        let pathList = [];
+                        if (switchesAndData.data.length > 0) pathList = switchesAndData.data.split(/[\/\\]/g);
+
+                        // Remove leading empty entries
+                        while (pathList.length > 0 && pathList[0] === "") pathList.shift();
+
+                        // Remove trailing empty entries
+                        while (pathList.length > 0 && pathList[pathList.length - 1] === "") pathList.pop();
+
+                        if (pathList.length === 0) {
+                            // Error
+                            term.write(`\x1B[91mNo target specified\x1B[0m\r\n`);
+                            return;
+                        }
+
+                        let results = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: false }, true);
+                        if (typeof results === "string") {
+                            // Error
+                            term.write(`\x1B[91m${results}\x1B[0m\r\n`);
+                        } else if (results && results.pathItem) {
+                            // Have pathItem
+                            if (doPipeOut) returnObj = results.pathItem;
+                            else {
+                                if (typeof results.pathItem === "object") {
+                                    term.write(`\x1B[0m${JSON.stringify(results.pathItem, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                                } else if (typeof results.pathItem === "string") {
+                                    term.write(`\x1B[0m${results.pathItem.replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                                } else {
+                                    term.write(`\x1B[0m${results.pathItem}\x1B[0m\r\n`);
+                                }
+                            }
+                        } else {
+                            if (doPipeOut) returnObj = results;
+                            else term.write(`\x1B[0m${results}\x1B[0m\r\n`);
+                        }
+                        return returnObj;
+                    }));
+
+                this.AddMethod(new drpMethod("topology",
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        console.log("Usage: topology [OPTIONS]...");
+                        console.log("Get mesh topology.\n");
+                        console.log("Optional arguments:");
+                        console.log("  ... need to add selection and formatting options...");
+                    }, null,
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        let returnObj = null;
+                        let results = await myApp.sendCmd("DRP", "getTopology", null, true);
+                        if (doPipeOut) returnObj = results
+                        else term.write(`\x1B[96m${JSON.stringify(results, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
+                        return returnObj;
+                    }));
+
+                this.AddMethod(new drpMethod("whoami",
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        console.log("Usage: whoami [OPTIONS]...");
+                        console.log("Get my info.\n");
+                        console.log("Optional arguments:");
+                        console.log("  (none)");
+                    }, null,
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        let returnObj = null;
+                        if (doPipeOut) {
+                            returnObj = `UserName: ${myApp.appVars.UserInfo.UserName}`;
+                            returnObj += `\r\nFullName: ${myApp.appVars.UserInfo.FullName}`
+                            returnObj += `\r\n  Groups: ${myApp.appVars.UserInfo.Groups.join('\r\n          ')}`
+                        } else {
+                            term.write(`\x1B[33mUserName: \x1B[0m${myApp.appVars.UserInfo.UserName}`);
+                            term.write(`\r\n\x1B[33mFullName: \x1B[0m${myApp.appVars.UserInfo.FullName}`);
+                            term.write(`\r\n\x1B[33m  Groups: \x1B[0m${myApp.appVars.UserInfo.Groups.join('\r\n          ')}`);
+                            term.write(`\r\n`);
+                        }
+                        return returnObj;
+                    }));
+
+                this.AddMethod(new drpMethod("token",
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        console.log("Usage: token [OPTIONS]...");
+                        console.log("Get session token.\n");
+                        console.log("Optional arguments:");
+                        console.log("  (none)");
+                    }, null,
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        let returnObj = null;
+                        if (doPipeOut) {
+                            returnObj = `Token: ${myApp.appVars.UserInfo.Token}`;
+                        } else {
+                            term.write(`\x1B[33mToken: \x1B[0m${myApp.appVars.UserInfo.Token}`);
+                            term.write(`\r\n`);
+                        }
+                        return returnObj;
+                    }));
+
+                this.AddMethod(new drpMethod("endpointid",
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        console.log("Usage: endpointid");
+                        console.log("Get session endpointid.\n");
+                        console.log("Optional arguments:");
+                        console.log("  (none)");
+                    }, null,
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        let returnObj = null;
+                        if (doPipeOut) {
+                            returnObj = `EndpointID: ${myApp.appVars.EndpointID}`;
+                        } else {
+                            term.write(`\x1B[33mEndpointID: \x1B[0m${myApp.appVars.EndpointID}`);
+                            term.write(`\r\n`);
+                        }
+                        return returnObj;
+                    }));
+
+                this.AddMethod(new drpMethod("download",
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        console.log("Usage: download [OPTIONS]... [FILENAME]");
+                        console.log("Download piped contents, optionally specifying a filename to download as.\n");
+                        console.log("Optional arguments:");
+                        console.log("  (none)");
+                    }, null,
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        term.write(`\x1B[33mDownloading output\x1B[0m`);
+                        term.write(`\r\n`);
+                        let downloadFileName = "download.txt";
+                        if (switchesAndData.data) downloadFileName = switchesAndData.data;
+                        var pom = document.createElement('a');
+                        let downloadData = null;
+                        if (typeof pipeDataIn === 'string') {
+                            downloadData = pipeDataIn;
+                        } else {
+                            downloadData = JSON.stringify(pipeDataIn, null, 2);
+                        }
+                        pom.setAttribute('href', 'data:application/xml;charset=utf-8,' + encodeURIComponent(downloadData));
+                        pom.setAttribute('download', downloadFileName);
+                        pom.click();
+                    }));
+
+                this.AddMethod(new drpMethod("watch",
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        console.log("Usage: watch [OPTIONS]... [TOPICNAME]");
+                        console.log("Subscribe to topic name and output the data stream.\n");
+                        console.log("Optional arguments:");
+                        console.log("  -s  Scope [local(default),zone,global]");
+                    }, {
+                        "s": new drpMethodSwitch("s", "string", "Subscription scope")
+                    },
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        // Open a new window and stream output
+                        let scope = "local";
+
+                        switch (switchesAndData.switches["s"]) {
+                            case 'global':
+                                scope = "global";
+                                break;
+                            case 'zone':
+                                scope = "zone";
+                                break;
+                            default:
+                                scope = "local";
+                        }
+
+                        if (switchesAndData.data) {
+                            let topicName = switchesAndData.data;
+                            this.vdmApp.sendCmd_StreamHandler("DRP", "subscribe", { topicName: topicName, scope: scope }, (streamData) => {
+                                if (typeof streamData.payload === "string") {
+                                    term.write(`\x1B[94m[${topicName}] \x1B[92m${streamData.payload}\x1B[0m\r\n`);
+                                } else {
+                                    term.write(`\x1B[94m[${topicName}] \x1B[92m${JSON.stringify(streamData.payload)}\x1B[0m\r\n`);
+                                }
+                            });
+                            term.write(`\x1B[33mSubscribed to stream ${topicName}\x1B[0m`);
+                            term.write(`\r\n`);
+                        } else {
+                            term.write(`\x1B[91mSyntax: watch [-s local|zone|global] {streamName}\x1B[0m\r\n`);
+                        }
+                    }));
+
+                this.AddMethod(new drpMethod("grep",
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        console.log("Usage: grep [OPTIONS]... [PATH]");
+                        console.log("Grep piped contents or path.\n");
+                        console.log("Optional arguments:");
+                        console.log("  (none)");
+                    }, {
+                        "h": new drpMethodSwitch("h", null, "Help"),
+                        "i": new drpMethodSwitch("i", null, "Case Insensitive"),
+                    },
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        let output = "";
+                        let grepData = null;
+                        if ("h" in switchesAndData.switches || !switchesAndData.data) {
+                            output = "Usage: grep [OPTIONS]...\r\n";
+                            output += "Grep piped contents\r\n\r\n";
+                            output += "Optional arguments:\r\n";
+                            output += "  -i\tCase insensitive\r\n";
+                            term.write(output);
+                            return
+                        }
+                        if (typeof pipeDataIn === 'string') {
+                            grepData = pipeDataIn;
+                        } else {
+                            grepData = JSON.stringify(pipeDataIn, null, 2);
+                        }
+                        let regexFlags = "";
+                        if ("i" in switchesAndData.switches) regexFlags += "i";
+                        let checkRegEx = new RegExp(switchesAndData.data, regexFlags);
+                        let lineArray = grepData.split('\n')
+                        for (let i = 0; i < lineArray.length; i++) {
+                            let cleanLine = lineArray[i].replace('\r', '');
+                            if (checkRegEx.test(cleanLine)) {
+                                if (doPipeOut) {
+                                    output += `[${i}] ${cleanLine}`;
+                                } else {
+                                    term.write(`[${i}] ${cleanLine}\r\n`);
+                                }
+                            }
+                        }
+                        return output;
+                    }));
+            }
+            /**
+             * Add Method
+             * @param {drpMethod} methodObject
+             */
+            AddMethod(methodObject) {
+                this.drpMethods[methodObject.name] = methodObject;
+            }
+
+            async ExecuteCLICommand(commandLine) {
+                let pipeData = null;
+                term.write(`\r\n`);
+                let cmdArray = commandLine.split(" | ");
+                for (let i = 0; i < cmdArray.length; i++) {
+                    let cmdParts = cmdArray[i].match(/^(\S*)(?: (.*))?$/);
+                    if (cmdParts) {
+                        let cmdVerb = cmdParts[1];
+                        if (myApp.appVars.aliases && myApp.appVars.aliases[cmdVerb]) {
+                            cmdVerb = myApp.appVars.aliases[cmdVerb]
+                        }
+                        let cmdParamsAndData = cmdParts[2] || "";
+                        let doPipeOut = (i + 1 < cmdArray.length);
+                        let pipeDataIn = pipeData;
+                        pipeData = "";
+
+                        try {
+                            pipeData = await this.ExecuteMethod(cmdVerb, cmdParamsAndData, doPipeOut, pipeDataIn);
+                        } catch (ex) {
+                            term.write(`\x1B[91mError executing command [${cmdVerb}]: ${ex}\x1B[0m\r\n`);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            async ExecuteMethod(methodName, switchesAndData, doPipeOut, pipeDataIn) {
+                if (!this.drpMethods[methodName]) {
+                    // Write error to terminal; unknown method
+                    this.term.write(`\x1B[91mInvalid command [${methodName}]\x1B[0m`);
+                    this.term.write(`\r\n`);
+                    return;
+                }
+                let results = await this.drpMethods[methodName].execute(switchesAndData, doPipeOut, pipeDataIn);
+                return results;
+            }
+        }
 
         myApp.appVars.termDiv = myApp.windowParts["data"];
         myApp.appVars.termDiv.style.backgroundColor = "black";
@@ -277,6 +538,8 @@
         let lineCursorIndex = 0;
         let scrollbackIndex = 0;
         let insertMode = true;
+
+        myApp.appVars.drpShell = new drpShell(this, term);
 
         myApp.appVars.EndpointID = await myApp.sendCmd("DRP", "getEndpointID", null, true);
 
@@ -319,7 +582,8 @@
                         if (lineBufferHistory.length > 100) {
                             lineBufferHistory.pop();
                         }
-                        await myApp.appFuncs.execDRPShell(term, lineBuffer);
+                        //await myApp.appFuncs.execDRPShell(term, lineBuffer);
+                        await myApp.appVars.drpShell.ExecuteCLICommand(lineBuffer);
                     }
                     lineBuffer = "";
                     lineCursorIndex = 0;
