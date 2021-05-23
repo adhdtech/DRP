@@ -63,7 +63,7 @@ class DRP_Service {
             Type: thisService.Type,
             Classes: {},
             ClientCmds: Object.keys(thisService.ClientCmds),
-            Streams: Object.keys(thisService.Streams)
+            Streams: thisService.Streams
         };
 
         // Loop over classes, get defs (excluding caches)

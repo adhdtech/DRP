@@ -84,6 +84,7 @@
                     term.open(myApp.appVars.termDiv);
                     term.setOption('cursorBlink', true);
                     term.setOption('bellStyle', 'sound');
+                    //term.setOption('fontSize', 12);
 
                     let topicName = myApp.appVars.startupParams.topicName;
                     let scope = myApp.appVars.startupParams.scope;
@@ -455,31 +456,72 @@
 
                 this.AddMethod(new drpMethod("watch",
                     async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        console.log("Usage: watch [OPTIONS]... [TOPICNAME]");
+                        console.log("Usage: watch [OPTIONS]... [STREAM]");
                         console.log("Subscribe to topic name and output the data stream.\n");
                         console.log("Optional arguments:");
                         console.log("  -s  Scope [local(default),zone,global]");
                     }, {
-                    "s": new drpMethodSwitch("s", "string", "Subscription scope")
-                },
+                        "s": new drpMethodSwitch("s", "string", "Subscription scope"),
+                        "l": new drpMethodSwitch("l", null, "List streams in mesh"),
+                    },
                     async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        // Open a new window and stream output
-                        let scope = "local";
+                        if ("l" in switchesAndData.switches) {
+                            let topologyData = await myApp.sendCmd("DRP", "getTopology", null, true);
+                            let streamTable = {};
+                            let maxStreamNameLength = 0;
+                            // Loop over nodes
+                            let nodeList = Object.keys(topologyData);
+                            for (let i = 0; i < nodeList.length; i++) {
+                                let nodeEntry = topologyData[nodeList[i]];
+                                let serviceList = Object.keys(nodeEntry.Services);
+                                for (let j = 0; j < serviceList.length; j++) {
+                                    let serviceEntry = nodeEntry.Services[serviceList[j]];
+                                    for (let k = 0; k < serviceEntry.Streams.length; k++) {
+                                        let thisStreamName = serviceEntry.Streams[k];
+                                        if (!streamTable[thisStreamName]) {
+                                            streamTable[thisStreamName] = [];
+                                            if (thisStreamName.length > maxStreamNameLength) {
+                                                maxStreamNameLength = thisStreamName.length;
+                                            }
+                                        }
+                                        streamTable[thisStreamName].push(serviceEntry.InstanceID);
+                                    }
+                                }
+                            }
 
-                        switch (switchesAndData.switches["s"]) {
-                            case 'global':
-                                scope = "global";
-                                break;
-                            case 'zone':
-                                scope = "zone";
-                                break;
-                            default:
-                                scope = "local";
+                            let tableHeaders = ["Stream", "Providers"];
+                            if (maxStreamNameLength < tableHeaders[0].length) {
+                                maxStreamNameLength = tableHeaders[0].length;
+                            }
+                            //term.write(`\x1B[97m${tableHeaders[0].padEnd(maxStreamNameLength, ' ')} | ${tableHeaders[1]}\x1B[0m\r\n`)
+                            //term.write(`${"".padEnd(maxStreamNameLength, '-')}-|-${"".padEnd(tableHeaders[1].length, '-')}\r\n`)
+
+                            // Output stream list
+                            let streamNameList = Object.keys(streamTable);
+                            for (let i = 0; i < streamNameList.length; i++) {
+                                let thisStreamName = streamNameList[i];
+                                //term.write(`\x1B[92m${thisStreamName.padEnd(maxStreamNameLength, ' ')} \x1B[0m| \x1B[94m${streamTable[thisStreamName].join(",")}\x1B[0m\r\n`);
+                                term.write(`\x1B[92m${thisStreamName.padEnd(maxStreamNameLength, ' ')}\t\x1B[94m${streamTable[thisStreamName].join(",")}\x1B[0m\r\n`);
+                            }
+
+                            return;
                         }
-
+                        
                         if (switchesAndData.data) {
+                            // Open a new window and stream output
                             let topicName = switchesAndData.data;
-                            let scope = switchesAndData.scope;
+                            let scope = switchesAndData.switches["s"] || "local";
+
+                            switch (scope) {
+                                case "local":
+                                case "zone":
+                                case "global":
+                                    break;
+                                default:
+                                    term.write(`\x1B[91mInvalid scope: ${scope}\x1B[0m\r\n`);
+                                    term.write(`\x1B[91mSyntax: watch [-s local(default)|zone|global] {streamName}\x1B[0m\r\n`);
+                                    return;
+                            }
 
                             let newApp = new watchWindowApplet.appletClass(watchWindowApplet, { topicName: topicName, scope: scope });
                             await myApp.vdmDesktop.newWindow(newApp);
@@ -489,7 +531,14 @@
                             term.write(`\x1B[33mOpened new window for streaming data\x1B[0m`);
                             term.write(`\r\n`);
                         } else {
-                            term.write(`\x1B[91mSyntax: watch [-s local|zone|global] {streamName}\x1B[0m\r\n`);
+                            //term.write(`\x1B[91mSyntax: watch [-l] [-s local(default)|zone|global] {streamName}\x1B[0m\r\n`);
+                            let output = "Usage: watch [OPTIONS]... [STREAM]\r\n";
+                            output += "Subscribe to topic name and output the data stream.\r\n\r\n";
+                            output += "Optional arguments:\r\n";
+                            output += "  -l\tList available streams\r\n";
+                            output += "  -s\tScope [local(default)|zone|global]\r\n";
+                            term.write(output);
+                            return
                         }
                     }));
 
@@ -664,7 +713,7 @@
                         }
 
                         output += switchesAndData.data;
-                        
+
                         if (!doPipeOut) {
                             term.write(output);
                         }

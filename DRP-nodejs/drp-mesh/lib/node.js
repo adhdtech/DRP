@@ -3392,7 +3392,7 @@ class DRP_SubscriptionManager {
         for (let i = 0; i < serviceEntryIDList.length; i++) {
             let serviceEntry = serviceTable[serviceEntryIDList[i]];
 
-            // Does the newly discovered service provide what this subscription is asking for?
+            // Does the service provide what this subscription is asking for?
             if (!thisSubMgr.EvaluateServiceTableEntry(serviceEntry, subscriber.topicName, subscriber.scope, thisNode.Zone)) continue;
             await this.RegisterSubscriberWithTargetSource(serviceEntry, subscriber);
         }

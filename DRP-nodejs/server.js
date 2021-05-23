@@ -1,5 +1,6 @@
 'use strict';
 const DRP_Node = require('drp-mesh').Node;
+const DRP_Service = require('drp-mesh').Service;
 const DRP_WebServerConfig = require('drp-mesh').WebServer.DRP_WebServerConfig;
 const vdmServer = require('drp-service-rsage').VDM;
 const DocMgr = require('drp-service-docmgr');
@@ -36,6 +37,47 @@ let myWebServerConfig = {
 };
 
 let webRoot = process.env.WEBROOT || "webroot";
+
+// Create test service class
+class TestService extends DRP_Service {
+    constructor(serviceName, drpNode, priority, weight, scope) {
+        super(serviceName, drpNode, "TestService", null, false, priority, weight, drpNode.Zone, scope, null, ["TestStream"], 1);
+        let thisService = this;
+
+        // Define global methods
+        this.ClientCmds = {
+            //getOpenAPIDoc: async function (cmdObj) { return openAPIDoc; },
+            sayHi: async function () {
+                drpNode.log("Remote node wants to say hi");
+                return {
+                    pathItem: `Hello from ${drpNode.NodeID}`
+                };
+            },
+            sayBye: async function () {
+                drpNode.log("Remote node wants to say bye");
+                return { pathItem: `Goodbye from ${drpNode.NodeID}` };
+            },
+            sayMoo: async function () {
+                drpNode.log("Remote node wants to say moo");
+                return { pathItem: `Moo from ${drpNode.NodeID}` };
+            },
+            showParams: async function (params) { return { pathItem: params }; },
+            peerBroadcastTest: async function (params) {
+                drpNode.log(`Peer service sent a broadcast test - ${params.message}`);
+            },
+            sendPeerBroadcastTest: async function (params) {
+                thisService.PeerBroadcast("peerBroadcastTest", { message: `From serviceID ${thisService.InstanceID}` });
+                drpNode.log(`Sent a peer broadcast`);
+            }
+        };
+
+        // Start sending data to TestStream
+        setInterval(function () {
+            let timeStamp = new Date().getTime();
+            drpNode.TopicManager.SendToTopic("TestStream", `${timeStamp} Test message from node [${drpNode.NodeID}]`);
+        }, 3000);
+    }
+}
 
 // Set Roles
 let roleList = ["Broker", "Registry"];
@@ -74,20 +116,18 @@ myNode.ConnectToMesh(async () => {
 
     // Create VDM Server on node
     let myVDMServer = new vdmServer("VDM", myNode, webRoot, "vdmapplets");
-
     myNode.AddService(myVDMServer);
     myNode.EnableREST("/Mesh", "Mesh");
 
-    // Add another service for demo
-    let myService = new DocMgr("DocMgr", myNode, 10, 10, "global", "jsondocs", null, null, null);
-    myNode.AddService(myService);
+    // Add DocMgr service
+    let myDocMgr = new DocMgr("DocMgr", myNode, 10, 10, "global", "jsondocs", null, null, null);
+    myNode.AddService(myDocMgr);
+
+    // Add TestService
+    let myTestService = new TestService("TestService", myNode, 10, 10, "global");
+    myNode.AddService(myTestService);
 
     if (myNode.ListeningName) {
         myNode.log(`Listening at: ${myNode.ListeningName}`);
     }
-
-    setInterval(function () {
-        let timeStamp = new Date().getTime();
-        myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.NodeID}]`);
-    }, 3000);
 });
