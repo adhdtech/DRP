@@ -30,7 +30,8 @@
                 'quit': 'exit'
             },
             term: null,
-            termDiv: null
+            termDiv: null,
+            shellVars: {}
         };
 
         myApp.recvCmd = {
@@ -459,8 +460,8 @@
                         console.log("Optional arguments:");
                         console.log("  -s  Scope [local(default),zone,global]");
                     }, {
-                        "s": new drpMethodSwitch("s", "string", "Subscription scope")
-                    },
+                    "s": new drpMethodSwitch("s", "string", "Subscription scope")
+                },
                     async (switchesAndData, doPipeOut, pipeDataIn) => {
                         // Open a new window and stream output
                         let scope = "local";
@@ -520,9 +521,9 @@
                         console.log("Optional arguments:");
                         console.log("  (none)");
                     }, {
-                        "h": new drpMethodSwitch("h", null, "Help"),
-                        "i": new drpMethodSwitch("i", null, "Case Insensitive"),
-                    },
+                    "h": new drpMethodSwitch("h", null, "Help"),
+                    "i": new drpMethodSwitch("i", null, "Case Insensitive"),
+                },
                     async (switchesAndData, doPipeOut, pipeDataIn) => {
                         let output = "";
                         let grepData = null;
@@ -555,6 +556,78 @@
                         }
                         return output;
                     }));
+
+                this.AddMethod(new drpMethod("set",
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        console.log("Usage: set [VARIABLE]=[VALUE]");
+                        console.log("Set or list shell ENV variables.\n");
+                        console.log("Optional arguments:");
+                        console.log("  (none)");
+                    }, { "h": new drpMethodSwitch("h", null, "Help menu") },
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        let output = "";
+
+                        if ("h" in switchesAndData.switches) {
+                            output = "Usage: set [VARIABLE]=[VALUE]\r\n";
+                            output += "Set or list shell ENV variables.\r\n\r\n";
+                            output += "Optional arguments:\r\n";
+                            output += "  (none)\r\n";
+                            term.write(output);
+                            return
+                        }
+
+                        if (switchesAndData.data) {
+                            // The a parameter name (possibly value) is present
+                            // Was a value passed as well?  If not, did we get pipeDataIn?
+                            if (switchesAndData.data.indexOf('=') > 0) {
+                                let varName = switchesAndData.data.substr(0, switchesAndData.data.indexOf('='));
+                                let varValue = switchesAndData.data.substr(switchesAndData.data.indexOf('=') + 1);
+                                myApp.appVars.shellVars[varName] = varValue;
+                            } else {
+                                let varName = switchesAndData.data;
+                                if (pipeDataIn) {
+                                    myApp.appVars.shellVars[varName] = pipeDataIn;
+                                } else {
+                                    delete myApp.appVars.shellVars[varName];
+                                }
+                            }
+                        } else {
+                            // No ENV variable name provided, list all variables and values
+                            let shellVarNames = Object.keys(myApp.appVars.shellVars);
+                            for (let i = 0; i < shellVarNames.length; i++) {
+                                output += `${shellVarNames[i]}=${myApp.appVars.shellVars[shellVarNames[i]]}\r\n`;
+                            }
+                        }
+                        if (!doPipeOut) {
+                            term.write(output);
+                        }
+                    }));
+
+                this.AddMethod(new drpMethod("echo",
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        console.log("Usage: echo [OUTPUT]");
+                        console.log("Print data.\n");
+                        console.log("Optional arguments:");
+                        console.log("  (none)");
+                    }, { "h": new drpMethodSwitch("h", null, "Help menu") },
+                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                        let output = "";
+
+                        if ("h" in switchesAndData.switches) {
+                            output = "Usage: echo [OUTPUT]\r\n";
+                            output += "Print data.\r\n\r\n";
+                            output += "Optional arguments:\r\n";
+                            output += "  (none)\r\n";
+                            term.write(output);
+                            return
+                        }
+
+                        output += switchesAndData.data;
+                        
+                        if (!doPipeOut) {
+                            term.write(output);
+                        }
+                    }));
             }
             /**
              * Add Method
@@ -567,14 +640,32 @@
             async ExecuteCLICommand(commandLine) {
                 let pipeData = null;
                 term.write(`\r\n`);
+
+                // Replace variables
+                let envVarRegEx = /\$(\w+)/g;
+                let envVarMatch;
+                while (envVarMatch = envVarRegEx.exec(commandLine)) {
+                    let varName = envVarMatch[1];
+                    let replaceValue = "";
+                    // Does the variable exist?
+                    if (myApp.appVars.shellVars[varName]) {
+                        replaceValue = myApp.appVars.shellVars[varName];
+                    }
+                    commandLine = commandLine.replace('$' + varName, replaceValue);
+                }
+
+
                 let cmdArray = commandLine.split(" | ");
                 for (let i = 0; i < cmdArray.length; i++) {
                     let cmdParts = cmdArray[i].match(/^(\S*)(?: (.*))?$/);
                     if (cmdParts) {
                         let cmdVerb = cmdParts[1];
+
+                        // Replace aliases
                         if (myApp.appVars.aliases && myApp.appVars.aliases[cmdVerb]) {
                             cmdVerb = myApp.appVars.aliases[cmdVerb]
                         }
+
                         let cmdParamsAndData = cmdParts[2] || "";
                         let doPipeOut = (i + 1 < cmdArray.length);
                         let pipeDataIn = pipeData;
