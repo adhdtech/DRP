@@ -138,22 +138,24 @@ class DocManager extends DRP_Service {
         this.basePath = basePath;
 
         /** @type {string} Mongo URL */
-        this.MongoHost = mongoHost;
-        this.MongoUser = mongoUser;
-        this.MongoPw = mongoPw;
+        this.__MongoHost = mongoHost;
+        this.__MongoUser = mongoUser;
+        this.__MongoPw = mongoPw;
 
         /** @type {MongoClient} */
-        this.MongoClient = null;
+        this.__MongoClient = null;
 
         /** @type {MongoDB} */
-        this.DocMgrDB = null;
+        this.__DocMgrDB = null;
 
-        if (thisDocMgr.MongoHost) thisDocMgr.ConnectToMongo();
+        if (thisDocMgr.__MongoHost) thisDocMgr.ConnectToMongo();
 
         this.ClientCmds = {
+            /*
             getOpenAPIDoc: async function (params) {
                 return openAPIDoc;
             },
+            */
             listServices: async () => {
                 // return list of service
                 return await thisDocMgr.ListDocServices();
@@ -215,16 +217,16 @@ class DocManager extends DRP_Service {
 
     async ConnectToMongo() {
         let thisDocMgr = this;
-        const user = encodeURIComponent(thisDocMgr.MongoUser);
-        const password = encodeURIComponent(thisDocMgr.MongoPw);
+        const user = encodeURIComponent(thisDocMgr.__MongoUser);
+        const password = encodeURIComponent(thisDocMgr.__MongoPw);
         const authMechanism = 'DEFAULT';
-        let mongoUrl = `mongodb://${user}:${password}@${thisDocMgr.MongoHost}:27017/?authMechanism=${authMechanism}`;
+        let mongoUrl = `mongodb://${user}:${password}@${thisDocMgr.__MongoHost}:27017/?authMechanism=${authMechanism}`;
         thisDocMgr.drpNode.log(`Trying to connect to Mongo -> [${mongoUrl}]`);
         /** @type {MongoClient} */
-        thisDocMgr.MongoClient = await MongoClient.connect(`${mongoUrl}`, { useNewUrlParser: true, useUnifiedTopology: true });
+        thisDocMgr.__MongoClient = await MongoClient.connect(`${mongoUrl}`, { useNewUrlParser: true, useUnifiedTopology: true });
         let bob = 1;
         // Open the collector DB 
-        this.DocMgrDB = thisDocMgr.MongoClient.db(thisDocMgr.serviceName);
+        this.__DocMgrDB = thisDocMgr.__MongoClient.db(thisDocMgr.serviceName);
     }
 
     async ListDocServices() {
@@ -232,8 +234,8 @@ class DocManager extends DRP_Service {
         let returnData = [];
         // Load doc data
         let dirData = null;
-        if (thisDocMgr.MongoHost) {
-            let docCollectionList = await thisDocMgr.DocMgrDB.listCollections().toArray();
+        if (thisDocMgr.__MongoHost) {
+            let docCollectionList = await thisDocMgr.__DocMgrDB.listCollections().toArray();
             returnData = docCollectionList.map(collectionProfile => { return collectionProfile["name"]; });
         } else {
             dirData = await fs.readdir(thisDocMgr.basePath);
@@ -260,8 +262,8 @@ class DocManager extends DRP_Service {
         let returnData = [];
         // Load doc data
         let dirData = null;
-        if (thisDocMgr.MongoHost) {
-            let serviceDocCollection = thisDocMgr.DocMgrDB.collection(serviceName);
+        if (thisDocMgr.__MongoHost) {
+            let serviceDocCollection = thisDocMgr.__DocMgrDB.collection(serviceName);
             let docList = await serviceDocCollection.find({}, { projection: { _id: 0, docName: 1 } }).toArray();
             returnData = docList.map(collectionProfile => { return collectionProfile["docName"]; });
         } else {
@@ -283,9 +285,9 @@ class DocManager extends DRP_Service {
         let thisDocMgr = this;
         // Load file data
         let docData = null;
-        if (this.MongoHost) {
+        if (this.__MongoHost) {
             // Connect to Service doc collection
-            let serviceDocCollection = thisDocMgr.DocMgrDB.collection(serviceName);
+            let serviceDocCollection = thisDocMgr.__DocMgrDB.collection(serviceName);
             let docObj = await serviceDocCollection.findOne({ docName: docName });
             if (docObj && docObj.docData) docData = docObj.docData;
         } else {
@@ -305,9 +307,9 @@ class DocManager extends DRP_Service {
 
         // Save file data
         let saveResults = null;
-        if (this.MongoHost) {
+        if (this.__MongoHost) {
             // Connect to Service doc collection
-            let serviceDocCollection = thisDocMgr.DocMgrDB.collection(serviceName);
+            let serviceDocCollection = thisDocMgr.__DocMgrDB.collection(serviceName);
             saveResults = await serviceDocCollection.updateOne({ docName: docName }, { $set: { docData: docData } }, { upsert: true });
         } else {
             saveResults = await fs.writeFile(`${thisDocMgr.basePath}/${serviceName}/${docName}`, docData);

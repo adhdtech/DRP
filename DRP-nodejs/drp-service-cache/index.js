@@ -25,26 +25,26 @@ class DRP_CacheManager extends DRP_Service {
         let thisService = this;
 
         /** @type {string} Mongo URL */
-        this.MongoHost = mongoHost;
-        this.MongoUser = mongoUser;
-        this.MongoPw = mongoPw;
+        this.__MongoHost = mongoHost;
+        this.__MongoUser = mongoUser;
+        this.__MongoPw = mongoPw;
 
         /** @type {MongoClient} */
-        this.MongoClient = null;
+        this.__MongoClient = null;
 
         /** @type {MongoDB} */
-        this.CacheDB = null;
+        //this.CacheDB = null;
 
-        if (thisService.MongoHost) {
+        if (thisService.__MongoHost) {
             thisService.ConnectToMongo();
         }
 
-        this.TestCache = null;
+        //this.TestCache = null;
 
         this.ClientCmds = {
             "listDatabases": async (params) => {
                 let returnObj = null;
-                let adminDb = thisService.MongoClient.db().admin();
+                let adminDb = thisService.__MongoClient.db().admin();
                 // List all the available databases
                 let dbListResult = await adminDb.listDatabases();
                 returnObj = dbListResult.databases;
@@ -61,20 +61,20 @@ class DRP_CacheManager extends DRP_Service {
 
     async ConnectToMongo() {
         let thisService = this;
-        const user = encodeURIComponent(thisService.MongoUser);
-        const password = encodeURIComponent(thisService.MongoPw);
+        const user = encodeURIComponent(thisService.__MongoUser);
+        const password = encodeURIComponent(thisService.__MongoPw);
         const authMechanism = 'DEFAULT';
-        let mongoUrl = thisService.MongoUser ? `mongodb://${user}:${password}@${thisService.MongoHost}:27017/?authMechanism=${authMechanism}` : `mongodb://${thisService.MongoHost}:27017`;
+        let mongoUrl = thisService.__MongoUser ? `mongodb://${user}:${password}@${thisService.__MongoHost}:27017/?authMechanism=${authMechanism}` : `mongodb://${thisService.__MongoHost}:27017`;
         thisService.drpNode.log(`Trying to connect to Mongo -> [${mongoUrl}]`);
         /** @type {MongoClient} */
-        thisService.MongoClient = await MongoClient.connect(`${mongoUrl}`, { useNewUrlParser: true, useUnifiedTopology: true });
+        thisService.__MongoClient = await MongoClient.connect(`${mongoUrl}`, { useNewUrlParser: true, useUnifiedTopology: true });
     }
 
     async ReadClassCacheFromMongo(serviceName, className) {
         let thisService = this;
         return new Promise(function (resolve, reject) {
             // Open the collector DB 
-            var serviceDB = thisService.MongoClient.db(serviceName);
+            var serviceDB = thisService.__MongoClient.db(serviceName);
             // Connect to class collection
             var classCollection = serviceDB.collection(className);
 
@@ -107,7 +107,7 @@ class DRP_CacheManager extends DRP_Service {
             } else {
 
                 // Open the collector DB 
-                let collectorDB = thisService.MongoClient.db(serviceName);
+                let collectorDB = thisService.__MongoClient.db(serviceName);
                 // Connect to class collection
                 let classCollection = collectorDB.collection(className);
                 // Convert class data from hash to array

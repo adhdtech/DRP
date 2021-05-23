@@ -462,7 +462,7 @@ class NetScalerManager extends DRP_Service {
         this.haPairs = {};
         /** @type {Array<NetScalerHost>} */
         this.nsHosts = {};
-        this.configLoadCallback = configLoadCallback;
+        this.__configLoadCallback = configLoadCallback;
 
         this.ClientCmds = {
             "saveConfigs": async function () {
@@ -713,7 +713,7 @@ class NetScalerManager extends DRP_Service {
         thisNsMgr.haPairs = {};
         thisNsMgr.nsHosts = {};
 
-        if (thisNsMgr.configLoadCallback && typeof thisNsMgr.configLoadCallback === "function") thisNsMgr.configLoadCallback();
+        if (thisNsMgr.__configLoadCallback && typeof thisNsMgr.__configLoadCallback === "function") thisNsMgr.__configLoadCallback();
     }
 
 }

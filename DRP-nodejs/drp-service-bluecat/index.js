@@ -42,17 +42,17 @@ class BlueCatMgmtHost {
     constructor(params) {
         this.name = params.name;
         this.mgmtIP = params.mgmtIP;
-        this.apiUser = params.apiUser;
-        this.apiPassword = params.apiPassword;
+        this.__apiUser = params.apiUser;
+        this.__apiPassword = params.apiPassword;
         /** @type {axios.default} */
-        this.restAgent = axios.create({
+        this.__restAgent = axios.create({
             baseURL: `https://${this.mgmtIP}/Services/REST/v1/`,
             timeout: 5000,
             headers: {},
             proxy: false
         });
         this.maxTokenAgeSec = 250;
-        this.authToken = null;
+        this.__authToken = null;
         this.tokenAcquiredTimestamp = null;
         this.config = {
             "ConfigurationID": 0,
@@ -469,14 +469,14 @@ class BlueCatMgmtHost {
 
         try {
             // Is the token null or over X seconds old?
-            if (!thisBcMgmtHost.authToken || (Date.now() - thisBcMgmtHost.tokenAcquiredTimestamp) / 1000 > thisBcMgmtHost.maxTokenAgeSec) {
-                let requestString = `login?&username=${thisBcMgmtHost.apiUser}&password=${thisBcMgmtHost.apiPassword}`;
-                let responseString = await thisBcMgmtHost.restAgent.get(requestString);
+            if (!thisBcMgmtHost.__authToken || (Date.now() - thisBcMgmtHost.tokenAcquiredTimestamp) / 1000 > thisBcMgmtHost.maxTokenAgeSec) {
+                let requestString = `login?&username=${thisBcMgmtHost.__apiUser}&password=${thisBcMgmtHost.__apiPassword}`;
+                let responseString = await thisBcMgmtHost.__restAgent.get(requestString);
                 /-> ([^-]+) <-/.test(responseString.data);
                 if (RegExp.$1) {
-                    thisBcMgmtHost.authToken = RegExp.$1;
+                    thisBcMgmtHost.__authToken = RegExp.$1;
                     thisBcMgmtHost.tokenAcquiredTimestamp = Date.now();
-                    thisBcMgmtHost.restAgent.defaults.headers.common['Authorization'] = thisBcMgmtHost.authToken;
+                    thisBcMgmtHost.__restAgent.defaults.headers.common['Authorization'] = thisBcMgmtHost.__authToken;
                 } else {
                     return "Could not authenticate";
                 }
@@ -485,27 +485,27 @@ class BlueCatMgmtHost {
             let response = null;
             switch (verb) {
                 case "get":
-                    response = await thisBcMgmtHost.restAgent[verb](command, { params: parameters });
+                    response = await thisBcMgmtHost.__restAgent[verb](command, { params: parameters });
                     returnObj = response.data;
                     break;
                 case "put":
                     if (paramsInQuery) {
-                        response = await thisBcMgmtHost.restAgent.put(command, null, { params: parameters });
+                        response = await thisBcMgmtHost.__restAgent.put(command, null, { params: parameters });
                     } else {
-                        response = await thisBcMgmtHost.restAgent.put(command, parameters, { headers: { "Content-Type": "application/json" } });
+                        response = await thisBcMgmtHost.__restAgent.put(command, parameters, { headers: { "Content-Type": "application/json" } });
                     }
                     returnObj = response;
                     break;
                 case "post":
                     if (paramsInQuery) {
-                        response = await thisBcMgmtHost.restAgent.post(command, null, { params: parameters });
+                        response = await thisBcMgmtHost.__restAgent.post(command, null, { params: parameters });
                     } else {
-                        response = await thisBcMgmtHost.restAgent.post(command, parameters, { headers: { "Content-Type": "application/json" } });
+                        response = await thisBcMgmtHost.__restAgent.post(command, parameters, { headers: { "Content-Type": "application/json" } });
                     }
                     returnObj = response.data;
                     break;
                 case "delete":
-                    response = await thisBcMgmtHost.restAgent.delete(command, { params: parameters });
+                    response = await thisBcMgmtHost.__restAgent.delete(command, { params: parameters });
                     returnObj = response.data;
                     break;
                 default:

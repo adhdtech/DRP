@@ -22,17 +22,17 @@ class Logger extends DRP_Service {
         let thisLogger = this;
 
         /** @type {string} Mongo URL */
-        this.MongoHost = mongoHost;
-        this.MongoUser = mongoUser;
-        this.MongoPw = mongoPw;
+        this.__MongoHost = mongoHost;
+        this.__MongoUser = mongoUser;
+        this.__MongoPw = mongoPw;
 
         /** @type {MongoClient} */
-        this.MongoClient = null;
+        this.__MongoClient = null;
 
         /** @type {MongoDB} */
-        this.LoggerDB = null;
+        this.__LoggerDB = null;
 
-        if (thisLogger.MongoHost) {
+        if (thisLogger.__MongoHost) {
             thisLogger.ConnectToMongo();
         }
 
@@ -70,24 +70,24 @@ class Logger extends DRP_Service {
 
     async ConnectToMongo() {
         let thisLogger = this;
-        const user = encodeURIComponent(thisLogger.MongoUser);
-        const password = encodeURIComponent(thisLogger.MongoPw);
+        const user = encodeURIComponent(thisLogger.__MongoUser);
+        const password = encodeURIComponent(thisLogger.__MongoPw);
         const authMechanism = 'DEFAULT';
-        let mongoUrl = thisLogger.MongoUser ? `mongodb://${user}:${password}@${thisLogger.MongoHost}:27017/?authMechanism=${authMechanism}` : `mongodb://${thisLogger.MongoHost}:27017`;
+        let mongoUrl = thisLogger.__MongoUser ? `mongodb://${user}:${password}@${thisLogger.__MongoHost}:27017/?authMechanism=${authMechanism}` : `mongodb://${thisLogger.__MongoHost}:27017`;
         thisLogger.drpNode.log(`Trying to connect to Mongo -> [${mongoUrl}]`);
         /** @type {MongoClient} */
-        thisLogger.MongoClient = await MongoClient.connect(`${mongoUrl}`, { useNewUrlParser: true, useUnifiedTopology: true });
+        thisLogger.__MongoClient = await MongoClient.connect(`${mongoUrl}`, { useNewUrlParser: true, useUnifiedTopology: true });
         thisLogger.drpNode.log(`Connected to Mongo`);
 
         // Open the collector DB 
-        this.LoggerDB = thisLogger.MongoClient.db(thisLogger.serviceName);
+        this.__LoggerDB = thisLogger.__MongoClient.db(thisLogger.serviceName);
     }
 
     async ListCollections() {
         let thisLogger = this;
         let returnData = [];
         // Load doc data
-        let docCollectionList = await thisLogger.LoggerDB.listCollections().toArray();
+        let docCollectionList = await thisLogger.__LoggerDB.listCollections().toArray();
         returnData = docCollectionList.map(collectionProfile => { return collectionProfile["name"]; });
         return returnData;
     }
@@ -102,7 +102,7 @@ class Logger extends DRP_Service {
         let thisLogger = this;
 
         // Connect to Service doc collection
-        let serviceDocCollection = thisLogger.LoggerDB.collection(sourceService);
+        let serviceDocCollection = thisLogger.__LoggerDB.collection(sourceService);
 
         // Write to Mongo
         let writeResults = await serviceDocCollection.insertOne(logData);
