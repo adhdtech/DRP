@@ -595,12 +595,36 @@
                             // No ENV variable name provided, list all variables and values
                             let shellVarNames = Object.keys(myApp.appVars.shellVars);
                             for (let i = 0; i < shellVarNames.length; i++) {
-                                output += `${shellVarNames[i]}=${myApp.appVars.shellVars[shellVarNames[i]]}\r\n`;
+                                let printVal = "";
+                                let varValue = myApp.appVars.shellVars[shellVarNames[i]];
+                                let varType = Object.prototype.toString.call(varValue).match(/^\[object (.*)\]$/)[1];
+
+                                switch (varType) {
+                                    case "Object":
+                                        printVal = `[${varType}:${Object.keys(varValue).length}]`;
+                                        break;
+                                    case "Array":
+                                        printVal = `[${varType}:${varValue.length}]`;
+                                        break;
+                                    case "Set":
+                                        printVal = `[${varType}:${varValue.size}]`;
+                                        break;
+                                    case "Function":
+                                        printVal = `[${varType}]`;
+                                        break;
+                                    case "String":
+                                        printVal = JSON.stringify(varValue.substr(0, 60)); //.replaceAll(/\r/g, '\\r')
+                                        break;
+                                    default:
+                                        returnVal = varType;
+                                }
+                                output += `${shellVarNames[i]}=${printVal}\r\n`;
                             }
                         }
                         if (!doPipeOut) {
                             term.write(output);
                         }
+                        return output;
                     }));
 
                 this.AddMethod(new drpMethod("echo",
@@ -622,11 +646,29 @@
                             return
                         }
 
+                        // Replace variables
+                        let envVarRegEx = /\$(\w+)/g;
+                        let envVarMatch;
+                        while (envVarMatch = envVarRegEx.exec(switchesAndData.data)) {
+                            let varName = envVarMatch[1];
+                            let replaceValue = "";
+                            // Does the variable exist?
+                            if (myApp.appVars.shellVars[varName]) {
+                                if (typeof myApp.appVars.shellVars[varName] === "object") {
+                                    replaceValue = JSON.stringify(myApp.appVars.shellVars[varName], null, 4).replace(/\n/g, "\r\n")
+                                } else {
+                                    replaceValue = myApp.appVars.shellVars[varName];
+                                }
+                            }
+                            switchesAndData.data = switchesAndData.data.replace('$' + varName, replaceValue);
+                        }
+
                         output += switchesAndData.data;
                         
                         if (!doPipeOut) {
                             term.write(output);
                         }
+                        return output;
                     }));
             }
             /**
@@ -649,7 +691,15 @@
                     let replaceValue = "";
                     // Does the variable exist?
                     if (myApp.appVars.shellVars[varName]) {
-                        replaceValue = myApp.appVars.shellVars[varName];
+                        let varValue = myApp.appVars.shellVars[varName];
+                        let varType = typeof varValue;
+                        if (varType === "object" || ((varType === "string") && (varValue.match(/\n/)))) {
+                            // Don't actually replace the variable
+                            replaceValue = '$' + varName;
+                        } else {
+                            // Replace with contents of the variable
+                            replaceValue = myApp.appVars.shellVars[varName];
+                        }
                     }
                     commandLine = commandLine.replace('$' + varName, replaceValue);
                 }
