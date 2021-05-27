@@ -118,18 +118,34 @@
             /**
              * 
              * @param {string} name
-             * @param {string} showHelp
+             * @param {string} description
              * @param {Object.<string,drpMethodSwitch>} switches
-             * @param {Function} func
+             * @param {Function} execute
              */
-            constructor(name, showHelp, switches, func) {
+            constructor(name, description, usage, switches, execute) {
                 this.name = name;
-                this.showHelp = showHelp;
-                this.switches = switches;
-                this.func = func;
+                this.description = description || '';
+                this.usage = usage || '';
+                this.switches = switches || {};
+                this.execute = execute || (() => { })();
             }
 
-            parseSwitchesAndData(switchesAndData) {
+            ShowHelp() {
+                let output = `Usage: ${this.name} ${this.usage}\r\n`;
+                output += `${this.description}\r\n\r\n`;
+                output += "Optional arguments:\r\n";
+                let switchesKeys = Object.keys(this.switches);
+                if (switchesKeys.length > 0) {
+                    for (let i = 0; i < switchesKeys.length; i++) {
+                        output += `  -${switchesKeys[i]}\t${this.switches[switchesKeys[i]].description}\r\n`;
+                    }
+                } else {
+                    output += "  (none)\r\n";
+                }
+                return output;
+            }
+
+            ParseSwitchesAndData(switchesAndData) {
                 let returnObj = {
                     switches: {},
                     data: ""
@@ -175,19 +191,12 @@
                 }
                 return returnObj;
             }
-
-            async execute(switchesAndData, doPipeOut, pipeDataIn) {
-                // Parse params
-                let switchesAndDataObj = this.parseSwitchesAndData(switchesAndData);
-
-                // If the help switch was specified, display help and return
-                let results = await this.func(switchesAndDataObj, doPipeOut, pipeDataIn);
-                return results;
-            }
         }
 
         class drpShell {
             constructor(vdmApp, term) {
+                let thisShell = this;
+
                 /** @type VDMApplet */
                 this.vdmApp = vdmApp;
                 /** @type Terminal */
@@ -196,51 +205,52 @@
                 this.drpMethods = {};
 
                 this.AddMethod(new drpMethod("help",
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        let methodList = Object.keys(this.drpMethods);
-                        methodList.forEach(thisCmd => {
-                            if (doPipeOut) pipeData += `  ${thisCmd}`;
-                            else term.write(`\x1B[95m  ${thisCmd}\x1B[0m\r\n`);
-                        });
-                    }, null,
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        let methodList = Object.keys(this.drpMethods);
-                        methodList.forEach(thisCmd => {
-                            if (doPipeOut) pipeData += `  ${thisCmd}`;
-                            else term.write(`\x1B[95m  ${thisCmd}\x1B[0m\r\n`);
-                        });
+                    "Show available commands", // Description
+                    null,  // Usage
+                    null,  // Switches
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        term.write(this.ShowHelp());
+                        return
                     }));
 
+                this.drpMethods["help"].ShowHelp = function () {
+                    let output = "";
+                    let methodList = Object.keys(thisShell.drpMethods);
+                    methodList.forEach(thisCmd => {
+                        output += `\x1B[92m  ${thisCmd.padEnd(16)}\x1B[0m \x1B[94m${thisShell.drpMethods[thisCmd].description}\x1B[0m\r\n`;
+                    });
+                    return output;
+                }
+
                 this.AddMethod(new drpMethod("clear",
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        console.log("Usage: clear");
-                        console.log("Clear screen.\n");
-                        console.log("Optional arguments:");
-                        console.log("  (none)");
-                    }, null,
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                    "Clear screen",
+                    null,
+                    null,
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         term.clear();
                     }));
 
                 this.AddMethod(new drpMethod("exit",
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        console.log("Usage: exit");
-                        console.log("Exit DRP Shell.\n");
-                        console.log("Optional arguments:");
-                        console.log("  (none)");
-                    }, null,
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                    "Exit DRP Shell",
+                    null,
+                    null,
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         vdmApp.vdmDesktop.closeWindow(myApp);
                     }));
 
                 this.AddMethod(new drpMethod("ls",
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        console.log("Usage: ls [OPTIONS]... [PATH]");
-                        console.log("List path contents.\n");
-                        console.log("Optional arguments:");
-                        console.log("  ... need to add formatting options...");
-                    }, null,
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                    "List path contents",
+                    "[OPTIONS]... [PATH]",
+                    { "h": new drpMethodSwitch("h", null, "Help") },
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
+                        if ("h" in switchesAndData.switches) {
+                            term.write(this.ShowHelp());
+                            return
+                        }
+
                         let returnObj = "";
                         let dataOut = null;
                         let pathList = [];
@@ -311,13 +321,12 @@
                     }));
 
                 this.AddMethod(new drpMethod("cat",
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        console.log("Usage: cat [OPTIONS]... [PATH]");
-                        console.log("Get object from path.\n");
-                        console.log("Optional arguments:");
-                        console.log("  ... need to add formatting options...");
-                    }, null,
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                    "Get object from path",
+                    "[PATH]",
+                    { "h": new drpMethodSwitch("h", null, "Help") },
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
+
                         let returnObj = null;
                         let pathList = [];
                         if (switchesAndData.data.length > 0) pathList = switchesAndData.data.split(/[\/\\]/g);
@@ -328,10 +337,9 @@
                         // Remove trailing empty entries
                         while (pathList.length > 0 && pathList[pathList.length - 1] === "") pathList.pop();
 
-                        if (pathList.length === 0) {
-                            // Error
-                            term.write(`\x1B[91mNo target specified\x1B[0m\r\n`);
-                            return;
+                        if ("h" in switchesAndData.switches || pathList.length === 0) {
+                            term.write(this.ShowHelp());
+                            return
                         }
 
                         let results = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: false }, true);
@@ -358,13 +366,11 @@
                     }));
 
                 this.AddMethod(new drpMethod("topology",
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        console.log("Usage: topology [OPTIONS]...");
-                        console.log("Get mesh topology.\n");
-                        console.log("Optional arguments:");
-                        console.log("  ... need to add selection and formatting options...");
-                    }, null,
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                    "Get mesh topology",
+                    null,
+                    null,
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         let returnObj = null;
                         let results = await myApp.sendCmd("DRP", "getTopology", null, true);
                         if (doPipeOut) returnObj = results
@@ -373,13 +379,11 @@
                     }));
 
                 this.AddMethod(new drpMethod("whoami",
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        console.log("Usage: whoami [OPTIONS]...");
-                        console.log("Get my info.\n");
-                        console.log("Optional arguments:");
-                        console.log("  (none)");
-                    }, null,
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                    "Get my info",
+                    null,
+                    null,
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         let returnObj = null;
                         if (doPipeOut) {
                             returnObj = `UserName: ${myApp.appVars.UserInfo.UserName}`;
@@ -395,13 +399,11 @@
                     }));
 
                 this.AddMethod(new drpMethod("token",
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        console.log("Usage: token [OPTIONS]...");
-                        console.log("Get session token.\n");
-                        console.log("Optional arguments:");
-                        console.log("  (none)");
-                    }, null,
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                    "Get session token",
+                    null,
+                    null,
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         let returnObj = null;
                         if (doPipeOut) {
                             returnObj = `Token: ${myApp.appVars.UserInfo.Token}`;
@@ -413,13 +415,11 @@
                     }));
 
                 this.AddMethod(new drpMethod("endpointid",
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        console.log("Usage: endpointid");
-                        console.log("Get session endpointid.\n");
-                        console.log("Optional arguments:");
-                        console.log("  (none)");
-                    }, null,
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                    "Get session endpointid",
+                    null,
+                    null,
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         let returnObj = null;
                         if (doPipeOut) {
                             returnObj = `EndpointID: ${myApp.appVars.EndpointID}`;
@@ -431,13 +431,11 @@
                     }));
 
                 this.AddMethod(new drpMethod("download",
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        console.log("Usage: download [OPTIONS]... [FILENAME]");
-                        console.log("Download piped contents, optionally specifying a filename to download as.\n");
-                        console.log("Optional arguments:");
-                        console.log("  (none)");
-                    }, null,
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                    "Download piped contents as file",
+                    "[FILENAME]",
+                    null,
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         term.write(`\x1B[33mDownloading output\x1B[0m`);
                         term.write(`\r\n`);
                         let downloadFileName = "download.txt";
@@ -455,16 +453,14 @@
                     }));
 
                 this.AddMethod(new drpMethod("watch",
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        console.log("Usage: watch [OPTIONS]... [STREAM]");
-                        console.log("Subscribe to topic name and output the data stream.\n");
-                        console.log("Optional arguments:");
-                        console.log("  -s  Scope [local(default),zone,global]");
-                    }, {
-                        "s": new drpMethodSwitch("s", "string", "Subscription scope"),
-                        "l": new drpMethodSwitch("l", null, "List streams in mesh"),
+                    "Subscribe to topic name and output the data stream",
+                    "[OPTIONS]... [STREAM]",
+                    {
+                        "s": new drpMethodSwitch("s", "string", "Scope [local(default)|zone|global]"),
+                        "l": new drpMethodSwitch("l", null, "List available streams"),
                     },
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         if ("l" in switchesAndData.switches) {
                             let topologyData = await myApp.sendCmd("DRP", "getTopology", null, true);
                             let streamTable = {};
@@ -506,7 +502,7 @@
 
                             return;
                         }
-                        
+
                         if (switchesAndData.data) {
                             // Open a new window and stream output
                             let topicName = switchesAndData.data;
@@ -531,25 +527,17 @@
                             term.write(`\x1B[33mOpened new window for streaming data\x1B[0m`);
                             term.write(`\r\n`);
                         } else {
-                            //term.write(`\x1B[91mSyntax: watch [-l] [-s local(default)|zone|global] {streamName}\x1B[0m\r\n`);
-                            let output = "Usage: watch [OPTIONS]... [STREAM]\r\n";
-                            output += "Subscribe to topic name and output the data stream.\r\n\r\n";
-                            output += "Optional arguments:\r\n";
-                            output += "  -l\tList available streams\r\n";
-                            output += "  -s\tScope [local(default)|zone|global]\r\n";
-                            term.write(output);
+                            term.write(this.ShowHelp());
                             return
                         }
                     }));
 
                 this.AddMethod(new drpMethod("scrollback",
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        console.log("Usage: scrollback [MAXLINES]");
-                        console.log("Set the terminal scrollback.\n");
-                        console.log("Optional arguments:");
-                        console.log("  (none)");
-                    }, null,
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                    "Set or get terminal scrollback",
+                    "[MAXLINES]",
+                    null,
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         let returnObj = null;
                         if (switchesAndData.data) {
                             myApp.appVars.term.setOption('scrollback', switchesAndData.data);
@@ -564,24 +552,18 @@
                     }));
 
                 this.AddMethod(new drpMethod("grep",
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        console.log("Usage: grep [OPTIONS]... [PATH]");
-                        console.log("Grep piped contents or path.\n");
-                        console.log("Optional arguments:");
-                        console.log("  (none)");
-                    }, {
-                    "h": new drpMethodSwitch("h", null, "Help"),
-                    "i": new drpMethodSwitch("i", null, "Case Insensitive"),
-                },
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                    "Grep piped contents or path",
+                    "[OPTIONS]...",
+                    {
+                        "h": new drpMethodSwitch("h", null, "Help"),
+                        "i": new drpMethodSwitch("i", null, "Case Insensitive"),
+                    },
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         let output = "";
                         let grepData = null;
-                        if ("h" in switchesAndData.switches || !switchesAndData.data) {
-                            output = "Usage: grep [OPTIONS]...\r\n";
-                            output += "Grep piped contents\r\n\r\n";
-                            output += "Optional arguments:\r\n";
-                            output += "  -i\tCase insensitive\r\n";
-                            term.write(output);
+                        if ("h" in switchesAndData.switches || !pipeDataIn) {
+                            term.write(this.ShowHelp());
                             return
                         }
                         if (typeof pipeDataIn === 'string') {
@@ -606,22 +588,136 @@
                         return output;
                     }));
 
+                this.AddMethod(new drpMethod("head",
+                    "Output first 10 lines of piped contents or path",
+                    "[OPTIONS]...",
+                    {
+                        "h": new drpMethodSwitch("h", null, "Help"),
+                        "n": new drpMethodSwitch("n", "integer", "Number of lines"),
+                        //"c": new drpMethodSwitch("c", null, "Number of characters"),
+                    },
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
+                        let output = "";
+                        let headData = null;
+                        if ("h" in switchesAndData.switches || (!switchesAndData.data && !pipeDataIn)) {
+                            term.write(this.ShowHelp());
+                            return
+                        }
+                        if (typeof pipeDataIn === 'string') {
+                            headData = pipeDataIn;
+                        } else {
+                            headData = JSON.stringify(pipeDataIn, null, 2);
+                        }
+                        let lineArray = headData.split('\n');
+                        let lineFetchCount = 10;
+                        if (switchesAndData.switches["n"]) {
+                            lineFetchCount = Number.parseInt(switchesAndData.switches["n"]);
+                        } else {
+                            let switchRegEx = /^-([\d]+)/;
+                            let switchDataMatch = switchesAndDataString.match(switchRegEx);
+                            if (switchDataMatch) {
+                                lineFetchCount = switchDataMatch[1];
+                            }
+                        }
+
+                        if (typeof lineFetchCount === "string") {
+                            try {
+                                lineFetchCount = Number.parseInt(lineFetchCount);
+                            } catch (ex) {
+                                term.write(this.ShowHelp());
+                                return
+                            }
+                        }
+
+                        if (lineArray.length < lineFetchCount) {
+                            // There are fewer lines than we want to get
+                            lineFetchCount = lineArray.length;
+                        }
+                        for (let i = 0; i < lineFetchCount; i++) {
+                            let cleanLine = lineArray[i].replace('\r', '');
+                            if (doPipeOut) {
+                                output += `${cleanLine}\r\n`;
+                            } else {
+                                term.write(`${cleanLine}\r\n`);
+                            }
+                        }
+                        return output;
+                    }));
+
+
+                this.AddMethod(new drpMethod("tail",
+                    "Output last 10 lines of piped contents or path",
+                    "[OPTIONS]...",
+                    {
+                        "h": new drpMethodSwitch("h", null, "Help"),
+                        "n": new drpMethodSwitch("n", "integer", "Number of lines"),
+                        //"c": new drpMethodSwitch("c", null, "Number of characters"),
+                    },
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
+                        let output = "";
+                        let tailData = null;
+                        if ("h" in switchesAndData.switches || (!switchesAndData.data && !pipeDataIn)) {
+                            term.write(this.ShowHelp());
+                            return
+                        }
+                        if (typeof pipeDataIn === 'string') {
+                            tailData = pipeDataIn;
+                        } else {
+                            tailData = JSON.stringify(pipeDataIn, null, 2);
+                        }
+                        let lineArray = tailData.split('\n');
+                        let lineFetchCount = 10;
+                        if (switchesAndData.switches["n"]) {
+                            lineFetchCount = Number.parseInt(switchesAndData.switches["n"]);
+                        } else {
+                            let switchRegEx = /^-([\d]+)/;
+                            let switchDataMatch = switchesAndDataString.match(switchRegEx);
+                            if (switchDataMatch) {
+                                lineFetchCount = switchDataMatch[1];
+                            }
+                        }
+
+                        if (typeof lineFetchCount === "string") {
+                            try {
+                                lineFetchCount = Number.parseInt(lineFetchCount);
+                            } catch (ex) {
+                                term.write(this.ShowHelp());
+                                return
+                            }
+                        }
+
+                        let lineStart = 0;
+
+                        if (lineArray.length < lineFetchCount) {
+                            // There are fewer lines than we want to get
+                            lineFetchCount = lineArray.length;
+                        } else {
+                            lineStart = lineArray.length - lineFetchCount;
+                        }
+
+                        for (let i = lineStart; i < lineFetchCount + lineStart; i++) {
+                            let cleanLine = lineArray[i].replace('\r', '');
+                            if (doPipeOut) {
+                                output += `${cleanLine}\r\n`;
+                            } else {
+                                term.write(`${cleanLine}\r\n`);
+                            }
+                        }
+                        return output;
+                    }));
+
                 this.AddMethod(new drpMethod("set",
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        console.log("Usage: set [VARIABLE]=[VALUE]");
-                        console.log("Set or list shell ENV variables.\n");
-                        console.log("Optional arguments:");
-                        console.log("  (none)");
-                    }, { "h": new drpMethodSwitch("h", null, "Help menu") },
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                    "Set or list shell ENV variables",
+                    "[VARIABLE]=[VALUE]",
+                    { "h": new drpMethodSwitch("h", null, "Help menu") },
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         let output = "";
 
                         if ("h" in switchesAndData.switches) {
-                            output = "Usage: set [VARIABLE]=[VALUE]\r\n";
-                            output += "Set or list shell ENV variables.\r\n\r\n";
-                            output += "Optional arguments:\r\n";
-                            output += "  (none)\r\n";
-                            term.write(output);
+                            term.write(this.ShowHelp());
                             return
                         }
 
@@ -642,6 +738,7 @@
                             }
                         } else {
                             // No ENV variable name provided, list all variables and values
+                            output += `\x1B[33mShell variables:\x1B[0m\r\n`;
                             let shellVarNames = Object.keys(myApp.appVars.shellVars);
                             for (let i = 0; i < shellVarNames.length; i++) {
                                 let printVal = "";
@@ -677,21 +774,15 @@
                     }));
 
                 this.AddMethod(new drpMethod("echo",
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
-                        console.log("Usage: echo [OUTPUT]");
-                        console.log("Print data.\n");
-                        console.log("Optional arguments:");
-                        console.log("  (none)");
-                    }, { "h": new drpMethodSwitch("h", null, "Help menu") },
-                    async (switchesAndData, doPipeOut, pipeDataIn) => {
+                    "Output data",
+                    "[OUTPUT]",
+                    { "h": new drpMethodSwitch("h", null, "Help menu") },
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         let output = "";
 
                         if ("h" in switchesAndData.switches) {
-                            output = "Usage: echo [OUTPUT]\r\n";
-                            output += "Print data.\r\n\r\n";
-                            output += "Optional arguments:\r\n";
-                            output += "  (none)\r\n";
-                            term.write(output);
+                            term.write(this.ShowHelp());
                             return
                         }
 
@@ -758,37 +849,33 @@
                 for (let i = 0; i < cmdArray.length; i++) {
                     let cmdParts = cmdArray[i].match(/^(\S*)(?: (.*))?$/);
                     if (cmdParts) {
-                        let cmdVerb = cmdParts[1];
+                        let methodName = cmdParts[1];
 
                         // Replace aliases
-                        if (myApp.appVars.aliases && myApp.appVars.aliases[cmdVerb]) {
-                            cmdVerb = myApp.appVars.aliases[cmdVerb]
+                        if (myApp.appVars.aliases && myApp.appVars.aliases[methodName]) {
+                            methodName = myApp.appVars.aliases[methodName]
                         }
 
-                        let cmdParamsAndData = cmdParts[2] || "";
+                        let switchesAndData = cmdParts[2] || "";
                         let doPipeOut = (i + 1 < cmdArray.length);
                         let pipeDataIn = pipeData;
                         pipeData = "";
 
                         try {
-                            pipeData = await this.ExecuteMethod(cmdVerb, cmdParamsAndData, doPipeOut, pipeDataIn);
+                            if (!this.drpMethods[methodName]) {
+                                // Write error to terminal; unknown method
+                                this.term.write(`\x1B[91mInvalid command [${methodName}]\x1B[0m`);
+                                this.term.write(`\r\n`);
+                                return;
+                            }
+                            pipeData = await this.drpMethods[methodName].execute(switchesAndData, doPipeOut, pipeDataIn);
+
                         } catch (ex) {
-                            term.write(`\x1B[91mError executing command [${cmdVerb}]: ${ex}\x1B[0m\r\n`);
+                            term.write(`\x1B[91mError executing command [${methodName}]: ${ex}\x1B[0m\r\n`);
                             break;
                         }
                     }
                 }
-            }
-
-            async ExecuteMethod(methodName, switchesAndData, doPipeOut, pipeDataIn) {
-                if (!this.drpMethods[methodName]) {
-                    // Write error to terminal; unknown method
-                    this.term.write(`\x1B[91mInvalid command [${methodName}]\x1B[0m`);
-                    this.term.write(`\r\n`);
-                    return;
-                }
-                let results = await this.drpMethods[methodName].execute(switchesAndData, doPipeOut, pipeDataIn);
-                return results;
             }
         }
 

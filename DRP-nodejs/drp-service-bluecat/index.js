@@ -76,7 +76,13 @@ class BlueCatMgmtHost {
 
             await thisBcMgmtHost.GetEntities_All(subZoneObj.id, "HostRecord", (hostRecords) => {
                 for (let i = 0; i < hostRecords.length; i++) {
-                    subZoneObj.records[hostRecords[i].name] = hostRecords[i];
+                    let thisHostRecord = hostRecords[i];
+                    if (thisHostRecord) {
+                        subZoneObj.records[thisHostRecord.name] = thisHostRecord;
+                    } else {
+                        // Error - all HostRecord objects should have a name
+                        let badRecord = true;
+                    }
                 }
             });
 
