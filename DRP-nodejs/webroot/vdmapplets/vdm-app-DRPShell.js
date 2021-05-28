@@ -709,10 +709,55 @@
                     {
                         "h": new drpMethodSwitch("h", null, "Help"),
                         "i": new drpMethodSwitch("i", null, "Case Insensitive"),
+                        "n": new drpMethodSwitch("n", null, "Output line number"),
+                        "A": new drpMethodSwitch("A", "integer", "Print lines before match"),
+                        "B": new drpMethodSwitch("B", "integer", "Print lines after match"),
+                        "C": new drpMethodSwitch("C", "integer", "Print lines before and after match")
                     },
                     async function (switchesAndDataString, doPipeOut, pipeDataIn) {
                         let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         let output = "";
+                        let printingContext = false;
+                        let switchA = Number.parseInt(switchesAndData.switches["A"]) || 0;
+                        let switchB = Number.parseInt(switchesAndData.switches["B"]) || 0;
+                        let switchC = Number.parseInt(switchesAndData.switches["C"]) || 0;
+                        let contextLinesBefore = Math.max(switchA, switchC) || 0;
+                        let contextLinesAfter = Math.max(switchB, switchC) || 0;
+
+                        if (contextLinesBefore || contextLinesAfter) {
+                            printingContext = true;
+                        }
+
+                        // Function to output line
+                        let printLine = (inputLine, doPipeOut, matchLine, lineNumber) => {
+                            let returnLine = '';
+                            let outputLineNumber = '';
+                            if ("n" in switchesAndData.switches) {
+                                outputLineNumber += `\x1b\[92m${lineNumber}\x1b\[0m`;
+                                if (matchLine) {
+                                    outputLineNumber += `\x1b\[94m:\x1b\[0m`;
+                                } else {
+                                    outputLineNumber += `\x1b\[94m-\x1b\[0m`;
+                                }
+                            }
+                            let tmpLine = "";
+                            if (matchLine) {
+                                tmpLine = `${outputLineNumber}\x1b\[93m${inputLine}\x1b\[m\r\n`;
+                            } else {
+                                tmpLine = `${outputLineNumber}\x1b\[97m${inputLine}\x1b\[m\r\n`;
+                            }
+                            if (doPipeOut) {
+                                // Sanitize output by removing terminal control characters
+                                returnLine = tmpLine.replace(/\x1b\[\d{1,2}m/g, '');
+                            } else {
+                                term.write(tmpLine);
+                            }
+                            return returnLine;
+                        }
+
+                        // If any context switches specified, insert '--' between matching sections
+
+                        let linesPrinted = [];
                         let grepData = null;
                         if ("h" in switchesAndData.switches || !pipeDataIn) {
                             term.write(this.ShowHelp());
@@ -730,10 +775,68 @@
                         for (let i = 0; i < lineArray.length; i++) {
                             let cleanLine = lineArray[i].replace('\r', '');
                             if (checkRegEx.test(cleanLine)) {
-                                if (doPipeOut) {
-                                    output += `[${i}] ${cleanLine}`;
-                                } else {
-                                    term.write(`[${i}] ${cleanLine}\r\n`);
+                                // This line matches
+
+                                if (printingContext && linesPrinted.length) {
+
+                                    // Get the last line we printed
+                                    let lastPrintedLine = linesPrinted[linesPrinted.length - 1];
+
+                                    // Did we hit a break between sections?
+                                    if (i > lastPrintedLine + 1) {
+
+                                        // We've already printed a section, add a break
+                                        if (doPipeOut) {
+                                            output += `--\r\n`;
+                                        } else {
+                                            term.write(`\x1b\[94m--\x1b\[0m\r\n`);
+                                        }
+                                    }
+                                }
+
+                                // Are we printing context before?
+                                if (contextLinesBefore) {
+                                    // Calculate the starting and ending lines
+                                    let linesToFetch = Math.min(contextLinesBefore, i);
+                                    for (let j = linesToFetch; j > 0; j--) {
+                                        let targetLine = i - j;
+                                        if (!linesPrinted.includes(targetLine)) {
+                                            let cleanLine = lineArray[targetLine].replace('\r', '');
+                                            output += printLine(cleanLine, doPipeOut, false, targetLine);
+                                            linesPrinted.push(targetLine);
+                                        }
+                                    }
+                                }
+
+                                // If we've already printed this line, skip
+                                if (!linesPrinted.includes(i)) {
+                                    output += printLine(cleanLine, doPipeOut, true, i);
+                                    linesPrinted.push(i);
+                                }
+
+                                // Are we printing context after?
+                                if (contextLinesAfter) {
+                                    // Calculate the starting and ending lines
+
+                                    /**
+                                     * 
+                                     * length = 10
+                                     * linesAfter = 5
+                                     * i = 6 (7th line, only 3 left)
+                                     * 
+                                     * */
+
+                                    let linesToFetch = Math.min(contextLinesAfter, lineArray.length - (i + 1));
+                                    for (let j = 1; j <= linesToFetch; j++) {
+                                        let targetLine = i + j;
+                                        if (!linesPrinted.includes(targetLine)) {
+                                            let cleanLine = lineArray[targetLine].replace('\r', '');
+                                            // Need to eval; possible this is a matching line
+                                            let matchingLine = checkRegEx.test(cleanLine);
+                                            output += printLine(cleanLine, doPipeOut, matchingLine, targetLine);
+                                            linesPrinted.push(targetLine);
+                                        }
+                                    }
                                 }
                             }
                         }
