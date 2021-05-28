@@ -469,6 +469,17 @@
                         let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
 
                         let returnObj = null;
+
+                        // If an object was passed in a variable, output and return
+                        if (typeof switchesAndData.data === "object") {
+                            if (doPipeOut) {
+                                return switchesAndData.data;
+                            } else {
+                                term.write(`\x1B[0m${JSON.stringify(switchesAndData.data, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                                return returnObj;
+                            }
+                        }
+
                         let pathList = [];
                         if (switchesAndData.data.length > 0) pathList = switchesAndData.data.split(/[\/\\]/g);
 
