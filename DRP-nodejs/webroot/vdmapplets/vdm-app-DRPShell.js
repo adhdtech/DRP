@@ -41,94 +41,6 @@
     async runStartup() {
         let myApp = this;
 
-        /* JSONPath 0.8.0 - XPath for JSON
-        *
-        * Copyright (c) 2007 Stefan Goessner (goessner.net)
-        * Licensed under the MIT (MIT-LICENSE.txt) licence.
-        */
-        let jsonPath = function (obj, expr, arg) {
-            var P = {
-                resultType: arg && arg.resultType || "VALUE",
-                result: [],
-                normalize: function (expr) {
-                    var subx = [];
-                    return expr.replace(/[\['](\??\(.*?\))[\]']/g, function ($0, $1) { return "[#" + (subx.push($1) - 1) + "]"; })
-                        .replace(/'?\.'?|\['?/g, ";")
-                        .replace(/;;;|;;/g, ";..;")
-                        .replace(/;$|'?\]|'$/g, "")
-                        .replace(/#([0-9]+)/g, function ($0, $1) { return subx[$1]; });
-                },
-                asPath: function (path) {
-                    var x = path.split(";"), p = "$";
-                    for (var i = 1, n = x.length; i < n; i++)
-                        p += /^[0-9*]+$/.test(x[i]) ? ("[" + x[i] + "]") : ("['" + x[i] + "']");
-                    return p;
-                },
-                store: function (p, v) {
-                    if (p) P.result[P.result.length] = P.resultType == "PATH" ? P.asPath(p) : v;
-                    return !!p;
-                },
-                trace: function (expr, val, path) {
-                    if (expr) {
-                        var x = expr.split(";"), loc = x.shift();
-                        x = x.join(";");
-                        if (val && val.hasOwnProperty(loc))
-                            P.trace(x, val[loc], path + ";" + loc);
-                        else if (loc === "*")
-                            P.walk(loc, x, val, path, function (m, l, x, v, p) { P.trace(m + ";" + x, v, p); });
-                        else if (loc === "..") {
-                            P.trace(x, val, path);
-                            P.walk(loc, x, val, path, function (m, l, x, v, p) { typeof v[m] === "object" && P.trace("..;" + x, v[m], p + ";" + m); });
-                        }
-                        else if (/,/.test(loc)) { // [name1,name2,...]
-                            for (var s = loc.split(/'?,'?/), i = 0, n = s.length; i < n; i++)
-                                P.trace(s[i] + ";" + x, val, path);
-                        }
-                        else if (/^\(.*?\)$/.test(loc)) // [(expr)]
-                            P.trace(P.eval(loc, val, path.substr(path.lastIndexOf(";") + 1)) + ";" + x, val, path);
-                        else if (/^\?\(.*?\)$/.test(loc)) // [?(expr)]
-                            P.walk(loc, x, val, path, function (m, l, x, v, p) { if (P.eval(l.replace(/^\?\((.*?)\)$/, "$1"), v[m], m)) P.trace(m + ";" + x, v, p); });
-                        else if (/^(-?[0-9]*):(-?[0-9]*):?([0-9]*)$/.test(loc)) // [start:end:step]  phyton slice syntax
-                            P.slice(loc, x, val, path);
-                    }
-                    else
-                        P.store(path, val);
-                },
-                walk: function (loc, expr, val, path, f) {
-                    if (val instanceof Array) {
-                        for (var i = 0, n = val.length; i < n; i++)
-                            if (i in val)
-                                f(i, loc, expr, val, path);
-                    }
-                    else if (typeof val === "object") {
-                        for (var m in val)
-                            if (val.hasOwnProperty(m))
-                                f(m, loc, expr, val, path);
-                    }
-                },
-                slice: function (loc, expr, val, path) {
-                    if (val instanceof Array) {
-                        var len = val.length, start = 0, end = len, step = 1;
-                        loc.replace(/^(-?[0-9]*):(-?[0-9]*):?(-?[0-9]*)$/g, function ($0, $1, $2, $3) { start = parseInt($1 || start); end = parseInt($2 || end); step = parseInt($3 || step); });
-                        start = (start < 0) ? Math.max(0, start + len) : Math.min(len, start);
-                        end = (end < 0) ? Math.max(0, end + len) : Math.min(len, end);
-                        for (var i = start; i < end; i += step)
-                            P.trace(i + ";" + expr, val, path);
-                    }
-                },
-                eval: function (x, _v, _vname) {
-                    try { return $ && _v && eval(x.replace(/@/g, "_v")); }
-                    catch (e) { throw new SyntaxError("jsonPath: " + e.message + ": " + x.replace(/@/g, "_v").replace(/\^/g, "_a")); }
-                }
-            };
-
-            var $ = obj;
-            if (expr && obj && (P.resultType == "VALUE" || P.resultType == "PATH")) {
-                P.trace(P.normalize(expr).replace(/^\$;/, ""), obj, "$");
-                return P.result.length ? P.result : false;
-            }
-        }
-
         let watchWindowApplet = {
             appletName: "TopicWatch",
             title: "Topic Watch",
@@ -233,48 +145,7 @@
                 return output;
             }
 
-            EvaluateStringForVariables(evalString) {
-                // If the string matches a single variable, return that first - necessary for objects
-                // Otherwise we'll need to evalute as a concatenated string
-                if (!evalString) return evalString;
-
-                /** Single Variable Match */
-                let singleVarRegEx = /^\$(\w+)$/;
-                let singleVarMatch = evalString.match(singleVarRegEx);
-                if (singleVarMatch) {
-                    let varName = singleVarMatch[1];
-                    let replaceValue = "";
-                    if (myApp.appVars.shellVars[varName]) {
-                        replaceValue = myApp.appVars.shellVars[varName];
-                    }
-                    return replaceValue;
-                }
-
-                /** Multiple Variable Match */
-                let envVarRegEx = /\$(\w+)/g;
-                let envVarMatch;
-                while (envVarMatch = envVarRegEx.exec(evalString)) {
-                    let varName = envVarMatch[1];
-                    let replaceValue = "";
-                    // Does the variable exist?
-                    if (myApp.appVars.shellVars[varName]) {
-                        let varValue = myApp.appVars.shellVars[varName];
-                        let varType = typeof varValue;
-                        if (varType === "object" || ((varType === "string") && (varValue.match(/\n/)))) {
-                            // Don't actually replace the variable
-                            replaceValue = '$' + varName;
-                        } else {
-                            // Replace with contents of the variable
-                            replaceValue = myApp.appVars.shellVars[varName];
-                        }
-                    }
-                    evalString = evalString.replace('$' + varName, replaceValue);
-                }
-
-                return evalString;
-            }
-
-            ParseSwitchesAndData(switchesAndData, skipVarEval) {
+            ParseSwitchesAndData(switchesAndData) {
                 let returnObj = {
                     switches: {},
                     data: ""
@@ -288,8 +159,6 @@
                  * 4. Add to template
                  * 5. Evaluate
                  **/
-
-                /** List containing  */
                 let switchDataRegExList = [];
                 if (this.switches) {
                     let switchList = Object.keys(this.switches);
@@ -312,20 +181,10 @@
                         let switchHash = {};
                         let switchMatch;
                         while (switchMatch = switchRegEx.exec(switchDataMatch[1])) {
-                            let varName = switchMatch[1];
-                            let varValue = switchMatch[2] || null;
-                            if (skipVarEval) {
-                                switchHash[varName] = varValue;
-                            } else {
-                                switchHash[varName] = this.EvaluateStringForVariables(varValue);
-                            }
+                            switchHash[switchMatch[1]] = switchMatch[2] || null;
                         }
                         returnObj.switches = switchHash;
-                        if (skipVarEval) {
-                            returnObj.data = switchDataMatch[2] || "";
-                        } else {
-                            returnObj.data = this.EvaluateStringForVariables(switchDataMatch[2]) || "";
-                        }
+                        returnObj.data = switchDataMatch[2] || "";
                     }
                 } catch (ex) {
                     let ted = 1;
@@ -927,44 +786,24 @@
                             return
                         }
 
-                        output += switchesAndData.data;
-
-                        if (!doPipeOut) {
-                            term.write(output);
-                        }
-                        return output;
-                    }));
-
-                this.AddMethod(new drpMethod("jsonpath",
-                    "Retrieve data from JSON object",
-                    "[OPTIONS]",
-                    { "q": new drpMethodSwitch("q", "string", "JSONPath query") },
-                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
-                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
-                        let output = "";
-
-                        let inputObj = switchesAndData.data || pipeDataIn;
-
-                        if (typeof inputObj === "string") {
-                            // Try to parse as JSON
-                            try {
-                                inputObj = JSON.parse(inputObj);
-                            } catch (ex) {
-                                term.write(`\x1B[91mInput could not be parsed as JSON:\x1B[0m\r\n\x1B[37m${inputObj}\x1B[0m\r\n`);
-                                return
+                        // Replace variables
+                        let envVarRegEx = /\$(\w+)/g;
+                        let envVarMatch;
+                        while (envVarMatch = envVarRegEx.exec(switchesAndData.data)) {
+                            let varName = envVarMatch[1];
+                            let replaceValue = "";
+                            // Does the variable exist?
+                            if (myApp.appVars.shellVars[varName]) {
+                                if (typeof myApp.appVars.shellVars[varName] === "object") {
+                                    replaceValue = JSON.stringify(myApp.appVars.shellVars[varName], null, 4).replace(/\n/g, "\r\n")
+                                } else {
+                                    replaceValue = myApp.appVars.shellVars[varName];
+                                }
                             }
+                            switchesAndData.data = switchesAndData.data.replace('$' + varName, replaceValue);
                         }
 
-                        if ("h" in switchesAndData.switches || !inputObj) {
-                            term.write(this.ShowHelp());
-                            return
-                        }
-
-                        let jsonPathQuery = switchesAndData.switches["q"];
-                        jsonPathQuery = jsonPathQuery.replace(/^"|"$/g, '');
-                        jsonPathQuery = jsonPathQuery.replace(/^'|'$/g, '');
-
-                        output = JSON.stringify(jsonPath(inputObj, jsonPathQuery), null, 4).replace(/\n/g, "\r\n");
+                        output += switchesAndData.data;
 
                         if (!doPipeOut) {
                             term.write(output);
@@ -983,6 +822,28 @@
             async ExecuteCLICommand(commandLine) {
                 let pipeData = null;
                 term.write(`\r\n`);
+
+                // Replace variables
+                let envVarRegEx = /\$(\w+)/g;
+                let envVarMatch;
+                while (envVarMatch = envVarRegEx.exec(commandLine)) {
+                    let varName = envVarMatch[1];
+                    let replaceValue = "";
+                    // Does the variable exist?
+                    if (myApp.appVars.shellVars[varName]) {
+                        let varValue = myApp.appVars.shellVars[varName];
+                        let varType = typeof varValue;
+                        if (varType === "object" || ((varType === "string") && (varValue.match(/\n/)))) {
+                            // Don't actually replace the variable
+                            replaceValue = '$' + varName;
+                        } else {
+                            // Replace with contents of the variable
+                            replaceValue = myApp.appVars.shellVars[varName];
+                        }
+                    }
+                    commandLine = commandLine.replace('$' + varName, replaceValue);
+                }
+
 
                 let cmdArray = commandLine.split(" | ");
                 for (let i = 0; i < cmdArray.length; i++) {
