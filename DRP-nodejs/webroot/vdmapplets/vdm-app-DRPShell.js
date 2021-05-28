@@ -238,6 +238,10 @@
                 // Otherwise we'll need to evalute as a concatenated string
                 if (!evalString) return evalString;
 
+                // Remove leading and trailing whitespace
+                evalString = evalString.replace(/^\s+|\s+$/g, '');
+                if (!evalString) return evalString;
+
                 /** Single Variable Match */
                 let singleVarRegEx = /^\$(\w+)$/;
                 let singleVarMatch = evalString.match(singleVarRegEx);
