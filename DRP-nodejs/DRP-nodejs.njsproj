@@ -14,7 +14,10 @@ MESHKEY=supersecretkey
 DEBUG=true
 TESTMODE=true
 ZONENAME=zone1
-AUTHENTICATORSERVICE=TestAuthenticator</Environment>
+AUTHENTICATORSERVICE=TestAuthenticator
+S3ENDPOINT=https://192.168.5.148
+S3ACCESSKEYID=AKIAT7y9JwKbREyMsCX08G3blg
+S3SECRETACCESSKEY=IHQRZ8U/06tboLFyLduRdLfWvkSt9gl1rHQUeATQ</Environment>
     <NodejsPort>8080</NodejsPort>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
@@ -84,6 +87,7 @@ AUTHENTICATORSERVICE=TestAuthenticator</Environment>
     <Content Include="drpLogger.js" />
     <Content Include="drpProvider-BlueCat.js" />
     <Content Include="drpProvider-Cache.js" />
+    <Content Include="drpProvider-Cortx.js" />
     <Content Include="drpProvider-DocMgr.js" />
     <Content Include="drpProvider-FedEx.js" />
     <Content Include="drpProvider-Hive.js" />
@@ -92,6 +96,15 @@ AUTHENTICATORSERVICE=TestAuthenticator</Environment>
     <Content Include="drpProvider-Test-Authenticator.js" />
     <Content Include="drpProvider-Webex.js" />
     <Content Include="drpProvider-Test-PublicDirectory.js" />
+    <Content Include="drpProvider-Grafana.js">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="JavaScript1.js">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="serverCortx.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="jsondocs\SomeSvc1\test.json" />
     <Content Include="drpBroker.js" />
     <Content Include="package.yaml" />
@@ -124,11 +137,9 @@ AUTHENTICATORSERVICE=TestAuthenticator</Environment>
     <Content Include="webroot\assets\webxr\textures\skybox02_pz.png" />
     <Content Include="webroot\assets\xterm\css\xterm.css" />
     <Content Include="webroot\assets\xterm\lib\xterm.js" />
-    <Content Include="webroot\client.html" />
     <Content Include="webroot\favicon.ico" />
     <Content Include="webroot\oculus.html" />
     <Content Include="webroot\oculus.js" />
-    <Content Include="webroot\vdmapp.js" />
     <Content Include="webroot\vdmapplets\vdm-app-Blank.js" />
     <Content Include="webroot\vdmapplets\vdm-app-CommandTesting.js" />
     <Content Include="webroot\vdmapplets\vdm-app-CommandTesting.json" />
