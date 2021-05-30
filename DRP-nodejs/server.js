@@ -98,13 +98,14 @@ myNode.ConnectToMesh(async () => {
     myAuthenticator.Authenticate = async function (authRequest) {
         let thisService = this;
         let authResponse = null;
-        console.dir(authRequest);
+        //console.dir(authRequest);
         if (authRequest.UserName && authRequest.Password) {
             // For demo purposes; accept any user/password or token
             authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName, "Some User", ["Users"], null, thisService.serviceName, thisService.drpNode.getTimestamp());
+            if (thisService.drpNode.Debug) thisService.drpNode.log(`Authenticate [${authRequest.UserName}] -> SUCCEEDED`);
+            thisService.drpNode.TopicManager.SendToTopic("AuthLogs", authResponse);
+            thisService.drpNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse });
         }
-        myNode.TopicManager.SendToTopic("AuthLogs", authResponse);
-        myNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse });
         return authResponse;
     };
 

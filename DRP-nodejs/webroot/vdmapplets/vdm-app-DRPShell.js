@@ -621,6 +621,7 @@
                             let topologyData = await myApp.sendCmd("DRP", "getTopology", null, true);
                             let streamTable = {};
                             let maxStreamNameLength = 0;
+                            let maxInstanceIDLength = 0;
                             // Loop over nodes
                             let nodeList = Object.keys(topologyData);
                             for (let i = 0; i < nodeList.length; i++) {
@@ -636,15 +637,15 @@
                                                 maxStreamNameLength = thisStreamName.length;
                                             }
                                         }
-                                        streamTable[thisStreamName].push(serviceEntry.InstanceID);
+                                        maxInstanceIDLength = Math.max(maxInstanceIDLength, serviceEntry.InstanceID.length);
+                                        streamTable[thisStreamName].push(serviceEntry);
                                     }
                                 }
                             }
 
                             let tableHeaders = ["Stream", "Providers"];
-                            if (maxStreamNameLength < tableHeaders[0].length) {
-                                maxStreamNameLength = tableHeaders[0].length;
-                            }
+                            maxStreamNameLength = Math.max(maxStreamNameLength, tableHeaders[0].length);
+
                             //term.write(`\x1B[97m${tableHeaders[0].padEnd(maxStreamNameLength, ' ')} | ${tableHeaders[1]}\x1B[0m\r\n`)
                             //term.write(`${"".padEnd(maxStreamNameLength, '-')}-|-${"".padEnd(tableHeaders[1].length, '-')}\r\n`)
 
@@ -652,8 +653,21 @@
                             let streamNameList = Object.keys(streamTable);
                             for (let i = 0; i < streamNameList.length; i++) {
                                 let thisStreamName = streamNameList[i];
-                                //term.write(`\x1B[92m${thisStreamName.padEnd(maxStreamNameLength, ' ')} \x1B[0m| \x1B[94m${streamTable[thisStreamName].join(",")}\x1B[0m\r\n`);
-                                term.write(`\x1B[92m${thisStreamName.padEnd(maxStreamNameLength, ' ')}\t\x1B[94m${streamTable[thisStreamName].join(",")}\x1B[0m\r\n`);
+                                let thisServiceArray = streamTable[thisStreamName];
+                                for (let j = 0; j < thisServiceArray.length; j++) {
+                                    let thisServiceObj = thisServiceArray[j];
+                                    let thisStreamNameText = thisStreamName.padEnd(maxStreamNameLength);
+                                    let thisInstanceIDText = thisServiceObj.InstanceID.padEnd(maxInstanceIDLength);
+                                    let thisScopeText = thisServiceObj.Scope.padEnd(6);
+                                    let thisZoneText = thisServiceObj.Zone;
+                                    //term.write(`\x1B[92m${thisStreamName.padEnd(maxStreamNameLength, ' ')} \x1B[0m| \x1B[94m${streamTable[thisStreamName].join(",")}\x1B[0m\r\n`);
+                                    //term.write(`\x1B[92m${thisStreamName.padEnd(maxStreamNameLength, ' ')}\t\x1B[94m${streamTable[thisStreamName].join(",")}\x1B[0m\r\n`);
+                                    //if (!j) {
+                                        // First line for stream
+                                        term.write(`\x1B[92m${thisStreamNameText} \x1B[94m${thisInstanceIDText}\x1B[0m ${thisScopeText} ${thisZoneText}\r\n`);
+                                    //} else {
+                                    //}
+                                }
                             }
 
                             return;

@@ -61,9 +61,16 @@ class DRP_Service {
             InstanceID: thisService.InstanceID,
             Name: thisService.serviceName,
             Type: thisService.Type,
+            Scope: thisService.Scope,
+            Zone: thisService.Zone,
             Classes: {},
             ClientCmds: Object.keys(thisService.ClientCmds),
-            Streams: thisService.Streams
+            Streams: thisService.Streams,
+            Status: thisService.Status,
+            Sticky: thisService.Sticky,
+            Weight: thisService.Weight,
+            Priority: thisService.Priority,
+            Dependencies: thisService.Dependencies
         };
 
         // Loop over classes, get defs (excluding caches)
