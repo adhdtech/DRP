@@ -138,58 +138,91 @@
             appletClass: (class extends rSageApplet {
                 constructor(appletProfile, startupParams) {
                     super(appletProfile);
-                    let myApp = this;
+                    let watchApp = this;
+
+                    // Override Title
+                    watchApp.title += ` - ${startupParams.topicName} (${startupParams.scope})`
 
                     // Prerequisites
-                    myApp.preReqs = [
+                    watchApp.preReqs = [
                     ];
 
                     // Dropdown menu items
-                    myApp.menu = {
+                    watchApp.menu = {
+                        "Stream Control": {
+                            "Stop": () => {
+                                watchApp.appFuncs.stopStream();
+                            },
+                            "Start": () => {
+                                watchApp.appFuncs.startStream();
+                            }
+                        },
+                        "Output Control": {
+                            "Objects single line": () => {
+                                watchApp.appVars.objectsMultiLine = false;
+                            },
+                            "Objects formatted": () => {
+                                watchApp.appVars.objectsMultiLine = true;
+                            }
+                        }
                     };
 
-                    myApp.appFuncs = {
+                    watchApp.appFuncs = {
+                        startStream: () => {
+                            let topicName = watchApp.appVars.startupParams.topicName;
+                            let scope = watchApp.appVars.startupParams.scope;
+                            watchApp.sendCmd_StreamHandler("DRP", "subscribe", { topicName: topicName, scope: scope }, (streamData) => {
+                                if (typeof streamData.payload.Message === "string") {
+                                    watchApp.appVars.term.write(`\x1B[94m[${streamData.payload.TimeStamp}] \x1B[97m${streamData.payload.Message}\x1B[0m\r\n`);
+                                } else {
+                                    if (watchApp.appVars.objectsMultiLine) {
+                                        watchApp.appVars.term.write(`\x1B[94m[${streamData.payload.TimeStamp}] \x1B[92m${JSON.stringify(streamData.payload.Message, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);            
+                                    } else {
+                                        watchApp.appVars.term.write(`\x1B[94m[${streamData.payload.TimeStamp}] \x1B[92m${JSON.stringify(streamData.payload.Message)}\x1B[0m\r\n`);
+                                    }
+                                }
+                            });
+                        },
+                        stopStream: () => {
+                            let thisStreamToken = watchApp.streamHandlerTokens.pop();
+                            if (thisStreamToken) {
+                                watchApp.sendCmd("DRP", "unsubscribe", { streamToken: thisStreamToken }, false);
+                                watchApp.vdmClient.vdmServerAgent.DeleteReplyHandler(thisStreamToken);
+                            }
+                        }
                     };
 
-                    myApp.appVars = {
-                        startupParams: startupParams
+                    watchApp.appVars = {
+                        startupParams: startupParams,
+                        objectsMultiLine: false
                     };
 
-                    myApp.recvCmd = {
+                    watchApp.recvCmd = {
                     };
 
                 }
 
                 runStartup() {
-                    let myApp = this;
+                    let watchApp = this;
 
-                    myApp.appVars.termDiv = myApp.windowParts["data"];
-                    myApp.appVars.termDiv.style.backgroundColor = "black";
+                    watchApp.appVars.termDiv = watchApp.windowParts["data"];
+                    watchApp.appVars.termDiv.style.backgroundColor = "black";
                     let term = new Terminal();
-                    myApp.appVars.term = term;
-                    myApp.appVars.fitaddon = new FitAddon.FitAddon();
-                    term.loadAddon(myApp.appVars.fitaddon);
-                    term.open(myApp.appVars.termDiv);
+                    watchApp.appVars.term = term;
+                    watchApp.appVars.fitaddon = new FitAddon.FitAddon();
+                    term.loadAddon(watchApp.appVars.fitaddon);
+                    term.open(watchApp.appVars.termDiv);
                     term.setOption('cursorBlink', true);
                     term.setOption('bellStyle', 'sound');
                     //term.setOption('fontSize', 12);
 
-                    let topicName = myApp.appVars.startupParams.topicName;
-                    let scope = myApp.appVars.startupParams.scope;
+                    watchApp.appFuncs.startStream();
 
-                    myApp.sendCmd_StreamHandler("DRP", "subscribe", { topicName: topicName, scope: scope }, (streamData) => {
-                        if (typeof streamData.payload === "string") {
-                            term.write(`\x1B[94m[${topicName}] \x1B[92m${streamData.payload}\x1B[0m\r\n`);
-                        } else {
-                            term.write(`\x1B[94m[${topicName}] \x1B[92m${JSON.stringify(streamData.payload)}\x1B[0m\r\n`);
-                        }
-                    });
-
-                    myApp.resizeMovingHook = function () {
-                        myApp.appVars.fitaddon.fit();
+                    watchApp.resizeMovingHook = function () {
+                        watchApp.appVars.fitaddon.fit();
                     };
 
-                    myApp.appVars.fitaddon.fit();
+                    watchApp.appVars.fitaddon.fit();
                 }
             })
         }
@@ -618,10 +651,19 @@
                     async function (switchesAndDataString, doPipeOut, pipeDataIn) {
                         let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         if ("l" in switchesAndData.switches) {
+
+                            let headerLabels = ["Stream Name", "Service Instance", "Scope", "Zone"];
+                            /*
+                            let fieldMaxLengths = [];
+                            for (let i = 0; i < headerLabels.length; i++) {
+                                fieldMaxLengths.push(headerLabels[i]);
+                            }
+                            */
+
+                            let headerLengths = Object.assign({}, ...headerLabels.map((x) => ({ [x]: x.length })));
+
                             let topologyData = await myApp.sendCmd("DRP", "getTopology", null, true);
                             let streamTable = {};
-                            let maxStreamNameLength = 0;
-                            let maxInstanceIDLength = 0;
                             // Loop over nodes
                             let nodeList = Object.keys(topologyData);
                             for (let i = 0; i < nodeList.length; i++) {
@@ -633,21 +675,24 @@
                                         let thisStreamName = serviceEntry.Streams[k];
                                         if (!streamTable[thisStreamName]) {
                                             streamTable[thisStreamName] = [];
-                                            if (thisStreamName.length > maxStreamNameLength) {
-                                                maxStreamNameLength = thisStreamName.length;
-                                            }
+                                            headerLengths["Stream Name"] = Math.max(headerLengths["Stream Name"], thisStreamName.length);
                                         }
-                                        maxInstanceIDLength = Math.max(maxInstanceIDLength, serviceEntry.InstanceID.length);
+                                        headerLengths["Service Instance"] = Math.max(headerLengths["Service Instance"], serviceEntry.InstanceID.length);
+                                        headerLengths["Scope"] = Math.max(headerLengths["Scope"], serviceEntry.Scope.length);
+                                        headerLengths["Zone"] = Math.max(headerLengths["Zone"], serviceEntry.Scope.length);
                                         streamTable[thisStreamName].push(serviceEntry);
                                     }
                                 }
                             }
 
-                            let tableHeaders = ["Stream", "Providers"];
-                            maxStreamNameLength = Math.max(maxStreamNameLength, tableHeaders[0].length);
-
-                            //term.write(`\x1B[97m${tableHeaders[0].padEnd(maxStreamNameLength, ' ')} | ${tableHeaders[1]}\x1B[0m\r\n`)
-                            //term.write(`${"".padEnd(maxStreamNameLength, '-')}-|-${"".padEnd(tableHeaders[1].length, '-')}\r\n`)
+                            //let headerColorCtrl = '\x1B[40;96m';
+                            let headerColorCtrl = '\x1B[40;1;95m';
+                            term.write(`\r\n` +
+                                `${headerColorCtrl}${headerLabels[0].padEnd(headerLengths[headerLabels[0]], ' ')}\x1B[0m ` +
+                                `${headerColorCtrl}${headerLabels[1].padEnd(headerLengths[headerLabels[1]], ' ')}\x1B[0m ` +
+                                `${headerColorCtrl}${headerLabels[2].padEnd(headerLengths[headerLabels[2]], ' ')}\x1B[0m ` +
+                                `${headerColorCtrl}${headerLabels[3].padEnd(headerLengths[headerLabels[3]], ' ')}\x1B[0m` +
+                                `\r\n`);
 
                             // Output stream list
                             let streamNameList = Object.keys(streamTable);
@@ -656,17 +701,26 @@
                                 let thisServiceArray = streamTable[thisStreamName];
                                 for (let j = 0; j < thisServiceArray.length; j++) {
                                     let thisServiceObj = thisServiceArray[j];
-                                    let thisStreamNameText = thisStreamName.padEnd(maxStreamNameLength);
-                                    let thisInstanceIDText = thisServiceObj.InstanceID.padEnd(maxInstanceIDLength);
-                                    let thisScopeText = thisServiceObj.Scope.padEnd(6);
+                                    let thisStreamNameText = thisStreamName.padEnd(headerLengths["Stream Name"]);
+                                    let thisInstanceIDText = thisServiceObj.InstanceID.padEnd(headerLengths["Service Instance"]);
+                                    let thisScopeText = thisServiceObj.Scope.padEnd(headerLengths["Scope"]);
                                     let thisZoneText = thisServiceObj.Zone;
-                                    //term.write(`\x1B[92m${thisStreamName.padEnd(maxStreamNameLength, ' ')} \x1B[0m| \x1B[94m${streamTable[thisStreamName].join(",")}\x1B[0m\r\n`);
-                                    //term.write(`\x1B[92m${thisStreamName.padEnd(maxStreamNameLength, ' ')}\t\x1B[94m${streamTable[thisStreamName].join(",")}\x1B[0m\r\n`);
-                                    //if (!j) {
-                                        // First line for stream
-                                        term.write(`\x1B[92m${thisStreamNameText} \x1B[94m${thisInstanceIDText}\x1B[0m ${thisScopeText} ${thisZoneText}\r\n`);
-                                    //} else {
-                                    //}
+                                    let scopeColor = "";
+                                    switch (thisServiceObj.Scope) {
+                                        case "local":
+                                            scopeColor = "93";
+                                            break;
+                                        case "zone":
+                                            //scopeColor = "94";
+                                            scopeColor = "96";
+                                            break;
+                                        case "global":
+                                            scopeColor = "92";
+                                            break;
+                                        default:
+                                            scopeColor = "39";
+                                    }
+                                    term.write(`\x1B[37m${thisStreamNameText} \x1B[0;37m${thisInstanceIDText}\x1B[0m \x1B[${scopeColor}m${thisScopeText}\x1B[0m ${thisZoneText}\r\n`);
                                 }
                             }
 
@@ -1097,6 +1151,32 @@
                         jsonPathQuery = jsonPathQuery.replace(/^'|'$/g, '');
 
                         output = JSON.stringify(jsonPath(inputObj, jsonPathQuery), null, 4).replace(/\n/g, "\r\n");
+
+                        if (!doPipeOut) {
+                            term.write(output);
+                        }
+                        return output;
+                    }));
+
+                this.AddMethod(new drpMethod("colors",
+                    "Show terminal color test pattern",
+                    "",
+                    { "h": new drpMethodSwitch("h", null, "Help menu") },
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
+                        let output = "";
+
+                        if ("h" in switchesAndData.switches) {
+                            term.write(this.ShowHelp());
+                            return
+                        }
+
+                        for (let i = 0; i < 100; i++) {
+                            output += `\x1B[${i}m${i}\x1B[0m `;
+                            if (i % 10 === 9) {
+                                output += `\r\n`;
+                            }
+                        }
 
                         if (!doPipeOut) {
                             term.write(output);

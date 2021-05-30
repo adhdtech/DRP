@@ -155,7 +155,7 @@ class DRP_Node {
         let localDRPEndpoint = new DRP_Endpoint(null, this, "Local");
         this.ApplyNodeEndpointMethods(localDRPEndpoint);
 
-        let DRPService = new DRP_Service("DRP", this, "DRP", null, false, 10, 10, this.Zone, "local", null, [], 1);
+        let DRPService = new DRP_Service("DRP", this, "DRP", null, false, 10, 10, this.Zone, "local", null, ["TopologyTracker"], 1);
         DRPService.ClientCmds = localDRPEndpoint.EndpointCmds;
 
         this.AddService(DRPService);
@@ -604,7 +604,7 @@ class DRP_Node {
         let serviceNameList = Object.keys(thisNode.Services);
         for (let i = 0; i < serviceNameList.length; i++) {
             let serviceName = serviceNameList[i];
-            if (serviceName === "DRP" || checkServiceName && checkServiceName !== serviceName) continue;
+            if (checkServiceName && checkServiceName !== serviceName) continue;
             let serviceDefinition = thisNode.Services[serviceName].GetDefinition();
             serviceDefinitions[serviceName] = serviceDefinition;
         }
