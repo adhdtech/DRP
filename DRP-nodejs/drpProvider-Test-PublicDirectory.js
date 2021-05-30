@@ -19,9 +19,7 @@ class DirectoryService extends DRP_Service {
     constructor(serviceName, drpNode) {
         super(serviceName, drpNode, "TestService", `${drpNode.NodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, null, 1);
         this.ClientCmds = {
-            sayHi: async function () { return { pathItem: `Hello from ${drpNode.NodeID}` }; },
-            sayBye: async function () { return { pathItem: `Goodbye from ${drpNode.NodeID}` }; },
-            showParams: async function (params) { return { pathItem: params }; }
+            getProviders: async () => { return { pathItem: this.Classes["HealthProvider"].cache }; },
         };
 
         this.AddClass(new DRP_UMLClass("HealthProvider", [],
@@ -79,8 +77,4 @@ myNode.ConnectToMesh(async () => {
     // Add a test service
     myNode.AddService(new DirectoryService("DirectoryService", myNode));
 
-    setInterval(function () {
-        let timeStamp = new Date().getTime();
-        myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.NodeID}]`);
-    }, 3000);
 });

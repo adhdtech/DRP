@@ -1,7 +1,7 @@
 'use strict';
 let DRP_Node = require('drp-mesh').Node;
-let DRP_Service = require('drp-mesh').Service;
-let DRP_WebServer = require('drp-mesh').WebServer;
+const TestService = require('drp-service-test');
+const DRP_WebServerConfig = require('drp-mesh').WebServer.DRP_WebServerConfig;
 let os = require("os");
 
 let protocol = "ws";
@@ -20,22 +20,9 @@ let testMode = process.env.TESTMODE || false;
 
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
-let registryURL = process.env.REGISTRYURL || "ws://localhost:8080";
-
-// Create test service class
-class TestService extends DRP_Service {
-    constructor(serviceName, drpNode) {
-        super(serviceName, drpNode);
-        this.ClientCmds = {
-            sayHi: async function () { return { pathItem: `Hello from ${drpNode.NodeID}` }; },
-            sayBye: async function () { return { pathItem: `Goodbye from ${drpNode.NodeID}` }; },
-            showParams: async function (params) { return { pathItem: params }; }
-        };
-    }
-}
-
 // Set config
-let myServerConfig = {
+/** @type {DRP_WebServerConfig} */
+let myWebServerConfig = {
     "ListeningURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
     "Port": port,
     "SSLEnabled": process.env.SSL_ENABLED || false,
@@ -61,9 +48,3 @@ myNode.ConnectToMesh(async () => {
         myNode.log(`Listening at: ${myNode.ListeningName}`);
     }
 });
-
-// Start sending data to dummy topic
-setInterval(function () {
-    let timeStamp = new Date().getTime();
-    myNode.TopicManager.SendToTopic("dummy", `${timeStamp} Dummy message from node [${myNode.NodeID}]`);
-}, 3000);

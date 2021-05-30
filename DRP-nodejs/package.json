@@ -26,6 +26,7 @@
     "drp-service-ldap": "./drp-service-ldap",
     "drp-service-logger": "./drp-service-logger",
     "drp-service-netscaler": "./drp-service-netscaler",
-    "drp-service-rsage": "./drp-service-rsage"
+    "drp-service-rsage": "./drp-service-rsage",
+    "drp-service-test": "./drp-service-test"
   }
 }

@@ -1,6 +1,5 @@
 'use strict';
 const DRP_Node = require('drp-mesh').Node;
-const DRP_Service = require('drp-mesh').Service;
 const FedExAPIMgr = require('drp-service-fedex');
 const os = require("os");
 

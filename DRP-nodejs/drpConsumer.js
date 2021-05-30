@@ -22,8 +22,9 @@ let myConsumer = new DRP_Consumer(brokerURL, user, pass, null, async function ()
     //myClient.GetClassRecords("SomeDataClass", (payload) => console.dir(payload) );
 
     // Subscribe to a stream
-    myConsumer.BrokerClient.WatchStream("dummy", "global", (payload) => {
-        console.log(`[dummy] -> ${JSON.stringify(payload, null, 2)}`);
+    let streamName = "TestStream";
+    myConsumer.BrokerClient.WatchStream(streamName, "global", (payload) => {
+        console.log(`[${streamName}] -> ${JSON.stringify(payload, null, 2)}`);
     });
     myConsumer.BrokerClient.WatchStream("TopologyTracker", "local", (payload) => {
         console.log(`[TopologyTracker] -> ${JSON.stringify(payload, null, 2)}`);
