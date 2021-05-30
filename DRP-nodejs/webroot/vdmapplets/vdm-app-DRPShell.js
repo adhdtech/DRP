@@ -132,8 +132,8 @@
         let watchWindowApplet = {
             appletName: "TopicWatch",
             title: "Topic Watch",
-            sizeX: 620,
-            sizeY: 400,
+            sizeX: 700,
+            sizeY: 411,
             vdmClient: myApp.vdmClient,
             appletClass: (class extends rSageApplet {
                 constructor(appletProfile, startupParams) {
@@ -141,7 +141,10 @@
                     let watchApp = this;
 
                     // Override Title
-                    watchApp.title += ` - ${startupParams.topicName} (${startupParams.scope})`
+                    watchApp.title += ` - ${startupParams.topicName} (${startupParams.scope})`;
+                    if (startupParams.targetNodeID) {
+                        watchApp.title += ` @ ${startupParams.targetNodeID}`;
+                    }
 
                     // Prerequisites
                     watchApp.preReqs = [
@@ -171,7 +174,8 @@
                         startStream: () => {
                             let topicName = watchApp.appVars.startupParams.topicName;
                             let scope = watchApp.appVars.startupParams.scope;
-                            watchApp.sendCmd_StreamHandler("DRP", "subscribe", { topicName: topicName, scope: scope }, (streamData) => {
+                            let targetNodeID = watchApp.appVars.startupParams.targetNodeID;
+                            watchApp.sendCmd_StreamHandler("DRP", "subscribe", { topicName: topicName, scope: scope, targetNodeID: targetNodeID }, (streamData) => {
                                 if (typeof streamData.payload.Message === "string") {
                                     watchApp.appVars.term.write(`\x1B[94m[${streamData.payload.TimeStamp}] \x1B[97m${streamData.payload.Message}\x1B[0m\r\n`);
                                 } else {
@@ -646,6 +650,7 @@
                     "[OPTIONS]... [STREAM]",
                     {
                         "s": new drpMethodSwitch("s", "string", "Scope [local(default)|zone|global]"),
+                        "t": new drpMethodSwitch("t", "string", "Target NodeID"),
                         "l": new drpMethodSwitch("l", null, "List available streams"),
                     },
                     async function (switchesAndDataString, doPipeOut, pipeDataIn) {
@@ -731,6 +736,12 @@
                             // Open a new window and stream output
                             let topicName = switchesAndData.data;
                             let scope = switchesAndData.switches["s"] || "local";
+                            let targetNodeID = switchesAndData.switches["t"] || null;
+
+                            // If a specific NodeID is set, override the scope
+                            if (targetNodeID) {
+                                scope = "local";
+                            }
 
                             switch (scope) {
                                 case "local":
@@ -743,7 +754,7 @@
                                     return;
                             }
 
-                            let newApp = new watchWindowApplet.appletClass(watchWindowApplet, { topicName: topicName, scope: scope });
+                            let newApp = new watchWindowApplet.appletClass(watchWindowApplet, { topicName: topicName, scope: scope, targetNodeID: targetNodeID });
                             await myApp.vdmDesktop.newWindow(newApp);
                             myApp.vdmDesktop.appletInstances[newApp.appletIndex] = newApp;
 

@@ -55,13 +55,15 @@ class DRP_Subscriber {
      * @param {string} topicName Topic name
      * @param {string} scope local|zone|global
      * @param {Object.<string,object>} filter Filter
+     * @param {string} targetNodeID Subscribe to specific Node
      * @param {function(Object)} sendFunction Send function
      * @param {function} sendFailCallback Send fail callback
      */
-    constructor(topicName, scope, filter, sendFunction, sendFailCallback) {
+    constructor(topicName, scope, filter, targetNodeID, sendFunction, sendFailCallback) {
         this.topicName = topicName;
         this.scope = scope || "local";
         this.filter = filter || null;
+        this.targetNodeID = targetNodeID;
         this.sendFunction = sendFunction;
         this.sendFailCallback = sendFailCallback;
         /** @type {Set<DRP_SubscribableSource>} */
