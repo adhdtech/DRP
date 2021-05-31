@@ -650,7 +650,9 @@
                     "[OPTIONS]... [STREAM]",
                     {
                         "s": new drpMethodSwitch("s", "string", "Scope [local(default)|zone|global]"),
-                        "t": new drpMethodSwitch("t", "string", "Target NodeID"),
+                        "z": new drpMethodSwitch("z", null, "Switch scope to zone"),
+                        "g": new drpMethodSwitch("g", null, "Switch scope to global"),
+                        "n": new drpMethodSwitch("n", "string", "Target NodeID"),
                         "l": new drpMethodSwitch("l", null, "List available streams"),
                     },
                     async function (switchesAndDataString, doPipeOut, pipeDataIn) {
@@ -736,11 +738,19 @@
                             // Open a new window and stream output
                             let topicName = switchesAndData.data;
                             let scope = switchesAndData.switches["s"] || "local";
-                            let targetNodeID = switchesAndData.switches["t"] || null;
+                            let targetNodeID = switchesAndData.switches["n"] || null;
 
                             // If a specific NodeID is set, override the scope
                             if (targetNodeID) {
                                 scope = "local";
+                            } else {
+                                if ("z" in switchesAndData.switches) {
+                                    scope = "zone";
+                                }
+
+                                if ("g" in switchesAndData.switches) {
+                                    scope = "global";
+                                }
                             }
 
                             switch (scope) {
