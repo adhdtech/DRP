@@ -18,6 +18,7 @@ COPY drp-service-rsage/ drp-service-rsage/
 COPY drp-service-bluecat/ drp-service-bluecat/
 COPY drp-service-netscaler/ drp-service-netscaler/
 COPY drp-service-ldap/ drp-service-ldap/
+COPY drp-service-test/ drp-service-test/
 COPY webroot/ webroot/
 COPY jsondocs/ jsondocs/
 COPY package.json .
