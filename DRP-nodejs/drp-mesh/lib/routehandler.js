@@ -80,6 +80,7 @@ class DRP_RouteHandler {
                     // Clear values for next run
                     wsConn.pingSentTime = null;
                     wsConn.pongRecvdTime = null;
+                    wsConn.missedPings = 0;
 
                     // Track ping history
                     if (wsConn.pingTimes.length >= thisWebServerRoute.wsPingHistoryLength) {
@@ -105,6 +106,7 @@ class DRP_RouteHandler {
             wsConn.pingSentTime = null;
             wsConn.pongRecvdTime = null;
             wsConn.pingTimes = [];
+            wsConn.missedPings = 0;
 
             // Set up wsPing Interval
             let thisRollingPing = setInterval(async () => {
@@ -116,6 +118,11 @@ class DRP_RouteHandler {
         });
     }
 
+    /**
+     * 
+     * @param {WebSocket} wsConn
+     * @param {any} intervalObj
+     */
     SendWsPing(wsConn, intervalObj) {
         let thisWebServerRoute = this;
         //console.dir(wsConn);
@@ -128,6 +135,12 @@ class DRP_RouteHandler {
                 wsConn.pingTimes.push(null);
 
                 wsConn.drpEndpoint.drpNode.log(`wsPing timed out to Endpoint ${wsConn.drpEndpoint.EndpointID}`);
+
+                wsConn.missedPings++;
+
+                if (wsConn.missedPings >= 3) {
+                    wsConn.close(4000, "wsPing timeout threshold exceeded");
+                }
             }
             wsConn.pingSentTime = new Date().getTime();
             wsConn.pongRecvdTime = null;

@@ -143,6 +143,9 @@
                     for (let j = 0; j < serviceNameList.length; j++) {
 
                         let serviceName = serviceNameList[j];
+                        if (serviceName === "DRP") {
+                            continue;
+                        }
                         let serviceObj = drpNode.Services[serviceName];
                         let serviceNodeID = serviceObj.InstanceID;
 

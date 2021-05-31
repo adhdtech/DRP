@@ -152,7 +152,7 @@
 
                     // Dropdown menu items
                     watchApp.menu = {
-                        "Stream Control": {
+                        "Stream": {
                             "Stop": () => {
                                 watchApp.appFuncs.stopStream();
                             },
@@ -160,7 +160,7 @@
                                 watchApp.appFuncs.startStream();
                             }
                         },
-                        "Output Control": {
+                        "Output": {
                             "Objects single line": () => {
                                 watchApp.appVars.objectsMultiLine = false;
                             },
