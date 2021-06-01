@@ -72,12 +72,17 @@ class VDMServer extends DRP_Service {
      * @param {DRP_Node} drpNode DRP Node
      * @param {string} clientDirectory Client directory
      * @param {string} vdmAppletsDir VDMApplets directory
+     * @param {number} cookieTimeoutMinutes Timeout for x-api-token cookies
      */
-    constructor(serviceName, drpNode, clientDirectory, vdmAppletsDir) {
+    constructor(serviceName, drpNode, clientDirectory, vdmAppletsDir, cookieTimeoutMinutes) {
         super(serviceName, drpNode, "VDM", null, true, 10, 10, drpNode.Zone, "local", null, ["RESTLogs"], 1);
+
+        let thisVDMServer = this;
 
         /** @type {Express_Application} */
         this.expressApp = drpNode.WebServer.expressApp;
+
+        this.CookieTimeoutMinutes = cookieTimeoutMinutes || 30;
 
         // Serve up static docs
         this.clientStaticDir = clientDirectory;
@@ -108,7 +113,7 @@ class VDMServer extends DRP_Service {
 
             // Pass the x-api-token in a cookie for the WebSockets connection
             res.cookie('x-api-token', userToken, {
-                expires: new Date(Date.now() + 5 * 60000) // cookie will be removed after 5 minutes
+                expires: new Date(Date.now() + thisVDMServer.CookieTimeoutMinutes * 60000) // cookie will be removed after 5 minutes
             });
             let userAgentString = req.headers['user-agent'];
             if (userAgentString.includes(" Quest")) {
@@ -124,14 +129,12 @@ class VDMServer extends DRP_Service {
         // Register Endpoint commands
         // (methods should return output and optionally accept [params, wsConn, token] for streaming)
 
-        let thisVDMServer = this;
-
         this.clientSessions = {};
 
         this.AppletProfiles = {};
 
         this.ClientCmds = {
-            "getAppletProfiles": async (...args) => { return await this.GetAppletProfiles(...args); },
+            "getAppletProfiles": async (...args) => { return await thisVDMServer.GetAppletProfiles(...args); },
             "listClientSessions": function () {
                 let returnObj = {};
                 let clientSessionIDList = Object.keys(thisVDMServer.clientSessions);

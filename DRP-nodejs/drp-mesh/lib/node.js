@@ -248,7 +248,7 @@ class DRP_Node {
 
         // Set Consumer Token Cleanup Interval - 60 seconds
         let checkFrequencyMs = 60000;
-        setInterval(function ConsumerTokenCleanup() {
+        setInterval(() => {
             let iCurrentTimestamp = parseInt(thisNode.getTimestamp());
             let consumerTokenIDList = Object.keys(thisNode.ConsumerTokens);
 
@@ -299,12 +299,12 @@ class DRP_Node {
             // Check for authInfo:
             //   x-api-key - apps (static)
             //   x-api-token - users (dynamic)
-            if (req.headers['x-api-key']) {
+            if (req.headers['x-api-key'] || (req.headers.cookie && /^x-api-key=.*$/.test(req.headers.cookie))) {
                 authInfo.type = 'key';
-                authInfo.value = req.headers['x-api-key'];
-            } else if (req.headers['x-api-token']) {
+                authInfo.value = req.headers['x-api-key'] || req.headers.cookie.match(/^x-api-key=(.*)$/)[1];
+            } else if (req.headers['x-api-token'] || (req.headers.cookie && /^x-api-token=.*$/.test(req.headers.cookie))) {
                 authInfo.type = 'token';
-                authInfo.value = req.headers['x-api-token'];
+                authInfo.value = req.headers['x-api-token'] || req.headers.cookie.match(/^x-api-token=(.*)$/)[1];
 
                 // Make sure the token is current
                 if (!thisNode.ConsumerTokens[authInfo.value]) {
@@ -353,14 +353,14 @@ class DRP_Node {
                 resultString = `Failed to stringify response: ${e}`;
             }
             res.status(resCode).send(resultString);
-            thisNode.TopicManager.SendToTopic("RESTLogs", {
+            let logMessage = {
                 req: {
                     hostname: req.hostname,
                     ip: req.ip,
                     method: req.method,
                     protocol: req.protocol,
                     path: req.path,
-                    headers: req.headers,
+                    headers: Object.assign({}, req.headers),
                     query: req.query,
                     baseUrl: req.baseUrl,
                     body: req.body
@@ -369,8 +369,9 @@ class DRP_Node {
                     code: resCode,
                     length: resultString.length
                 }
-            });
-            //next();
+            };
+            delete logMessage.req.headers["authorization"];
+            thisNode.TopicManager.SendToTopic("RESTLogs", logMessage);
         };
 
         thisNode.WebServer.expressApp.all(`${restRoute}`, nodeRestHandler);
