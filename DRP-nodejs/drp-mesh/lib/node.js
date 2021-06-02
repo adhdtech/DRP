@@ -239,9 +239,10 @@ class DRP_Node {
      * 
      * @param {string} restRoute Route to listen for Node REST requests
      * @param {string} basePath Base path list
+     * @param {boolean} writeToLogger If true, output REST Logs to Logger
      * @returns {number} Failure code
      */
-    EnableREST(restRoute, basePath) {
+    EnableREST(restRoute, basePath, writeToLogger) {
         let thisNode = this;
 
         if (!thisNode.WebServer || !thisNode.WebServer.expressApp) return 1;
@@ -372,6 +373,9 @@ class DRP_Node {
             };
             delete logMessage.req.headers["authorization"];
             thisNode.TopicManager.SendToTopic("RESTLogs", logMessage);
+            if (writeToLogger) {
+                thisNode.ServiceCmd("Logger", "writeLog", { serviceName: "REST", logData: logMessage });
+            }
         };
 
         thisNode.WebServer.expressApp.all(`${restRoute}`, nodeRestHandler);

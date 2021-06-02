@@ -671,6 +671,7 @@
                     },
                     async function (switchesAndDataString, doPipeOut, pipeDataIn) {
                         let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
+                        let output = "";
                         if ("l" in switchesAndData.switches) {
 
                             let headerLabels = ["Stream Name", "Service Instance", "Scope", "Zone"];
@@ -708,12 +709,12 @@
 
                             //let headerColorCtrl = '\x1B[40;96m';
                             let headerColorCtrl = '\x1B[40;1;95m';
-                            term.write(`\r\n` +
+                            output+= `\r\n` +
                                 `${headerColorCtrl}${headerLabels[0].padEnd(headerLengths[headerLabels[0]], ' ')}\x1B[0m ` +
                                 `${headerColorCtrl}${headerLabels[1].padEnd(headerLengths[headerLabels[1]], ' ')}\x1B[0m ` +
                                 `${headerColorCtrl}${headerLabels[2].padEnd(headerLengths[headerLabels[2]], ' ')}\x1B[0m ` +
                                 `${headerColorCtrl}${headerLabels[3].padEnd(headerLengths[headerLabels[3]], ' ')}\x1B[0m` +
-                                `\r\n`);
+                                `\r\n`;
 
                             // Output stream list
                             let streamNameList = Object.keys(streamTable);
@@ -741,11 +742,18 @@
                                         default:
                                             scopeColor = "39";
                                     }
-                                    term.write(`\x1B[37m${thisStreamNameText} \x1B[0;37m${thisInstanceIDText}\x1B[0m \x1B[${scopeColor}m${thisScopeText}\x1B[0m ${thisZoneText}\r\n`);
+                                    output+= `\x1B[37m${thisStreamNameText} \x1B[0;37m${thisInstanceIDText}\x1B[0m \x1B[${scopeColor}m${thisScopeText}\x1B[0m ${thisZoneText}\r\n`;
                                 }
                             }
 
-                            return;
+                            if (doPipeOut) {
+                                // Sanitize output by removing terminal control characters
+                                output = output.replace(/\x1b\[\d{1,2}(?:;\d{1,2})*m/g, '');
+                            } else {
+                                term.write(output);
+                            }
+
+                            return output;
                         }
 
                         if (switchesAndData.data) {
@@ -816,6 +824,7 @@
                     {
                         "h": new drpMethodSwitch("h", null, "Help"),
                         "i": new drpMethodSwitch("i", null, "Case Insensitive"),
+                        "v": new drpMethodSwitch("v", null, "Select non-matching lines"),
                         "n": new drpMethodSwitch("n", null, "Output line number"),
                         "A": new drpMethodSwitch("A", "integer", "Print lines before match"),
                         "B": new drpMethodSwitch("B", "integer", "Print lines after match"),
@@ -836,7 +845,7 @@
                         }
 
                         // Function to output line
-                        let printLine = (inputLine, doPipeOut, matchLine, lineNumber) => {
+                        let printLine = (inputLine, matchLine, lineNumber) => {
                             let returnLine = '';
                             let outputLineNumber = '';
                             if ("n" in switchesAndData.switches) {
@@ -847,17 +856,10 @@
                                     outputLineNumber += `\x1b\[94m-\x1b\[0m`;
                                 }
                             }
-                            let tmpLine = "";
                             if (matchLine) {
-                                tmpLine = `${outputLineNumber}\x1b\[93m${inputLine}\x1b\[m\r\n`;
+                                returnLine = `${outputLineNumber}\x1b\[93m${inputLine}\x1b\[0m\r\n`;
                             } else {
-                                tmpLine = `${outputLineNumber}\x1b\[97m${inputLine}\x1b\[m\r\n`;
-                            }
-                            if (doPipeOut) {
-                                // Sanitize output by removing terminal control characters
-                                returnLine = tmpLine.replace(/\x1b\[\d{1,2}m/g, '');
-                            } else {
-                                term.write(tmpLine);
+                                returnLine = `${outputLineNumber}\x1b\[97m${inputLine}\x1b\[0m\r\n`;
                             }
                             return returnLine;
                         }
@@ -881,8 +883,10 @@
                         let lineArray = grepData.split('\n')
                         for (let i = 0; i < lineArray.length; i++) {
                             let cleanLine = lineArray[i].replace('\r', '');
-                            if (checkRegEx.test(cleanLine)) {
-                                // This line matches
+                            let lineMatches = checkRegEx.test(cleanLine);
+                            let doInvert = ("v" in switchesAndData.switches);
+                            if ((lineMatches && !doInvert) || (!lineMatches && doInvert)) {
+                                // We need to print this line
 
                                 if (printingContext && linesPrinted.length) {
 
@@ -893,11 +897,7 @@
                                     if (i > lastPrintedLine + 1) {
 
                                         // We've already printed a section, add a break
-                                        if (doPipeOut) {
-                                            output += `--\r\n`;
-                                        } else {
-                                            term.write(`\x1b\[94m--\x1b\[0m\r\n`);
-                                        }
+                                        output+= `\x1b\[94m--\x1b\[0m\r\n`;
                                     }
                                 }
 
@@ -909,7 +909,7 @@
                                         let targetLine = i - j;
                                         if (!linesPrinted.includes(targetLine)) {
                                             let cleanLine = lineArray[targetLine].replace('\r', '');
-                                            output += printLine(cleanLine, doPipeOut, false, targetLine);
+                                            output += printLine(cleanLine, false, targetLine);
                                             linesPrinted.push(targetLine);
                                         }
                                     }
@@ -917,7 +917,7 @@
 
                                 // If we've already printed this line, skip
                                 if (!linesPrinted.includes(i)) {
-                                    output += printLine(cleanLine, doPipeOut, true, i);
+                                    output += printLine(cleanLine, true, i);
                                     linesPrinted.push(i);
                                 }
 
@@ -947,6 +947,15 @@
                                 }
                             }
                         }
+                        output = output.replace(/\r\n$/, '');
+
+                        if (doPipeOut) {
+                            // Sanitize output by removing terminal control characters
+                            output = output.replace(/\x1b\[\d{1,2}(?:;\d{1,2})*m/g, '');
+                        } else {
+                            term.write(output);
+                        }
+
                         return output;
                     }));
 
@@ -1514,6 +1523,8 @@
         };
 
         myApp.appVars.fitaddon.fit();
+
+        myApp.appVars.term.focus();
 
         // Add the drop window
         let dropWindowDiv = document.createElement('div');

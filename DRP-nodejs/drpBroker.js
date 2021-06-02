@@ -20,6 +20,7 @@ let serviceName = process.env.SERVICENAME || "VDM";
 let priority = process.env.PRIORITY || null;
 let weight = process.env.WEIGHT || null;
 let scope = process.env.SCOPE || null;
+let writeToLogger = process.env.WRITETOLOGGER || false;
 
 var protocol = "ws";
 if (process.env.SSL_ENABLED) {
@@ -56,7 +57,7 @@ myNode.ConnectToMesh(async () => {
     let myVDMServer = new vdmServer(serviceName, myNode, webRoot, "vdmapplets");
 
     myNode.AddService(myVDMServer);
-    myNode.EnableREST("/Mesh", "Mesh");
+    myNode.EnableREST("/Mesh", "Mesh", myNode.IsTrue(writeToLogger));
 
     if (myNode.ListeningName) {
         myNode.log(`Listening at: ${myNode.ListeningName}`);
