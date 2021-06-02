@@ -19,6 +19,16 @@
          */
 
         myApp.appFuncs = {
+            showUploadDiv: () => {
+                myApp.appVars.dropWindowDiv.style["background-color"] = myApp.appVars.normalbgcolor;
+                myApp.appVars.dropWindowDiv.style["z-index"] = 3;
+                myApp.appVars.dropWindowDiv.focus();
+            },
+            resetUploadDiv: () => {
+                myApp.appVars.dropWindowDiv.style["background-color"] = myApp.appVars.normalbgcolor;
+                myApp.appVars.dropWindowDiv.style["z-index"] = -1;
+                myApp.appVars.term.focus();
+            }
         };
 
         myApp.appVars = {
@@ -31,7 +41,11 @@
             },
             term: null,
             termDiv: null,
-            shellVars: {}
+            shellVars: {},
+            dropWindowDiv: null,
+            uploadPendingPromise: null,
+            normalbgcolor: '#FFF',
+            hoverbgcolor: '#F88'
         };
 
         myApp.recvCmd = {
@@ -180,7 +194,7 @@
                                     watchApp.appVars.term.write(`\x1B[94m[${streamData.payload.TimeStamp}] \x1B[97m${streamData.payload.Message}\x1B[0m\r\n`);
                                 } else {
                                     if (watchApp.appVars.objectsMultiLine) {
-                                        watchApp.appVars.term.write(`\x1B[94m[${streamData.payload.TimeStamp}] \x1B[92m${JSON.stringify(streamData.payload.Message, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);            
+                                        watchApp.appVars.term.write(`\x1B[94m[${streamData.payload.TimeStamp}] \x1B[92m${JSON.stringify(streamData.payload.Message, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
                                     } else {
                                         watchApp.appVars.term.write(`\x1B[94m[${streamData.payload.TimeStamp}] \x1B[92m${JSON.stringify(streamData.payload.Message)}\x1B[0m\r\n`);
                                     }
@@ -1204,6 +1218,44 @@
                         }
                         return output;
                     }));
+
+                this.AddMethod(new drpMethod("upload",
+                    "Upload data for processing",
+                    "",
+                    { "h": new drpMethodSwitch("h", null, "Help menu") },
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
+                        let output = "";
+
+                        if ("h" in switchesAndData.switches) {
+                            term.write(this.ShowHelp());
+                            return
+                        }
+
+                        // WAIT FOR DATA TO BE UPLOADED
+                        myApp.appFuncs.showUploadDiv();
+
+                        try {
+                            let uploadData = await new Promise(function (resolve, reject) {
+                                myApp.appVars.uploadPendingPromise = function (message, cancelled) {
+                                    if (cancelled) {
+                                        reject();
+                                    } else {
+                                        resolve(message);
+                                    }
+                                };
+                            });
+                            output = uploadData;
+                        } catch (ex) {
+                            // Must have cancelled operation
+                            let thisError = ex;
+                        }
+
+                        if (!doPipeOut) {
+                            term.write(output);
+                        }
+                        return output;
+                    }));
             }
             /**
              * Add Method
@@ -1462,6 +1514,62 @@
         };
 
         myApp.appVars.fitaddon.fit();
+
+        // Add the drop window
+        let dropWindowDiv = document.createElement('div');
+        dropWindowDiv.tabIndex = 991;
+        dropWindowDiv.className = "uploadDiv";
+        dropWindowDiv.style = `z-index: -1;position: absolute;left: 0px;top: 0px;width: 100%;height: 100%;background-color: ${myApp.appVars.normalbgcolor};opacity: .7;`;
+
+        let dropWindowP = document.createElement('p');
+        dropWindowP.style = "margin: 0; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; font-size: x-large; line-height: normal; color: forestgreen;";
+        dropWindowP.innerHTML = "Drag and drop file here<br>(or press ESC)";
+        dropWindowDiv.appendChild(dropWindowP);
+
+        dropWindowDiv.ondragover = function (event) {
+            event.preventDefault();
+            dropWindowDiv.style["background-color"] = myApp.appVars.hoverbgcolor;
+        }
+
+        dropWindowDiv.ondragleave = function (event) {
+            event.preventDefault();
+            dropWindowDiv.style["background-color"] = myApp.appVars.normalbgcolor;
+        }
+
+        dropWindowDiv.ondrop = function (event) {
+            event.preventDefault();
+            myApp.appFuncs.resetUploadDiv();
+
+            let fileRecord = event.dataTransfer.files[0];
+            let fileReader = new FileReader();
+            fileReader.onload = function (event) {
+                myApp.appVars.uploadPendingPromise(event.target.result, false);
+            };
+            fileReader.readAsBinaryString(fileRecord);
+            //document.getElementById("demo").style.color = "";
+            //event.target.style.border = "";
+            //var data = event.dataTransfer.getData("Text");
+            //event.target.appendChild(document.getElementById(data));
+        };
+
+        dropWindowDiv.onkeyup = (e) => {
+            let charCode = e.key.charCodeAt(0);
+            let code2 = e.key.charCodeAt(1);
+            let code3 = e.key.charCodeAt(2);
+            //console.log(`${charCode}, ${code2}, ${code3}`);
+            switch (e.key) {
+                case "Escape":
+                    // Escape
+                    myApp.appFuncs.resetUploadDiv();
+                    myApp.appVars.uploadPendingPromise(null, true);
+                    break;
+                default:
+            }
+        };
+
+        myApp.appVars.termDiv.appendChild(dropWindowDiv);
+
+        myApp.appVars.dropWindowDiv = dropWindowDiv;
     }
 });
 //# sourceURL=vdm-app-DRPShell.js
