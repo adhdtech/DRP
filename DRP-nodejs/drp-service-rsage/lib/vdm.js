@@ -75,7 +75,7 @@ class VDMServer extends DRP_Service {
      * @param {number} cookieTimeoutMinutes Timeout for x-api-token cookies
      */
     constructor(serviceName, drpNode, clientDirectory, vdmAppletsDir, cookieTimeoutMinutes) {
-        super(serviceName, drpNode, "VDM", null, true, 10, 10, drpNode.Zone, "local", null, ["RESTLogs"], 1);
+        super(serviceName, drpNode, "VDM", null, true, 10, 10, drpNode.Zone, "zone", null, ["RESTLogs"], 1);
 
         let thisVDMServer = this;
 

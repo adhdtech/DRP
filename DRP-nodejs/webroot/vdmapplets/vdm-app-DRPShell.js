@@ -19,14 +19,16 @@
          */
 
         myApp.appFuncs = {
-            showUploadDiv: () => {
+            ShowUploadDiv: () => {
                 myApp.appVars.dropWindowDiv.style["background-color"] = myApp.appVars.normalbgcolor;
                 myApp.appVars.dropWindowDiv.style["z-index"] = 3;
+                myApp.appVars.dropWindowDiv.style["opacity"] = 0.7;
                 myApp.appVars.dropWindowDiv.focus();
             },
-            resetUploadDiv: () => {
+            HideUploadDiv: () => {
                 myApp.appVars.dropWindowDiv.style["background-color"] = myApp.appVars.normalbgcolor;
                 myApp.appVars.dropWindowDiv.style["z-index"] = -1;
+                myApp.appVars.dropWindowDiv.style["opacity"] = 0;
                 myApp.appVars.term.focus();
             }
         };
@@ -1242,7 +1244,7 @@
                         }
 
                         // WAIT FOR DATA TO BE UPLOADED
-                        myApp.appFuncs.showUploadDiv();
+                        myApp.appFuncs.ShowUploadDiv();
 
                         try {
                             let uploadData = await new Promise(function (resolve, reject) {
@@ -1530,7 +1532,7 @@
         let dropWindowDiv = document.createElement('div');
         dropWindowDiv.tabIndex = 991;
         dropWindowDiv.className = "uploadDiv";
-        dropWindowDiv.style = `z-index: -1;position: absolute;left: 0px;top: 0px;width: 100%;height: 100%;background-color: ${myApp.appVars.normalbgcolor};opacity: .7;`;
+        dropWindowDiv.style = `position: absolute;left: 0px;top: 0px;width: 100%;height: 100%;`;
 
         let dropWindowP = document.createElement('p');
         dropWindowP.style = "margin: 0; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; font-size: x-large; line-height: normal; color: forestgreen;";
@@ -1549,7 +1551,7 @@
 
         dropWindowDiv.ondrop = function (event) {
             event.preventDefault();
-            myApp.appFuncs.resetUploadDiv();
+            myApp.appFuncs.HideUploadDiv();
 
             let fileRecord = event.dataTransfer.files[0];
             let fileReader = new FileReader();
@@ -1571,16 +1573,17 @@
             switch (e.key) {
                 case "Escape":
                     // Escape
-                    myApp.appFuncs.resetUploadDiv();
+                    myApp.appFuncs.HideUploadDiv();
                     myApp.appVars.uploadPendingPromise(null, true);
                     break;
                 default:
             }
         };
 
-        myApp.appVars.termDiv.appendChild(dropWindowDiv);
-
         myApp.appVars.dropWindowDiv = dropWindowDiv;
+        myApp.appFuncs.HideUploadDiv();
+
+        myApp.appVars.termDiv.appendChild(dropWindowDiv);
     }
 });
 //# sourceURL=vdm-app-DRPShell.js
