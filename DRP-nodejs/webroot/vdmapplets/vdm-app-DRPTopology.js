@@ -49,12 +49,12 @@
             "searchEmptyPlaceholder": "Search...",
             "searchField": null
         };
-		/*
-		myApp.menuQuery = {
-		"queryEmptyPlaceholder": "Query...",
-		"queryField": null
-		}
-		 */
+        /*
+        myApp.menuQuery = {
+        "queryEmptyPlaceholder": "Query...",
+        "queryField": null
+        }
+         */
 
         myApp.appFuncs = {
             "toggleRefresh": function () {
@@ -115,6 +115,10 @@
                 //let jsonParsed = JSON.parse(jsonText);
                 //myApp.appVars.cy.json(jsonParsed);
 
+                let typeStyle = "grid-column: 1/ span 2;text-align: center; font-size: large;";
+                let headerStyle = "text-align: right; padding-right: 10px;";
+                let dataStyle = "color: lightseagreen; font-weight: bold;";
+
                 // Clear existing nodes and edges
 
                 // Loop over DRP Nodes in topology
@@ -132,7 +136,21 @@
                         data: {
                             id: drpNodeID,
                             label: labelData,
-                            drpNode: drpNode
+                            drpNode: drpNode,
+                            ShowDetails: async () => {
+                                let returnVal = `<span style="${typeStyle}">Mesh Node</span>` +
+                                    `<span style="${headerStyle}">Node ID:</span><span style="${dataStyle}">${drpNode.NodeID}</span>` +
+                                    `<span style="${headerStyle}">Host ID:</span><span style="${dataStyle}">${drpNode.HostID}</span>`;
+                                if (drpNode.NodeURL) {
+                                    returnVal += `<span style="${headerStyle}">URL:</span><span style="${dataStyle}">${drpNode.NodeURL}</span>`;
+                                } else {
+                                    returnVal += `<span style="${headerStyle}">URL:</span><span style="${dataStyle}">(non-listening)</span>`;
+                                }
+                                returnVal += `<span style="${headerStyle}">Scope:</span><span style="${dataStyle}">${drpNode.Scope}</span>` +
+                                    `<span style="${headerStyle}">Zone:</span><span style="${dataStyle}">${drpNode.Zone}</span>` +
+                                    `<span style="${headerStyle}">Roles:</span><span style="${dataStyle}">${drpNode.Roles}</span>`;
+                                return returnVal;
+                            }
                         },
                         classes: drpNode.Roles.join(" "),
                         position: myApp.appFuncs.placeNode(drpNode.Roles[0])
@@ -157,7 +175,16 @@
                                 group: 'nodes',
                                 data: {
                                     id: serviceNodeID,
-                                    label: serviceName
+                                    label: serviceName,
+                                    ShowDetails: async () => {
+                                        let returnVal = `<span style="${typeStyle}">Mesh Service</span>` +
+                                            `<span style="${headerStyle}">Name:</span><span style="${dataStyle}">${serviceName}</span>` +
+                                            `<span style="${headerStyle}">Instance ID:</span><span style="${dataStyle}">${serviceObj.InstanceID}</span>` +
+                                            `<span style="${headerStyle}">Node ID:</span><span style="${dataStyle}">${drpNode.NodeID}</span>` +
+                                            `<span style="${headerStyle}">Scope:</span><span style="${dataStyle}">${serviceObj.Scope}</span>` +
+                                            `<span style="${headerStyle}">Zone:</span><span style="${dataStyle}">${serviceObj.Zone}</span>`;
+                                        return returnVal;
+                                    }
                                 },
                                 classes: "Service",
                                 position: myApp.appFuncs.placeNode("Service")
@@ -195,7 +222,6 @@
                                 id: `${drpNodeID}_${targetNodeID}`,
                                 source: targetNodeID,
                                 target: drpNodeID,
-                                //label: drpNode.nodeClients[nodeClientIDs[j]]['pingTimeMs'] + " ms\n" + drpNode.nodeClients[nodeClientIDs[j]]['uptimeSeconds'] + " s"
                                 label: drpNode.NodeClients[nodeClientIDs[j]]['pingTimeMs'] + " ms"
                             }
                         });
@@ -204,13 +230,24 @@
                     // Loop over consumerClients
                     let consumerClientIDs = Object.keys(drpNode.ConsumerClients);
                     for (let j = 0; j < consumerClientIDs.length; j++) {
+                        let consumerIndex = consumerClientIDs[j];
                         let consumerID = `${drpNodeID}-c:${consumerClientIDs[j]}`;
 
                         myApp.appVars.cy.add({
                             group: 'nodes',
                             data: {
                                 id: consumerID,
-                                label: `${consumerClientIDs[j]}`
+                                label: `${consumerClientIDs[j]}`,
+                                ShowDetails: async () => {
+                                    // Get User Details
+                                    let pathListArray = `Mesh/Nodes/${drpNodeID}/NodeObj/ConsumerEndpoints/${consumerIndex}/AuthInfo/userInfo`.split('/');
+                                    let results = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathListArray, listOnly: false }, true);
+                                    if (results && results.pathItem) {
+                                        return `<span style="${typeStyle}">Consumer</span>` +
+                                            `<span style="${headerStyle}">User ID:</span><span style="${dataStyle}">${results.pathItem.UserName}</span>` +
+                                            `<span style="${headerStyle}">Name:</span><span style="${dataStyle}">${results.pathItem.FullName}</span>`;
+                                    }
+                                }
                             },
                             classes: "Consumer",
                             position: myApp.appFuncs.placeNode("Consumer")
@@ -260,7 +297,8 @@
                 Provider: { x: 200, y: 100, index: 0 },
                 Logger: { x: 450, y: 250, index: 0 },
                 Consumer: { x: 825, y: 100, index: 0 }
-            }
+            },
+            displayedNodeID: null
         };
 
         myApp.recvCmd = {
@@ -358,11 +396,27 @@
 
         myApp.appVars.cy = cy;
 
-        cy.on('mouseover', 'node', function (e) {
+        cy.on('mouseover', 'node', async function (e) {
+            // Add highlight to connected edges
             e.cyTarget.connectedEdges().addClass('hover');
+            let targetNodeData = e.cyTarget.data();
+
+            // If the node has a "ShowDetails" function, execute and display in details box
+            if (targetNodeData.ShowDetails) {
+                myApp.appVars.displayedNodeID = targetNodeData.id;
+                myApp.appVars.detailsDiv.style['display'] = 'grid';
+                myApp.appVars.detailsDiv.innerHTML = await targetNodeData.ShowDetails();
+            }
         });
-        cy.on('mouseout', 'node', function (e) {
+        cy.on('mouseout', 'node', async function (e) {
+            // Remove highlight from connected edges
             e.cyTarget.connectedEdges().removeClass('hover');
+            let targetNodeData = e.cyTarget.data();
+
+            // If the node has a "ShowDetails" function AND its details are currently in the detail box, remove and hide
+            if (myApp.appVars.displayedNodeID && myApp.appVars.displayedNodeID === targetNodeData.id) {
+                myApp.appVars.detailsDiv.style['display'] = 'none';
+            }
         });
 
         cy.on('mouseover', 'edge', function (e) {
@@ -537,6 +591,20 @@
         };
 
         myApp.appFuncs.loadNodeTopology();
+
+        // Add the drop window
+        let detailsDiv = document.createElement('div');
+        detailsDiv.className = "detailsDiv";
+        detailsDiv.style = `width: 400px;height: 200px;z-index: 1;margin: 0;position: absolute;bottom: 0;right: 0;text-align: left;font-size: 14px;line-height: normal; color: khaki; background-color: black;opacity: .7; box-sizing: border-box; padding: 10px;
+    display: none;
+    grid-template-columns: 25% 75%;
+    grid-template-rows: 25px 25px 25px 25px 25px 25px;
+    border-radius: 20px;`;
+        detailsDiv.innerHTML = "&nbsp;";
+
+        myApp.appVars.detailsDiv = detailsDiv;
+
+        myApp.appVars.cyBox.appendChild(detailsDiv);
     }
 });
 //# sourceURL=vdm-app-DRPTopology.js
