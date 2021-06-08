@@ -712,6 +712,7 @@ class VDMWindow {
      * @return {HTMLDivElement[]} Array of return elements [leftPane, divider, rightPane]
      */
     splitPaneHorizontal(paneDiv, splitOffset, scrollLeft, scrollRight) {
+        let thisVDMWindow = this;
         $(paneDiv).addClass("parent");
         let a = document.createElement("div");
         a.className = "dwData dwData-LeftPane";
@@ -740,6 +741,9 @@ class VDMWindow {
             });
             $(paneDiv).bind('mouseup', function (e) {
                 $(this).unbind('mousemove');
+                if (typeof thisVDMWindow.resizeMovingHook !== "undefined") {
+                    thisVDMWindow.resizeMovingHook();
+                }
             });
         });
         return [a, b, c];
@@ -754,6 +758,7 @@ class VDMWindow {
      * @return {HTMLDivElement[]} Array of return elements [topPane, divider, bottomPane]
      */
     splitPaneVertical(paneDiv, splitOffset, scrollTop, scrollBottom) {
+        let thisVDMWindow = this;
         $(paneDiv).addClass("parent");
         let a = document.createElement("div");
         a.className = "dwData dwData-TopPane";
@@ -782,6 +787,9 @@ class VDMWindow {
             });
             $(paneDiv).bind('mouseup', function (e) {
                 $(this).unbind('mousemove');
+                if (typeof thisVDMWindow.resizeMovingHook !== "undefined") {
+                    thisVDMWindow.resizeMovingHook();
+                }
             });
         });
         return [a, b, c];
