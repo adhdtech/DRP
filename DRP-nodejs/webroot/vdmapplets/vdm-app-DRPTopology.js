@@ -595,7 +595,7 @@
         // Add the drop window
         let detailsDiv = document.createElement('div');
         detailsDiv.className = "detailsDiv";
-        detailsDiv.style = `width: 400px;height: 200px;z-index: 1;margin: 0;position: absolute;bottom: 0;right: 0;text-align: left;font-size: 14px;line-height: normal; color: khaki; background-color: black;opacity: .7; box-sizing: border-box; padding: 10px;
+        detailsDiv.style = `width: 400px;height: 200px;z-index: 1;margin: 0;position: absolute;bottom: 0;right: 0;text-align: left;font-size: 14px;line-height: normal; color: khaki; background-color: black;opacity: .9; box-sizing: border-box; padding: 10px;
     display: none;
     grid-template-columns: 25% 75%;
     grid-template-rows: 25px 25px 25px 25px 25px 25px;
