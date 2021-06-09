@@ -3,10 +3,6 @@
         super(appletProfile);
         let myApp = this;
 
-        // Prerequisites
-        myApp.preReqs = [
-        ];
-
         // Dropdown menu items
         myApp.menu = {
             "General":
