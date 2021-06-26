@@ -1233,7 +1233,10 @@
                 this.AddMethod(new drpMethod("upload",
                     "Upload data for processing",
                     "",
-                    { "h": new drpMethodSwitch("h", null, "Help menu") },
+                    {
+                        "h": new drpMethodSwitch("h", null, "Help menu"),
+                        "j": new drpMethodSwitch("j", null, "Convert JSON to object")
+                    },
                     async function (switchesAndDataString, doPipeOut, pipeDataIn) {
                         let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         let output = "";
@@ -1256,7 +1259,12 @@
                                     }
                                 };
                             });
-                            output = uploadData;
+                            if ("j" in switchesAndData.switches) {
+                                // Convert JSON to object
+                                output = JSON.parse(uploadData);
+                            } else {
+                                output = uploadData;
+                            }
                         } catch (ex) {
                             // Must have cancelled operation
                             let thisError = ex;
