@@ -192,12 +192,14 @@ class VDMServer extends DRP_Service {
 
                 return returnObj;
             },
+            /*
             "openUserApp": (params, wsConn) => {
-                //thisVDMServer.OpenUserApp(params, wsConn);
+                thisVDMServer.OpenUserApp(params, wsConn);
             },
             "closeUserApp": (params, wsConn) => {
-                //thisVDMServer.CloseUserApp(params, wsConn);
+                thisVDMServer.CloseUserApp(params, wsConn);
             },
+            */
             "uploadVDMApplet": async (params, wsConn) => {
                 // Create new Applet Profile
                 let newAppletProfile = thisVDMServer.AddVDMAppletProfile(params.appletName, params.title, params.sizeX, params.sizeY, params.appletIcon, params.showInMenu, params.appletScript, params.preReqs);
