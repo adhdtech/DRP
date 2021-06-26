@@ -51,6 +51,7 @@ class rSageApplet extends VDMApplet {
     // Send applet close notification to VDM Server after open
     postOpenHandler() {
         let thisApplet = this;
+        /*
         thisApplet.sendCmd("VDM", "openUserApp",
             {
                 appletName: thisApplet.appletName,
@@ -58,6 +59,7 @@ class rSageApplet extends VDMApplet {
             },
             false
         );
+        */
     }
 
     // Send applet close notification to VDM Server after closure
@@ -71,6 +73,7 @@ class rSageApplet extends VDMApplet {
         }
         // Delete from 
         delete thisApplet.vdmDesktop.appletInstances[thisApplet.appletIndex];
+        /*
         thisApplet.sendCmd("VDM", "closeUserApp",
             {
                 appletName: thisApplet.appletName,
@@ -78,6 +81,7 @@ class rSageApplet extends VDMApplet {
             },
             false
         );
+        */
     }
 
     /**
