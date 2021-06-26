@@ -89,15 +89,10 @@ class rSageApplet extends VDMApplet {
     async sendCmd_StreamHandler(serviceName, cmdName, cmdData, callback) {
         let thisApplet = this;
         let returnData = null;
-        let wsConn = thisApplet.vdmSession.drpClient.wsConn;
 
         let response = await thisApplet.vdmSession.drpClient.SendCmd_StreamHandler(serviceName, cmdName, cmdData, callback, thisApplet);
         if (response) returnData = response.payload;
-        //console.log("Received response from stream subscription...");
-        //console.dir(response);
         return returnData;
-        // Sending command, specifying callback handler
-        //thisApplet.vdmSession.appSendCmdWithTokenHandler(thisApplet.appletIndex, svrAppName, cmdName, cmdData, callback);
     }
 }
 
