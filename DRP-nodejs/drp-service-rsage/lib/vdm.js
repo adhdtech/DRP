@@ -88,7 +88,7 @@ class VDMServer extends DRP_Service {
      * @param {string} xrAppletsDir XRApplets directory
      * @param {number} cookieTimeoutMinutes Timeout for x-api-token cookies
      */
-    constructor(serviceName, drpNode, clientDirectory, vdmAppletsDir, xrAppletsDir, cookieTimeoutMinutes) {
+    constructor(serviceName, drpNode, clientDirectory, vdmAppletsDir, xrAppletsDir, cookieTimeoutMinutes, desktopTitle) {
         super(serviceName, drpNode, "VDM", null, true, 10, 10, drpNode.Zone, "zone", null, ["RESTLogs"], 1);
 
         let thisVDMServer = this;
@@ -102,6 +102,7 @@ class VDMServer extends DRP_Service {
         this.clientStaticDir = clientDirectory;
         this.vdmAppletsDir = vdmAppletsDir || "vdmapplets";
         this.xrAppletsDir = xrAppletsDir || "xrapplets";
+        this.desktopTitle = desktopTitle || "VDM Desktop";
         this.expressApp.use(express.static(clientDirectory));
 
         // Define Authorizer
@@ -310,7 +311,7 @@ class VDMServer extends DRP_Service {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>DRP Desktop</title>
+    <title>${thisVDMServer.desktopTitle}</title>
     <meta name="msapplication-TileColor" content="#5bc0de" />
 
     <!-- External CSS -->
@@ -342,22 +343,12 @@ window.onload = function () {
     // Get target DIV
     let mainPage = document.getElementById('vdmDesktop');
 
-    // Get protocol
-    let vdmSvrProt = location.protocol.replace("http", "ws");
-    let vdmSvrHost = location.host.split(":")[0];
-    let vdmPortString = "";
-    let vdmPort = location.host.split(":")[1];
-    if (vdmPort) {
-        vdmPortString = ":" + vdmPort;
-    }
-    let vdmSvrWSTarget = vdmSvrProt + "//" + vdmSvrHost + vdmPortString;
-
     // Set applets path
     let vdmAppletsPath = "${thisVDMServer.vdmAppletsDir}";
 
-    let vdmSession = new VDMSession(mainPage, "DRP Desktop", vdmAppletsPath);
+    let vdmSession = new VDMSession(mainPage, "${thisVDMServer.desktopTitle}", vdmAppletsPath);
 
-    vdmSession.startSession(vdmSvrWSTarget);
+    vdmSession.startSession();
 };
     </script>
 
@@ -385,22 +376,12 @@ window.onload = function () {
     <script>
 window.onload = function () {
 
-    // Get protocol
-    let vdmSvrProt = location.protocol.replace("http", "ws");
-    let vdmSvrHost = location.host.split(":")[0];
-    let vdmPortString = "";
-    let vdmPort = location.host.split(":")[1];
-    if (vdmPort) {
-        vdmPortString = ":" + vdmPort;
-    }
-    let vdmSvrWSTarget = vdmSvrProt + "//" + vdmSvrHost + vdmPortString;
-
     // Set applets path
     let xrAppletsPath = "${thisVDMServer.xrAppletsDir}";
 
     let xrSession = new XRSession(xrAppletsPath);
 
-    xrSession.startSession(vdmSvrWSTarget);
+    xrSession.startSession();
 };
     </script>
 

@@ -14,6 +14,18 @@ class VDMSession extends VDMDesktop {
 
     startSession(wsTarget) {
         let thisVDMSession = this;
+
+        if (!wsTarget) {
+            let vdmSvrProt = location.protocol.replace("http", "ws");
+            let vdmSvrHost = location.host.split(":")[0];
+            let vdmPortString = "";
+            let vdmPort = location.host.split(":")[1];
+            if (vdmPort) {
+                vdmPortString = ":" + vdmPort;
+            }
+            wsTarget = vdmSvrProt + "//" + vdmSvrHost + vdmPortString;
+        }
+
         thisVDMSession.drpClient = new VDMServerAgent(thisVDMSession);
         thisVDMSession.drpClient.connect(wsTarget);
     }
