@@ -344,6 +344,14 @@ class DRP_Endpoint_Browser {
 class DRP_Client_Browser extends DRP_Endpoint_Browser {
     constructor() {
         super();
+        this.userToken = this.readCookie("x-api-token");
+
+        // This allows the client's document object to be viewed remotely via DRP
+        this.HTMLDocument = document;
+        this.URL = this.HTMLDocument.baseURI;
+        this.wsTarget = null;
+        this.platform = this.HTMLDocument.defaultView.navigator.platform;
+        this.userAgent = this.HTMLDocument.defaultView.navigator.userAgent;
     }
 
     connect(wsTarget) {
@@ -381,6 +389,32 @@ class DRP_Client_Browser extends DRP_Endpoint_Browser {
             return oReturnObject;
         });
     }
+
+    createCookie(name, value, days) {
+        let expires = "";
+        if (days) {
+            var date = new Date();
+            date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
+            expires = "; expires=" + date.toGMTString();
+        }
+        document.cookie = name + "=" + value + expires + "; path=/";
+    }
+
+    readCookie(name) {
+        var nameEQ = name + "=";
+        var ca = document.cookie.split(';');
+        for (var i = 0; i < ca.length; i++) {
+            var c = ca[i];
+            while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+            if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+        }
+        return null;
+    }
+
+    eraseCookie(name) {
+        let thisClient = this;
+        thisClient.createCookie(name, "", -1);
+    }
 }
 
 class DRP_Cmd {
@@ -408,267 +442,5 @@ class DRP_Stream {
         this.token = token;
         this.status = status;
         this.payload = payload;
-    }
-}
-
-class VDMClient {
-    /**
-     * VDMClient owns the VDMDesktop and VDMServerAgent objects
-     * @param {VDMDesktop} vdmDesktop VDM Desktop
-     */
-    constructor(vdmDesktop) {
-
-        let thisVDMClient = this;
-        this.userToken = thisVDMClient.readCookie("x-api-token");
-
-        /** @type VDMServerAgent */
-        this.vdmServerAgent = null;
-
-        this.vdmDesktop = vdmDesktop;
-    }
-
-    startSession(wsTarget) {
-        let thisVDMClient = this;
-        thisVDMClient.vdmServerAgent = new VDMServerAgent(thisVDMClient, thisVDMClient.userToken);
-        thisVDMClient.vdmServerAgent.connect(wsTarget);
-    }
-    /*
-    processLoginStatus(replyData, reconnect) {
-        let thisVDMClient = this;
-        if (replyData.loginSuccessful) {
-            thisVDMClient.vdmServerAgent.username = replyData.userName;
-            thisVDMClient.userLoginSuccess(reconnect);
-        } else {
-            thisVDMClient.userLoginFail();
-        }
-    }
-
-    userLoginSuccess(reconnect) {
-        let thisVDMClient = this;
-        if (!reconnect) {
-            thisVDMClient.vdmDesktop.loadDesktop();
-            thisVDMClient.vdmDesktop.changeLEDColor('green');
-        }
-        return false;
-    }
-
-    userLoginFail() {
-        let thisVDMClient = this;
-        thisVDMClient.eraseCookie('sessionID');
-        console.log("Login failed, redirecting...");
-        setTimeout(function () {
-            window.location.href = "/";
-        }, 500);
-    }
-    */
-
-    createCookie(name, value, days) {
-        let expires = "";
-        if (days) {
-            var date = new Date();
-            date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
-            expires = "; expires=" + date.toGMTString();
-        }
-        document.cookie = name + "=" + value + expires + "; path=/";
-    }
-
-    readCookie(name) {
-        var nameEQ = name + "=";
-        var ca = document.cookie.split(';');
-        for (var i = 0; i < ca.length; i++) {
-            var c = ca[i];
-            while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-            if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
-        }
-        return null;
-    }
-
-    eraseCookie(name) {
-        let thisVDMClient = this;
-        thisVDMClient.createCookie(name, "", -1);
-    }
-
-    getLastSessionID() {
-        let thisVDMClient = this;
-        return thisVDMClient.readCookie('sessionID');
-    }
-}
-
-class rSageApplet extends VDMApplet {
-    constructor(appletProfile) {
-        super(appletProfile);
-
-        let thisApplet = this;
-
-        // Link to rSageClient
-        this.vdmClient = appletProfile.vdmClient;
-
-        // Handler for asynchronous commands received from the VDM Server
-        this.recvCmd = {};
-
-        // To track stream handlers for when window closes
-        this.streamHandlerTokens = [];
-
-    }
-
-    // Send applet close notification to VDM Server after open
-    postOpenHandler() {
-        let thisApplet = this;
-        thisApplet.sendCmd("VDM", "openUserApp",
-            {
-                appletName: thisApplet.appletName,
-                appletIndex: thisApplet.appletIndex
-            },
-            false
-        );
-    }
-
-    // Send applet close notification to VDM Server after closure
-    postCloseHandler() {
-        let thisApplet = this;
-        // Delete stream handlers
-        for (let i = 0; i < thisApplet.streamHandlerTokens.length; i++) {
-            //console.dir(thisApplet.vdmClient.vdmServerAgent.wsConn);
-            let thisStreamToken = thisApplet.streamHandlerTokens[i];
-            thisApplet.sendCmd("DRP", "unsubscribe", { streamToken: thisStreamToken}, false);
-            thisApplet.vdmClient.vdmServerAgent.DeleteReplyHandler(thisStreamToken);
-        }
-        // Delete from 
-        delete thisApplet.vdmDesktop.appletInstances[thisApplet.appletIndex];
-        thisApplet.sendCmd("VDM", "closeUserApp",
-            {
-                appletName: thisApplet.appletName,
-                appletIndex: thisApplet.appletIndex
-            },
-            false
-        );
-    }
-
-    /**
-     * 
-     * @param {string} serviceName Service Name
-     * @param {string} cmdName Command
-     * @param {object} cmdData Data object
-     * @param {boolean} awaitResponse Await response flag
-     * @return {function} Returns Promise
-     */
-    async sendCmd(serviceName, cmdName, cmdData, awaitResponse) {
-        let thisApplet = this;
-        let returnData = null;
-        let wsConn = thisApplet.vdmClient.vdmServerAgent.wsConn;
-
-        let response = await thisApplet.vdmClient.vdmServerAgent.SendCmd(serviceName, cmdName, cmdData, awaitResponse, null);
-        if (response) returnData = response.payload;
-
-        return returnData;
-    }
-
-    async sendCmd_StreamHandler(serviceName, cmdName, cmdData, callback) {
-        let thisApplet = this;
-        let returnData = null;
-        let wsConn = thisApplet.vdmClient.vdmServerAgent.wsConn;
-
-        let response = await thisApplet.vdmClient.vdmServerAgent.SendCmd_StreamHandler(serviceName, cmdName, cmdData, callback, thisApplet);
-        if (response) returnData = response.payload;
-        //console.log("Received response from stream subscription...");
-        //console.dir(response);
-        return returnData;
-        // Sending command, specifying callback handler
-        //thisApplet.vdmClient.appSendCmdWithTokenHandler(thisApplet.appletIndex, svrAppName, cmdName, cmdData, callback);
-    }
-}
-
-class VDMServerAgent extends DRP_Client_Browser {
-    /**
-     * Agent which connects to DRP_Node (Broker)
-     * @param {VDMClient} vdmClient VDM Client object
-     * @param {string} userToken User token
-     */
-    constructor(vdmClient, userToken) {
-        super();
-
-        this.userToken = userToken;
-        this.wsConn = '';
-        this.sessionID = vdmClient.getLastSessionID();
-        this.vdmClient = vdmClient;
-
-        // This allows the client's document object to be viewed remotely via DRP
-        this.HTMLDocument = vdmClient.vdmDesktop.vdmDiv.ownerDocument;
-        this.URL = this.HTMLDocument.baseURI;
-        this.wsTarget = null;
-        this.platform = this.HTMLDocument.defaultView.navigator.platform;
-        this.userAgent = this.HTMLDocument.defaultView.navigator.userAgent;
-
-        // This is a test function for RickRolling users remotely via DRP
-        this.RickRoll = function () {
-            vdmClient.vdmDesktop.openApp("RickRoll", null);
-        };
-    }
-
-    async OpenHandler(wsConn, req) {
-        let thisVDMServerAgent = this;
-        console.log("VDM Client to server [" + thisVDMServerAgent.wsTarget + "] opened");
-
-        this.wsConn = wsConn;
-
-        let response = await thisVDMServerAgent.SendCmd("DRP", "hello", {
-            "token": thisVDMServerAgent.userToken,
-            "platform": thisVDMServerAgent.platform,
-            "userAgent": thisVDMServerAgent.userAgent,
-            "URL": thisVDMServerAgent.URL
-        }, true, null);
-
-        if (!response) window.location.reload();
-
-        thisVDMServerAgent.vdmClient.vdmDesktop.changeLEDColor('green');
-
-        // If we don't have any appletProfiles, request them
-        if (Object.keys(thisVDMServerAgent.vdmClient.vdmDesktop.appletProfiles).length) return;
-        let appletProfiles = {};
-        let getAppletProfilesResponse = await thisVDMServerAgent.SendCmd("VDM", "getAppletProfiles", null, true, null);
-        if (getAppletProfilesResponse && getAppletProfilesResponse.payload) appletProfiles = getAppletProfilesResponse.payload;
-        let appletProfileNames = Object.keys(appletProfiles);
-        for (let i = 0; i < appletProfileNames.length; i++) {
-            let thisAppletProfile = appletProfiles[appletProfileNames[i]];
-            // Manually add the vdmClient to the appletProfile
-            thisAppletProfile.vdmClient = thisVDMServerAgent.vdmClient;
-            thisVDMServerAgent.vdmClient.vdmDesktop.addAppletProfile(thisAppletProfile);
-        }
-
-        thisVDMServerAgent.vdmClient.vdmDesktop.loadAppletProfiles();
-    }
-
-    async CloseHandler(closeCode) {
-        let thisVDMServerAgent = this;
-        thisVDMServerAgent.Disconnect();
-    }
-
-    async ErrorHandler(wsConn, error) {
-        console.log("Consumer to Broker client encountered error [" + error + "]");
-        window.location.reload();
-    }
-
-    Disconnect(isGraceful) {
-        let thisVDMServerAgent = this;
-
-        if (!isGraceful) {
-            console.log("Unexpected connection drop, waiting 10 seconds for reconnect");
-            setTimeout(function () {
-                //window.location.href = "/";
-
-                // Retry websocket connection
-                thisVDMServerAgent.reconnect = true;
-                thisVDMServerAgent.resetConnection();
-                thisVDMServerAgent.connect(thisVDMServerAgent.wsTarget, thisVDMServerAgent.sessionID);
-            }, 10000);
-
-            thisVDMServerAgent.vdmClient.vdmDesktop.changeLEDColor('red');
-            window.location.reload();
-        }
-    }
-
-    resetConnection() {
-        this.wsConn = '';
-        this.sessionID = this.vdmClient.getLastSessionID();
     }
 }

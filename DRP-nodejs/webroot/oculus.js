@@ -1,41 +1,35 @@
-/** @type {WebVR_Client} */
+/** @type {WebXR_Client} */
 var myDRPClient;
 var babylonScene;
 var vrHelper;
 
-class WebVR_Client extends DRP_Client {
+class WebXR_Client extends DRP_Client_Browser {
     constructor(postOpenCallback) {
         super();
 
         this.username = '';
         this.wsConn = '';
         this.postOpenCallback = postOpenCallback;
-
-        // This allows the client's document object to be viewed remotely via DRP
-        this.HTMLDocument = document;
-        this.URL = this.HTMLDocument.baseURI;
-        this.wsTarget = null;
-        this.platform = this.HTMLDocument.defaultView.navigator.platform;
-        this.userAgent = this.HTMLDocument.defaultView.navigator.userAgent;
     }
 
     async OpenHandler(wsConn, req) {
-        let thisWebVRClient = this;
-        console.log("WebVR Client to server [" + thisWebVRClient.wsTarget + "] opened");
+        let thisWebXRClient = this;
+        console.log("WebXR Client to server [" + thisWebXRClient.wsTarget + "] opened");
 
-        let response = await thisWebVRClient.SendCmd(thisWebVRClient.wsConn, "DRP", "hello", {
+        let response = await thisWebXRClient.SendCmd("DRP", "hello", {
+            token: this.userToken,
             platform: this.platform,
             userAgent: this.userAgent,
             URL: this.URL
         }, true, null);
 
-        thisWebVRClient.postOpenCallback();
+        thisWebXRClient.postOpenCallback();
     }
 
     async CloseHandler(wsConn, closeCode) {
         //console.log("Broker to Registry client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] closed with code [" + closeCode + "]");
-        let thisVDMServerAgent = this;
-        thisVDMServerAgent.Disconnect();
+        let thisWebXRClient = this;
+        thisWebXRClient.Disconnect();
     }
 
     async ErrorHandler(wsConn, error) {
@@ -43,7 +37,7 @@ class WebVR_Client extends DRP_Client {
     }
 
     Disconnect(isGraceful) {
-        let thisWebVRClient = this;
+        let thisWebXRClient = this;
 
         if (!isGraceful) {
             console.log("Unexpected connection drop, waiting 10 seconds for reconnect");
@@ -51,9 +45,9 @@ class WebVR_Client extends DRP_Client {
                 //window.location.href = "/";
 
                 // Retry websocket connection
-                thisWebVRClient.reconnect = true;
-                thisWebVRClient.resetConnection();
-                thisWebVRClient.connect(thisWebVRClient.wsTarget);
+                thisWebXRClient.reconnect = true;
+                thisWebXRClient.resetConnection();
+                thisWebXRClient.connect(thisWebXRClient.wsTarget);
             }, 10000);
         }
     }
@@ -77,10 +71,21 @@ window.onload = function () {
     }
     var drpSvrWSTarget = drpSvrProt + "//" + drpSvrHost + drpPortString;
 
-    myDRPClient = new WebVR_Client(async function () {
-        myDRPClient.lastTopology = await myDRPClient.SendCmd(myDRPClient.wsConn, null, "getTopology", null, true, null);
+    myDRPClient = new WebXR_Client(async function () {
+        //myDRPClient.lastTopology = await myDRPClient.SendCmd(myDRPClient.wsConn, null, "getTopology", null, true, null);
+
         setInterval(function () {
+            let sendPacket = [];
+            if (!myDRPClient.xr || !myDRPClient.xr.input) return;
+            for (let i = 0; i < myDRPClient.xr.input.controllers.length; i++) {
+                if (!myDRPClient.xr.input.controllers[i].motionController) continue;
+                sendPacket.push(myDRPClient.xr.input.controllers[i].grip.getPositionExpressedInLocalSpace());
+            }
+            if (sendPacket.length > 0) {
+                myDRPClient.SendCmd("DRP", "sendToTopic", { topicName: "vr", topicData: sendPacket }, false, null);
+            }
             //let timeStamp = new Date().getTime();
+            /*
             if (myDRPClient.VRHelper.webVRCamera.leftController && myDRPClient.VRHelper.webVRCamera.rightController) {
                 let lHandPositionObj = myDRPClient.VRHelper.webVRCamera.leftController.devicePosition;
                 let rHandPositionObj = myDRPClient.VRHelper.webVRCamera.rightController.devicePosition;
@@ -98,15 +103,108 @@ window.onload = function () {
                 }
                 myDRPClient.SendCmd(myDRPClient.wsConn, "DRP", "sendToTopic", { topicName: "vr", topicData: dataPacket }, false, null);
             }
+            */
         }, 100);
     });
     myDRPClient.connect(drpSvrWSTarget);
-    myDRPClient.BabylonScene = babylonScene;
-    myDRPClient.VRHelper = vrHelper;
     console.log("Connecting VDM client...");
 };
 
+var multimediaRoot = ".";
+
 var runBabylon = function () {
+    var canvas = document.getElementById("renderCanvas");
+    var engine = new BABYLON.Engine(canvas, true);
+    BABYLON.SceneLoader.Load("", `${multimediaRoot}/testscene.babylon`, engine, function (newScene) {
+        // Wait for textures and shaders to be ready
+        newScene.executeWhenReady(async function () {
+
+            let musicFile = `${multimediaRoot}/mixkit-forest-ambience-loop-1228.mp3`;
+
+            // Attach camera to canvas inputs
+            //newScene.activeCamera.attachControl(canvas);
+            let ground = newScene.getMeshByID("Plane");
+            let tree1 = newScene.getMeshByID("Tree1");
+            let tree2 = newScene.getMeshByID("Tree2");
+
+            // here we add XR support
+            const xr = await newScene.createDefaultXRExperienceAsync({
+                floorMeshes: [ground],
+                //disableDefaultUI: true,
+                //disableTeleportation: true
+            });
+            //xr.teleportation.teleportationEnabled = false;
+            for (let i = 0; i < newScene.lights.length; i++) {
+                newScene.lights[i].intensity = .75;
+            }
+
+            let getRandomRotation = () => {
+                let randomAngle = Math.floor(Math.random() * 360);
+                let radians = BABYLON.Tools.ToRadians(randomAngle);
+                return radians;
+            }
+
+            let rows = 10;
+            let cols = 10;
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    let newTree = tree1.clone();
+                    newTree.rotation.y = getRandomRotation();
+                    newTree.position.x += i * 15 - (rows * 15 / 2);
+                    newTree.position.z += j * 15;
+                }
+            }
+
+            let music = new BABYLON.Sound("Music", musicFile, newScene, null, { loop: true, autoplay: true });
+
+            let newMeshes = await BABYLON.SceneLoader.ImportMeshAsync(null, `${multimediaRoot}/hazel/`, "Hazel_01.gltf", newScene);
+
+            let mouse1 = newMeshes.transformNodes[0];
+            mouse1.scaling.scaleInPlace(0.05);
+            mouse1.rotate(BABYLON.Axis.Y, BABYLON.Tools.ToRadians(180));
+            mouse1.position.z -= 10;
+
+            let mouse2 = mouse1.clone();
+            mouse2.position.x += 4;
+            mouse2.rotation.y = BABYLON.Tools.ToRadians(180);
+
+            mouse1.position.x += 4;
+
+            let newMeshes2 = await BABYLON.SceneLoader.ImportMeshAsync(null, `${multimediaRoot}/cow/`, "cow.glb", newScene);
+            let newCow = newMeshes2.meshes[0];
+            newCow.scaling.scaleInPlace(0.25);
+            newCow.position.z -= 10;
+            //newCow.rotationQuaternion =
+            newCow.rotate(BABYLON.Axis.Y, BABYLON.Tools.ToRadians(180));
+
+            myDRPClient.BabylonScene = newScene;
+            myDRPClient.xr = xr;
+
+            engine.runRenderLoop(function () {
+                newScene.render();
+                for (let i = 0; i < xr.input.controllers.length; i++) {
+                    if (!xr.input.controllers[i].motionController) continue;
+                    let gamepad = xr.input.controllers[i].motionController.gamepadObject;
+                    if ("hapticActuators" in gamepad && gamepad.hapticActuators.length > 0) {
+                        for (let j = 0; j < gamepad.buttons.length; ++j) {
+                            if (gamepad.buttons[j].pressed) {
+                                // Vibrate the gamepad using to the value of the button as
+                                // the vibration intensity, normalized to 0.0..1.0 range.
+                                gamepad.hapticActuators[0].pulse((j + 1.0) / (gamepad.buttons.length + 1), 1000);
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+
+        });
+    }, function (progress) {
+        // To do: give progress feedback to user
+    });
+}
+
+var runBabylonOld = function () {
 
     var canvas = document.getElementById("renderCanvas");
     var skyMaterial;
@@ -234,6 +332,7 @@ var runBabylon = function () {
 
         var counter = 0;
         var controllersDetected = false;
+        if (!vrHelper.webVRCamera) return null;
         console.dir(vrHelper.webVRCamera.controllers);
 
         var music = new BABYLON.Sound("Music", "assets/webxr/sounds/jg-032316-sfx-sub-pulse.mp3", scene, null, { loop: true, autoplay: true });
@@ -312,6 +411,9 @@ var runBabylon = function () {
 
     console.log("Babylon setup complete");
     babylonScene = scene;
+
+    myDRPClient.BabylonScene = babylonScene;
+    myDRPClient.VRHelper = vrHelper;
 };
 
 document.addEventListener("DOMContentLoaded", function () {

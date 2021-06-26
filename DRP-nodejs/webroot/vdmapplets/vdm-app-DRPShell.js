@@ -150,7 +150,7 @@
             title: "Topic Watch",
             sizeX: 700,
             sizeY: 411,
-            vdmClient: myApp.vdmClient,
+            vdmSession: myApp.vdmSession,
             appletClass: (class extends rSageApplet {
                 constructor(appletProfile, startupParams) {
                     super(appletProfile);
@@ -207,7 +207,7 @@
                             let thisStreamToken = watchApp.streamHandlerTokens.pop();
                             if (thisStreamToken) {
                                 watchApp.sendCmd("DRP", "unsubscribe", { streamToken: thisStreamToken }, false);
-                                watchApp.vdmClient.vdmServerAgent.DeleteReplyHandler(thisStreamToken);
+                                watchApp.vdmSession.drpClient.DeleteReplyHandler(thisStreamToken);
                             }
                         }
                     };

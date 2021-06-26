@@ -33,7 +33,7 @@ let myConsumer = new DRP_Consumer(brokerURL, user, pass, null, async function ()
         die(`Error reading script for applet '${appletName}' -> ${ex.message}`);
     }
     appletProfile.appletContents = appletContentsRaw;
-    let response = await myConsumer.BrokerClient.SendCmd("VDM", "uploadApplet", appletProfile, true, null, null, null);
+    let response = await myConsumer.BrokerClient.SendCmd("VDM", "uploadVDMApplet", appletProfile, true, null, null, null);
     if (response.status === 1) {
         console.log("Upload successful");
     } else {

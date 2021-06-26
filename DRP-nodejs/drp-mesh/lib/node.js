@@ -1116,7 +1116,7 @@ class DRP_Node {
                 targetServiceInstanceID = targetServiceRecord.InstanceID;
                 targetNodeID = targetServiceRecord.NodeID;
 
-                if (thisNode.Debug) thisNode.log(`Best instance of service [${serviceName}] is [${targetServiceRecord.InstanceID}] on node [${targetServiceRecord.NodeID}]`, true);
+                //if (thisNode.Debug) thisNode.log(`Best instance of service [${serviceName}] is [${targetServiceRecord.InstanceID}] on node [${targetServiceRecord.NodeID}]`, true);
             } else {
                 targetServiceRecord = thisNode.TopologyTracker.ServiceTable[targetServiceInstanceID];
 

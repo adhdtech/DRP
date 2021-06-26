@@ -14,8 +14,12 @@ MESHKEY=supersecretkey
 DEBUG=true
 TESTMODE=true
 ZONENAME=zone1
-AUTHENTICATORSERVICE=TestAuthenticator</Environment>
-    <NodejsPort>8080</NodejsPort>
+AUTHENTICATORSERVICE=TestAuthenticator
+
+SSL_ENABLED=true
+SSL_KEYFILE=C:\Temp\privkey.pem
+SSL_CRTFILE=C:\Temp\fullchain.pem</Environment>
+    <NodejsPort>443</NodejsPort>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -113,8 +117,12 @@ AUTHENTICATORSERVICE=TestAuthenticator</Environment>
     <Content Include="webroot\assets\rsage-vdm\img\collapse-small-blue.png" />
     <Content Include="webroot\assets\rsage-vdm\img\expand-small-blue.png" />
     <Content Include="webroot\assets\rsage-vdm\img\pattern12.png" />
-    <Content Include="webroot\assets\rsage-vdm\js\vdmClient.js" />
+    <Content Include="webroot\assets\rsage-vdm\js\drpClient.js">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="webroot\assets\rsage-vdm\js\vdmSession.js" />
     <Content Include="webroot\assets\rsage-vdm\js\vdmCore.js" />
+    <Content Include="webroot\assets\rsage-vdm\js\xrSession.js" />
     <Content Include="webroot\assets\webxr\sounds\jg-032316-sfx-sub-pulse.mp3" />
     <Content Include="webroot\assets\webxr\textures\earth2-normal.jpg" />
     <Content Include="webroot\assets\webxr\textures\earthbump.jpg" />
@@ -143,6 +151,10 @@ AUTHENTICATORSERVICE=TestAuthenticator</Environment>
     <Content Include="webroot\vdmapplets\vdm-app-HiveBrowser.json" />
     <Content Include="webroot\vdmapplets\vdm-app-RickRoll.js" />
     <Content Include="webroot\vdmapplets\vdm-app-RickRoll.json" />
+    <Content Include="webroot\xrapplets\xr-app-Forest.js" />
+    <Content Include="webroot\xrapplets\xr-app-Forest.json" />
+    <Content Include="webroot\xrapplets\xr-app-Grid.js" />
+    <Content Include="webroot\xrapplets\xr-app-Grid.json" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="cucm-sql-async\" />
@@ -176,6 +188,7 @@ AUTHENTICATORSERVICE=TestAuthenticator</Environment>
     <Folder Include="webroot\assets\xterm\css\" />
     <Folder Include="webroot\assets\xterm\lib\" />
     <Folder Include="webroot\vdmapplets\" />
+    <Folder Include="webroot\xrapplets\" />
   </ItemGroup>
   <Import Project="$(VSToolsPath)\Node.js Tools\Microsoft.NodejsToolsV2.targets" />
 </Project>
