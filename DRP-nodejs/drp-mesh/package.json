@@ -1,6 +1,6 @@
 {
   "name": "drp-mesh",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "DRP Mesh",
   "main": "index.js",
   "scripts": {
@@ -30,6 +30,5 @@
     "tcp-ping": "*",
     "uuid": "^8.0.0",
     "swagger-ui-express": "^4.1.4"
-  },
-  "publishConfig": { "registry": "https://npm.pkg.github.com/" }
+  }
 }
