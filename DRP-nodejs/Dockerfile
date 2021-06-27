@@ -2,6 +2,7 @@ FROM node:lts-alpine
 
 # Define app directory
 ENV APPDIR=/app
+ENV NODE_ENV=production
 
 # Create app directory
 WORKDIR /app
@@ -40,12 +41,9 @@ COPY drpProvider-Cortx.js .
 COPY drpProvider-Cortx-Old.js .
 COPY serverCortx.js .
 
-RUN npm install
+RUN npm install --production
 # If you are building your code for production
 # RUN npm ci --only=production
-
-# Bundle app source
-#COPY . .
 
 EXPOSE 8080
 CMD [ "node", "server.js" ]

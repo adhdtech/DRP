@@ -28,7 +28,7 @@
     "cors": "*",
     "ping": "*",
     "tcp-ping": "*",
-    "uuid": "*",
+    "uuid": "^8.0.0",
     "swagger-ui-express": "^4.1.4"
   }
 }
