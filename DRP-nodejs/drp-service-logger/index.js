@@ -74,10 +74,10 @@ class Logger extends DRP_Service {
         const password = encodeURIComponent(thisLogger.__MongoPw);
         const authMechanism = 'DEFAULT';
         let mongoUrl = thisLogger.__MongoUser ? `mongodb://${user}:${password}@${thisLogger.__MongoHost}:27017/?authMechanism=${authMechanism}` : `mongodb://${thisLogger.__MongoHost}:27017`;
-        thisLogger.drpNode.log(`Trying to connect to Mongo -> [${mongoUrl}]`);
+        thisLogger.DRPNode.log(`Trying to connect to Mongo -> [${mongoUrl}]`);
         /** @type {MongoClient} */
         thisLogger.__MongoClient = await MongoClient.connect(`${mongoUrl}`, { useNewUrlParser: true, useUnifiedTopology: true });
-        thisLogger.drpNode.log(`Connected to Mongo`);
+        thisLogger.DRPNode.log(`Connected to Mongo`);
 
         // Open the collector DB 
         this.__LoggerDB = thisLogger.__MongoClient.db(thisLogger.serviceName);

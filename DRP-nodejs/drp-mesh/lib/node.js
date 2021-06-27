@@ -16,6 +16,7 @@ const { DRP_WebServer, DRP_WebServerConfig } = require("./webserver");
 const { DRP_SubscribableSource, DRP_Subscriber } = require('./subscription');
 const { DRP_AuthRequest, DRP_AuthResponse, DRP_AuthFunction } = require('./auth');
 const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Stream, DRP_RouteOptions } = require('./packet');
+const { DRP_VirtualDirectory, DRP_Permission, DRP_PermissionSet, DRP_Securable } = require('./securable');
 const Express_Request = express.request;
 const Express_Response = express.response;
 const swaggerUI = require("swagger-ui-express");
@@ -57,7 +58,7 @@ class DRP_NodeDeclaration {
     }
 }
 
-class DRP_Node {
+class DRP_Node extends DRP_Securable {
     /**
      * 
      * @param {string[]} nodeRoles List of Roles: Broker, Provider, Registry 
@@ -67,8 +68,10 @@ class DRP_Node {
      * @param {string} zone DRP Zone Name (optional)
      * @param {DRP_WebServerConfig} webServerConfig Web server config (optional)
      * @param {string} drpRoute DRP WS Route (optional)
+     * @param {DRP_PermissionSet} permissionSet DRP Permission Set
      */
-    constructor(nodeRoles, hostID, domainName, meshKey, zone, webServerConfig, drpRoute) {
+    constructor(nodeRoles, hostID, domainName, meshKey, zone, webServerConfig, drpRoute, permissionSet) {
+        super(permissionSet);
         let thisNode = this;
         this.NodeID = `${os.hostname()}-${process.pid}`;
         this.HostID = hostID;
@@ -679,7 +682,7 @@ class DRP_Node {
         return {
             NodeID: thisNode.NodeID,
             NodeURL: thisNode.ListeningName,
-            NodeObj: thisNode,
+            DRPNode: thisNode,
             Services: thisNode.Services,
             Streams: thisNode.TopicManager.Topics,
             Endpoints: {
@@ -773,7 +776,7 @@ class DRP_Node {
                     // We need to evaluate the service table, get distinct list of stream names
                     let streamHash = {};
                     let thisSubMgr = thisNode.SubscriptionManager;
-                    let serviceTable = thisSubMgr.drpNode.TopologyTracker.ServiceTable;
+                    let serviceTable = thisSubMgr.DRPNode.TopologyTracker.ServiceTable;
                     let serviceEntryIDList = Object.keys(serviceTable);
                     for (let i = 0; i < serviceEntryIDList.length; i++) {
                         let serviceEntry = serviceTable[serviceEntryIDList[i]];
@@ -781,7 +784,7 @@ class DRP_Node {
                             let thisStreamName = serviceEntry.Streams[j];
                             if (!streamHash[thisStreamName]) streamHash[thisStreamName] = {};
                             streamHash[thisStreamName][serviceEntry.NodeID] = async (params) => {
-                                params.pathList = ['NodeObj', 'TopicManager', 'Topics', thisStreamName].concat(params.pathList);
+                                params.pathList = ['DRPNode', 'TopicManager', 'Topics', thisStreamName].concat(params.pathList);
                                 let returnObj = await thisNode.SendPathCmdToNode(serviceEntry.NodeID, params);
                                 return returnObj;
                             }
@@ -845,6 +848,13 @@ class DRP_Node {
                     let objectType = typeof oCurrentObject[pathItemName];
                     switch (objectType) {
                         case 'object':
+                            // Check security
+                            if (oCurrentObject[pathItemName].__permissionSet) {
+                                // This is a securable item - verify the caller has permissions to see it
+                                let isAllowed = oCurrentObject[pathItemName].__IsAllowed(callingEndpoint.AuthInfo, "read");
+                                if (!isAllowed) return { err: "Unauthorized" };
+                            }
+
                             // Special handling needed for Set objects
                             let attrType = Object.prototype.toString.call(oCurrentObject[pathItemName]).match(/^\[object (.*)\]$/)[1];
 
@@ -924,14 +934,17 @@ class DRP_Node {
         // If we have a return object and want only a list of children, do that now
         if (params.listOnly) {
             if (oReturnObject instanceof Object) {
+                if (oReturnObject.err) return oReturnObject;
                 if (!oReturnObject.pathItemList) {
                     // Return only child keys and data types
                     oReturnObject = { pathItemList: this.ListObjChildren(oReturnObject) };
                 }
-            } else {
-                oReturnObject = null;
             }
         } else if (oReturnObject) {
+            if (oReturnObject instanceof Object) {
+                if (oReturnObject.err) return oReturnObject;
+            }
+
             if (!(oReturnObject instanceof Object) || !oReturnObject["pathItem"]) {
                 // Return object as item
                 oReturnObject = { pathItem: oReturnObject };
@@ -2231,14 +2244,14 @@ class DRP_NodeClient extends DRP_Client {
         // Register Endpoint commands
         // (methods should return output and optionally accept [params, token] for streaming)
 
-        drpNode.ApplyNodeEndpointMethods(this);
+        this.DRPNode.ApplyNodeEndpointMethods(this);
     }
 
     // Define Handlers
     async OpenHandler() {
         super.OpenHandler();
-        if (this.drpNode.Debug) this.drpNode.log("Node client [" + this.RemoteAddress() + ":" + this.RemotePort() + "] opened");
-        let response = await this.SendCmd("DRP", "hello", this.drpNode.__GetNodeDeclaration(), true, null);
+        if (this.DRPNode.Debug) this.DRPNode.log("Node client [" + this.RemoteAddress() + ":" + this.RemotePort() + "] opened");
+        let response = await this.SendCmd("DRP", "hello", this.DRPNode.__GetNodeDeclaration(), true, null);
         if (this.openCallback && typeof this.openCallback === 'function') {
             this.openCallback(response);
         }
@@ -2246,18 +2259,18 @@ class DRP_NodeClient extends DRP_Client {
 
     async CloseHandler(closeCode) {
         let thisEndpoint = this;
-        if (this.drpNode.Debug) this.drpNode.log("Node client [" + thisEndpoint.RemoteAddress() + ":" + thisEndpoint.RemotePort() + "] closed with code [" + closeCode + "]");
+        if (this.DRPNode.Debug) this.DRPNode.log("Node client [" + thisEndpoint.RemoteAddress() + ":" + thisEndpoint.RemotePort() + "] closed with code [" + closeCode + "]");
 
-        thisEndpoint.drpNode.RemoveEndpoint(thisEndpoint, thisEndpoint.closeCallback);
+        thisEndpoint.DRPNode.RemoveEndpoint(thisEndpoint, thisEndpoint.closeCallback);
 
         if (this.retryOnClose) {
-            await thisEndpoint.drpNode.Sleep(5000);
+            await thisEndpoint.DRPNode.Sleep(5000);
             this.RetryConnection();
         }
     }
 
     async ErrorHandler(error) {
-        if (this.drpNode.Debug) this.drpNode.log("Node client encountered error [" + error + "]");
+        if (this.DRPNode.Debug) this.DRPNode.log("Node client encountered error [" + error + "]");
     }
 
 }
@@ -2270,7 +2283,7 @@ class DRP_TopologyTracker {
      */
     constructor(drpNode) {
         let thisTopologyTracker = this;
-        this.drpNode = drpNode;
+        this.DRPNode = drpNode;
         /** @type {Object.<string,DRP_NodeTableEntry>} */
         this.NodeTable = new DRP_NodeTable();
         /** @type {Object.<string,DRP_ServiceTableEntry>} */
@@ -2292,7 +2305,7 @@ class DRP_TopologyTracker {
      */
     ProcessPacket(topologyPacket, srcNodeID, sourceIsRegistry) {
         let thisTopologyTracker = this;
-        let thisNode = thisTopologyTracker.drpNode;
+        let thisNode = thisTopologyTracker.DRPNode;
         let targetTable = null;
         /** @type {DRP_TrackingTableEntry} */
         let topologyEntry = null;
@@ -2384,7 +2397,7 @@ class DRP_TopologyTracker {
 
                     // If this is a service entry and we don't have a corresponding node table entry, ignore it
                     if (topologyPacket.type === "service" && !thisTopologyTracker.NodeTable[topologyPacket.data.NodeID]) {
-                        if (thisNode.Debug) thisTopologyTracker.drpNode.log(`Ignoring service table entry [${topologyPacket.id}], no matching node table entry`);
+                        if (thisNode.Debug) thisTopologyTracker.DRPNode.log(`Ignoring service table entry [${topologyPacket.id}], no matching node table entry`);
                         return;
                     }
 
@@ -2403,7 +2416,7 @@ class DRP_TopologyTracker {
                     targetTable.UpdateEntry(topologyPacket.id, topologyPacket.data, thisNode.getTimestamp());
                     topologyEntry = targetTable[topologyPacket.id];
                 } else {
-                    if (thisNode.Debug) thisTopologyTracker.drpNode.log(`Could not update non-existent ${topologyPacket.type} entry ${topologyPacket.id}`);
+                    if (thisNode.Debug) thisTopologyTracker.DRPNode.log(`Could not update non-existent ${topologyPacket.type} entry ${topologyPacket.id}`);
                     return;
                 }
                 break;
@@ -2459,7 +2472,7 @@ class DRP_TopologyTracker {
         // Send to TopicManager
         thisNode.TopicManager.SendToTopic("TopologyTracker", topologyPacket);
 
-        if (thisNode.Debug) thisTopologyTracker.drpNode.log(`Imported topology packet from [${topologyPacket.originNodeID}] -> ${topologyPacket.cmd} ${topologyPacket.type}[${topologyPacket.id}]`, true);
+        if (thisNode.Debug) thisTopologyTracker.DRPNode.log(`Imported topology packet from [${topologyPacket.originNodeID}] -> ${topologyPacket.cmd} ${topologyPacket.type}[${topologyPacket.id}]`, true);
 
         if (!topologyEntry) {
             if (thisNode.Debug) thisNode.log(`The topologyEntry is null!  Why?`);
@@ -2468,7 +2481,7 @@ class DRP_TopologyTracker {
         }
 
         // Loop over all connected node endpoints
-        let nodeIDList = Object.keys(thisTopologyTracker.drpNode.NodeEndpoints);
+        let nodeIDList = Object.keys(thisTopologyTracker.DRPNode.NodeEndpoints);
         for (let i = 0; i < nodeIDList.length; i++) {
 
             // By default, do not relay the packet
@@ -2481,7 +2494,7 @@ class DRP_TopologyTracker {
             relayPacket = thisTopologyTracker.AdvertiseOutCheck(topologyEntry, targetNodeID);
 
             if (relayPacket) {
-                thisTopologyTracker.drpNode.NodeEndpoints[targetNodeID].SendCmd("DRP", "topologyUpdate", topologyPacket, false, null);
+                thisTopologyTracker.DRPNode.NodeEndpoints[targetNodeID].SendCmd("DRP", "topologyUpdate", topologyPacket, false, null);
                 if (thisNode.Debug) thisNode.log(`Relayed topology packet to node: [${targetNodeID}]`, true);
             } else {
                 if (targetNodeID !== thisNode.NodeID) {
@@ -2490,7 +2503,6 @@ class DRP_TopologyTracker {
                 }
             }
         }
-        //thisTopologyTracker.drpNode.log(`Imported packet`);
     }
 
     /**
@@ -2538,7 +2550,7 @@ class DRP_TopologyTracker {
      */
     FindInstanceOfService(serviceName, serviceType, zone, nodeID) {
         let thisTopologyTracker = this;
-        let thisNode = thisTopologyTracker.drpNode;
+        let thisNode = thisTopologyTracker.DRPNode;
 
         if (serviceName && typeof serviceName === "object" && serviceName.pathList) {
             // This was called from the CLI
@@ -2774,7 +2786,7 @@ class DRP_TopologyTracker {
      */
     AdvertiseOutCheck(topologyEntry, targetNodeID) {
         let thisTopologyTracker = this;
-        let thisNode = thisTopologyTracker.drpNode;
+        let thisNode = thisTopologyTracker.DRPNode;
         let localNodeID = thisNode.NodeID;
         let doSend = false;
 
@@ -2854,7 +2866,7 @@ class DRP_TopologyTracker {
      */
     GetRegistry(requestingNodeID) {
         let thisTopologyTracker = this;
-        let thisNode = thisTopologyTracker.drpNode;
+        let thisNode = thisTopologyTracker.DRPNode;
 
         let returnNodeTable = {};
         let returnServiceTable = {};
@@ -2894,7 +2906,7 @@ class DRP_TopologyTracker {
                 }
             }
         } catch (ex) {
-            thisTopologyTracker.drpNode.log(`Exception while getting subset of Registry: ${ex}`);
+            thisTopologyTracker.DRPNode.log(`Exception while getting subset of Registry: ${ex}`);
         }
 
         let returnObj = {
@@ -2912,7 +2924,7 @@ class DRP_TopologyTracker {
      */
     async ProcessNodeConnect(sourceEndpoint, declaration, localNodeIsProxy) {
         let thisTopologyTracker = this;
-        let thisNode = thisTopologyTracker.drpNode;
+        let thisNode = thisTopologyTracker.DRPNode;
         thisNode.log(`Connection established with Node [${declaration.NodeID}] (${declaration.NodeRoles})`);
         let returnData = await sourceEndpoint.SendCmd("DRP", "getRegistry", { "reqNodeID": thisNode.NodeID }, true, null, null);
         //console.dir(returnData, { depth: 4 });
@@ -2959,7 +2971,7 @@ class DRP_TopologyTracker {
 
     ProcessNodeDisconnect(disconnectedNodeID) {
         let thisTopologyTracker = this;
-        let thisNode = thisTopologyTracker.drpNode;
+        let thisNode = thisTopologyTracker.DRPNode;
         // Remove node; this should trigger an autoremoval of entries learned from it
 
         // If we are not a Registry and we just disconnected from a Registry, hold off on this process!
@@ -3072,7 +3084,7 @@ class DRP_TopologyTracker {
             let checkNodeEntry = thisTopologyTracker.NodeTable[checkNodeID];
             if (!thisTopologyTracker.ValidateNodeID(checkNodeEntry.LearnedFrom)) {
                 // Stale record - delete
-                thisTopologyTracker.drpNode.log(`Purged stale Node [${checkNodeID}], LearnedFrom Node [${checkNodeEntry.LearnedFrom}] not in Node table`);
+                thisTopologyTracker.DRPNode.log(`Purged stale Node [${checkNodeID}], LearnedFrom Node [${checkNodeEntry.LearnedFrom}] not in Node table`);
                 delete thisTopologyTracker.NodeTable[checkNodeID];
             }
         }
@@ -3084,7 +3096,7 @@ class DRP_TopologyTracker {
             let checkServiceEntry = thisTopologyTracker.ServiceTable[checkServiceID];
             if (!thisTopologyTracker.ValidateNodeID(checkServiceEntry.NodeID)) {
                 // Stale record - delete
-                thisTopologyTracker.drpNode.log(`Purged stale Service [${checkServiceID}], LearnedFrom Node [${checkServiceEntry.LearnedFrom}] not in Node table`);
+                thisTopologyTracker.DRPNode.log(`Purged stale Service [${checkServiceID}], LearnedFrom Node [${checkServiceEntry.LearnedFrom}] not in Node table`);
                 delete thisTopologyTracker.ServiceTable[checkServiceID];
             }
         }
@@ -3097,10 +3109,10 @@ class DRP_TopologyTracker {
         // Look for entries with the Registry role and that are still connected
         let nodeIDList = Object.keys(thisTopologyTracker.NodeTable);
         for (let i = 0; i < nodeIDList.length; i++) {
-            let thisNodeID = thisTopologyTracker.drpNode.NodeID;
+            let thisNodeID = thisTopologyTracker.DRPNode.NodeID;
             let checkNodeID = nodeIDList[i];
             let checkNodeEntry = thisTopologyTracker.NodeTable[checkNodeID];
-            if (checkNodeEntry.NodeID !== thisNodeID && checkNodeEntry.IsRegistry() && thisTopologyTracker.drpNode.NodeEndpoints[checkNodeID]) {
+            if (checkNodeEntry.NodeID !== thisNodeID && checkNodeEntry.IsRegistry() && thisTopologyTracker.DRPNode.NodeEndpoints[checkNodeID]) {
                 // Remote Node is a Registry and we are connected to it
                 connectedRegistryList.push[checkNodeID];
             }
@@ -3333,14 +3345,14 @@ class DRP_SubscriptionManager {
      * @param {DRP_Node} drpNode DRP Node
      */
     constructor(drpNode) {
-        this.drpNode = drpNode;
+        this.DRPNode = drpNode;
         /** @type Set<DRP_Subscriber> */
         this.Subscribers = new Set();
 
         /** @type Object.<string, DRP_RemoteSubscription> */
         this.RemoteSubscriptions = {};
 
-        this.drpNode.TopicManager.SubscribeToTopic(new DRP_Subscriber("TopologyTracker", null, null, null, (topologyPacket) => { this.ProcessTopologyPacket(topologyPacket.Message); }, null));
+        this.DRPNode.TopicManager.SubscribeToTopic(new DRP_Subscriber("TopologyTracker", null, null, null, (topologyPacket) => { this.ProcessTopologyPacket(topologyPacket.Message); }, null));
     }
 
     /**
@@ -3349,7 +3361,7 @@ class DRP_SubscriptionManager {
      */
     async ProcessTopologyPacket(topologyPacket) {
         let thisSubMgr = this;
-        let thisNode = thisSubMgr.drpNode;
+        let thisNode = thisSubMgr.DRPNode;
 
         // Ignore if we don't have any Subscriptions to check against
         if (thisSubMgr.Subscribers.size === 0) return;
@@ -3397,7 +3409,7 @@ class DRP_SubscriptionManager {
      */
     async RegisterSubscription(subscriber) {
         let thisSubMgr = this;
-        let thisNode = thisSubMgr.drpNode;
+        let thisNode = thisSubMgr.DRPNode;
 
         thisSubMgr.Subscribers.add(subscriber);
 
@@ -3418,7 +3430,7 @@ class DRP_SubscriptionManager {
         } else {
 
             // We need to evaluate the service table, see if anyone provides the stream this subscriber is requesting
-            let serviceTable = thisSubMgr.drpNode.TopologyTracker.ServiceTable;
+            let serviceTable = thisSubMgr.DRPNode.TopologyTracker.ServiceTable;
             let serviceEntryIDList = Object.keys(serviceTable);
             for (let i = 0; i < serviceEntryIDList.length; i++) {
                 let serviceEntry = serviceTable[serviceEntryIDList[i]];
@@ -3444,7 +3456,7 @@ class DRP_SubscriptionManager {
         if (serviceEntry.Streams.indexOf(streamName) < 0) return false;
 
         // Return false if the service scope is local and isn't on this node
-        if (serviceEntry.Scope === "local" && serviceEntry.NodeID !== this.drpNode.NodeID) return false;
+        if (serviceEntry.Scope === "local" && serviceEntry.NodeID !== this.DRPNode.NodeID) return false;
 
         // Return false if we're looking in a specific zone and it doesn't match
         if (subscriptionScope === "zone" && subscriptionZone !== serviceEntry.Zone) return false;
@@ -3455,7 +3467,7 @@ class DRP_SubscriptionManager {
 
     async RegisterSubscriberWithTargetSource(serviceEntry, subscriber) {
         let thisSubMgr = this;
-        let thisNode = thisSubMgr.drpNode;
+        let thisNode = thisSubMgr.DRPNode;
 
         /** @type {DRP_SubscribableSource} */
         let targetSource = null;
@@ -3491,14 +3503,14 @@ class DRP_SubscriptionManager {
             let newRemoteSubscription = new DRP_RemoteSubscription(targetNodeID, topicName, null, () => {
                 // No Subscribers Callback
                 delete thisSubMgr.RemoteSubscriptions[remoteSubscriptionID];
-                thisSubMgr.drpNode.UnsubscribeRemote(newRemoteSubscription.NodeID, newRemoteSubscription.StreamToken);
+                thisSubMgr.DRPNode.UnsubscribeRemote(newRemoteSubscription.NodeID, newRemoteSubscription.StreamToken);
             });
             thisSubMgr.RemoteSubscriptions[remoteSubscriptionID] = newRemoteSubscription;
-            let streamToken = await thisSubMgr.drpNode.SubscribeRemote(targetNodeID, topicName, (streamPacket) => {
+            let streamToken = await thisSubMgr.DRPNode.SubscribeRemote(targetNodeID, topicName, (streamPacket) => {
                 // TODO - use streamPacket.status to see if this is the last packet?
 
                 // If we're relaying a message from a topic, add the local NodeID to the route
-                if (streamPacket.payload && streamPacket.payload.Route) streamPacket.payload.Route.push(thisSubMgr.drpNode.NodeID);
+                if (streamPacket.payload && streamPacket.payload.Route) streamPacket.payload.Route.push(thisSubMgr.DRPNode.NodeID);
 
                 newRemoteSubscription.Send(streamPacket.payload);
             });

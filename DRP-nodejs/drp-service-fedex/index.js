@@ -32,10 +32,10 @@ class FedExAPIMgr extends DRP_Service {
         this.tokenAcquiredTimestamp = null;
 
         // Declare Tracking Update topic
-        this.drpNode.TopicManager.CreateTopic("TrackingUpdates", 100);
+        this.DRPNode.TopicManager.CreateTopic("TrackingUpdates", 100);
 
         // Declare Create Shipment topic
-        this.drpNode.TopicManager.CreateTopic("CreateShipment", 100);
+        this.DRPNode.TopicManager.CreateTopic("CreateShipment", 100);
 
         // Dirty way to make this function available for traversal
         this.PostShipmentUpdate = this.PostShipmentUpdate;
@@ -250,7 +250,7 @@ class FedExAPIMgr extends DRP_Service {
         // Is the token null or over X seconds old?
         let remainingTokenTimeSecs = thisAPIMgr.maxTokenAgeSec - (Date.now() - thisAPIMgr.tokenAcquiredTimestamp) / 1000;
         if (!thisAPIMgr.authToken || remainingTokenTimeSecs < 0) {
-            thisAPIMgr.drpNode.log("Acquiring new token");
+            thisAPIMgr.DRPNode.log("Acquiring new token");
             thisAPIMgr.restAgent = axios.create({
                 baseURL: thisAPIMgr.baseURL,
                  timeout: 10000,
@@ -269,7 +269,7 @@ class FedExAPIMgr extends DRP_Service {
                 return "Could not authenticate";
             }
         } else {
-            thisAPIMgr.drpNode.log(`Using cached token, remaining time: ${remainingTokenTimeSecs} seconds`);
+            thisAPIMgr.DRPNode.log(`Using cached token, remaining time: ${remainingTokenTimeSecs} seconds`);
         }
     }
 
@@ -391,7 +391,7 @@ class FedExAPIMgr extends DRP_Service {
         let response = null;
         try {
             response = await thisAPIMgr.restAgent.post("/ship/v1/shipments", shipmentCriteria, { headers: { "Content-Type": "application/json" } });
-            this.drpNode.TopicManager.SendToTopic("CreateShipment", response.data);
+            this.DRPNode.TopicManager.SendToTopic("CreateShipment", response.data);
         } catch (ex) {
             response = ex.response;
         }
@@ -399,7 +399,7 @@ class FedExAPIMgr extends DRP_Service {
     }
 
     async PostShipmentUpdate(params) {
-        this.drpNode.TopicManager.SendToTopic("TrackingUpdates", params.body);
+        this.DRPNode.TopicManager.SendToTopic("TrackingUpdates", params.body);
     }
 }
 

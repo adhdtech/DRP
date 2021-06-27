@@ -48,7 +48,7 @@ class DRP_LDAP extends DRP_Authenticator {
                 // Error binding, return null
                 if (err) {
                     //console.dir(err);
-                    if (thisService.drpNode.Debug) thisService.drpNode.log(`Authenticate [${authRequest.UserName}] -> FAILED`);
+                    if (thisService.DRPNode.Debug) thisService.DRPNode.log(`Authenticate [${authRequest.UserName}] -> FAILED`);
                     resolve(null);
                 }
 
@@ -102,10 +102,10 @@ class DRP_LDAP extends DRP_Authenticator {
         //console.dir(results);
         if (results && results.length) {
             let userEntry = results.shift().object;
-            authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName, userEntry.cn, userEntry.memberOf, null, thisService.serviceName, thisService.drpNode.getTimestamp());
-            if (thisService.drpNode.Debug) thisService.drpNode.log(`Authenticate [${authRequest.UserName}] -> SUCCEEDED`);
-            thisService.drpNode.TopicManager.SendToTopic("AuthLogs", authResponse);
-            thisService.drpNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse });
+            authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName, userEntry.cn, userEntry.memberOf, null, thisService.serviceName, thisService.DRPNode.getTimestamp());
+            if (thisService.DRPNode.Debug) thisService.DRPNode.log(`Authenticate [${authRequest.UserName}] -> SUCCEEDED`);
+            thisService.DRPNode.TopicManager.SendToTopic("AuthLogs", authResponse);
+            thisService.DRPNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse });
         }
         return authResponse;
     }

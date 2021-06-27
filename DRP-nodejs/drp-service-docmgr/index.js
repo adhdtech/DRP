@@ -221,7 +221,7 @@ class DocManager extends DRP_Service {
         const password = encodeURIComponent(thisDocMgr.__MongoPw);
         const authMechanism = 'DEFAULT';
         let mongoUrl = `mongodb://${user}:${password}@${thisDocMgr.__MongoHost}:27017/?authMechanism=${authMechanism}`;
-        thisDocMgr.drpNode.log(`Trying to connect to Mongo -> [${mongoUrl}]`);
+        thisDocMgr.DRPNode.log(`Trying to connect to Mongo -> [${mongoUrl}]`);
         /** @type {MongoClient} */
         thisDocMgr.__MongoClient = await MongoClient.connect(`${mongoUrl}`, { useNewUrlParser: true, useUnifiedTopology: true });
         let bob = 1;

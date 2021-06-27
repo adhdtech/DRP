@@ -25,12 +25,12 @@ class DRP_Service {
      */
     constructor(serviceName, drpNode, type, instanceID, sticky, priority, weight, zone, scope, dependencies, streams, status) {
         this.serviceName = serviceName;
-        this.drpNode = drpNode;
+        this.DRPNode = drpNode;
         this.ClientCmds = {};
         /** @type Object.<string,UMLClass> */
         this.Classes = {};
         this.Type = type;
-        this.InstanceID = instanceID || `${drpNode.NodeID}-${serviceName}-${getRandomInt(9999)}`;
+        this.InstanceID = instanceID || `${this.DRPNode.NodeID}-${serviceName}-${getRandomInt(9999)}`;
         this.Sticky = sticky;
         this.Priority = priority || 10;
         this.Weight = weight || 10;
@@ -137,9 +137,9 @@ class DRP_Service {
 
     async ReadClassCacheFromService(className) {
         let thisService = this;
-        let replyObj = await thisService.drpNode.ServiceCmd("CacheManager", "readClassCache", { "serviceName": thisService.serviceName, "className": className }, null, null, false, true, null);
+        let replyObj = await thisService.DRPNode.ServiceCmd("CacheManager", "readClassCache", { "serviceName": thisService.serviceName, "className": className }, null, null, false, true, null);
         if (replyObj.err) {
-            thisService.drpNode.log("Could not read cached objects for " + thisService.serviceName + "\\" + className + " -> " + replyObj.err);
+            thisService.DRPNode.log("Could not read cached objects for " + thisService.serviceName + "\\" + className + " -> " + replyObj.err);
             thisService.Classes[className].records = {};
             thisService.Classes[className].loadedCache = false;
         } else {
@@ -150,7 +150,7 @@ class DRP_Service {
                 thisService.Classes[className].cache[classObjPK] = classObj;
             }
 
-            thisService.drpNode.log("Done reading cached objects for " + thisService.serviceName + "\\" + className);
+            thisService.DRPNode.log("Done reading cached objects for " + thisService.serviceName + "\\" + className);
         }
         thisService.Classes[className].loadedCache = true;
         return null;
@@ -161,10 +161,10 @@ class DRP_Service {
 
         // Reject if no data
         if (Object.keys(cacheData).length === 0) {
-            thisService.drpNode.log("No collector records to insert for  " + thisService.serviceName + "/" + className);
+            thisService.DRPNode.log("No collector records to insert for  " + thisService.serviceName + "/" + className);
             return null;
         } else {
-            let replyObj = await thisService.drpNode.ServiceCmd("CacheManager", "writeClassCache", {
+            let replyObj = await thisService.DRPNode.ServiceCmd("CacheManager", "writeClassCache", {
                 "serviceName": thisService.serviceName,
                 "className": className,
                 "cacheData": cacheData,
@@ -191,12 +191,12 @@ class DRP_Service {
         let thisService = this;
 
         // Get list of peer service IDs
-        let peerServiceIDList = thisService.drpNode.TopologyTracker.FindServicePeers(thisService.InstanceID);
+        let peerServiceIDList = thisService.DRPNode.TopologyTracker.FindServicePeers(thisService.InstanceID);
 
         // Loop over peers, broadcast command
         for (let i = 0; i < peerServiceIDList.length; i++) {
             let peerServiceID = peerServiceIDList[i];
-            thisService.drpNode.ServiceCmd(thisService.serviceName, method, params, null, peerServiceID);
+            thisService.DRPNode.ServiceCmd(thisService.serviceName, method, params, null, peerServiceID);
         }
     }
 

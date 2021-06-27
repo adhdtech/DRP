@@ -24,7 +24,7 @@ class DRP_Consumer {
 
     async Start(openHandler) {
         this.BrokerClient = new DRP_ConsumerClient(this.brokerURL, this.user, this.pass, openHandler);
-        this.BrokerClient.drpNode = this;
+        this.BrokerClient.DRPNode = this;
     }
 }
 

@@ -2,6 +2,7 @@
 
 const DRPMesh = {};
 
+DRPMesh.Securable = require('./lib/securable');
 DRPMesh.Auth = require('./lib/auth');
 DRPMesh.Client = require('./lib/client');
 DRPMesh.Consumer = require('./lib/consumer');

@@ -94,7 +94,7 @@ class VDMServer extends DRP_Service {
         let thisVDMServer = this;
 
         /** @type {Express_Application} */
-        this.expressApp = drpNode.WebServer.expressApp;
+        this.expressApp = thisVDMServer.DRPNode.WebServer.expressApp;
 
         this.CookieTimeoutMinutes = cookieTimeoutMinutes || 30;
 
@@ -108,7 +108,7 @@ class VDMServer extends DRP_Service {
         // Define Authorizer
         let asyncAuthorizer = async function (username, password, cb) {
             let authSucceeded = false;
-            let newToken = await drpNode.GetConsumerToken(username, password);
+            let newToken = await thisVDMServer.DRPNode.GetConsumerToken(username, password);
             if (newToken) authSucceeded = true;
             return cb(null, authSucceeded);
         };
@@ -125,7 +125,7 @@ class VDMServer extends DRP_Service {
             }
         }), (req, res) => {
             // The authorizer only returns success/fail, so we need to do a dirty workaround - look for last token issued for this user
-            let userToken = thisVDMServer.drpNode.GetLastTokenForUser(req.auth.user);
+            let userToken = thisVDMServer.DRPNode.GetLastTokenForUser(req.auth.user);
 
             // Pass the x-api-token in a cookie for the WebSockets connection
             res.cookie('x-api-token', userToken, {
@@ -440,7 +440,7 @@ window.onload = function () {
     */
     LogWSClientEvent(conn, logMsg) {
         let thisVDMServer = this;
-        thisVDMServer.drpNode.log(logMsg);
+        thisVDMServer.DRPNode.log(logMsg);
     }
 }
 

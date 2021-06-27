@@ -15,7 +15,7 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
         let thisEndpoint = this;
 
         this.RegisterMethod("hello", async function (...args) {
-            return drpNode.Hello(...args);
+            return thisEndpoint.DRPNode.Hello(...args);
         });
     }
 
@@ -26,11 +26,11 @@ class DRP_Endpoint_Server extends DRP_Endpoint {
 
     async CloseHandler(closeCode) {
         let thisEndpoint = this;
-        thisEndpoint.drpNode.RemoveEndpoint(thisEndpoint, thisEndpoint.closeCallback);
+        thisEndpoint.DRPNode.RemoveEndpoint(thisEndpoint, thisEndpoint.closeCallback);
     }
 
     async ErrorHandler(wsConn, error) {
-        this.drpNode.log("Node client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
+        this.DRPNode.log("Node client [" + wsConn._socket.remoteAddress + ":" + wsConn._socket.remotePort + "] encountered error [" + error + "]");
     }
 }
 
@@ -46,11 +46,11 @@ class DRP_RouteHandler {
         let thisWebServerRoute = this;
         this.wsPingInterval = 10000;
         this.wsPingHistoryLength = 100;
-        this.drpNode = drpNode;
+        this.DRPNode = drpNode;
 
-        if (drpNode.WebServer && drpNode.WebServer.expressApp && drpNode.WebServer.expressApp.route !== null) {
+        if (thisWebServerRoute.DRPNode.WebServer && thisWebServerRoute.DRPNode.WebServer.expressApp && thisWebServerRoute.DRPNode.WebServer.expressApp.route !== null) {
             // This may be an Express server
-            if (typeof drpNode.WebServer.expressApp.ws === "undefined") {
+            if (typeof this.DRPNode.WebServer.expressApp.ws === "undefined") {
                 // Websockets aren't enabled
                 throw new Error("Must enable ws on Express server");
             }
@@ -59,10 +59,10 @@ class DRP_RouteHandler {
             return;
         }
 
-        drpNode.WebServer.expressApp.ws(route, async function drpWebsocketHandler(wsConn, req) {
+        thisWebServerRoute.DRPNode.WebServer.expressApp.ws(route, async function drpWebsocketHandler(wsConn, req) {
 
             // A new Websocket client has connected - create a DRP_Endpoint and assign the wsConn
-            let remoteEndpoint = new DRP_Endpoint_Server(wsConn, drpNode, null);
+            let remoteEndpoint = new DRP_Endpoint_Server(wsConn, thisWebServerRoute.DRPNode, null);
 
             await remoteEndpoint.OpenHandler(req);
 
@@ -134,7 +134,7 @@ class DRP_RouteHandler {
                 }
                 wsConn.pingTimes.push(null);
 
-                wsConn.drpEndpoint.drpNode.log(`wsPing timed out to Endpoint ${wsConn.drpEndpoint.EndpointID}`);
+                thisWebServerRoute.DRPNode.log(`wsPing timed out to Endpoint ${wsConn.drpEndpoint.EndpointID}`);
 
                 wsConn.missedPings++;
 
@@ -146,7 +146,7 @@ class DRP_RouteHandler {
             wsConn.pongRecvdTime = null;
             wsConn.ping();
         } catch (ex) {
-            wsConn.drpEndpoint.drpNode.log(`Error sending wsPing to Endpoint ${wsConn.drpEndpoint.EndpointID}: ${ex}`);
+            thisWebServerRoute.DRPNode.log(`Error sending wsPing to Endpoint ${wsConn.drpEndpoint.EndpointID}: ${ex}`);
         }
     }
 }

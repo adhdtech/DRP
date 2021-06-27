@@ -21,7 +21,7 @@ class DRP_Endpoint {
         /** @type {WebSocket} */
         this.wsConn = wsConn || null;
         /** @type {DRP_Node} */
-        this.drpNode = drpNode;
+        this.DRPNode = drpNode;
         if (this.wsConn) {
             this.wsConn.drpEndpoint = this;
         }
@@ -189,7 +189,7 @@ class DRP_Endpoint {
 
         // Execute method
         try {
-            cmdResults.output = await thisEndpoint.drpNode.ServiceCmd(cmdPacket.serviceName, cmdPacket.method, cmdPacket.params, null, cmdPacket.serviceInstanceID, false, true, thisEndpoint);
+            cmdResults.output = await thisEndpoint.DRPNode.ServiceCmd(cmdPacket.serviceName, cmdPacket.method, cmdPacket.params, null, cmdPacket.serviceInstanceID, false, true, thisEndpoint);
             cmdResults.status = 1;
         } catch (err) {
             cmdResults.output = err.message;
@@ -198,8 +198,8 @@ class DRP_Endpoint {
         // Reply with results
         if (typeof cmdPacket.token !== "undefined" && cmdPacket.token !== null) {
             let routeOptions = null;
-            if (cmdPacket.routeOptions && cmdPacket.routeOptions.tgtNodeID === thisEndpoint.drpNode.NodeID) {
-                routeOptions = new DRP_RouteOptions(thisEndpoint.drpNode.NodeID, cmdPacket.routeOptions.srcNodeID);
+            if (cmdPacket.routeOptions && cmdPacket.routeOptions.tgtNodeID === thisEndpoint.DRPNode.NodeID) {
+                routeOptions = new DRP_RouteOptions(thisEndpoint.DRPNode.NodeID, cmdPacket.routeOptions.srcNodeID);
             }
             thisEndpoint.SendReply(cmdPacket.token, cmdResults.status, cmdResults.output, routeOptions);
         }
@@ -245,7 +245,7 @@ class DRP_Endpoint {
          *   - Specify a tgtNodeID that is not the local Node
          *   - Come from an endpoint that has successfully peered as a Node
          */
-        if (drpPacket.routeOptions && drpPacket.routeOptions.tgtNodeID && drpPacket.routeOptions.tgtNodeID !== thisEndpoint.drpNode.NodeID && thisEndpoint.EndpointType && thisEndpoint.EndpointType === "Node")
+        if (drpPacket.routeOptions && drpPacket.routeOptions.tgtNodeID && drpPacket.routeOptions.tgtNodeID !== thisEndpoint.DRPNode.NodeID && thisEndpoint.EndpointType && thisEndpoint.EndpointType === "Node")
             return true;
         else
             return false;
@@ -298,37 +298,37 @@ class DRP_Endpoint {
             }
 
             // Validate source node
-            if (!thisEndpoint.drpNode.TopologyTracker.ValidateNodeID(drpPacket.routeOptions.srcNodeID)) {
+            if (!thisEndpoint.DRPNode.TopologyTracker.ValidateNodeID(drpPacket.routeOptions.srcNodeID)) {
                 // Source NodeID is invalid
                 throw `srcNodeID ${drpPacket.routeOptions.srcNodeID} not found`;
             }
 
             // Validate destination node
-            if (!thisEndpoint.drpNode.TopologyTracker.ValidateNodeID(drpPacket.routeOptions.tgtNodeID)) {
+            if (!thisEndpoint.DRPNode.TopologyTracker.ValidateNodeID(drpPacket.routeOptions.tgtNodeID)) {
                 // Target NodeID is invalid
                 throw `tgtNodeID ${drpPacket.routeOptions.tgtNodeID} not found`;
             }
 
             // Verify whether or not we SHOULD relay the node
-            // if (thisEndpoint.drpNode.IsRegistry() || thisEndpoint.drpNode.IsRelay())
+            // if (thisEndpoint.DRPNode.IsRegistry() || thisEndpoint.DRPNode.IsRelay())
 
-            let nextHopNodeID = thisEndpoint.drpNode.TopologyTracker.GetNextHop(drpPacket.routeOptions.tgtNodeID);
+            let nextHopNodeID = thisEndpoint.DRPNode.TopologyTracker.GetNextHop(drpPacket.routeOptions.tgtNodeID);
 
             /** @type DRP_Endpoint */
-            let targetNodeEndpoint = await thisEndpoint.drpNode.VerifyNodeConnection(nextHopNodeID);
+            let targetNodeEndpoint = await thisEndpoint.DRPNode.VerifyNodeConnection(nextHopNodeID);
 
             // Add this node to the routing history
-            drpPacket.routeOptions.routeHistory.push(thisEndpoint.drpNode.NodeID);
+            drpPacket.routeOptions.routeHistory.push(thisEndpoint.DRPNode.NodeID);
 
             // We do not need to await the results; any target replies will automatically be routed
             targetNodeEndpoint.SendPacketString(JSON.stringify(drpPacket));
-            thisEndpoint.drpNode.PacketRelayCount++;
-            //thisEndpoint.drpNode.log(`Relaying packet...`);
+            thisEndpoint.DRPNode.PacketRelayCount++;
+            //thisEndpoint.DRPNode.log(`Relaying packet...`);
             //console.dir(drpPacket);
 
         } catch (ex) {
             // Either could not get connection to node or command send attempt errored out
-            thisEndpoint.drpNode.log(`Could not relay message: ${ex}`);
+            thisEndpoint.DRPNode.log(`Could not relay message: ${ex}`);
         }
     }
 
@@ -358,7 +358,7 @@ class DRP_Endpoint {
             let subscriptionObject = this.Subscriptions[subscriptionID];
             subscriptionObject.Terminate();
             delete this.Subscriptions[subscriptionID];
-            this.drpNode.SubscriptionManager.Subscribers.delete(subscriptionObject);
+            this.DRPNode.SubscriptionManager.Subscribers.delete(subscriptionObject);
         }
     }
 
@@ -450,8 +450,8 @@ class DRP_Endpoint {
 
     log(logMessage) {
         let thisEndpoint = this;
-        if (thisEndpoint.drpNode) {
-            thisEndpoint.drpNode.log(logMessage);
+        if (thisEndpoint.DRPNode) {
+            thisEndpoint.DRPNode.log(logMessage);
         } else {
             console.log(logMessage);
         }

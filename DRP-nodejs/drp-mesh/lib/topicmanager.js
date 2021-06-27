@@ -11,7 +11,7 @@ class DRP_TopicManager {
         let thisTopicManager = this;
 
         // Set DRP Node
-        this.drpNode = drpNode;
+        this.DRPNode = drpNode;
         /** @type {Object.<string,DRP_TopicManager_Topic>} */
         this.Topics = {};
     }
@@ -19,7 +19,7 @@ class DRP_TopicManager {
     CreateTopic(topicName, historyLength) {
         // Add logic to verify topic queue name is formatted correctly and doesn't already exist
         this.Topics[topicName] = new DRP_TopicManager_Topic(this, topicName, historyLength);
-        this.drpNode.log("Created topic [" + topicName + "]", "TopicManager");
+        this.DRPNode.log("Created topic [" + topicName + "]", "TopicManager");
     }
 
     GetTopic(topicName) {
@@ -38,8 +38,6 @@ class DRP_TopicManager {
         }
 
         this.Topics[subscription.topicName].AddSubscription(subscription);
-
-        //this.drpNode.log("Subscribed to topic [" + topicName + "] with token [" + token + "]");
     }
 
     UnsubscribeFromTopic(topicName, subscriberID) {
@@ -91,7 +89,7 @@ class DRP_TopicManager_Topic extends DRP_SubscribableSource {
      * @param {number} historyLength History Length
      */
     constructor(topicManager, topicName, historyLength) {
-        super(topicManager.drpNode.NodeID, topicName);
+        super(topicManager.DRPNode.NodeID, topicName);
         let thisTopic = this;
 
         // Set Topic Manager
@@ -106,8 +104,8 @@ class DRP_TopicManager_Topic extends DRP_SubscribableSource {
     async Send(message) {
         let thisTopic = this;
 
-        let nodeID = thisTopic.TopicManager.drpNode.NodeID;
-        let timeStamp = thisTopic.TopicManager.drpNode.getTimestamp();
+        let nodeID = thisTopic.TopicManager.DRPNode.NodeID;
+        let timeStamp = thisTopic.TopicManager.DRPNode.getTimestamp();
         let topicEntry = new DRP_TopicMessage(nodeID, timeStamp, message);
 
         thisTopic.ReceivedMessages++;
@@ -119,7 +117,7 @@ class DRP_TopicManager_Topic extends DRP_SubscribableSource {
 
         super.Send(topicEntry,
             () => { thisTopic.SentMessages++; },
-            (sendFailed) => { thisTopic.TopicManager.drpNode.log(`Topic[${thisTopic.TopicName}] subscriber removed forcefully, failure response -> ${sendFailed}`); }
+            (sendFailed) => { thisTopic.TopicManager.DRPNode.log(`Topic[${thisTopic.TopicName}] subscriber removed forcefully, failure response -> ${sendFailed}`); }
         );
 
     }

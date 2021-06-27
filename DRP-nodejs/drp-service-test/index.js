@@ -125,15 +125,15 @@ class TestService extends DRP_Service {
         this.ClientCmds = {
             getOpenAPIDoc: async function (cmdObj) { return openAPIDoc; },
             sayHi: async function () {
-                drpNode.log("Remote node wants to say hi");
+                thisService.DRPNode.log("Remote node wants to say hi");
                 return {
-                    pathItem: `Hello from ${drpNode.NodeID}`
+                    pathItem: `Hello from ${thisService.DRPNode.NodeID}`
                 };
             },
             sayBye: async function () {
-                drpNode.log("Remote node wants to say bye");
+                thisService.DRPNode.log("Remote node wants to say bye");
                 return {
-                    pathItem: `Goodbye from ${drpNode.NodeID}`
+                    pathItem: `Goodbye from ${thisService.DRPNode.NodeID}`
                 };
             },
             showParams: async function (params) {
@@ -142,11 +142,11 @@ class TestService extends DRP_Service {
                 };
             },
             peerBroadcastTest: async function (params) {
-                drpNode.log(`Peer service sent a broadcast test - ${params.message}`);
+                thisService.DRPNode.log(`Peer service sent a broadcast test - ${params.message}`);
             },
             sendPeerBroadcastTest: async function (params) {
                 thisService.PeerBroadcast("peerBroadcastTest", { message: `From serviceID ${thisService.InstanceID}` });
-                drpNode.log(`Sent a peer broadcast`);
+                thisService.DRPNode.log(`Sent a peer broadcast`);
             }
         };
 
@@ -200,7 +200,7 @@ class TestService extends DRP_Service {
 
         // Start sending data to TestStream
         setInterval(function () {
-            drpNode.TopicManager.SendToTopic("TestStream", `Test message from [${thisService.InstanceID}]`);
+            thisService.DRPNode.TopicManager.SendToTopic("TestStream", `Test message from [${thisService.InstanceID}]`);
         }, 3000);
     }
 }

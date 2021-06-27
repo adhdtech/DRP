@@ -743,13 +743,13 @@ class BlueCatManager extends DRP_Service {
                 let returnSize = 100;
                 let totalIPAddresses = 0;
                 let returnNetworkArray = [];
-                thisBcMgr.drpNode.log(`Querying network records`);
+                thisBcMgr.DRPNode.log(`Querying network records`);
                 while (batchSize === returnSize) {
                     let results = await thisBcMgr.activeMember.SearchByObjectTypes("IP4Network", "*", returnNetworkArray.length, batchSize);
                     returnSize = results.length;
                     returnNetworkArray.push.apply(returnNetworkArray, results);
                 }
-                thisBcMgr.drpNode.log(`Found ${returnNetworkArray.length} network records`);
+                thisBcMgr.DRPNode.log(`Found ${returnNetworkArray.length} network records`);
                 for (let i = 0; i < returnNetworkArray.length; i++) {
                     let networkObj = returnNetworkArray[i];
                     let networkID = networkObj['id'];
@@ -762,7 +762,7 @@ class BlueCatManager extends DRP_Service {
                         returnIPArray.push.apply(returnIPArray, results);
                     }
                 }
-                thisBcMgr.drpNode.log(`Found ${totalIPAddresses} ip records`);
+                thisBcMgr.DRPNode.log(`Found ${totalIPAddresses} ip records`);
                 return returnNetworkArray;
             },
             "getFQDNRecord": async function (cmdObj) {
@@ -815,11 +815,11 @@ class BlueCatManager extends DRP_Service {
                     let response = await thisBcMgr.activeMember.Update(params.updateObj);
                     returnObj.msg = response.status;
                     /*
-                    thisBcMgr.drpNode.TopicManager.SendToTopic("BlueCat", `Updating Object: ${JSON.stringify(params.updateObj)}`);
+                    thisBcMgr.DRPNode.TopicManager.SendToTopic("BlueCat", `Updating Object: ${JSON.stringify(params.updateObj)}`);
                     if (response && response.status && response.status === 200) {
                         thisBcMgr.DeployObjectId(params.updateObj.id);
                     } else {
-                        thisBcMgr.drpNode.TopicManager.SendToTopic("BlueCat", `Update of Object: ${JSON.stringify(params.updateObj)} failed, response status <${response.status}>`);
+                        thisBcMgr.DRPNode.TopicManager.SendToTopic("BlueCat", `Update of Object: ${JSON.stringify(params.updateObj)} failed, response status <${response.status}>`);
                     }
                     */
                 }
@@ -871,7 +871,7 @@ class BlueCatManager extends DRP_Service {
                 thisBcMgr.deployObjectIds = [];
                 thisBcMgr.deployTimer = null;
                 await thisBcMgr.activeMember.SelectiveDeploy(deployList);
-                thisBcMgr.drpNode.log(`Deployed ${deployList.join(",")}`);
+                thisBcMgr.DRPNode.log(`Deployed ${deployList.join(",")}`);
             }, 5000);
 
         // Add objectId to the deployment list

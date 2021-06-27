@@ -65,7 +65,7 @@ class DRP_CacheManager extends DRP_Service {
         const password = encodeURIComponent(thisService.__MongoPw);
         const authMechanism = 'DEFAULT';
         let mongoUrl = thisService.__MongoUser ? `mongodb://${user}:${password}@${thisService.__MongoHost}:27017/?authMechanism=${authMechanism}` : `mongodb://${thisService.__MongoHost}:27017`;
-        thisService.drpNode.log(`Trying to connect to Mongo -> [${mongoUrl}]`);
+        thisService.DRPNode.log(`Trying to connect to Mongo -> [${mongoUrl}]`);
         /** @type {MongoClient} */
         thisService.__MongoClient = await MongoClient.connect(`${mongoUrl}`, { useNewUrlParser: true, useUnifiedTopology: true });
     }
@@ -83,7 +83,7 @@ class DRP_CacheManager extends DRP_Service {
             configCollection.findOne({ 'className': className }, function (err, document) {
                 assert.equal(err, null);
                 //assert.equal(1, docs.length);
-                thisService.drpNode.log('className: ' + className + ", data: " + JSON.stringify(document));
+                thisService.DRPNode.log('className: ' + className + ", data: " + JSON.stringify(document));
 
                 if (document) {
                     classCollection.find({ '_snapTime': document.lastSnapTime }).toArray(function (err, docs) {
@@ -102,7 +102,7 @@ class DRP_CacheManager extends DRP_Service {
         return new Promise(function (resolve, reject) {
             // Reject if no data
             if (Object.keys(cacheData).length === 0) {
-                thisService.drpNode.log("No collector records to insert for  " + serviceName + "/" + className);
+                thisService.DRPNode.log("No collector records to insert for  " + serviceName + "/" + className);
                 resolve();
             } else {
 
@@ -124,10 +124,10 @@ class DRP_CacheManager extends DRP_Service {
                     }
                     classCollection.insert(classDataAsArray, { checkKeys: false }, function (err, result) {
                         if (err) {
-                            thisService.drpNode.log("Error inserting collector records: " + err);
+                            thisService.DRPNode.log("Error inserting collector records: " + err);
                             reject(err);
                         } else {
-                            thisService.drpNode.log("Inserted collector records for  " + serviceName + "/" + className);
+                            thisService.DRPNode.log("Inserted collector records for  " + serviceName + "/" + className);
                             resolve();
                         }
                     });

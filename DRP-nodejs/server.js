@@ -9,6 +9,7 @@ const DRP_AuthResponse = require('drp-mesh').Auth.DRP_AuthResponse;
 const DRP_Authenticator = require('drp-mesh').Auth.DRP_Authenticator;
 const DRP_Logger = require('drp-service-logger');
 const os = require("os");
+const { DRP_PermissionSet, DRP_Permission } = require('drp-mesh/lib/securable');
 
 var protocol = "ws";
 if (process.env.SSL_ENABLED) {
@@ -41,9 +42,12 @@ let webRoot = process.env.WEBROOT || "webroot";
 // Set Roles
 let roleList = ["Broker", "Registry"];
 
+let myNodePermissions = new DRP_PermissionSet();
+myNodePermissions.Groups['Admins'] = new DRP_Permission(true, true, true);
+
 // Create Node
 console.log(`Starting DRP Node`);
-let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myWebServerConfig, drpWSRoute);
+let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myWebServerConfig, drpWSRoute, myNodePermissions);
 myNode.Debug = debug;
 myNode.TestMode = testMode;
 myNode.ConnectToMesh(async () => {
@@ -58,12 +62,20 @@ myNode.ConnectToMesh(async () => {
         let thisService = this;
         let authResponse = null;
         //console.dir(authRequest);
-        if (authRequest.UserName && authRequest.Password) {
+        if (authRequest.UserName) {
             // For demo purposes; accept any user/password or token
-            authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName, "Some User", ["Users"], null, thisService.serviceName, thisService.drpNode.getTimestamp());
-            if (thisService.drpNode.Debug) thisService.drpNode.log(`Authenticate [${authRequest.UserName}] -> SUCCEEDED`);
-            thisService.drpNode.TopicManager.SendToTopic("AuthLogs", authResponse);
-            thisService.drpNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse });
+            switch (authRequest.UserName) {
+                case 'admin':
+                case 'Admin':
+                    authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName, "Admin User", ["Admins"], null, thisService.serviceName, thisService.DRPNode.getTimestamp());
+                    break;
+                default:
+                    authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName, "Random User", ["Users"], null, thisService.serviceName, thisService.DRPNode.getTimestamp());
+            }
+
+            if (thisService.DRPNode.Debug) thisService.DRPNode.log(`Authenticate [${authRequest.UserName}] -> SUCCEEDED`);
+            thisService.DRPNode.TopicManager.SendToTopic("AuthLogs", authResponse);
+            thisService.DRPNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse });
         }
         return authResponse;
     };

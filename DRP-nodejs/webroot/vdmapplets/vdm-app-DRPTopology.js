@@ -240,7 +240,7 @@
                                 label: `${consumerClientIDs[j]}`,
                                 ShowDetails: async () => {
                                     // Get User Details
-                                    let pathListArray = `Mesh/Nodes/${drpNodeID}/NodeObj/ConsumerEndpoints/${consumerIndex}/AuthInfo/userInfo`.split('/');
+                                    let pathListArray = `Mesh/Nodes/${drpNodeID}/DRPNode/ConsumerEndpoints/${consumerIndex}/AuthInfo/userInfo`.split('/');
                                     let results = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathListArray, listOnly: false }, true);
                                     if (results && results.pathItem) {
                                         return `<span style="${typeStyle}">Consumer</span>` +

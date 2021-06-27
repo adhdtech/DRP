@@ -112,9 +112,9 @@ class DRP_Service_CortxStorage extends DRP_Service {
         if (!bucketExists) {
             try {
                 let createResponse = await this.__S3.createBucket({ Bucket: this.s3BucketName }).promise();
-                this.drpNode.log(`Created S3 Bucket for service ${this.serviceName}`);
+                this.DRPNode.log(`Created S3 Bucket for service ${this.serviceName}`);
             } catch (ex) {
-                this.drpNode.log(`Error creating S3 Bucket for service ${this.serviceName}: ${ex}`);
+                this.DRPNode.log(`Error creating S3 Bucket for service ${this.serviceName}: ${ex}`);
             }
         }
     }
@@ -193,7 +193,7 @@ class DRP_Service_CortxStorage extends DRP_Service {
                 try {
                     let results = await this.PutObject(this.s3BucketName, objectKey, thisClassObjectData.ToString());
                 } catch (ex) {
-                    this.drpNode.log(`Could not create S3 object ${this.s3BucketName}:${objectKey}: ${ex}`);
+                    this.DRPNode.log(`Could not create S3 object ${this.s3BucketName}:${objectKey}: ${ex}`);
                 }
             }
         }

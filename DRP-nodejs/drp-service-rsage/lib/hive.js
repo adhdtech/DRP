@@ -534,7 +534,7 @@ class Hive extends DRP_Service {
                 icrQuery.Run();
                 if (icrQuery.errorStatus) {
                     //console.log("ICRQuery Error: [" + icrQuery.errorStatus + "]");
-                    thisHive.drpNode.log("ICRQuery Error: [" + icrQuery.errorStatus + "] --> " + params.query);
+                    thisHive.DRPNode.log("ICRQuery Error: [" + icrQuery.errorStatus + "] --> " + params.query);
                 } else {
                     returnObj.icrQuery = icrQuery.returnObj.icrQuery;
                     returnObj.records = icrQuery.returnObj.results;
@@ -559,14 +559,14 @@ class Hive extends DRP_Service {
         this.HiveClasses = {};
         this.HiveData = {};
         this.HiveIndexes = {};
-        thisHive.drpNode.log(`Getting class definitions`);
-        let serviceDefs = await thisHive.drpNode.GetServiceDefinitions();
-        thisHive.drpNode.log(`Loading class definitions`);
+        thisHive.DRPNode.log(`Getting class definitions`);
+        let serviceDefs = await thisHive.DRPNode.GetServiceDefinitions();
+        thisHive.DRPNode.log(`Loading class definitions`);
         thisHive.HiveClasses = thisHive.LoadClasses(serviceDefs);
         thisHive.HiveIndexes = thisHive.GenerateIndexes(thisHive.HiveClasses);
-        thisHive.drpNode.log("Loaded class definitions");
+        thisHive.DRPNode.log("Loaded class definitions");
         await thisHive.LoadClassRecords();
-        thisHive.drpNode.log("Loaded collector data");
+        thisHive.DRPNode.log("Loaded collector data");
         if (callback && typeof callback === "function") callback();
     }
 
@@ -574,10 +574,7 @@ class Hive extends DRP_Service {
         /** @type {Hive} */
         let thisHive = this;
 
-        /** @type {DRP_Node} */
-        //let thisNode = thisHive.drpNode;
-
-        let serviceDefs = await thisHive.drpNode.GetServiceDefinitions();
+        let serviceDefs = await thisHive.DRPNode.GetServiceDefinitions();
         let serviceNames = Object.keys(serviceDefs);
         for (let i = 0; i < serviceNames.length; i++) {
             let serviceName = serviceNames[i];
@@ -587,12 +584,12 @@ class Hive extends DRP_Service {
             for (let j = 0; j < classNames.length; j++) {
                 let className = classNames[j];
 
-                let cmdResponse = await thisHive.drpNode.GetClassRecords({ className: className, serviceName: serviceName});
+                let cmdResponse = await thisHive.DRPNode.GetClassRecords({ className: className, serviceName: serviceName});
 
                 let classInstanceRecords = cmdResponse[serviceName];
 
                 // Add data to Hive
-                thisHive.drpNode.log(`Retrieved [${className}] from ${serviceName}, Length: ${Object.keys(classInstanceRecords).length}`);
+                thisHive.DRPNode.log(`Retrieved [${className}] from ${serviceName}, Length: ${Object.keys(classInstanceRecords).length}`);
                 let newRecordHash = {};
                 Object.keys(classInstanceRecords).forEach(function (objPK) {
                     newRecordHash[objPK] = {

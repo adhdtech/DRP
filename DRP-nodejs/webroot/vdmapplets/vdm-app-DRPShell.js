@@ -464,6 +464,10 @@
                         while (pathList.length > 0 && pathList[pathList.length - 1] === "") pathList.pop();
 
                         let results = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: true }, true);
+                        if (results && results.err) {
+                            term.write(`\x1B[91m${results.err}\x1B[0m`);
+                            return;
+                        }
                         if (results && results.pathItemList && results.pathItemList.length > 0) {
                             // First, iterate over all and get the max length of the Name and Type fields
                             for (let i = 0; i < results.pathItemList.length; i++) {
@@ -606,7 +610,7 @@
                                         continue;
                                     }
                                     let nodeID = entryObj.Name;
-                                    pathString = `Mesh/Nodes/${nodeID}/NodeObj/TopicManager/Topics/TopologyTracker/History`;
+                                    pathString = `Mesh/Nodes/${nodeID}/DRPNode/TopicManager/Topics/TopologyTracker/History`;
                                     pathList = pathString.split(/[\/\\]/g);
                                     let nodeListGet = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: false }, true);
                                     tmpResults[nodeID] = nodeListGet.pathItem;
@@ -1308,6 +1312,25 @@
                             term.write(output);
                         }
                         return output;
+                    }));
+
+                this.AddMethod(new drpMethod("logout",
+                    "Log out of DRP Desktop",
+                    "",
+                    {
+                        "h": new drpMethodSwitch("h", null, "Help menu")
+                    },
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
+
+                        if ("h" in switchesAndData.switches) {
+                            term.write(this.ShowHelp());
+                            return
+                        }
+
+                        // Run logout
+                        myApp.vdmSession.drpClient.eraseCookie('x-api-token');
+                        myApp.vdmSession.drpClient.Disconnect();
                     }));
             }
             /**

@@ -57,6 +57,9 @@ SSL_CRTFILE=C:\Temp\fullchain.pem</Environment>
     <Content Include="drp-mesh\lib\auth.js">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="drp-mesh\lib\securable.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="drp-mesh\lib\node.js" />
     <Content Include="drp-mesh\lib\packet.js" />
     <Content Include="drp-mesh\lib\routehandler.js" />

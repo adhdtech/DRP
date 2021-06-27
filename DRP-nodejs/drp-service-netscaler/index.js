@@ -709,7 +709,7 @@ class NetScalerManager extends DRP_Service {
 
     async RefreshConfigs() {
         let thisNsMgr = this;
-        let thisNode = thisNsMgr.drpNode;
+        let thisNode = thisNsMgr.DRPNode;
         thisNsMgr.haPairs = {};
         thisNsMgr.nsHosts = {};
 

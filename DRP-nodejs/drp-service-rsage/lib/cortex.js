@@ -15,7 +15,7 @@ class Cortex extends DRP_Service {
         let thisCortex = this;
 
         // Set DRP Broker client
-        this.drpNode = drpNode;
+        this.DRPNode = drpNode;
 
         // Initialize Managed Object Types Hash
         this.ObjectTypes = {};
@@ -622,7 +622,7 @@ class CortexObjectManager {
                 thisObjMgr.ManagedObjects[objectType][key] = newObject;
             }
         }
-        thisObjMgr.CortexServer.drpNode.log("Populating Objects - " + objectType + " [" + keyList.length + "]");
+        thisObjMgr.CortexServer.DRPNode.log("Populating Objects - " + objectType + " [" + keyList.length + "]");
     }
 }
 
