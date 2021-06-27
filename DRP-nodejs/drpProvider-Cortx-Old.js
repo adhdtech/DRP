@@ -15,18 +15,9 @@ const DRP_Logger = require('drp-service-logger');
 const os = require("os");
 const AWS = require('aws-sdk');
 
-// Must install this package first:
-// "aws-sdk": "^2.892.0",
-
 // Must ignore cert errors due to Cortx certs
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 
-var protocol = "ws";
-if (process.env.SSL_ENABLED) {
-    protocol = "wss";
-}
-let port = process.env.PORT || 8080;
-let listeningName = process.env.LISTENINGNAME || os.hostname();
 let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || "";
 let meshKey = process.env.MESHKEY || "supersecretkey";
@@ -50,7 +41,7 @@ class DRP_Service_CortxStorage extends DRP_Service {
         this.__S3.endpoint = s3Endpoint;
         this.s3BucketName = this.serviceName.toLowerCase();
 
-        this.CreateBucketIfNotExists();
+        //this.CreateBucketIfNotExists();
 
         Object.assign(this.ClientCmds, {
             listBuckets: async (params) => {
@@ -220,7 +211,7 @@ class DRP_Service_CortxStorage extends DRP_Service {
 // Civic Data Source classes
 class FireDept extends DRP_Service_CortxStorage {
     constructor(serviceName, drpNode, priority, weight, scope, s3Endpoint, s3AccessKeyID, s3SecretAccessKey) {
-        super(serviceName, drpNode, "FireDept", null, false, priority, weight, drpNode.Zone, scope, null, [], 1, s3Endpoint, s3AccessKeyID, s3SecretAccessKey);
+        super(serviceName, drpNode, "FireDept", null, false, priority, weight, drpNode.Zone, scope, null, ['PublicSafety'], 1, s3Endpoint, s3AccessKeyID, s3SecretAccessKey);
         let thisService = this;
         this.Startup();
     }
@@ -260,8 +251,8 @@ class FireDept extends DRP_Service_CortxStorage {
         ));
 
         // If sample data doesn't exist in CORTX, add it
-        let objectListResponse = await this.ListObjects(this.s3BucketName);
-        if (objectListResponse.Contents.length === 0) {
+        //let objectListResponse = await this.ListObjects(this.s3BucketName);
+        //if (objectListResponse.Contents.length === 0) {
             let snapTime = "2021-04-27T08:00:00.000Z";
 
             // Add sample data records
@@ -331,29 +322,34 @@ class FireDept extends DRP_Service_CortxStorage {
             }, this.serviceName, snapTime);
 
             // Write demo data to CORTX
-            await this.WriteCacheToCortx();
-        }
+            //await this.WriteCacheToCortx();
+        //}
 
         // Read demo data from CORTX
-        await this.ReadCacheFromCortx();
+        //await this.ReadCacheFromCortx();
 
         // Mark cache loading as complete
         this.Classes['Station'].loadedCache = true;
         this.Classes['Person'].loadedCache = true;
         this.Classes['Equipment'].loadedCache = true;
 
+        let sendRandomStreamData = () => {
+          let min = 3,
+          max = 10;
+          var rand = Math.floor(Math.random() * (max - min + 1) + min); //Generate Random number between 5 - 10
+          let timeStamp = new Date().getTime();
+          myNode.TopicManager.SendToTopic("PublicSafety", `Fire Dept: a random fire event`);
+          setTimeout(sendRandomStreamData, rand * 1000);
+        }
 
-        setInterval(function () {
-            let timeStamp = new Date().getTime();
-            myNode.TopicManager.SendToTopic("firedept", `a random fire event`);
-        }, 5000);
+        sendRandomStreamData()
     }
 }
 
 // Civic Data Source classes
 class PoliceDept extends DRP_Service_CortxStorage {
     constructor(serviceName, drpNode, priority, weight, scope, s3Endpoint, s3AccessKeyID, s3SecretAccessKey) {
-        super(serviceName, drpNode, "PoliceDept", null, false, priority, weight, drpNode.Zone, scope, null, [], 1, s3Endpoint, s3AccessKeyID, s3SecretAccessKey);
+        super(serviceName, drpNode, "PoliceDept", null, false, priority, weight, drpNode.Zone, scope, null, ['PublicSafety'], 1, s3Endpoint, s3AccessKeyID, s3SecretAccessKey);
         let thisService = this;
         this.Startup();        
     }
@@ -382,8 +378,8 @@ class PoliceDept extends DRP_Service_CortxStorage {
         ));
 
         // If sample data doesn't exist in CORTX, add it
-        let objectListResponse = await this.ListObjects(this.s3BucketName);
-        if (objectListResponse.Contents.length === 0) {
+        //let objectListResponse = await this.ListObjects(this.s3BucketName);
+        //if (objectListResponse.Contents.length === 0) {
 
             let snapTime = "2021-04-27T08:00:00.000Z";
 
@@ -440,101 +436,50 @@ class PoliceDept extends DRP_Service_CortxStorage {
             }, this.serviceName, snapTime);
 
             // Write demo data to CORTX
-            await this.WriteCacheToCortx();
-        }
+            //await this.WriteCacheToCortx();
+        //}
 
         // Read demo data from CORTX
-        await this.ReadCacheFromCortx();
+        //await this.ReadCacheFromCortx();
 
         // Mark cache loading as complete
         this.Classes['Station'].loadedCache = true;
         this.Classes['Person'].loadedCache = true;
 
-        setInterval(function () {
-            let timeStamp = new Date().getTime();
-            myNode.TopicManager.SendToTopic("policedept", `a random law enforcement event`);
-        }, 5000);
+        let sendRandomStreamData = () => {
+          let min = 3,
+          max = 10;
+          var rand = Math.floor(Math.random() * (max - min + 1) + min); //Generate Random number between 5 - 10
+          let timeStamp = new Date().getTime();
+          myNode.TopicManager.SendToTopic("PublicSafety", `Police Dept: a random law enforcement event`);
+          setTimeout(sendRandomStreamData, rand * 1000);
+        }
+
+        sendRandomStreamData();
     }
 }
 
-
-// Set config
-/** @type {DRP_WebServerConfig} */
-let myWebServerConfig = {
-    "ListeningURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
-    "Port": port,
-    "SSLEnabled": process.env.SSL_ENABLED || false,
-    "SSLKeyFile": process.env.SSL_KEYFILE || "",
-    "SSLCrtFile": process.env.SSL_CRTFILE || "",
-    "SSLCrtFilePwd": process.env.SSL_CRTFILEPWD || ""
-};
-
-let webRoot = process.env.WEBROOT || "webroot";
-
 // Set Roles
-let roleList = ["Broker", "Registry"];
+let roleList = ["Provider"];
 
 // Create Node
 console.log(`Starting DRP Node`);
-let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myWebServerConfig, drpWSRoute);
+let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName);
 myNode.Debug = debug;
 myNode.TestMode = testMode;
 myNode.ConnectToMesh(async () => {
-    // Test Authentication Service
-    let myAuthenticator = new DRP_Authenticator("TestAuthenticator", myNode, 10, 10, "global", 1);
-    /**
-     * Authenticate User
-     * @param {DRP_AuthRequest} authRequest Parameters to authentication function
-     * @returns {DRP_AuthResponse} Response from authentication function
-     */
-    myAuthenticator.Authenticate = async function (authRequest) {
-        let thisService = this;
-        let authResponse = null;
-        console.dir(authRequest);
-        if (authRequest.UserName && authRequest.Password) {
-            // For demo purposes; accept any user/password or token
-            authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName, "Some User", ["Users"], null, thisService.serviceName, thisService.drpNode.getTimestamp());
-        }
-        myNode.TopicManager.SendToTopic("AuthLogs", authResponse);
-        myNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse });
-        return authResponse;
-    };
-
-    myNode.AddService(myAuthenticator);
-
-    // Add logger
-    //let logger = new DRP_Logger("Logger", myNode, 10, 10, "global", "localhost", null, null);
-    //myNode.AddService(logger);
-
-    // Create VDM Server on node
-    let myVDMServer = new vdmServer("VDM", myNode, webRoot, "vdmapplets");
-
-    myNode.AddService(myVDMServer);
-    myNode.EnableREST("/Mesh", "Mesh");
-
-    // Add another service for demo
-    //let docMgrService = new DocMgr("DocMgr", myNode, 10, 10, "global", "jsondocs", null, null, null);
-    //myNode.AddService(docMgrService);
-
-    //let cortxService = new CortxService("Cortx", myNode, 10, 10, "global", s3Endpoint, s3AccessKeyID, s3SecretAccessKey);
-    //myNode.AddService(cortxService);
-
-    let verifyS3ConnErr;
 
     let fireService = new FireDept("FireDept", myNode, 10, 10, "global", s3Endpoint, s3AccessKeyID, s3SecretAccessKey);
-    verifyS3ConnErr = await fireService.VerifyS3Connection()
+    /*
+    let verifyS3ConnErr = await fireService.VerifyS3Connection()
     if (verifyS3ConnErr) {
         myNode.log(`Error connecting to S3: ${verifyS3ConnErr}`);
         process.exit(1);
     }
+    */
     myNode.AddService(fireService);
 
     let policeService = new PoliceDept("PoliceDept", myNode, 10, 10, "global", s3Endpoint, s3AccessKeyID, s3SecretAccessKey);
-    verifyS3ConnErr = await policeService.VerifyS3Connection()
-    if (verifyS3ConnErr) {
-        myNode.log(`Error connecting to S3: ${verifyS3ConnErr}`);
-        process.exit(1);
-    }
     myNode.AddService(policeService);
 
     async function wait(ms) {
@@ -542,16 +487,5 @@ myNode.ConnectToMesh(async () => {
             setTimeout(resolve, ms);
         });
     }
-
-    // Wait for services to load cache since their startup processes are async
-    await wait(3000);
-
-    let hiveService = new rSageHive("Hive", myNode, 10, 10, "global");
-    hiveService.Start(async () => {
-        myNode.AddService(hiveService);
-    });
-
-    if (myNode.ListeningName) {
-        myNode.log(`Listening at: ${myNode.ListeningName}`);
-    }
 });
+

@@ -1,7 +1,7 @@
 {
-  "name": "drp-test",
+  "name": "drp-project",
   "version": "1.0.0",
-  "description": "DRP Test Files",
+  "description": "DRP Project Files",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -16,8 +16,11 @@
   ],
   "author": "Pete Brown <jpbrown@adhdtech.com>",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adhdtech/DRP.git"
+  },
   "dependencies": {
-    "aws-sdk": "^2.892.0",
     "cucm-sql-async": "./cucm-sql-async",
     "drp-mesh": "./drp-mesh",
     "drp-service-bluecat": "./drp-service-bluecat",
