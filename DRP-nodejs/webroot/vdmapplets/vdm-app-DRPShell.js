@@ -577,13 +577,47 @@
                 this.AddMethod(new drpMethod("topology",
                     "Get mesh topology",
                     null,
-                    null,
+                    {
+                        "h": new drpMethodSwitch("h", null, "Help menu"),
+                        "l": new drpMethodSwitch("l", null, "Retrieve topology logs from all mesh nodes")
+                    },
                     async function (switchesAndDataString, doPipeOut, pipeDataIn) {
                         let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         let returnObj = null;
-                        let results = await myApp.sendCmd("DRP", "getTopology", null, true);
-                        if (doPipeOut) returnObj = results
-                        else term.write(`\x1B[96m${JSON.stringify(results, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
+                        let tmpResults = null;
+
+                        if ("h" in switchesAndData.switches) {
+                            term.write(this.ShowHelp());
+                            return
+                        }
+
+                        if ("l" in switchesAndData.switches) {
+                            // Get topology logs from each node in mesh
+                            tmpResults = {};
+                            let pathString = `Mesh/Nodes`;
+                            let pathList = pathString.split(/[\/\\]/g);
+                            let nodeListDir = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: true }, true);
+                            if (nodeListDir && nodeListDir.pathItemList && nodeListDir.pathItemList.length > 0) {
+                                for (let i = 0; i < nodeListDir.pathItemList.length; i++) {
+                                    let entryObj = nodeListDir.pathItemList[i];
+                                    if (!entryObj.Name) {
+                                        console.log("This entry could not be printed, has a null name");
+                                        console.dir(entryObj);
+                                        continue;
+                                    }
+                                    let nodeID = entryObj.Name;
+                                    pathString = `Mesh/Nodes/${nodeID}/NodeObj/TopicManager/Topics/TopologyTracker/History`;
+                                    pathList = pathString.split(/[\/\\]/g);
+                                    let nodeListGet = await myApp.sendCmd("DRP", "pathCmd", { pathList: pathList, listOnly: false }, true);
+                                    tmpResults[nodeID] = nodeListGet.pathItem;
+                                }
+                            }
+                        } else {
+                            tmpResults = await myApp.sendCmd("DRP", "getTopology", null, true);
+                        }
+                        if (doPipeOut) returnObj = tmpResults;
+                        else term.write(`\x1B[96m${JSON.stringify(tmpResults, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
+
                         return returnObj;
                     }));
 
