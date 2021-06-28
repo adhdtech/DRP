@@ -339,7 +339,7 @@ class DRP_Node extends DRP_Securable {
             let resultString = "";
 
             try {
-                let resultObj = await thisNode.GetObjFromPath({ "method": "cliGetPath", "pathList": basePathArray.concat(remainingPath), "listOnly": listOnly, "authInfo": authInfo, "body": req.body }, thisNode.GetBaseObj());
+                let resultObj = await thisNode.GetObjFromPath({ "method": "cliGetPath", "pathList": basePathArray.concat(remainingPath), "listOnly": listOnly, "AuthInfo": authInfo, "body": req.body }, thisNode.GetBaseObj());
                 if (!resultObj || !resultObj.pathItem && !resultObj.pathItemList || resultObj.pathItemList && !resultObj.pathItemList.length) {
                     // No results
                 } else {
@@ -851,7 +851,7 @@ class DRP_Node extends DRP_Securable {
                             // Check security
                             if (oCurrentObject[pathItemName].__permissionSet) {
                                 // This is a securable item - verify the caller has permissions to see it
-                                let isAllowed = oCurrentObject[pathItemName].__IsAllowed(callingEndpoint.AuthInfo, "read");
+                                let isAllowed = oCurrentObject[pathItemName].__IsAllowed(params.AuthInfo, "read");
                                 if (!isAllowed) return { err: "Unauthorized" };
                             }
 
@@ -2182,7 +2182,7 @@ class DRP_Node extends DRP_Securable {
     }
 
     IsRestricted(securityObj, params) {
-        let authInfo = params.authInfo;
+        let authInfo = params.AuthInfo;
         try {
             if (authInfo && authInfo.type) {
                 // Is it a token or a key?

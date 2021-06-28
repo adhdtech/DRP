@@ -44,6 +44,7 @@ let roleList = ["Broker", "Registry"];
 
 let myNodePermissions = new DRP_PermissionSet();
 myNodePermissions.Groups['Admins'] = new DRP_Permission(true, true, true);
+myNodePermissions.Keys['ASDFJKL'] = new DRP_Permission(true, true, true);
 
 // Create Node
 console.log(`Starting DRP Node`);
