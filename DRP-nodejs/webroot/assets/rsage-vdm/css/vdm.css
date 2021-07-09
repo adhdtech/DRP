@@ -55,7 +55,7 @@ textarea {
         padding-right: 6px;
     }
 
-        .vdmTopBar .topNav a {
+        .vdmTopBar .topNav > div > span {
             padding: 2px 6px;
             top: 2px;
             background-color: #f5f5f5;
@@ -64,11 +64,15 @@ textarea {
             line-height: 20px;
         }
 
-            .vdmTopBar .topNav a i {
+            .vdmTopBar .topNav > div > span:hover {
+                cursor: pointer;
+            }
+
+            .vdmTopBar .topNav > div > span > i {
                 color: black;
             }
 
-            .vdmTopBar .topNav a span {
+            .vdmTopBar .topNav > div > span > span {
                 font-size: 12px;
             }
 
@@ -155,7 +159,7 @@ textarea {
     .topMenu .dropMenu,
     .topMenu .dropMenu ul,
     .topMenu .dropMenu li,
-    .topMenu .dropMenu a {
+    .topMenu .dropMenu > li > span {
         padding: 0;
         margin: 0;
         color: #000;
@@ -168,36 +172,36 @@ textarea {
             list-style: none;
         }
 
-            .topMenu .dropMenu li,
-            .topMenu .dropMenu a {
+            .topMenu .dropMenu > li,
+            .topMenu .dropMenu > li > span {
                 position: relative;
                 display: block;
             }
 
-                .topMenu .dropMenu a,
-                .topMenu .dropMenu a:hover,
-                .topMenu .dropMenu a:focus,
-                .topMenu .dropMenu a:active {
+                .topMenu .dropMenu > li > span,
+                .topMenu .dropMenu > li > span:hover,
+                .topMenu .dropMenu > li > span:focus,
+                .topMenu .dropMenu > li > span:active {
                     text-decoration: none;
                 }
 
             .topMenu .dropMenu ul {
             }
 
-            .topMenu .dropMenu > li > a {
+            .topMenu .dropMenu > li > span {
                 padding: 4px;
             }
 
-            .topMenu .dropMenu li a span {
+            .topMenu .dropMenu li > span > span {
                 position: absolute;
                 left: 22px;
             }
 
-            .topMenu .dropMenu > li.active > a {
+            .topMenu .dropMenu > li.active > span > span {
             }
 
-            .topMenu .dropMenu > li:hover > a,
-            .topMenu .dropMenu > li:focus > a {
+            .topMenu .dropMenu > li:hover > span,
+            .topMenu .dropMenu > li:focus > span {
                 background-color: rgba(0, 0, 0, 0.1);
                 outline: none;
                 -webkit-box-shadow: none;
@@ -208,14 +212,6 @@ textarea {
                 border-radius: 4px;
                 border: 2px solid #000;
             }
-
-                .topMenu .dropMenu > li ul a {
-                    padding: 11px 0 11px 30px;
-                    font-size: 13px;
-                }
-
-                    .topMenu .dropMenu > li ul a:hover {
-                    }
 
             .topMenu .dropMenu.affix {
                 position: fixed;
@@ -282,15 +278,15 @@ textarea {
 }
 
 @media (min-width: 768px) {
-    .sidebar-left-mini .topMenu .dropMenu > li > a .fa {
+    .sidebar-left-mini .topMenu .dropMenu > li > span .fa {
         font-size: 18px;
     }
 
-        .sidebar-left-mini .topMenu .dropMenu > li > a .fa.arrow {
+        .sidebar-left-mini .topMenu .dropMenu > li > span .fa.arrow {
             display: none;
         }
 
-    .sidebar-left-mini .topMenu .dropMenu > li > a .link-title {
+    .sidebar-left-mini .topMenu .dropMenu > li > span .link-title {
         border-top: 1px solid rgba(0, 0, 0, 0.1);
         border-right: 1px solid rgba(0, 0, 0, 0.1);
         -webkit-box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -304,12 +300,12 @@ textarea {
         padding: 10px 30px;
     }
 
-    .sidebar-left-mini .topMenu .dropMenu > li:hover > a > .link-title {
+    .sidebar-left-mini .topMenu .dropMenu > li:hover > span > .link-title {
         display: block;
         min-width: 200px;
     }
 
-    .sidebar-left-mini.side-right .topMenu .dropMenu > li > a .link-title {
+    .sidebar-left-mini.side-right .topMenu .dropMenu > li > span .link-title {
         border-right-width: 0;
         border-left: 1px solid rgba(0, 0, 0, 0.1);
         left: auto;
@@ -365,7 +361,7 @@ textarea {
         content: "\f104";
     }
 
-.topMenu .dropMenu .active > a > .fa.arrow:before {
+.topMenu .dropMenu .active > span > .fa.arrow:before {
     content: "\f107";
 }
 
@@ -384,20 +380,6 @@ textarea {
     .topSearch button {
         padding: 3px 6px 3px 6px;
     }
-
-/*
-.topnav .btn-group > a {
-    padding: 2px 6px;
-}
-
-.topnav .btn-group > a > i {
-  color: #000;
-}
-
-.topnav .btn-group > a > i.fa-power-off {
-  color: #fff;
-}
-*/
 
 .vdmMenu {
     position: absolute;
@@ -464,12 +446,15 @@ textarea {
         top: -2px;
     }
 
-        .vdmWindow .vdmWindowHeader .ctrls a,
-        .vdmWindow .vdmWindowHeader .ctrls a:visited {
+        .vdmWindow .vdmWindowHeader .ctrls span {
             text-decoration: none;
             font-size: 14px;
             font-weight: bold;
             color: #FF4444;
+        }
+
+        .vdmWindow .vdmWindowHeader .ctrls span:hover {
+            cursor: pointer;
         }
 
     .vdmWindow .vdmWindowMenu {
@@ -566,15 +551,6 @@ textarea {
                             height: 100px;
                         }
 
-                .vdmWindow .vdmWindowMenu ul > li > a {
-                    color: #000;
-                    cursor: default;
-                    display: block;
-                    font: 11px Tahoma,Arial;
-                    padding: 3px 3px 4px;
-                    text-decoration: none;
-                }
-
                 .vdmWindow .vdmWindowMenu ul > li > span {
                     border: 1px solid transparent;
                     color: #000;
@@ -593,13 +569,11 @@ textarea {
                     text-indent: 10px;
                 }
 
-            .vdmWindow .vdmWindowMenu ul ul li a,
             .vdmWindow .vdmWindowMenu ul ul li span {
                 border: 1px solid transparent;
                 padding: 3px 3px 5px 2px;
             }
 
-                .vdmWindow .vdmWindowMenu ul ul li a img,
                 .vdmWindow .vdmWindowMenu ul ul li span img {
                     border-width: 0;
                     float: left;
@@ -607,7 +581,6 @@ textarea {
                     vertical-align: middle;
                 }
 
-            .vdmWindow .vdmWindowMenu ul li:hover > a,
             .vdmWindow .vdmWindowMenu ul li:hover > span,
             .vdmWindow .vdmWindowMenu ul li span:focus {
                 background-color: #FFF2C8;
@@ -856,7 +829,7 @@ textarea {
                 outline-width: 0;
             }
 
-.btn-group > a > i:after {
+.btn-group > span > i:after {
     content: " ";
     display: table;
 }
@@ -876,7 +849,7 @@ ul.vdm-CollapseTree > li {
         list-style: none;
     }
 
-        ul.vdm-CollapseTree li a {
+        ul.vdm-CollapseTree li > span {
             line-height: 20px;
             font-size: 11px;
             padding-top: 1px;
@@ -886,16 +859,16 @@ ul.vdm-CollapseTree > li {
             cursor: pointer;
         }
 
-    ul.vdm-CollapseTree > li > a {
+    ul.vdm-CollapseTree > li > span {
         display: block;
         position: relative;
     }
 
-    ul.vdm-CollapseTree li.parent > a {
+    ul.vdm-CollapseTree li.parent > span {
         padding: 0 0 0 18px;
     }
 
-        ul.vdm-CollapseTree li.parent > a:before {
+        ul.vdm-CollapseTree li.parent > span:before {
             background-image: url("../img/expand-small-blue.png");
             content: "";
             display: block;
@@ -907,7 +880,7 @@ ul.vdm-CollapseTree > li {
             width: 12px;
         }
 
-    ul.vdm-CollapseTree li.active > a:before {
+    ul.vdm-CollapseTree li.active > span:before {
         background-image: url("../img/collapse-small-blue.png");
     }
 

@@ -75,9 +75,6 @@ class VDMDesktop {
         // Assign warning button link and label
         this.alertBtn = $(this.vdmTopNav).find(".btn-group.alerts")[0];
         this.alertAnchor = $(this.alertBtn).find("li")[0];
-        $(this.alertAnchor).attr({
-            href: "javascript:void(0);"
-        });
         this.alertSpan = $(this.alertBtn).find("span")[0];
 
         // Assign TopBarMenu UL
@@ -127,10 +124,10 @@ class VDMDesktop {
     <div class="topVDMStatus"></div>
         <div class="topNav">
             <div class="btn-group alerts">
-                <a data-placement="bottom" data-original-title="Alerts" href="" data-toggle="modal" class="btn btn-default btn-sm">
+                <span data-placement="bottom" data-original-title="Alerts" data-toggle="modal" class="btn btn-default btn-sm">
                     <i class="fa fa-warning"></i>
                     <span class="badge badge-success">0</span>
-                </a>
+                </span>
             </div>
         </div>
         <div class="topMenu">
@@ -317,10 +314,7 @@ class VDMDesktop {
         let thisVDMDesktop = this;
 
         let itemLI = document.createElement("li");
-        let itemA = document.createElement("a");
-        $(itemA).attr({
-            href: "javascript:void(0);"
-        });
+        let itemA = document.createElement("span");
         $(itemA).click(function () { onClickAction(); });
         let itemI = document.createElement("i");
         $(itemI).attr({
@@ -382,14 +376,6 @@ class VDMDesktop {
         // Set Window ID
         newAppletObj.windowID = 'vdmWindow-' + this.appletCreateIndex;
 
-        // Create Close button
-        let ctrlAnch = document.createElement("a");
-        $(ctrlAnch).attr({
-            href: "javascript:void(0);"
-        });
-        ctrlAnch.onclick = function () { thisVDMDesktop.closeWindow(newAppletObj); };
-        $(ctrlAnch).append("<i class=\"fa fa-times fa-lg\"></i>");
-
         // Create new Window DIV
         $(newAppletObj.desktopDivID).append("<div id=\"" + newAppletObj.windowID + "\" class=\"vdmWindow\">");
 
@@ -435,12 +421,70 @@ class VDMDesktop {
             $(tgtDiv).html(resourceText);
         }
 
+        // Create Maximize button
+        let ctrlMaximize = document.createElement("span");
+        ctrlMaximize.onclick = async function () {
+            let elem = newAppletObj.windowParts.data;
+
+            // Define fullscreen exit handler
+            let exitHandler = () => {
+                if (elem.requestFullscreen) {
+                    document.removeEventListener('fullscreenchange', exitHandler, false);
+                } else if (elem.webkitRequestFullscreen) { /* Safari */
+                    document.removeEventListener('webkitfullscreenchange', exitHandler, false);
+                } else if (elem.msRequestFullscreen) { /* IE11 */
+                    document.removeEventListener('msfullscreenchange', exitHandler, false);
+                }
+
+                // Call resizing hook if set
+                if (typeof newAppletObj.resizeMovingHook !== "undefined") {
+                    newAppletObj.resizeMovingHook();
+                }
+            }
+
+            // Execute relevant fullscreen request
+            if (elem.requestFullscreen) {
+                await elem.requestFullscreen();
+            } else if (elem.webkitRequestFullscreen) { /* Safari */
+                await elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) { /* IE11 */
+                await elem.msRequestFullscreen();
+            }
+
+            // Insert delay.  The following event listeners were firing prematurely
+            // when called immediately after the requestFullscreen functions.  Works
+            // as low as 1ms on Skylake PC, but upping to 100 in case slower systems
+            // need the extra time.
+            await new Promise(res => setTimeout(res, 100));
+
+            // Add fullscreenchange event listener so we know when to resize
+            if (elem.requestFullscreen) {
+                document.addEventListener('fullscreenchange', exitHandler, false);
+            } else if (elem.webkitRequestFullscreen) { /* Safari */
+                document.addEventListener('webkitfullscreenchange', exitHandler, false);
+            } else if (elem.msRequestFullscreen) { /* IE11 */
+                document.addEventListener('msfullscreenchange', exitHandler, false);
+            }
+
+            // Call resizing hook if set
+            if (typeof newAppletObj.resizeMovingHook !== "undefined") {
+                newAppletObj.resizeMovingHook();
+            }
+        };
+        $(ctrlMaximize).append("<i class=\"fa fa-square-o fa-lg\" style=\"font-weight: bold; color: #c3af73; top: 2px; right: 5px; position: relative;\"></i>");
+
+        // Create Close button
+        let ctrlClose = document.createElement("span");
+        ctrlClose.onclick = function () { thisVDMDesktop.closeWindow(newAppletObj); };
+        $(ctrlClose).append("<i class=\"fa fa-times fa-lg\" style=\"top: 1px; right: 0px; position: relative;\"></i>");
+
         // Add title and close button to the header
         $(newAppletObj.windowDiv).children(".vdmWindowHeader").append(
             "<span class=\"title\">" + newAppletObj.title + "</span>" +
             "<span class=\"ctrls\"></span>"
         );
-        $(newAppletObj.windowDiv).children(".vdmWindowHeader").children(".ctrls").append(ctrlAnch);
+        $(newAppletObj.windowDiv).children(".vdmWindowHeader").children(".ctrls").append(ctrlMaximize);
+        $(newAppletObj.windowDiv).children(".vdmWindowHeader").children(".ctrls").append(ctrlClose);
 
         // If we have a Startup Script, run it
         if (newAppletObj.appletName && thisVDMDesktop.appletProfiles[newAppletObj.appletName] && thisVDMDesktop.appletProfiles[newAppletObj.appletName].startupScript !== '') {
@@ -455,8 +499,7 @@ class VDMDesktop {
             $(menuTop).append(menuHeader);
             let menuOptionList = document.createElement("ul");
             $.each(menuItems, function (optionName, optionValue) {
-                let optRef = document.createElement("a");
-                optRef.href = "javascript:void(0);";
+                let optRef = document.createElement("span");
                 optRef.onclick = optionValue;
                 $(optRef).append(optionName);
                 let optLi = document.createElement("li");
@@ -831,24 +874,24 @@ class VDMCollapseTree {
         }
 
         let newLI = document.createElement("li");
-        let newA = document.createElement("a");
-        newA.className = newItemClass;
-        newA.innerHTML = newItemTag;
-        newItemRef.leftMenuA = newA;
+        let newSpan = document.createElement("span");
+        newSpan.className = newItemClass;
+        newSpan.innerHTML = newItemTag;
+        newItemRef.leftMenuSpan = newSpan;
         newItemRef.leftMenuLI = newLI;
-        newLI.appendChild(newA);
+        newLI.appendChild(newSpan);
         if (isParent) {
             newLI.className = "parent";
             let newUL = document.createElement("ul");
             newLI.appendChild(newUL);
             newItemRef.leftMenuUL = newUL;
-            $(newA).on('click', function () {
+            $(newSpan).on('click', function () {
                 $(this).parent().toggleClass('active');
                 $(this).parent().children('ul').toggle();
                 clickFunction(newItemRef);
             });
         } else {
-            $(newA).on('click', function () {
+            $(newSpan).on('click', function () {
                 clickFunction(newItemRef);
             });
         }

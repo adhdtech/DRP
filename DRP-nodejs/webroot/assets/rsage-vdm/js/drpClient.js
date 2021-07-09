@@ -357,6 +357,17 @@ class DRP_Client_Browser extends DRP_Endpoint_Browser {
     connect(wsTarget) {
         let thisClient = this;
 
+        if (!wsTarget) {
+            let drpSvrProt = location.protocol.replace("http", "ws");
+            let drpSvrHost = location.host.split(":")[0];
+            let drpPortString = "";
+            let drpPort = location.host.split(":")[1];
+            if (drpPort) {
+                drpPortString = ":" + drpPort;
+            }
+            wsTarget = drpSvrProt + "//" + drpSvrHost + drpPortString;
+        }
+
         thisClient.wsTarget = wsTarget;
 
         // Create wsConn
