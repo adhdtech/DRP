@@ -509,10 +509,12 @@
         myApp.appVars.dataStructs['StereoTypes'] = await myApp.sendCmd("Hive", "listStereoTypes", null, true);
         myApp.appVars.dataStructs['ClassTypes'] = await myApp.sendCmd("Hive", "getClassDefinitions", null, true);
         let classDataTypes = await myApp.sendCmd("Hive", "listClassDataTypes", null, true);
-        let classDataTypeKeys = Object.keys(classDataTypes);
-        for (let i = 0; i < classDataTypeKeys.length; i++) {
-            let recKey = classDataTypeKeys[i];
-            myApp.appVars.dataStructs['ClassTypes'][recKey].recCount = classDataTypes[recKey].recCount;
+        if (classDataTypes) {
+            let classDataTypeKeys = Object.keys(classDataTypes);
+            for (let i = 0; i < classDataTypeKeys.length; i++) {
+                let recKey = classDataTypeKeys[i];
+                myApp.appVars.dataStructs['ClassTypes'][recKey].recCount = classDataTypes[recKey].recCount;
+            }
         }
 
         myApp.appFuncs.recvDone();
