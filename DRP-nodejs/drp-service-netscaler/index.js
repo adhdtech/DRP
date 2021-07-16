@@ -73,6 +73,7 @@ class vServer {
 
         // Make methods visible via CLI
         this.Show = this.Show;
+        this.GetMembers = this.GetMembers;
         this.Disable = this.Disable;
         this.Enable = this.Enable;
         this.Stat = this.Stat;
@@ -86,6 +87,17 @@ class vServer {
             let objArray = NetScalerHost.prototype.TextToObjArray(resultsText);
             if (objArray.length > 0) returnObj = objArray[0];
             return returnObj;
+        } catch (ex) {
+            return ex;
+        }
+    }
+
+    async GetMembers() {
+        try {
+            let resultsText = await this.haPair.ExecuteCommand(`show ${this.type} vserver ${this.name}`);
+            let returnObj = null;
+            let objArray = NetScalerHost.prototype.TextToMemberArray(resultsText);
+            return objArray;
         } catch (ex) {
             return ex;
         }
@@ -211,6 +223,27 @@ class NetScalerHost {
                 parsedObj[matchedKeyValue[1]] = matchedKeyValue[2];
             }
             returnArray.push(parsedObj);
+        }
+        return returnArray;
+    }
+
+    // Parse member list text, translate into members
+    TextToMemberArray(nsText) {
+        let thisNsHost = this;
+        let returnArray = [];
+        let memberPattern = new RegExp(/^(\d+)\) (\S+) \((\S+): (\d+)\) - (\S+) State: (\S.*\S)\s+Weight: (\d+)$/, "gm");
+        // Loop over groups
+        let memberInfo = null;
+        while ((memberInfo = memberPattern.exec(nsText)) !== null) {
+            let memberObj = {
+                MemberIndex: memberInfo[1],
+                ServiceName: memberInfo[2],
+                ServicePort: memberInfo[3],
+                Protocol: memberInfo[4],
+                State: memberInfo[5],
+                Weight: memberInfo[6]
+            };
+            returnArray.push(memberObj);
         }
         return returnArray;
     }
@@ -395,20 +428,24 @@ class NetScalerSet {
 
         this.config = null;
 
+        this.__memberIPList = memberIPList;
+        this.__sshKeyFileName = sshKeyFileName;
+        this.__nsManager = nsManager;
+
         this.lastHAquery = {};
+    }
 
-        // Get the configs from each host then figure out which one is active
-        (async () => {
-            for (let i = 0; i < memberIPList.length; i++) {
-                let nsHostIP = memberIPList[i];
-                let nsHostObj = new NetScalerHost(nsHostIP, sshKeyFileName, nsManager, this);
-                this.members[nsHostIP] = nsHostObj;
-                nsManager.nsHosts[nsHostIP] = nsHostObj;
-                await nsHostObj.LoadConfig();
-            }
+    // Get the configs from each host then figure out which one is active
+    async GetConfigs() {
+        for (let i = 0; i < this.__memberIPList.length; i++) {
+            let nsHostIP = this.__memberIPList[i];
+            let nsHostObj = new NetScalerHost(nsHostIP, this.__sshKeyFileName, this.__nsManager, this);
+            this.members[nsHostIP] = nsHostObj;
+            this.__nsManager.nsHosts[nsHostIP] = nsHostObj;
+            await nsHostObj.LoadConfig();
+        }
 
-            this.RunHAQuery();
-        })();
+        this.RunHAQuery();
     }
 
     // Figure out which member of an HA pair is active
@@ -693,9 +730,10 @@ class NetScalerManager extends DRP_Service {
      * @param {string[]} memberIPList List of NetScaler management IP addresses
      * @param {string} sshKeyFileName SSH Private Key file name for nsroot
      */
-    AddSet(name, memberIPList, sshKeyFileName) {
+    async AddSet(name, memberIPList, sshKeyFileName) {
         let thisNsMgr = this;
         thisNsMgr.haPairs[name] = new NetScalerSet(name, memberIPList, sshKeyFileName, this);
+        await thisNsMgr.haPairs[name].GetConfigs();
     }
 
     async SaveConfigs() {
