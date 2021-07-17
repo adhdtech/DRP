@@ -238,10 +238,11 @@ class NetScalerHost {
             let memberObj = {
                 MemberIndex: memberInfo[1],
                 ServiceName: memberInfo[2],
-                ServicePort: memberInfo[3],
-                Protocol: memberInfo[4],
-                State: memberInfo[5],
-                Weight: memberInfo[6]
+                ServiceIP: memberInfo[3],
+                ServicePort: memberInfo[4],
+                Protocol: memberInfo[5],
+                State: memberInfo[6],
+                Weight: memberInfo[7]
             };
             returnArray.push(memberObj);
         }
