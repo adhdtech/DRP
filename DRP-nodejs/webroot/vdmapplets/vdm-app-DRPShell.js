@@ -841,12 +841,12 @@
 
                 this.AddMethod(new drpMethod("dm",
                     "Data mesh operations (demo)",
-                    "[OPTIONS]...",
+                    "-[ig] {className} | -k {stereotypeName} [OPTIONS]...",
                     {
                         "l": new drpMethodSwitch("l", null, "List available classes"),
-                        "i": new drpMethodSwitch("i", "string", "Get Class Definitions (opt: -s)"),
-                        "k": new drpMethodSwitch("k", "string", "Get Class Definitions with stereotype (opt: -s)"),
-                        "g": new drpMethodSwitch("g", "string", "Get Class Data (opt: -s)"),
+                        "i": new drpMethodSwitch("i", "string", "Get Class definitions matching a specified class name (opt: -s)"),
+                        "k": new drpMethodSwitch("k", "string", "Get Class definitions containing a specified stereotype (opt: -s)"),
+                        "g": new drpMethodSwitch("g", "string", "Get Class data (opt: -s)"),
                         "s": new drpMethodSwitch("s", "string", "Service Name"),
                     },
                     async function (switchesAndDataString, doPipeOut, pipeDataIn) {
@@ -1135,7 +1135,7 @@
                                     for (let k = 0; k < attributeList.length; k++) {
                                         let thisAttributeName = attributeList[k];
                                         let thisAttributeObj = classObj.Attributes[thisAttributeName];
-                                        if (thisAttributeObj["Stereotype"] === stereotypeName) {
+                                        if (thisAttributeObj["Stereotype"] && thisAttributeObj["Stereotype"] === stereotypeName) {
                                             if (!serviceClassTable[thisServiceName]) {
                                                 serviceClassTable[thisServiceName] = {};
                                             }
@@ -1143,7 +1143,6 @@
                                             break;
                                         }
                                     }
-                                    break;
                                 }
                             }
 
@@ -1206,7 +1205,7 @@
                                         let thisMultiplicityText = thisAttributeObj.Multiplicity.padEnd(headerLengths["Multiplicity"]);
                                         let thisRestrictionsText = (thisAttributeObj.Restrictions || "").padEnd(headerLengths["Restrictions"]);
                                         let stereotypeColor = 37;
-                                        if (thisAttributeObj.Stereotype === stereotypeName) {
+                                        if (thisAttributeObj["Stereotype"] && thisAttributeObj["Stereotype"] === stereotypeName) {
                                             stereotypeColor = 93;
                                         }
                                         output += `\x1B[37m${thisAttributeText} \x1B[0;${stereotypeColor}m${thisStereotypeText}\x1B[0m \x1B[0;37m${thisTypeText}\x1B[0m \x1B[37m${thisMultiplicityText}\x1B[0m ${thisRestrictionsText}\r\n`;
