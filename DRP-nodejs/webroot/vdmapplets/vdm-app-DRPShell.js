@@ -1060,10 +1060,10 @@
                                         let thisAttributeObj = classObj.Attributes[thisAttributeName];
 
                                         headerLengths["Attribute"] = Math.max(headerLengths["Attribute"], thisAttributeObj["Name"].length);
-                                        headerLengths["Stereotype"] = Math.max(headerLengths["Stereotype"], thisAttributeObj["Stereotype"].length);
+                                        headerLengths["Stereotype"] = Math.max(headerLengths["Stereotype"], (thisAttributeObj["Stereotype"] || "").length);
                                         headerLengths["Type"] = Math.max(headerLengths["Type"], thisAttributeObj["Type"].length);
                                         headerLengths["Multiplicity"] = Math.max(headerLengths["Multiplicity"], thisAttributeObj["Multiplicity"].length);
-                                        headerLengths["Restrictions"] = Math.max(headerLengths["Restrictions"], thisAttributeObj["Restrictions"].length);
+                                        headerLengths["Restrictions"] = Math.max(headerLengths["Restrictions"], (thisAttributeObj["Restrictions"] || "").length);
                                     }
                                 }
                             }
@@ -1092,10 +1092,10 @@
                                         let thisAttributeName = attributeList[k];
                                         let thisAttributeObj = classObj.Attributes[thisAttributeName];
                                         let thisAttributeText = thisAttributeName.padEnd(headerLengths["Attribute"]);
-                                        let thisStereotypeText = thisAttributeObj.Stereotype.padEnd(headerLengths["Stereotype"]);
+                                        let thisStereotypeText = (thisAttributeObj.Stereotype || "").padEnd(headerLengths["Stereotype"]);
                                         let thisTypeText = thisAttributeObj.Type.padEnd(headerLengths["Type"]);
                                         let thisMultiplicityText = thisAttributeObj.Multiplicity.padEnd(headerLengths["Multiplicity"]);
-                                        let thisRestrictionsText = thisAttributeObj.Restrictions.padEnd(headerLengths["Restrictions"]);
+                                        let thisRestrictionsText = (thisAttributeObj.Restrictions || "").padEnd(headerLengths["Restrictions"]);
                                         output += `\x1B[37m${thisAttributeText} \x1B[0;37m${thisStereotypeText}\x1B[0m \x1B[0;37m${thisTypeText}\x1B[0m \x1B[37m${thisMultiplicityText}\x1B[0m ${thisRestrictionsText}\r\n`;
                                     }
                                 }
@@ -1169,10 +1169,10 @@
                                         let thisAttributeObj = classObj.Attributes[thisAttributeName];
 
                                         headerLengths["Attribute"] = Math.max(headerLengths["Attribute"], thisAttributeObj["Name"].length);
-                                        headerLengths["Stereotype"] = Math.max(headerLengths["Stereotype"], thisAttributeObj["Stereotype"].length);
+                                        headerLengths["Stereotype"] = Math.max(headerLengths["Stereotype"], (thisAttributeObj["Stereotype"] || "").length);
                                         headerLengths["Type"] = Math.max(headerLengths["Type"], thisAttributeObj["Type"].length);
                                         headerLengths["Multiplicity"] = Math.max(headerLengths["Multiplicity"], thisAttributeObj["Multiplicity"].length);
-                                        headerLengths["Restrictions"] = Math.max(headerLengths["Restrictions"], thisAttributeObj["Restrictions"].length);
+                                        headerLengths["Restrictions"] = Math.max(headerLengths["Restrictions"], (thisAttributeObj["Restrictions"] || "").length);
                                     }
                                 }
                             }
@@ -1201,10 +1201,10 @@
                                         let thisAttributeName = attributeList[k];
                                         let thisAttributeObj = classObj.Attributes[thisAttributeName];
                                         let thisAttributeText = thisAttributeName.padEnd(headerLengths["Attribute"]);
-                                        let thisStereotypeText = thisAttributeObj.Stereotype.padEnd(headerLengths["Stereotype"]);
+                                        let thisStereotypeText = (thisAttributeObj.Stereotype || "").padEnd(headerLengths["Stereotype"]);
                                         let thisTypeText = thisAttributeObj.Type.padEnd(headerLengths["Type"]);
                                         let thisMultiplicityText = thisAttributeObj.Multiplicity.padEnd(headerLengths["Multiplicity"]);
-                                        let thisRestrictionsText = thisAttributeObj.Restrictions.padEnd(headerLengths["Restrictions"]);
+                                        let thisRestrictionsText = (thisAttributeObj.Restrictions || "").padEnd(headerLengths["Restrictions"]);
                                         let stereotypeColor = 37;
                                         if (thisAttributeObj.Stereotype === stereotypeName) {
                                             stereotypeColor = 93;
