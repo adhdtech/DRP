@@ -741,7 +741,7 @@
                                         }
                                         headerLengths["Service Instance"] = Math.max(headerLengths["Service Instance"], serviceEntry.InstanceID.length);
                                         headerLengths["Scope"] = Math.max(headerLengths["Scope"], serviceEntry.Scope.length);
-                                        headerLengths["Zone"] = Math.max(headerLengths["Zone"], serviceEntry.Scope.length);
+                                        headerLengths["Zone"] = Math.max(headerLengths["Zone"], serviceEntry.Zone.length);
                                         streamTable[thisStreamName].push(serviceEntry);
                                     }
                                 }
@@ -749,7 +749,7 @@
 
                             //let headerColorCtrl = '\x1B[40;96m';
                             let headerColorCtrl = '\x1B[40;1;95m';
-                            output+= `\r\n` +
+                            output += `\r\n` +
                                 `${headerColorCtrl}${headerLabels[0].padEnd(headerLengths[headerLabels[0]], ' ')}\x1B[0m ` +
                                 `${headerColorCtrl}${headerLabels[1].padEnd(headerLengths[headerLabels[1]], ' ')}\x1B[0m ` +
                                 `${headerColorCtrl}${headerLabels[2].padEnd(headerLengths[headerLabels[2]], ' ')}\x1B[0m ` +
@@ -782,7 +782,7 @@
                                         default:
                                             scopeColor = "39";
                                     }
-                                    output+= `\x1B[37m${thisStreamNameText} \x1B[0;37m${thisInstanceIDText}\x1B[0m \x1B[${scopeColor}m${thisScopeText}\x1B[0m ${thisZoneText}\r\n`;
+                                    output += `\x1B[37m${thisStreamNameText} \x1B[0;37m${thisInstanceIDText}\x1B[0m \x1B[${scopeColor}m${thisScopeText}\x1B[0m ${thisZoneText}\r\n`;
                                 }
                             }
 
@@ -837,6 +837,395 @@
                             term.write(this.ShowHelp());
                             return
                         }
+                    }));
+
+                this.AddMethod(new drpMethod("dm",
+                    "Data mesh operations (demo)",
+                    "[OPTIONS]...",
+                    {
+                        "l": new drpMethodSwitch("l", null, "List available classes"),
+                        "i": new drpMethodSwitch("i", "string", "Get Class Definitions (opt: -s)"),
+                        "k": new drpMethodSwitch("k", "string", "Get Class Definitions with stereotype (opt: -s)"),
+                        "g": new drpMethodSwitch("g", "string", "Get Class Data (opt: -s)"),
+                        "s": new drpMethodSwitch("s", "string", "Service Name"),
+                    },
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
+                        let output = "";
+                        if ("l" in switchesAndData.switches) {
+
+                            let headerLabels = ["Service", "Class", "Record Count", "Scope", "Zone"];
+
+                            let headerLengths = Object.assign({}, ...headerLabels.map((x) => ({ [x]: x.length })));
+
+                            let serviceData = await myApp.sendCmd("DRP", "getServiceDefinitions", null, true);
+                            let serviceTable = {};
+                            // Loop over nodes
+                            let serviceList = Object.keys(serviceData);
+                            for (let i = 0; i < serviceList.length; i++) {
+                                let thisServiceName = serviceList[i];
+                                let serviceEntry = serviceData[thisServiceName];
+                                let classList = Object.keys(serviceEntry.Classes);
+                                for (let j = 0; j < classList.length; j++) {
+                                    let thisClassName = classList[j];
+                                    let thisClassObj = serviceEntry.Classes[thisClassName];
+
+                                    // Get Class object count
+                                    let recCount = "";
+                                    let classMeshPath = `Mesh/Services/${thisServiceName}/Classes/${thisClassName}`.split("/");
+                                    let classListDir = await myApp.sendCmd("DRP", "pathCmd", { "method": "cliGetPath", "pathList": classMeshPath, "params": {}, "listOnly": true }, true);
+                                    if (classListDir && classListDir.pathItemList && classListDir.pathItemList.length > 0) {
+                                        for (let i = 0; i < classListDir.pathItemList.length; i++) {
+                                            let entryObj = classListDir.pathItemList[i];
+                                            if (!entryObj.Name) {
+                                                continue;
+                                            }
+
+                                            if (entryObj.Name === "cache") {
+                                                recCount = entryObj.Value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    thisClassObj.RecordCount = recCount;
+
+                                    if (!serviceTable[thisServiceName]) {
+                                        serviceTable[thisServiceName] = [];
+                                        headerLengths["Service"] = Math.max(headerLengths["Service"], thisServiceName.length);
+                                    }
+                                    headerLengths["Class"] = Math.max(headerLengths["Class"], thisClassName.length);
+                                    headerLengths["Record Count"] = Math.max(headerLengths["Record Count"], thisClassName.length);
+                                    headerLengths["Scope"] = Math.max(headerLengths["Scope"], serviceEntry.Scope.length);
+                                    headerLengths["Zone"] = Math.max(headerLengths["Zone"], serviceEntry.Zone.length);
+                                }
+                            }
+
+                            //let headerColorCtrl = '\x1B[40;96m';
+                            let headerColorCtrl = '\x1B[40;1;95m';
+                            output += `\r\n` +
+                                `${headerColorCtrl}${headerLabels[0].padEnd(headerLengths[headerLabels[0]], ' ')}\x1B[0m ` +
+                                `${headerColorCtrl}${headerLabels[1].padEnd(headerLengths[headerLabels[1]], ' ')}\x1B[0m ` +
+                                `${headerColorCtrl}${headerLabels[2].padEnd(headerLengths[headerLabels[2]], ' ')}\x1B[0m ` +
+                                `${headerColorCtrl}${headerLabels[3].padEnd(headerLengths[headerLabels[3]], ' ')}\x1B[0m ` +
+                                `${headerColorCtrl}${headerLabels[4].padEnd(headerLengths[headerLabels[4]], ' ')}\x1B[0m` +
+                                `\r\n`;
+
+                            // Output class list
+                            for (let i = 0; i < serviceList.length; i++) {
+                                let thisServiceName = serviceList[i];
+                                let serviceEntry = serviceData[thisServiceName];
+                                let classList = Object.keys(serviceEntry.Classes);
+                                for (let j = 0; j < classList.length; j++) {
+                                    let thisClassName = classList[j];
+                                    let thisClassObj = serviceEntry.Classes[thisClassName];
+                                    let thisServiceText = thisServiceName.padEnd(headerLengths["Service"]);
+                                    let thisClassNameText = thisClassName.padEnd(headerLengths["Class"]);
+                                    let thisRecordCountText = thisClassObj.RecordCount.padStart(headerLengths["Record Count"]);
+                                    let thisScopeText = serviceEntry.Scope.padEnd(headerLengths["Scope"]);
+                                    let thisZoneText = serviceEntry.Zone;
+                                    let scopeColor = "";
+                                    switch (serviceEntry.Scope) {
+                                        case "local":
+                                            scopeColor = "93";
+                                            break;
+                                        case "zone":
+                                            //scopeColor = "94";
+                                            scopeColor = "96";
+                                            break;
+                                        case "global":
+                                            scopeColor = "92";
+                                            break;
+                                        default:
+                                            scopeColor = "39";
+                                    }
+                                    output += `\x1B[37m${thisServiceText} \x1B[0;37m${thisClassNameText}\x1B[0m \x1B[0;37m${thisRecordCountText}\x1B[0m \x1B[${scopeColor}m${thisScopeText}\x1B[0m ${thisZoneText}\r\n`;
+                                }
+                            }
+
+                            if (doPipeOut) {
+                                // Sanitize output by removing terminal control characters
+                                output = output.replace(/\x1b\[\d{1,2}(?:;\d{1,2})*m/g, '');
+                            } else {
+                                term.write(output);
+                            }
+
+                            return output;
+                        }
+
+                        if ("g" in switchesAndData.switches) {
+
+                            let className = switchesAndData.switches["g"];
+
+                            let serviceDataTable = {};
+
+                            if (switchesAndData.switches["s"]) {
+                                // Specify a single service
+                                serviceDataTable[switchesAndData.switches["s"]] = null;
+                            } else {
+                                // Query all services with this class
+                                let serviceData = await myApp.sendCmd("DRP", "getServiceDefinitions", null, true);
+                                // Loop over nodes
+                                let serviceList = Object.keys(serviceData);
+                                for (let i = 0; i < serviceList.length; i++) {
+                                    let thisServiceName = serviceList[i];
+                                    let serviceEntry = serviceData[thisServiceName];
+                                    let classList = Object.keys(serviceEntry.Classes);
+                                    for (let j = 0; j < classList.length; j++) {
+                                        let thisClassName = classList[j];
+                                        if (thisClassName !== className) {
+                                            continue;
+                                        }
+                                        serviceDataTable[thisServiceName] = null;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // Loop over services
+                            let serviceList = Object.keys(serviceDataTable);
+                            for (let i = 0; i < serviceList.length; i++) {
+                                let thisServiceName = serviceList[i];
+                                // Get Class object data
+                                let classMeshPath = `Mesh/Services/${thisServiceName}/Classes/${className}/cache`.split("/");
+                                let classListDir = await myApp.sendCmd("DRP", "pathCmd", { "method": "cliGetPath", "pathList": classMeshPath, "params": {}, "listOnly": false }, true);
+                                if (classListDir && classListDir.pathItem) {
+                                    serviceDataTable[thisServiceName] = classListDir.pathItem;
+                                }
+                            }
+
+                            let output = serviceDataTable;
+
+                            if (doPipeOut) {
+                                // Sanitize output by removing terminal control characters
+                                //output = output.replace(/\x1b\[\d{1,2}(?:;\d{1,2})*m/g, '');
+                            } else {
+                                if (typeof output === "object") {
+                                    term.write(`\x1B[0m${JSON.stringify(output, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                                }
+                            }
+
+                            return output;
+                        }
+
+                        if ("i" in switchesAndData.switches) {
+
+                            let className = switchesAndData.switches["i"];
+
+                            let serviceClassTable = {};
+
+                            // Query all services with this class
+                            let serviceData = await myApp.sendCmd("DRP", "getServiceDefinitions", null, true);
+                            // Loop over nodes
+                            let serviceList = Object.keys(serviceData);
+                            for (let i = 0; i < serviceList.length; i++) {
+                                let thisServiceName = serviceList[i];
+                                if (switchesAndData.switches["s"] && switchesAndData.switches["s"] !== thisServiceName) {
+                                    continue;
+                                }
+                                let serviceEntry = serviceData[thisServiceName];
+                                let classList = Object.keys(serviceEntry.Classes);
+                                for (let j = 0; j < classList.length; j++) {
+                                    let thisClassName = classList[j];
+                                    if (thisClassName !== className) {
+                                        continue;
+                                    }
+                                    if (!serviceClassTable[thisServiceName]) {
+                                        serviceClassTable[thisServiceName] = {};
+                                    }
+                                    serviceClassTable[thisServiceName][thisClassName] = serviceEntry.Classes[thisClassName];
+                                    break;
+                                }
+                            }
+
+                            //let output = classDataTable;
+                            let output = "";
+
+                            let headerLabels = ["Attribute", "Stereotype", "Type", "Multiplicity", "Restrictions"];
+
+                            let headerLengths = Object.assign({}, ...headerLabels.map((x) => ({ [x]: x.length })));
+
+                            // Loop over services
+                            let classServiceList = Object.keys(serviceClassTable);
+                            for (let i = 0; i < classServiceList.length; i++) {
+                                let thisServiceName = classServiceList[i];
+                                let serviceEntry = serviceClassTable[thisServiceName];
+                                let classList = Object.keys(serviceEntry);
+                                for (let j = 0; j < classList.length; j++) {
+                                    let className = classList[j];
+                                    let classObj = serviceEntry[className];
+                                    let attributeList = Object.keys(classObj.Attributes);
+                                    for (let k = 0; k < attributeList.length; k++) {
+                                        let thisAttributeName = attributeList[k];
+                                        let thisAttributeObj = classObj.Attributes[thisAttributeName];
+
+                                        headerLengths["Attribute"] = Math.max(headerLengths["Attribute"], thisAttributeObj["Name"].length);
+                                        headerLengths["Stereotype"] = Math.max(headerLengths["Stereotype"], thisAttributeObj["Stereotype"].length);
+                                        headerLengths["Type"] = Math.max(headerLengths["Type"], thisAttributeObj["Type"].length);
+                                        headerLengths["Multiplicity"] = Math.max(headerLengths["Multiplicity"], thisAttributeObj["Multiplicity"].length);
+                                        headerLengths["Restrictions"] = Math.max(headerLengths["Restrictions"], thisAttributeObj["Restrictions"].length);
+                                    }
+                                }
+                            }
+
+                            // Output Attribute list
+                            for (let i = 0; i < classServiceList.length; i++) {
+                                let thisServiceName = classServiceList[i];
+                                let serviceEntry = serviceClassTable[thisServiceName];
+                                let classList = Object.keys(serviceEntry);
+                                for (let j = 0; j < classList.length; j++) {
+                                    let className = classList[j];
+                                    let classObj = serviceEntry[className];
+
+                                    let headerColorCtrl = '\x1B[40;1;95m';
+                                    output += `\r\n\r\n` +
+                                        `\x1B[92m${className}\x1B[0m [${thisServiceName}]\x1B[0m\r\n\r\n` +
+                                        `${headerColorCtrl}${headerLabels[0].padEnd(headerLengths[headerLabels[0]], ' ')}\x1B[0m ` +
+                                        `${headerColorCtrl}${headerLabels[1].padEnd(headerLengths[headerLabels[1]], ' ')}\x1B[0m ` +
+                                        `${headerColorCtrl}${headerLabels[2].padEnd(headerLengths[headerLabels[2]], ' ')}\x1B[0m ` +
+                                        `${headerColorCtrl}${headerLabels[3].padEnd(headerLengths[headerLabels[3]], ' ')}\x1B[0m ` +
+                                        `${headerColorCtrl}${headerLabels[4].padEnd(headerLengths[headerLabels[4]], ' ')}\x1B[0m` +
+                                        `\r\n`;
+
+                                    let attributeList = Object.keys(classObj.Attributes);
+                                    for (let k = 0; k < attributeList.length; k++) {
+                                        let thisAttributeName = attributeList[k];
+                                        let thisAttributeObj = classObj.Attributes[thisAttributeName];
+                                        let thisAttributeText = thisAttributeName.padEnd(headerLengths["Attribute"]);
+                                        let thisStereotypeText = thisAttributeObj.Stereotype.padEnd(headerLengths["Stereotype"]);
+                                        let thisTypeText = thisAttributeObj.Type.padEnd(headerLengths["Type"]);
+                                        let thisMultiplicityText = thisAttributeObj.Multiplicity.padEnd(headerLengths["Multiplicity"]);
+                                        let thisRestrictionsText = thisAttributeObj.Restrictions.padEnd(headerLengths["Restrictions"]);
+                                        output += `\x1B[37m${thisAttributeText} \x1B[0;37m${thisStereotypeText}\x1B[0m \x1B[0;37m${thisTypeText}\x1B[0m \x1B[37m${thisMultiplicityText}\x1B[0m ${thisRestrictionsText}\r\n`;
+                                    }
+                                }
+                            }
+
+                            if (doPipeOut) {
+                                // Sanitize output by removing terminal control characters
+                                output = output.replace(/\x1b\[\d{1,2}(?:;\d{1,2})*m/g, '');
+                            } else {
+                                term.write(output);
+                            }
+
+                            return output;
+                        }
+
+                        if ("k" in switchesAndData.switches) {
+
+                            let stereotypeName = switchesAndData.switches["k"];
+
+                            let serviceClassTable = {};
+
+                            // Query all services with this class
+                            let serviceData = await myApp.sendCmd("DRP", "getServiceDefinitions", null, true);
+                            // Loop over nodes
+                            let serviceList = Object.keys(serviceData);
+                            for (let i = 0; i < serviceList.length; i++) {
+                                let thisServiceName = serviceList[i];
+                                if (switchesAndData.switches["s"] && switchesAndData.switches["s"] !== thisServiceName) {
+                                    continue;
+                                }
+                                let serviceEntry = serviceData[thisServiceName];
+                                let classList = Object.keys(serviceEntry.Classes);
+                                for (let j = 0; j < classList.length; j++) {
+                                    let thisClassName = classList[j];
+                                    let classObj = serviceEntry.Classes[thisClassName];
+                                    let attributeList = Object.keys(classObj.Attributes);
+                                    for (let k = 0; k < attributeList.length; k++) {
+                                        let thisAttributeName = attributeList[k];
+                                        let thisAttributeObj = classObj.Attributes[thisAttributeName];
+                                        if (thisAttributeObj["Stereotype"] === stereotypeName) {
+                                            if (!serviceClassTable[thisServiceName]) {
+                                                serviceClassTable[thisServiceName] = {};
+                                            }
+                                            serviceClassTable[thisServiceName][thisClassName] = serviceEntry.Classes[thisClassName];
+                                            break;
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+
+                            //let output = classDataTable;
+                            let output = "";
+
+                            let headerLabels = ["Attribute", "Stereotype", "Type", "Multiplicity", "Restrictions"];
+
+                            let headerLengths = Object.assign({}, ...headerLabels.map((x) => ({ [x]: x.length })));
+
+                            // Loop over services
+                            let classServiceList = Object.keys(serviceClassTable);
+                            for (let i = 0; i < classServiceList.length; i++) {
+                                let thisServiceName = classServiceList[i];
+                                let serviceEntry = serviceClassTable[thisServiceName];
+                                let classList = Object.keys(serviceEntry);
+                                for (let j = 0; j < classList.length; j++) {
+                                    let className = classList[j];
+                                    let classObj = serviceEntry[className];
+                                    let attributeList = Object.keys(classObj.Attributes);
+                                    for (let k = 0; k < attributeList.length; k++) {
+                                        let thisAttributeName = attributeList[k];
+                                        let thisAttributeObj = classObj.Attributes[thisAttributeName];
+
+                                        headerLengths["Attribute"] = Math.max(headerLengths["Attribute"], thisAttributeObj["Name"].length);
+                                        headerLengths["Stereotype"] = Math.max(headerLengths["Stereotype"], thisAttributeObj["Stereotype"].length);
+                                        headerLengths["Type"] = Math.max(headerLengths["Type"], thisAttributeObj["Type"].length);
+                                        headerLengths["Multiplicity"] = Math.max(headerLengths["Multiplicity"], thisAttributeObj["Multiplicity"].length);
+                                        headerLengths["Restrictions"] = Math.max(headerLengths["Restrictions"], thisAttributeObj["Restrictions"].length);
+                                    }
+                                }
+                            }
+
+                            // Output Attribute list
+                            for (let i = 0; i < classServiceList.length; i++) {
+                                let thisServiceName = classServiceList[i];
+                                let serviceEntry = serviceClassTable[thisServiceName];
+                                let classList = Object.keys(serviceEntry);
+                                for (let j = 0; j < classList.length; j++) {
+                                    let className = classList[j];
+                                    let classObj = serviceEntry[className];
+
+                                    let headerColorCtrl = '\x1B[40;1;95m';
+                                    output += `\r\n\r\n` +
+                                        `\x1B[92m${className}\x1B[0m [${thisServiceName}]\x1B[0m\r\n\r\n` +
+                                        `${headerColorCtrl}${headerLabels[0].padEnd(headerLengths[headerLabels[0]], ' ')}\x1B[0m ` +
+                                        `${headerColorCtrl}${headerLabels[1].padEnd(headerLengths[headerLabels[1]], ' ')}\x1B[0m ` +
+                                        `${headerColorCtrl}${headerLabels[2].padEnd(headerLengths[headerLabels[2]], ' ')}\x1B[0m ` +
+                                        `${headerColorCtrl}${headerLabels[3].padEnd(headerLengths[headerLabels[3]], ' ')}\x1B[0m ` +
+                                        `${headerColorCtrl}${headerLabels[4].padEnd(headerLengths[headerLabels[4]], ' ')}\x1B[0m` +
+                                        `\r\n`;
+
+                                    let attributeList = Object.keys(classObj.Attributes);
+                                    for (let k = 0; k < attributeList.length; k++) {
+                                        let thisAttributeName = attributeList[k];
+                                        let thisAttributeObj = classObj.Attributes[thisAttributeName];
+                                        let thisAttributeText = thisAttributeName.padEnd(headerLengths["Attribute"]);
+                                        let thisStereotypeText = thisAttributeObj.Stereotype.padEnd(headerLengths["Stereotype"]);
+                                        let thisTypeText = thisAttributeObj.Type.padEnd(headerLengths["Type"]);
+                                        let thisMultiplicityText = thisAttributeObj.Multiplicity.padEnd(headerLengths["Multiplicity"]);
+                                        let thisRestrictionsText = thisAttributeObj.Restrictions.padEnd(headerLengths["Restrictions"]);
+                                        let stereotypeColor = 37;
+                                        if (thisAttributeObj.Stereotype === stereotypeName) {
+                                            stereotypeColor = 93;
+                                        }
+                                        output += `\x1B[37m${thisAttributeText} \x1B[0;${stereotypeColor}m${thisStereotypeText}\x1B[0m \x1B[0;37m${thisTypeText}\x1B[0m \x1B[37m${thisMultiplicityText}\x1B[0m ${thisRestrictionsText}\r\n`;
+                                    }
+                                }
+                            }
+
+                            if (doPipeOut) {
+                                // Sanitize output by removing terminal control characters
+                                output = output.replace(/\x1b\[\d{1,2}(?:;\d{1,2})*m/g, '');
+                            } else {
+                                term.write(output);
+                            }
+
+                            return output;
+                        }
+
+                        term.write(this.ShowHelp());
+                        return
                     }));
 
                 this.AddMethod(new drpMethod("scrollback",
@@ -937,7 +1326,7 @@
                                     if (i > lastPrintedLine + 1) {
 
                                         // We've already printed a section, add a break
-                                        output+= `\x1b\[94m--\x1b\[0m\r\n`;
+                                        output += `\x1b\[94m--\x1b\[0m\r\n`;
                                     }
                                 }
 
