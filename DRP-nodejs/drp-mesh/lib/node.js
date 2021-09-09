@@ -20,6 +20,7 @@ const { DRP_VirtualDirectory, DRP_Permission, DRP_PermissionSet, DRP_Securable }
 const Express_Request = express.request;
 const Express_Response = express.response;
 const swaggerUI = require("swagger-ui-express");
+const { v4: uuidv4 } = require('uuid');
 
 class DRP_PathCmd {
     /**
@@ -224,6 +225,16 @@ class DRP_Node extends DRP_Securable {
             }
             returnToken = authResults.Token;
         }
+        return returnToken;
+    }
+
+    async GetConsumerTokenAnon() {
+        let thisNode = this;
+        let returnToken = null;
+        /** @type {DRP_AuthResponse} */
+        let authResults = new DRP_AuthResponse(uuidv4(), "Anonymous", "Anonymous", [], null, "Anonymous", thisNode.getTimestamp());
+        thisNode.ConsumerTokens[authResults.Token] = authResults;
+        returnToken = authResults.Token;
         return returnToken;
     }
 
@@ -1736,6 +1747,12 @@ class DRP_Node extends DRP_Securable {
         return isBroker;
     }
 
+    IsPortal() {
+        let thisNode = this;
+        let isBroker = thisNode.NodeRoles.indexOf("Portal") >= 0;
+        return isBroker;
+    }
+
     /**
      * Tell whether this Node is a proxy for another Node
      * @param {string} checkNodeID Node to check
@@ -1940,7 +1957,7 @@ class DRP_Node extends DRP_Securable {
 
         targetEndpoint.RegisterMethod("subscribe", async function (params, srcEndpoint, token) {
             // Only allow if the scope is local or this Node is a Broker
-            if (params.scope !== "local" && !thisNode.IsBroker()) return null;
+            if (params.scope !== "local" && !thisNode.IsBroker() && !thisNode.IsPortal()) return null;
 
             let sendFunction = async (message) => {
                 // Returns send status; error if not null
