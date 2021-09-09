@@ -1769,10 +1769,9 @@ class DRP_Node extends DRP_Securable {
     async GetTopology(params, callingEndpoint, token) {
         let thisNode = this;
         let topologyObj = {};
-        // We need to get a list of all nodes from the registry
-        let nodeIDList = Object.keys(thisNode.TopologyTracker.NodeTable);
-        for (let i = 0; i < nodeIDList.length; i++) {
-            let targetNodeID = nodeIDList[i];
+
+        // Define function to get topology per node
+        let GetTopologyInfoFromNode = async (targetNodeID) => {
             let topologyNode = {};
 
             let nodeTableEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
@@ -1789,10 +1788,18 @@ class DRP_Node extends DRP_Securable {
             // Assign Services
             topologyNode.Services = nodeServices;
 
-            // Add to hash
-            topologyObj[targetNodeID] = topologyNode;
+            // Return Node Topology
+            return topologyNode;
+        };
 
-        }
+        // We need to get a list of all nodes from the registry
+        let nodeIDList = Object.keys(thisNode.TopologyTracker.NodeTable);
+
+        // Get topology from all nodes
+        let topologyObjList = await Promise.all(nodeIDList.map(n => GetTopologyInfoFromNode(n)));
+
+        // Convert to dictionary
+        topologyObj = Object.assign({}, ...topologyObjList.map((x) => ({ [x.NodeID]: x })));
 
         return topologyObj;
     }
