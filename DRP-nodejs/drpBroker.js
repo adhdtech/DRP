@@ -54,7 +54,7 @@ myNode.AuthenticationServiceName = authenticatorService;
 myNode.RegistryUrl = registryUrl;
 myNode.ConnectToMesh(async () => {
     // Create VDM Server on node
-    let myVDMServer = new vdmServer(serviceName, myNode, webRoot, "vdmapplets", "xrapplets", null);
+    let myVDMServer = new vdmServer(serviceName, myNode, webRoot, "vdmapplets", "xrapplets", null, "DRP Desktop");
 
     myNode.AddService(myVDMServer);
     myNode.EnableREST("/Mesh", "Mesh", myNode.IsTrue(writeToLogger));

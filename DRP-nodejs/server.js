@@ -89,7 +89,7 @@ myNode.ConnectToMesh(async () => {
     //myNode.AddService(logger);
 
     // Create VDM Server on node
-    let myVDMServer = new vdmServer("VDM", myNode, webRoot, "vdmapplets", "xrapplets", null);
+    let myVDMServer = new vdmServer("VDM", myNode, webRoot, "vdmapplets", "xrapplets", null, "DRP Desktop");
     myNode.AddService(myVDMServer);
     myNode.EnableREST("/Mesh", "Mesh");
 
