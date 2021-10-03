@@ -1,6 +1,5 @@
 'use strict';
 const DRP_Service = require('drp-mesh').Service;
-var process = require('process');
 let node_ssh = require('node-ssh');
 
 const { Resolver } = require('dns').promises;
@@ -154,6 +153,7 @@ class NetScalerHost {
         this.ShowVersion = this.ShowVersion;
         this.GetHAStatus = this.GetHAStatus;
         this.GetRunningConfig = this.GetRunningConfig;
+        this.ShowAllVServers = this.ShowAllVServers;
     }
 
     // Show NS version
@@ -204,6 +204,21 @@ class NetScalerHost {
         thisNsHost.rawConfig = await thisNsHost.GetRunningConfig();
         thisNsHost.parsedConfig = thisNsHost.ParseConfigText(thisNsHost.rawConfig);
         thisNsHost.versionInfo = await thisNsHost.ShowVersion();
+    }
+
+    // Get all vServers
+    async ShowAllVServers() {
+        let thisNsHost = this;
+        try {
+            let resultsTextLB = await thisNsHost.ExecuteCommand(`show lb vserver -format TEXT`);
+            let objArrayLB = NetScalerHost.prototype.TextToObjArray(resultsTextLB);
+            let resultsTextCS = await thisNsHost.ExecuteCommand(`show cs vserver -format TEXT`);
+            let objArrayCS = NetScalerHost.prototype.TextToObjArray(resultsTextCS);
+            let returnArray = objArrayLB.concat(objArrayCS);
+            return returnArray;
+        } catch (ex) {
+            return ex;
+        }
     }
 
     // Parse command output, translate into objects
@@ -410,6 +425,27 @@ class NetScalerHost {
         ssh.dispose();
         return RegExp.$1 || resultsObj['stderr'];
     }
+
+    // Copy a file to this host
+    async PutFile(localFile, remoteFile) {
+        let thisNsHost = this;
+        let ssh = new node_ssh();
+
+        await ssh.connect({
+            host: thisNsHost.mgmtIP,
+            username: 'nsroot',
+            privateKey: thisNsHost.sshKeyFileName,
+            algorithms: {
+                serverHostKey: ['ssh-rsa', 'ssh-dss']
+            }
+        });
+
+        let resultsObj = await ssh.putFile(localFile, remoteFile);
+        ///Done\n((?:.*\n)*) Done$/.test(resultsObj['stdout']);
+        ssh.dispose();
+        //return RegExp.$1 || resultsObj['stderr'];
+        return "Complete";
+    }
 }
 
 class NetScalerSet {
@@ -434,6 +470,8 @@ class NetScalerSet {
         this.__nsManager = nsManager;
 
         this.lastHAquery = {};
+
+        this.ShowAllVServers = this.ShowAllVServers;
     }
 
     // Get the configs from each host then figure out which one is active
@@ -479,6 +517,12 @@ class NetScalerSet {
         let thisSet = this;
         let targetMember = thisSet.members[thisSet.activeMember];
         return await targetMember.ExecuteCommand(command, parameters, options);
+    }
+
+    async ShowAllVServers() {
+        let thisSet = this;
+        let targetMember = thisSet.members[thisSet.activeMember];
+        return await targetMember.ShowAllVServers();
     }
 }
 
@@ -653,7 +697,7 @@ class NetScalerManager extends DRP_Service {
 
                                 // Is the IP we're checking a member of this vServer?
                                 if (ipAddress === queryIP && port === queryPort) {
-                                    returnList.push({ "nsPairName": thisHAPair.name, "entryType": "Service", "entryName": serviceName});
+                                    returnList.push({ "nsPairName": thisHAPair.name, "entryType": "Service", "entryName": serviceName });
                                 }
                             }
                         }
