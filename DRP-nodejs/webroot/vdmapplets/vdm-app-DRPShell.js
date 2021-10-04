@@ -1831,9 +1831,14 @@
                         if (lineBufferHistory.length > 100) {
                             lineBufferHistory.pop();
                         }
+<<<<<<< HEAD
                         let execLine = lineBuffer;
                         lineBuffer = "";
                         await myApp.appVars.drpShell.ExecuteCLICommand(execLine);
+=======
+                        lineBuffer = "";
+                        await myApp.appVars.drpShell.ExecuteCLICommand(lineBuffer);
+>>>>>>> 7f750b9301bb1431654a02117c1cdc5d4bd2c720
                     }
                     lineCursorIndex = 0;
                     scrollbackIndex = 0;
