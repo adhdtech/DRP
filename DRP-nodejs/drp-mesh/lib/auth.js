@@ -31,10 +31,19 @@ class DRP_AuthResponse {
      * @param {string} authTimestamp Timestamp of authentication
      */
     constructor(token, userName, fullName, groups, misc, authService, authTimestamp) {
+        let groupList = [];
+        if (groups && groups.length > 0) {
+            if (typeof groups === "string") {
+                groupList.push(groups);
+            } else {
+                groupList = groups;
+            }
+        }
+
         this.Token = token;
         this.UserName = userName;
         this.FullName = fullName;
-        this.Groups = groups;
+        this.Groups = groupList;
         this.Misc = misc;
         this.AuthService = authService;
         this.AuthTimestamp = authTimestamp;
