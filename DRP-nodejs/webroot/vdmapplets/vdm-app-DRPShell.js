@@ -1831,10 +1831,10 @@
                         if (lineBufferHistory.length > 100) {
                             lineBufferHistory.pop();
                         }
-                        //await myApp.appFuncs.execDRPShell(term, lineBuffer);
-                        await myApp.appVars.drpShell.ExecuteCLICommand(lineBuffer);
+                        let execLine = lineBuffer;
+                        lineBuffer = "";
+                        await myApp.appVars.drpShell.ExecuteCLICommand(execLine);
                     }
-                    lineBuffer = "";
                     lineCursorIndex = 0;
                     scrollbackIndex = 0;
                     writeNewPrompt();
