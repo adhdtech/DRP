@@ -1831,10 +1831,9 @@
                         if (lineBufferHistory.length > 100) {
                             lineBufferHistory.pop();
                         }
-                        //await myApp.appFuncs.execDRPShell(term, lineBuffer);
+                        lineBuffer = "";
                         await myApp.appVars.drpShell.ExecuteCLICommand(lineBuffer);
                     }
-                    lineBuffer = "";
                     lineCursorIndex = 0;
                     scrollbackIndex = 0;
                     writeNewPrompt();
