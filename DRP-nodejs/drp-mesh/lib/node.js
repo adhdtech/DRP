@@ -1541,8 +1541,11 @@ class DRP_Node extends DRP_Securable {
                 }, async () => {
                     // Disconnect Callback; try again if we're not connected to another Registry
                     if (!thisNode.ConnectedToControlPlane) {
+                        thisNode.log(`Disconnected from Registry and not connected to control plane, waiting 5 seconds to see if we need to contact another Registry`);
                         await thisNode.Sleep(5000);
-                        thisNode.ConnectToRegistryByDomain();
+                        if (!thisNode.ConnectedToControlPlane) {
+                            thisNode.ConnectToRegistryByDomain();
+                        }
                     }
                 });
 
