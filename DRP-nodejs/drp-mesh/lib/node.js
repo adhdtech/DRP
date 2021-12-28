@@ -314,12 +314,27 @@ class DRP_Node extends DRP_Securable {
             // Check for authInfo:
             //   x-api-key - apps (static)
             //   x-api-token - users (dynamic)
-            if (req.headers['x-api-key'] || (req.headers.cookie && /^x-api-key=.*$/.test(req.headers.cookie))) {
+            let xapikey = null;
+            let xapitoken = null;
+
+            if (req.headers['x-api-key']) {
+                xapikey = req.headers['x-api-key'];
+            } else if (req.query['x-api-key']) {
+                xapikey = req.query['x-api-key'];
+            } else if (req.headers.cookie && /^x-api-key=.*$/.test(req.headers.cookie)) {
+                xapikey = req.headers.cookie.match(/^x-api-key=(.*)$/)[1];
+            } else if (req.headers['x-api-token']) {
+                xapitoken = req.headers['x-api-token'];
+            } else if (req.headers.cookie && /^x-api-token=.*$/.test(req.headers.cookie)) {
+                xapitoken = req.headers.cookie.match(/^x-api-token=(.*)$/)[1];
+            }
+
+            if (xapikey) {
                 authInfo.type = 'key';
-                authInfo.value = req.headers['x-api-key'] || req.headers.cookie.match(/^x-api-key=(.*)$/)[1];
-            } else if (req.headers['x-api-token'] || (req.headers.cookie && /^x-api-token=.*$/.test(req.headers.cookie))) {
+                authInfo.value = xapikey;
+            } else if (xapitoken) {
                 authInfo.type = 'token';
-                authInfo.value = req.headers['x-api-token'] || req.headers.cookie.match(/^x-api-token=(.*)$/)[1];
+                authInfo.value = xapitoken;
 
                 // Make sure the token is current
                 if (!thisNode.ConsumerTokens[authInfo.value]) {
@@ -2291,6 +2306,7 @@ class DRP_NodeClient extends DRP_Client {
         thisEndpoint.DRPNode.RemoveEndpoint(thisEndpoint, thisEndpoint.closeCallback);
 
         if (this.retryOnClose) {
+            thisEndpoint.DRPNode.log(`Will retry connection in 5 seconds...`, true);
             await thisEndpoint.DRPNode.Sleep(5000);
             this.RetryConnection();
         }
