@@ -6,7 +6,7 @@ set DEBUG=true
 set TESTMODE=true
 set AUTHENTICATORSERVICE=
 start "Registry1" node drpRegistry.js
-timeout /T 3
+timeout /T 1
 set PORT=8083
 start "Registry2" node drpRegistry.js
 timeout /T 1

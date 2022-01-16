@@ -111,7 +111,10 @@ class DRP_Node extends DRP_Securable {
         this.WebProxyURL = null;
 
         // By default, Registry nodes are "connected" to the Control Plane and non-Registry nodes aren't
-        this.ConnectedToControlPlane = thisNode.IsRegistry();
+        this.isConnectedToControlPlane = thisNode.IsRegistry();
+
+        // True if this node is currently attempting to connect to the control plane
+        this.isConnectingToControlPlane = false;
 
         // Wait time for Registry reconnect attempts
         this.ReconnectWaitTimeSeconds = 0;
@@ -1203,7 +1206,7 @@ class DRP_Node extends DRP_Securable {
             let routeNodeID = targetNodeID;
             let routeOptions = {};
 
-            if (thisNode.ConnectedToControlPlane && !useControlPlane) {
+            if (thisNode.isConnectedToControlPlane && !useControlPlane) {
                 let localNodeEntry = thisNode.TopologyTracker.NodeTable[thisNode.NodeID];
                 let remoteNodeEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
 
@@ -1229,7 +1232,7 @@ class DRP_Node extends DRP_Securable {
 
             if (useControlPlane) {
                 // We want to use to use the control plane instead of connecting directly to the target
-                if (thisNode.ConnectedToControlPlane) {
+                if (thisNode.isConnectedToControlPlane) {
                     routeNodeID = thisNode.TopologyTracker.GetNextHop(targetNodeID);
                     routeOptions = new DRP_RouteOptions(thisNode.NodeID, targetNodeID);
                 } else {
@@ -1315,8 +1318,14 @@ class DRP_Node extends DRP_Securable {
                 if (zoneRegistryList.length > 0) {
                     // Let's tell the remote Node to redirect
                     thisNode.log(`Redirecting Node[${declaration.NodeID}] to one of these registry URLs: ${zoneRegistryList}`);
-                    await sourceEndpoint.SendCmd("DRP", "connectToRegistryInList", zoneRegistryList, true, null, null);
-                    return;
+                    let redirectResults = await sourceEndpoint.SendCmd("DRP", "connectToRegistryInList", zoneRegistryList, true, null, null);
+                    if (redirectResults.payload) {
+                        // Successful - terminate connection
+                        sourceEndpoint.Close();
+                        return;
+                    } else {
+                        // Failure - client could not reach target Registry, let them stay here
+                    }
                 } else {
                     thisNode.log(`Could not find a Registry in Zone[${declaration.Zone}] for Node[${declaration.NodeID}]`);
                 }
@@ -1457,18 +1466,36 @@ class DRP_Node extends DRP_Securable {
      * Handle connection to Registry Node (post Hello)
      * @param {DRP_NodeClient} nodeClient Node client to Registry
      */
-    async RegistryClientHandler(nodeClient) {
+    async RegistryClientHandler(nodeClient, registryURL) {
         let thisNode = this;
         // Get peer info
         let getDeclarationResponse = await nodeClient.SendCmd("DRP", "getNodeDeclaration", null, true, null);
-        if (getDeclarationResponse && getDeclarationResponse.payload && getDeclarationResponse.payload.NodeID) {
-            let registryNodeID = getDeclarationResponse.payload.NodeID;
-            nodeClient.EndpointID = registryNodeID;
-            thisNode.NodeEndpoints[registryNodeID] = nodeClient;
-        } else return;
+        if (!getDeclarationResponse || !getDeclarationResponse.payload || !getDeclarationResponse.payload.NodeID) {
+            thisNode.log(`Tried connecting to Registry at ${registryURL}, but getNodeDeclaration failed`);
+            return false;
+        }
+
+        // Get Peer Declaration
+        let peerDeclaration = getDeclarationResponse.payload;
+
+        // Verify the Peer is a Registry
+        if (peerDeclaration.NodeRoles.indexOf("Registry") < 0) {
+            // Peer is not a Registry; disconnect
+            thisNode.log(`Tried connecting to Registry at ${registryURL}, but isConnectedToControlPlane == false`);
+            return false;
+        }
+
+        // Add to Endpoints
+        let registryNodeID = peerDeclaration.NodeID;
+        nodeClient.EndpointID = registryNodeID;
+        thisNode.NodeEndpoints[registryNodeID] = nodeClient;
 
         // Get Registry
-        thisNode.TopologyTracker.ProcessNodeConnect(nodeClient, getDeclarationResponse.payload);
+        await thisNode.TopologyTracker.ProcessNodeConnect(nodeClient, peerDeclaration);
+
+        thisNode.log(`Connected to Registry at ${registryURL}`);
+
+        return true;
     }
 
     /**
@@ -1477,7 +1504,7 @@ class DRP_Node extends DRP_Securable {
     * @param {function} openCallback Callback on connection open (Optional)
     * @param {function} closeCallback Callback on connection close (Optional)
     */
-    async ConnectToRegistry(registryURL, openCallback, closeCallback) {
+    async ConnectToRegistry(registryURL, openCallback, closeCallback, connTrackingObj) {
         let thisNode = this;
         let retryOnClose = true;
         if (!openCallback || typeof openCallback !== 'function') {
@@ -1486,42 +1513,52 @@ class DRP_Node extends DRP_Securable {
         if (closeCallback && typeof closeCallback === 'function') {
             retryOnClose = false;
         } else closeCallback = () => { };
+
         // Initiate Registry Connection
         let nodeClient = new DRP_NodeClient(registryURL, thisNode.WebProxyURL, thisNode, null, retryOnClose, async () => {
 
             // This is the callback which occurs after our Hello packet has been accepted
-            await thisNode.RegistryClientHandler(nodeClient);
-            openCallback();
-        }, closeCallback);
-    }
+            thisNode.log(`RegistryURL: ${registryURL}, IsRegistry: ${thisNode.IsRegistry()}, isConnectedToControlPlane: ${thisNode.isConnectedToControlPlane}`, true);
 
-    /**
-    * Connect to a Registry node via URL - used for retargeting
-    * @param {string} registryURL DRP Domain FQDN
-    * @param {function} openCallback Callback on connection open
-    * @param {function} closeCallback Callback on connection close
-    */
-    async ConnectToAnotherRegistry(registryURL, openCallback, closeCallback) {
-        let thisNode = this;
-
-        // Initiate Registry Connection
-        let nodeClient = new DRP_NodeClient(registryURL, thisNode.WebProxyURL, thisNode, null, false, async () => {
-            if (thisNode.ConnectedToControlPlane) {
-                thisNode.log(`We are already connected to the Control Plane!  No longer need connection to ${registryURL}`);
-                //nodeClient.Close();
+            // The client may have been redirected to another Registry; check that first
+            if (!thisNode.IsRegistry() && thisNode.isConnectedToControlPlane) {
+                // The client must have been successfully retargeted to another registry; quietly close the connection
+                nodeClient.Close();
                 return;
             }
-            // This is the callback which occurs after our Hello packet has been accepted
-            await thisNode.RegistryClientHandler(nodeClient);
-            openCallback();
+
+            // Run the normal RegistryClientHandler
+            let connectionSuccessful = await thisNode.RegistryClientHandler(nodeClient, registryURL);
+
+            if (connectionSuccessful) {
+                if (connTrackingObj && typeof connTrackingObj === 'object') {
+                    connTrackingObj.validatedRegistry = true;
+                }
+                openCallback();
+            } else {
+                nodeClient.Close();
+            }
+
         }, closeCallback);
     }
 
     // This is for non-Registry nodes
     async ConnectToRegistryByDomain() {
         let thisNode = this;
+
+        if (thisNode.isConnectingToControlPlane) {
+            thisNode.log(`Executed ConnectToRegistryByDomain, but isConnectingToControlPlane == true`, true);
+            return;
+        }
+
+        if (thisNode.isConnectedToControlPlane) {
+            thisNode.log(`Executed ConnectToRegistryByDomain, but isConnectedToControlPlane == true`, true);
+            return;
+        }
+
         // Look up SRV records for DNS
         thisNode.log(`Looking up a Registry Node for domain [${thisNode.DomainName}]...`);
+        thisNode.isConnectingToControlPlane = true;
         try {
             let srvHash = await thisNode.PingDomainRegistries(thisNode.DomainName);
             let srvKeys = Object.keys(srvHash);
@@ -1548,29 +1585,27 @@ class DRP_Node extends DRP_Securable {
                 // Connect to target
                 let registryURL = `${protocol}://${closestRegistry.name}:${closestRegistry.port}`;
 
-                let nodeClient = new DRP_NodeClient(registryURL, thisNode.WebProxyURL, thisNode, null, false, async () => {
-
-                    // This is the callback which occurs after our Hello packet has been accepted
-                    thisNode.RegistryClientHandler(nodeClient);
+                thisNode.ConnectToRegistry(registryURL, async () => {
+                    thisNode.isConnectingToControlPlane = false;
 
                 }, async () => {
+                    thisNode.isConnectingToControlPlane = false;
                     // Disconnect Callback; try again if we're not connected to another Registry
-                    if (!thisNode.ConnectedToControlPlane) {
-                        thisNode.log(`Disconnected from Registry and not connected to control plane, waiting 5 seconds to see if we need to contact another Registry`);
-                        await thisNode.Sleep(5000);
-                        if (!thisNode.ConnectedToControlPlane) {
-                            thisNode.ConnectToRegistryByDomain();
-                        }
+                    if (!thisNode.isConnectedToControlPlane && !thisNode.isConnectingToControlPlane) {
+                        thisNode.log(`Disconnected from Registry and not connected to control plane, contacting another Registry`);
+                        thisNode.ConnectToRegistryByDomain();
                     }
                 });
 
             } else {
+                thisNode.isConnectingToControlPlane = false;
                 thisNode.log(`Could not find active registry`);
                 await thisNode.Sleep(5000);
                 thisNode.ConnectToRegistryByDomain();
             }
 
         } catch (ex) {
+            thisNode.isConnectingToControlPlane = false;
             thisNode.log(`Error resolving DNS: ${ex}`);
             await thisNode.Sleep(5000);
             thisNode.ConnectToRegistryByDomain();
@@ -1612,17 +1647,27 @@ class DRP_Node extends DRP_Securable {
 
                     thisNode.ReconnectWaitTimeSeconds = 10;
 
+                    let connTrackingObj = {
+                        validatedRegistry: false
+                    };
+
                     let registryDisconnectCallback = async () => {
+                        if (!connTrackingObj.validatedRegistry) {
+                            return;
+                        }
+
                         // On failure, wait 10 seconds, see if the remote registry is connected back then try again
                         // For each attempt, increase the wait time by 10 seconds up to 5 minutes
                         await thisNode.Sleep(thisNode.ReconnectWaitTimeSeconds * 1000);
-                        if (!thisNode.TopologyTracker.GetNodeWithURL(registryURL)) {
-                            thisNode.ConnectToRegistry(registryURL, null, registryDisconnectCallback);
+                        let targetNodeID = thisNode.TopologyTracker.GetNodeWithURL(registryURL);
+                        if (!targetNodeID || !thisNode.NodeEndpoints[targetNodeID]) {
+                            // We're still not connected to the remote Registry, try again
+                            thisNode.ConnectToRegistry(registryURL, null, registryDisconnectCallback, connTrackingObj);
                             if (thisNode.ReconnectWaitTimeSeconds < 300) thisNode.ReconnectWaitTimeSeconds += 10;
                         }
                     };
 
-                    thisNode.ConnectToRegistry(registryURL, null, registryDisconnectCallback);
+                    thisNode.ConnectToRegistry(registryURL, null, registryDisconnectCallback, connTrackingObj);
                 }
             }
 
@@ -1645,15 +1690,17 @@ class DRP_Node extends DRP_Securable {
         // We've been asked to contact another Registry
         thisNode.log(`We've been asked to contact another Registry in list [${registryList}], selected ${targetRegistryURL}`);
 
-        returnVal = new Promise(function (resolve, reject) {
-            thisNode.ConnectToAnotherRegistry(targetRegistryURL, () => {
+        let returnVal = new Promise(function (resolve, reject) {
+            thisNode.ConnectToRegistry(targetRegistryURL, () => {
                 // We've connected to the new Registry; close the connection to the previous one
-                endpoint.Close();
-                resolve();
+                //thisNode.log(`Closing redundant Registry connection at ${endpoint.wsTarget}`);
+                //endpoint.Close();
+                resolve(true);
             }, () => {
                 // The connection closed; fallback to connection by domain (SRV lookup)
-                if (!thisNode.ConnectedToControlPlane) {
+                if (!thisNode.isConnectedToControlPlane && !thisNode.isConnectingToControlPlane) {
                     thisNode.ConnectToRegistryByDomain();
+                    resolve(false);
                 }
             });
         });
@@ -3000,9 +3047,9 @@ class DRP_TopologyTracker {
         }
 
         // Execute onControlPlaneConnect callback
-        if (!thisNode.IsRegistry() && sourceIsRegistry && !thisNode.ConnectedToControlPlane) {
+        if (!thisNode.IsRegistry() && sourceIsRegistry && !thisNode.isConnectedToControlPlane) {
             // We are connected to a Registry
-            thisNode.ConnectedToControlPlane = true;
+            thisNode.isConnectedToControlPlane = true;
             runCleanup = true;
             if (thisNode.onControlPlaneConnect && typeof thisNode.onControlPlaneConnect === "function" && !thisNode.HasConnectedToMesh) thisNode.onControlPlaneConnect();
             thisNode.HasConnectedToMesh = true;
@@ -3040,7 +3087,7 @@ class DRP_TopologyTracker {
             // for now and we'll run the StaleEntryCleanup when we connect to the next Registry.
             thisNode.log(`We disconnected from Registry Node[${disconnectedNodeID}] and have no other Registry connections`);
             delete thisTopologyTracker.NodeTable[disconnectedNodeID];
-            thisNode.ConnectedToControlPlane = false;
+            thisNode.isConnectedToControlPlane = false;
             return;
         }
 
@@ -3059,7 +3106,7 @@ class DRP_TopologyTracker {
             }
         }
 
-        if (thisNode.ConnectedToControlPlane) thisNode.TopologyTracker.StaleEntryCleanup();
+        if (thisNode.isConnectedToControlPlane) thisNode.TopologyTracker.StaleEntryCleanup();
     }
 
     /**
