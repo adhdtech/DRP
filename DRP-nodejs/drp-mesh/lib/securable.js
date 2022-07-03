@@ -124,11 +124,41 @@ class DRP_Securable {
         }
         return isAllowed;
     }
+}
+
+class DRP_VirtualDirectory extends DRP_Securable {
+    constructor(securedObject, permissionSet) {
+        super(permissionSet);
+    }
 
     async __Read(callerAuthInfo, ...params) {
     }
 
     async __Write(callerAuthInfo, ...params) {
+    }
+}
+
+class DRP_VirtualObject extends DRP_Securable {
+    constructor(securedObject, permissionSet) {
+        super(permissionSet);
+    }
+
+    async __Read(callerAuthInfo, ...params) {
+    }
+
+    async __Write(callerAuthInfo, ...params) {
+    }
+}
+
+class DRP_VirtualFunction extends DRP_Securable {
+    constructor(securedObject, permissionSet) {
+        super(permissionSet);
+
+        this.name = name;
+        this.description = description || '';
+        this.usage = usage || '';
+        this.switches = switches || {};
+        this.execute = execute || (() => { })();
     }
 
     async __Execute(callerAuthInfo, ...params) {
@@ -142,15 +172,11 @@ class DRP_Securable {
     }
 }
 
-class DRP_VirtualDirectory extends DRP_Securable {
-    constructor(securedObject, permissionSet) {
-        super(securedObject, permissionSet);
-    }
-}
-
 module.exports = {
     DRP_Permission: DRP_Permission,
     DRP_PermissionSet: DRP_PermissionSet,
     DRP_Securable: DRP_Securable,
-    DRP_VirtualDirectory: DRP_VirtualDirectory
+    DRP_VirtualDirectory: DRP_VirtualDirectory,
+    DRP_VirtualObject: DRP_VirtualObject,
+    DRP_VirtualFunction: DRP_VirtualFunction
 }

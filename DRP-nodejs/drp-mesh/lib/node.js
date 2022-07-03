@@ -15,7 +15,7 @@ const DRP_RouteHandler = require("./routehandler");
 const { DRP_WebServer, DRP_WebServerConfig } = require("./webserver");
 const { DRP_SubscribableSource, DRP_Subscriber } = require('./subscription');
 const { DRP_AuthRequest, DRP_AuthResponse, DRP_AuthFunction } = require('./auth');
-const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Stream, DRP_RouteOptions } = require('./packet');
+const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Stream, DRP_RouteOptions, DRP_CmdError, DRP_ErrorCode } = require('./packet');
 const { DRP_VirtualDirectory, DRP_Permission, DRP_PermissionSet, DRP_Securable } = require('./securable');
 const Express_Request = express.request;
 const Express_Response = express.response;
@@ -361,31 +361,25 @@ class DRP_Node extends DRP_Securable {
 
             let listOnly = false;
             let format = null;
-            let resCode = 404;
+            let resCode = 200;
 
-            if (req.query.listOnly) listOnly = true;
-            if (req.query.format) format = 1;
+            if (req.query.listOnly) listOnly = thisNode.IsTrue(req.query.listOnly);
+            if (req.query.format) format = thisNode.IsTrue(req.query.format);
 
             // Treat as "getPath"
             let resultString = "";
 
             try {
                 let resultObj = await thisNode.GetObjFromPath({ "method": "cliGetPath", "pathList": basePathArray.concat(remainingPath), "listOnly": listOnly, "AuthInfo": authInfo, "body": req.body }, thisNode.GetBaseObj());
-                if (!resultObj || !resultObj.pathItem && !resultObj.pathItemList || resultObj.pathItemList && !resultObj.pathItemList.length) {
-                    // No results
+
+                if (listOnly && resultObj.pathItemList) {
+                    resultString = JSON.stringify(resultObj.pathItemList, null, format);
                 } else {
-                    resCode = 200;
-                    if (resultObj.pathItem) {
-                        resultString = JSON.stringify(resultObj.pathItem, null, format);
-                    } else if (resultObj.pathItemList) {
-                        resultString = JSON.stringify(resultObj.pathItemList, null, format);
-                    } else {
-                        resultString = JSON.stringify(resultObj, null, format);
-                    }
+                    resultString = JSON.stringify(resultObj.pathItem, null, format);
                 }
-            } catch (e) {
-                resCode = 500;
-                resultString = `Failed to stringify response: ${e}`;
+            } catch (ex) {
+                resCode = ex.code || 500;
+                resultString = ex.message;
             }
             res.status(resCode).send(resultString);
             let logMessage = {
@@ -691,6 +685,12 @@ class DRP_Node extends DRP_Securable {
         return results;
     }
 
+    /**
+     * Send PathCmd to Remote Node
+     * @param {string} targetNodeID
+     * @param {Object} params
+     * @returns {any}
+     */
     async SendPathCmdToNode(targetNodeID, params) {
         let thisNode = this;
         let oReturnObject = null;
@@ -699,11 +699,14 @@ class DRP_Node extends DRP_Securable {
             // The target NodeID is local
             oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
         } else {
+            oReturnObject = await thisNode.ServiceCmd("DRP", "pathCmd", params, targetNodeID, null, true, true, null);
+            /*
             try {
                 oReturnObject = await thisNode.ServiceCmd("DRP", "pathCmd", params, targetNodeID, null, true, true, null);
             } catch (ex) {
                 thisNode.log(`Could not find instance of DRP service for NodeID [${targetNodeID}]`);
             }
+            */
         }
         return oReturnObject;
     }
@@ -836,7 +839,9 @@ class DRP_Node extends DRP_Securable {
                         params.pathList = ['Services', serviceName].concat(remainingChildPath);
 
                         let targetServiceEntry = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
-                        if (!targetServiceEntry) return;
+                        if (!targetServiceEntry) {
+                            throw new DRP_CmdError("Not found", DRP_ErrorCode.NOTFOUND, "pathCmd");
+                        };
 
                         let targetNodeID = targetServiceEntry.NodeID;
                         //thisNode.log(`Calling node ${targetNodeID}`);
@@ -867,6 +872,8 @@ class DRP_Node extends DRP_Securable {
             PathLoop:
             for (let i = 0; i < aChildPathArray.length; i++) {
 
+                let isFinalItem = (i + 1 === aChildPathArray.length)
+
                 let pathItemName = aChildPathArray[i];
 
                 // User is trying to access a hidden attribute; return null
@@ -883,7 +890,9 @@ class DRP_Node extends DRP_Securable {
                             if (oCurrentObject[pathItemName].__permissionSet) {
                                 // This is a securable item - verify the caller has permissions to see it
                                 let isAllowed = oCurrentObject[pathItemName].__IsAllowed(params.AuthInfo, "read");
-                                if (!isAllowed) return { err: "Unauthorized" };
+                                if (!isAllowed) {
+                                    throw new DRP_CmdError("Unauthorized", DRP_ErrorCode.UNAUTHORIZED, "pathCmd");
+                                }
                             }
 
                             // Special handling needed for Set objects
@@ -929,11 +938,7 @@ class DRP_Node extends DRP_Securable {
                             oReturnObject = await oCurrentObject[pathItemName](params, callingEndpoint);
                             break PathLoop;
                         case 'string':
-                            oReturnObject = oCurrentObject[pathItemName];
-                            break PathLoop;
                         case 'number':
-                            oReturnObject = oCurrentObject[pathItemName];
-                            break PathLoop;
                         case 'boolean':
                             oReturnObject = oCurrentObject[pathItemName];
                             break PathLoop;
@@ -943,7 +948,7 @@ class DRP_Node extends DRP_Securable {
 
                 } else {
                     // Child doesn't exist
-                    break PathLoop;
+                    throw new DRP_CmdError("Not found", DRP_ErrorCode.NOTFOUND, "pathCmd");
                 }
             }
         }
@@ -965,11 +970,15 @@ class DRP_Node extends DRP_Securable {
         // If we have a return object and want only a list of children, do that now
         if (params.listOnly) {
             if (oReturnObject instanceof Object) {
-                if (oReturnObject.err) return oReturnObject;
+                if (oReturnObject.err) {
+                    return oReturnObject;
+                }
                 if (!oReturnObject.pathItemList) {
                     // Return only child keys and data types
                     oReturnObject = { pathItemList: this.ListObjChildren(oReturnObject) };
                 }
+            } else {
+                throw new DRP_CmdError("Not a directory", DRP_ErrorCode.BADREQUEST, "GetObjFromPath");
             }
         } else if (oReturnObject) {
             if (oReturnObject instanceof Object) {
@@ -1248,11 +1257,14 @@ class DRP_Node extends DRP_Securable {
             if (!routeNodeConnection) {
                 let errMsg = `Could not establish connection from Node[${thisNode.NodeID}] to Node[${routeNodeID}]`;
                 thisNode.log(`ERROR - ${errMsg}`);
-                return errMsg;
+                throw new DRP_CmdError(errMsg, DRP_ErrorCode.SVCERR, "VerifyNodeConnection");
             }
 
             if (awaitResponse) {
                 let cmdResponse = await routeNodeConnection.SendCmd(serviceName, method, params, true, null, routeOptions, targetServiceInstanceID);
+                if (cmdResponse.err) {
+                    throw cmdResponse.err
+                }
                 return cmdResponse.payload;
             } else {
                 routeNodeConnection.SendCmd(serviceName, method, params, false, null, routeOptions, targetServiceInstanceID);
@@ -2086,7 +2098,7 @@ class DRP_Node extends DRP_Securable {
 
             let sendFunction = async (message) => {
                 // Returns send status; error if not null
-                return await srcEndpoint.SendReply(params.streamToken, 2, message);
+                return await srcEndpoint.SendReply(params.streamToken, 2, null, message);
             };
             let sendFailCallback = async (sendFailMsg) => {
                 // Failed to send; may have already disconnected, take no further action

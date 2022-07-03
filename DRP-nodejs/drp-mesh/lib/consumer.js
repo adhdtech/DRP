@@ -66,9 +66,9 @@ class DRP_ConsumerClient extends DRP_Client {
             }
         });
 
-        let response = await thisEndpoint.SendCmd("DRP", "subscribe", { "topicName": topicName, "streamToken": streamToken, "scope": scope }, true, null);
+        let replyPacket = await thisEndpoint.SendCmd("DRP", "subscribe", { "topicName": topicName, "streamToken": streamToken, "scope": scope }, true, null);
 
-        if (response.status === 0) {
+        if (replyPacket.err) {
             thisEndpoint.DeleteReplyHandler(streamToken);
             thisEndpoint.log("Subscribe failed, deleted handler");
         } else {

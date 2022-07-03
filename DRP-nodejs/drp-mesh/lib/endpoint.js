@@ -4,7 +4,7 @@
 //const DRP_Node = require('./node');
 //const DRP_SubscribableSource = require('./subscription').DRP_SubscribableSource;
 const DRP_Subscriber = require('./subscription').DRP_Subscriber;
-const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_RouteOptions } = require('./packet');
+const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Reply_Error, DRP_RouteOptions, DRP_CmdError } = require('./packet');
 
 const WebSocket = require('ws');
 
@@ -148,17 +148,18 @@ class DRP_Endpoint {
      * Send reply to received command
      * @param {string} token Reply token
      * @param {number} status Reply status [0: fail, 1: success, 2: more data coming]
+     * @param {DRP_Reply_Error} err Reply error object
      * @param {any} payload Payload to send
      * @param {DRP_RouteOptions} routeOptions Route options
      * @returns {number} Error string
      */
-    SendReply(token, status, payload, routeOptions) {
+    SendReply(token, status, err, payload, routeOptions) {
         let thisEndpoint = this;
         let packetString = null;
         let packetObj = null;
 
         try {
-            packetObj = new DRP_Reply(token, status, payload, routeOptions);
+            packetObj = new DRP_Reply(token, status, err, payload, routeOptions);
             packetString = JSON.stringify(packetObj);
         } catch (e) {
             packetObj = new DRP_Reply(token, 0, `Failed to stringify response: ${e}`);
@@ -175,7 +176,8 @@ class DRP_Endpoint {
         let thisEndpoint = this;
 
         var cmdResults = {
-            status: 0,
+            status: 1,
+            err: null,
             output: null
         };
 
@@ -190,9 +192,8 @@ class DRP_Endpoint {
         // Execute method
         try {
             cmdResults.output = await thisEndpoint.DRPNode.ServiceCmd(cmdPacket.serviceName, cmdPacket.method, cmdPacket.params, null, cmdPacket.serviceInstanceID, false, true, thisEndpoint);
-            cmdResults.status = 1;
         } catch (err) {
-            cmdResults.output = err.message;
+            cmdResults.err = err;
         }
 
         // Reply with results
@@ -201,7 +202,7 @@ class DRP_Endpoint {
             if (cmdPacket.routeOptions && cmdPacket.routeOptions.tgtNodeID === thisEndpoint.DRPNode.NodeID) {
                 routeOptions = new DRP_RouteOptions(thisEndpoint.DRPNode.NodeID, cmdPacket.routeOptions.srcNodeID);
             }
-            thisEndpoint.SendReply(cmdPacket.token, cmdResults.status, cmdResults.output, routeOptions);
+            thisEndpoint.SendReply(cmdPacket.token, cmdResults.status, cmdResults.err, cmdResults.output, routeOptions);
         }
 
         //console.dir(cmdResults);
@@ -223,7 +224,7 @@ class DRP_Endpoint {
             thisEndpoint.ReplyHandlerQueue[replyPacket.token](replyPacket);
 
             // Delete if the status < 2
-            if (!replyPacket.status || replyPacket.status < 2) {
+            if (replyPacket.status < 2) {
                 delete thisEndpoint.ReplyHandlerQueue[replyPacket.token];
             }
 

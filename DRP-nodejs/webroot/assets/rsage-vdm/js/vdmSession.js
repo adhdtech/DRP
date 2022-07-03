@@ -85,7 +85,16 @@ class rSageApplet extends VDMApplet {
         let returnData = null;
 
         let response = await thisApplet.vdmSession.drpClient.SendCmd(serviceName, cmdName, cmdData, awaitResponse, null);
-        if (response) returnData = response.payload;
+
+        if (!response || typeof response.payload === 'undefined') {
+            throw new Error("Empty DRP_Reply received")
+        }
+
+        if (response.err) {
+            throw response.err;
+        }
+
+        returnData = response.payload;
 
         return returnData;
     }
