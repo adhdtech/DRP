@@ -59,7 +59,7 @@ class DRP_Endpoint_Browser {
             // We don't expect a response; leave reply token null
         }
 
-        let cmdPacket = new DRP_Cmd(serviceName, cmd, params, token);
+        let cmdPacket = new DRP_Client_Cmd(serviceName, cmd, params, token);
         thisEndpoint.wsConn.send(JSON.stringify(cmdPacket));
         //console.log("SEND -> " + JSON.stringify(sendCmd));
         return returnVal;
@@ -84,7 +84,7 @@ class DRP_Endpoint_Browser {
             });
         });
 
-        let cmdPacket = new DRP_Cmd(serviceName, cmd, params, token);
+        let cmdPacket = new DRP_Client_Cmd(serviceName, cmd, params, token);
         thisEndpoint.wsConn.send(JSON.stringify(cmdPacket));
         //console.log("SEND -> " + JSON.stringify(sendCmd));
 
@@ -93,7 +93,7 @@ class DRP_Endpoint_Browser {
 
     SendReply(wsConn, token, status, payload) {
         if (wsConn.readyState === WebSocket.OPEN) {
-            let replyPacket = new DRP_Reply(token, status, payload);
+            let replyPacket = new DRP_Client_Reply(token, status, payload);
             wsConn.send(JSON.stringify(replyPacket));
             //console.log("SEND -> " + JSON.stringify(replyCmd));
             return 0;
@@ -105,7 +105,7 @@ class DRP_Endpoint_Browser {
     /**
      * 
      * @param {any} wsConn WebSocket Connection
-     * @param {DRP_Cmd} cmdPacket Message to process
+     * @param {DRP_Client_Cmd} cmdPacket Message to process
      */
     async ProcessCmd(wsConn, cmdPacket) {
         let thisEndpoint = this;
@@ -428,7 +428,7 @@ class DRP_Client_Browser extends DRP_Endpoint_Browser {
     }
 }
 
-class DRP_Cmd {
+class DRP_Client_Cmd {
     constructor(serviceName, method, params, token) {
         this.type = "cmd";
         this.method = method;
@@ -438,7 +438,7 @@ class DRP_Cmd {
     }
 }
 
-class DRP_Reply {
+class DRP_Client_Reply {
     constructor(token, status, payload) {
         this.type = "reply";
         this.token = token;
@@ -447,7 +447,7 @@ class DRP_Reply {
     }
 }
 
-class DRP_Stream {
+class DRP_Client_Stream {
     constructor(token, status, payload) {
         this.type = "stream";
         this.token = token;
