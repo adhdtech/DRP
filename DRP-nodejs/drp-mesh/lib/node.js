@@ -39,7 +39,7 @@ class DRP_NodeDeclaration {
     /**
      * 
      * @param {string} nodeID Node ID
-     * @param {string[]} nodeRoles Functional Roles ['Registry','Broker','Provider','Logger']
+     * @param {string[]} nodeRoles Functional Roles ['Registry','Broker','Provider','Producer','Logger']
      * @param {string} hostID Host Identifier
      * @param {string} nodeURL Listening URL (optional)
      * @param {string} domainName Domain Name
@@ -62,7 +62,7 @@ class DRP_NodeDeclaration {
 class DRP_Node extends DRP_Securable {
     /**
      * 
-     * @param {string[]} nodeRoles List of Roles: Broker, Provider, Registry 
+     * @param {string[]} nodeRoles Functional Roles ['Registry','Broker','Provider','Producer','Logger']
      * @param {string} hostID Host Identifier
      * @param {string} domainName DRP Domain Name
      * @param {string} meshKey DRP Mesh Key
