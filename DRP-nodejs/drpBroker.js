@@ -1,6 +1,5 @@
 'use strict';
 const DRP_Node = require('drp-mesh').Node;
-const DRP_WebServer = require('drp-mesh').WebServer;
 const vdmServer = require('drp-service-rsage').VDM;
 const os = require("os");
 
@@ -13,6 +12,7 @@ let zoneName = process.env.ZONENAME || "MyZone";
 let registryUrl = process.env.REGISTRYURL || null;
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;
+let useSwagger = process.env.USESWAGGER || false;
 let authenticatorService = process.env.AUTHENTICATORSERVICE || null;
 
 // Service specific variables
@@ -48,8 +48,9 @@ let roleList = ["Broker"];
 // Create Node
 console.log(`Starting DRP Node`);
 let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myServerConfig, drpWSRoute);
-myNode.Debug = debug;
-myNode.TestMode = testMode;
+myNode.Debug = myNode.IsTrue(debug);
+myNode.TestMode = myNode.IsTrue(testMode);
+myNode.UseSwagger = myNode.IsTrue(useSwagger);
 myNode.AuthenticationServiceName = authenticatorService;
 myNode.RegistryUrl = registryUrl;
 myNode.ConnectToMesh(async () => {
@@ -58,6 +59,11 @@ myNode.ConnectToMesh(async () => {
 
     myNode.AddService(myVDMServer);
     myNode.EnableREST("/Mesh", "Mesh", myNode.IsTrue(writeToLogger));
+
+    if (myNode.UseSwagger) {
+        let DRP_SwaggerUI = require('drp-swaggerui')
+        new DRP_SwaggerUI(myNode, '/api-doc');
+    }
 
     if (myNode.ListeningName) {
         myNode.log(`Listening at: ${myNode.ListeningName}`);

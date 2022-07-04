@@ -4,6 +4,7 @@ set PORT=8082
 set ZONENAME=zone1
 set DEBUG=true
 set TESTMODE=true
+set USESWAGGER=true
 set AUTHENTICATORSERVICE=
 start "Registry1" node drpRegistry.js
 timeout /T 1

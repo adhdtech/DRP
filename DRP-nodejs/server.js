@@ -93,6 +93,9 @@ myNode.ConnectToMesh(async () => {
     myNode.AddService(myVDMServer);
     myNode.EnableREST("/Mesh", "Mesh");
 
+    let DRP_SwaggerUI = require('drp-swaggerui')
+    new DRP_SwaggerUI(myNode, '/api-doc');
+
     // Add DocMgr service
     let myDocMgr = new DocMgr("DocMgr", myNode, 10, 10, "global", "jsondocs", null, null, null);
     myNode.AddService(myDocMgr);

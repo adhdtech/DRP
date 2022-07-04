@@ -1,0 +1,20 @@
+{
+  "name": "drp-broker-swaggerui",
+  "version": "1.0.0",
+  "description": "DRP Swagger UI Service",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "drp",
+    "broker",
+    "swagger"
+  ],
+  "author": "Pete Brown <jpbrown@adhdtech.com>",
+  "license": "ISC",
+  "dependencies": {
+    "swagger-ui-express": "^4.1.4",
+    "drp-mesh": "*"
+  }
+}

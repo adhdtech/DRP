@@ -23,6 +23,7 @@
   "dependencies": {
     "cucm-sql-async": "./cucm-sql-async",
     "drp-mesh": "./drp-mesh",
+    "drp-swaggerui": "./drp-swaggerui",
     "drp-service-bluecat": "./drp-service-bluecat",
     "drp-service-cache": "./drp-service-cache",
     "drp-service-docmgr": "./drp-service-docmgr",
