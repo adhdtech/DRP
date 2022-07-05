@@ -753,8 +753,6 @@ class DRP_Node extends DRP_Securable {
             PathLoop:
             for (let i = 0; i < aChildPathArray.length; i++) {
 
-                let isFinalItem = (i + 1 === aChildPathArray.length)
-
                 let pathItemName = aChildPathArray[i];
 
                 // User is trying to access a hidden attribute; return null
