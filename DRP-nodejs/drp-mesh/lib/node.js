@@ -61,6 +61,7 @@ class DRP_Node extends DRP_Securable {
     #MeshKey
     #debug
     #testMode
+    #useSwagger
     /**
      * 
      * @param {string[]} nodeRoles Functional Roles ['Registry','Broker','Provider','Producer','Logger']
@@ -89,6 +90,8 @@ class DRP_Node extends DRP_Securable {
         /** @type{string} */
         this.RegistryUrl = null;
         this.Debug = false;
+        this.TestMode = false;
+        this.UseSwagger = false;
         /** @type{string} */
         this.AuthenticationServiceName = null;
         this.HasConnectedToMesh = false;
@@ -176,6 +179,10 @@ class DRP_Node extends DRP_Securable {
     /** @type boolean */
     get TestMode() { return this.#testMode }
     set TestMode(val) { this.#testMode = this.IsTrue(val) }
+
+    /** @type boolean */
+    get UseSwagger() { return this.#useSwagger }
+    set UseSwagger(val) { this.#useSwagger = this.IsTrue(val) }
 
     /**
      * Print message to stdout
@@ -781,7 +788,8 @@ class DRP_Node extends DRP_Securable {
          * to map the params.method(usually GetItem) to read/write/execute
          */
 
-        let oReturnObject = null;
+        let outputObject = null;
+        let returnObject = null;
         let listOnly = false;
         let writeOperation = false;
         let functionExecuted = false;
@@ -789,14 +797,14 @@ class DRP_Node extends DRP_Securable {
         switch (params.method) {
             case "SetItem":
             case "NewItem":
-                // To create an item, one of the following conventions must be used:
-                // (FILEDATA) -> .../VirtualDirectory/itemKey   Explicit key
-                // (FILEDATA) -> .../VirtualDirectory           Dynamic key
-                // If successful, the key of the new object will be returned via pathItemAffected
+            // To create an item, one of the following conventions must be used:
+            // (FILEDATA) -> .../VirtualDirectory/itemKey   Explicit key
+            // (FILEDATA) -> .../VirtualDirectory           Dynamic key
+            // If successful, the key of the new object will be returned via pathItemAffected
             case "CopyItem":
-                // To copy an item, this convention must be used:
-                // (NEWKEY) -> .../VirtualDirectory/ORIGINALKEY
-                // If successful, the key of the new object will be returned via pathItemAffected
+            // To copy an item, this convention must be used:
+            // (NEWKEY) -> .../VirtualDirectory/ORIGINALKEY
+            // If successful, the key of the new object will be returned via pathItemAffected
             case "RemoveItem":
                 // To remove an item, this convention must be used:
                 // () -> .../VirtualDirectory/itemKey   Explicit key
@@ -821,7 +829,7 @@ class DRP_Node extends DRP_Securable {
         // Do we have a path array?
         if (aChildPathArray.length === 0) {
             // No - act on parent object
-            oReturnObject = oCurrentObject;
+            outputObject = oCurrentObject;
         } else {
             // Yes - get child
             PathLoop:
@@ -839,12 +847,12 @@ class DRP_Node extends DRP_Securable {
                 if (pathItemName.substring(0, 2) === '__') return null;
 
                 // Does the child exist?
-                if (pathItemName in oCurrentObject) {
+                if (oCurrentObject.hasOwnProperty(pathItemName)) {
 
                     // If the value is null, return it
                     if (oCurrentObject[pathItemName] === null) {
                         if (isFinalItem()) {
-                            oReturnObject = null;
+                            outputObject = null;
                             break;
                         } else {
                             throw new DRP_CmdError(`Object is not traversable`, DRP_ErrorCode.BADREQUEST, "PathCmd");
@@ -874,7 +882,7 @@ class DRP_Node extends DRP_Securable {
                                     oCurrentObject = oCurrentObject[pathItemName];
                                     if (isFinalItem()) {
                                         // Last one - make this the return object
-                                        oReturnObject = [...oCurrentObject];
+                                        outputObject = [...oCurrentObject];
                                     } else {
                                         // More to the path; skip to the next one
                                         i++;
@@ -892,7 +900,7 @@ class DRP_Node extends DRP_Securable {
 
                                         if (isFinalItem()) {
                                             // Last one - make this the return object
-                                            oReturnObject = oCurrentObject;
+                                            outputObject = oCurrentObject;
                                         }
                                     }
                                     break;
@@ -901,7 +909,7 @@ class DRP_Node extends DRP_Securable {
                                     oCurrentObject = oCurrentObject[pathItemName];
                                     if (isFinalItem()) {
                                         // Last one - make this the return object
-                                        oReturnObject = oCurrentObject;
+                                        outputObject = oCurrentObject;
                                     }
                             }
                             break;
@@ -910,7 +918,7 @@ class DRP_Node extends DRP_Securable {
                             let remainingPath = aChildPathArray.splice(i + 1);
                             params.pathList = remainingPath;
                             // Must be called this way so the method is aware of the parent
-                            oReturnObject = await oCurrentObject[pathItemName](params, callingEndpoint);
+                            outputObject = await oCurrentObject[pathItemName](params, callingEndpoint);
                             functionExecuted = true;
                             // The function processed the rest of the path list so we'll break out of the loop
                             break PathLoop;
@@ -921,7 +929,7 @@ class DRP_Node extends DRP_Securable {
                                 // There are more elements in the path list, but there is nothing past this object
                                 throw new DRP_CmdError(`Object is not traversable`, DRP_ErrorCode.BADREQUEST, "PathCmd");
                             }
-                            oReturnObject = oCurrentObject[pathItemName];
+                            outputObject = oCurrentObject[pathItemName];
                             break;
                         default:
                             // Unknown object type
@@ -939,7 +947,7 @@ class DRP_Node extends DRP_Securable {
             throw new DRP_CmdError(`Target is not writeable`, DRP_ErrorCode.BADREQUEST, "PathCmd");
         }
 
-        if (writeOperation && functionExecuted && (!oReturnObject || !oReturnObject.pathItemAffected)) {
+        if (writeOperation && functionExecuted && (!outputObject || !outputObject.pathItemAffected)) {
             throw new DRP_CmdError(`Target rejected operation`, DRP_ErrorCode.BADREQUEST, "PathCmd");
         }
 
@@ -948,25 +956,29 @@ class DRP_Node extends DRP_Securable {
             // Make sure the return object is properly encapsulated.
             // If this node had to fetch the path from another node,
             // it will already be encapsulated.
-            if (oReturnObject instanceof Object) {
-                if (!oReturnObject.pathItemList) {
+            if (outputObject instanceof Object) {
+                if (outputObject.pathItemList) {
+                    returnObject = outputObject
+                } else {
                     // Return only child keys and data types
-                    oReturnObject = { pathItemList: this.ListObjChildren(oReturnObject) };
+                    returnObject = { pathItemList: this.ListObjChildren(outputObject) };
                 }
             } else {
                 throw new DRP_CmdError(`Object is not traversable`, DRP_ErrorCode.BADREQUEST, "PathCmd");
             }
-        } else if (oReturnObject) {
+        } else {
             // Make sure the return object is properly encapsulated.
             // If this node had to fetch the path from another node,
             // it will already be encapsulated.
-            if (!(oReturnObject instanceof Object) || !oReturnObject["pathItem"]) {
+            if (outputObject instanceof Object && "pathItem" in outputObject) {
+                returnObject = outputObject
+            } else {
                 // Return object as item
-                oReturnObject = { pathItem: oReturnObject };
+                returnObject = { pathItem: outputObject };
             }
         }
 
-        return oReturnObject;
+        return returnObject;
     }
 
     /**

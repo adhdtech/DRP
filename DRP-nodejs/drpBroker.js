@@ -48,9 +48,9 @@ let roleList = ["Broker"];
 // Create Node
 console.log(`Starting DRP Node`);
 let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myServerConfig, drpWSRoute);
-myNode.Debug = myNode.IsTrue(debug);
-myNode.TestMode = myNode.IsTrue(testMode);
-myNode.UseSwagger = myNode.IsTrue(useSwagger);
+myNode.Debug = debug;
+myNode.TestMode = testMode;
+myNode.UseSwagger = useSwagger;
 myNode.AuthenticationServiceName = authenticatorService;
 myNode.RegistryUrl = registryUrl;
 myNode.ConnectToMesh(async () => {
