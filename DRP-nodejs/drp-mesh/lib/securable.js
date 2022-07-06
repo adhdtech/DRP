@@ -74,23 +74,23 @@ class DRP_Securable {
      * @param {DRP_AuthInfo} callerAuthInfo
      * @param {string} operationType
      */
-    __IsAllowed(callerAuthInfo, operationType) {
+    CheckPermission(callerAuthInfo, operationType) {
         try {
             if (callerAuthInfo && callerAuthInfo.type) {
                 // Is it a token or a key?
                 switch (callerAuthInfo.type) {
                     case 'key':
                         // Check API key permissions
-                        return this.__CheckPermission(this.__permissionSet.Keys[callerAuthInfo.value], operationType);
+                        return this.#IsOperationAllowed(this.__permissionSet.Keys[callerAuthInfo.value], operationType);
                         break;
                     case 'token':
                         // Check individual permissions
-                        if (this.__CheckPermission(this.__permissionSet.Users[callerAuthInfo.userInfo.UserName], operationType)) return true;
+                        if (this.#IsOperationAllowed(this.__permissionSet.Users[callerAuthInfo.userInfo.UserName], operationType)) return true;
 
                         // Check group permissions
                         for (let i = 0; i < callerAuthInfo.userInfo.Groups.length; i++) {
                             let userGroupName = callerAuthInfo.userInfo.Groups[i];
-                            if (this.__CheckPermission(this.__permissionSet.Groups[userGroupName], operationType)) return true;
+                            if (this.#IsOperationAllowed(this.__permissionSet.Groups[userGroupName], operationType)) return true;
                         }
                         break;
                     default:
@@ -107,7 +107,7 @@ class DRP_Securable {
      * @param {DRP_Permission} thisPermission
      * @param {string} operationType
      */
-    __CheckPermission(thisPermission, operationType) {
+    #IsOperationAllowed(thisPermission, operationType) {
         if (!thisPermission) return false;
         let isAllowed = false;
         switch (operationType) {

@@ -260,7 +260,7 @@ class DRP_Endpoint_Browser {
         return pathObjList;
     }
 
-    async GetObjFromPath(params, baseObj) {
+    async PathCmd(params, baseObj) {
 
         let aChildPathArray = params.pathList;
 
@@ -269,6 +269,18 @@ class DRP_Endpoint_Browser {
 
         // Return object
         let oReturnObject = null;
+
+        let listOnly = false;
+
+        switch (params.method) {
+            case "GetItem":
+                break;
+            case "GetChildItems":
+                listOnly = true;
+                break;
+            default:
+                return null;
+        }
 
         // Do we have a path array?
         if (aChildPathArray.length === 0) {
@@ -279,17 +291,28 @@ class DRP_Endpoint_Browser {
             PathLoop:
             for (let i = 0; i < aChildPathArray.length; i++) {
 
+                // Function to see if we've arrived at the last item in the path
+                let isFinalItem = () => {
+                    return (i + 1 === aChildPathArray.length)
+                }
+
+                // Current path array element
+                let pathItemName = aChildPathArray[i];
+
                 // Does the child exist?
                 //if (oCurrentObject.hasOwnProperty(aChildPathArray[i])) {
-                if (oCurrentObject[aChildPathArray[i]]) {
+                if (oCurrentObject[pathItemName]) {
+
+                    // Current path object to check
+                    oCurrentObject = oCurrentObject[pathItemName]
 
                     // See what we're dealing with
-                    let objectType = typeof oCurrentObject[aChildPathArray[i]];
-                    switch (typeof oCurrentObject[aChildPathArray[i]]) {
+                    let objectType = typeof oCurrentObject;
+                    switch (objectType) {
                         case 'object':
                             // Set current object
-                            oCurrentObject = oCurrentObject[aChildPathArray[i]];
-                            if (i + 1 === aChildPathArray.length) {
+                            oCurrentObject = oCurrentObject;
+                            if (isFinalItem()) {
                                 // Last one - make this the return object
                                 oReturnObject = oCurrentObject;
                             }
@@ -298,11 +321,11 @@ class DRP_Endpoint_Browser {
                             // Send the rest of the path to a function
                             let remainingPath = aChildPathArray.splice(i + 1);
                             params.pathList = remainingPath;
-                            oReturnObject = await oCurrentObject[aChildPathArray[i]](params);
+                            oReturnObject = await oCurrentObject(params);
                             break PathLoop;
                         default:
-                            if (i + 1 === aChildPathArray.length) {
-                                oReturnObject = oCurrentObject[aChildPathArray[i]];
+                            if (isFinalItem()) {
+                                oReturnObject = oCurrentObject;
                             }
                             break PathLoop;
                     }
@@ -315,7 +338,7 @@ class DRP_Endpoint_Browser {
         }
 
         // If we have a return object and want only a list of children, do that now
-        if (params.listOnly) {
+        if (listOnly) {
             if (oReturnObject instanceof Object) {
                 if (!oReturnObject.pathItemList) {
                     // Return only child keys and data types
@@ -383,20 +406,7 @@ class DRP_Client_Browser extends DRP_Endpoint_Browser {
         wsConn.onerror = function (error) { thisClient.ErrorHandler(wsConn, error); };
 
         this.RegisterMethod("pathCmd", async function (params, wsConn, token) {
-            let oReturnObject = await thisClient.GetObjFromPath(params, thisClient);
-
-            // If we have a return object and want only a list of children, do that now
-            if (params.listOnly) {
-                if (!oReturnObject.pathItemList) {
-                    // Return only child keys and data types
-                    oReturnObject = { pathItemList: thisClient.ListObjChildren(oReturnObject) };
-                }
-            } else if (oReturnObject) {
-                if (!oReturnObject.pathItem) {
-                    // Return object as item
-                    oReturnObject = { pathItem: oReturnObject };
-                }
-            }
+            let oReturnObject = await thisClient.PathCmd(params, thisClient);
             return oReturnObject;
         });
     }

@@ -4,7 +4,7 @@
 //const DRP_Node = require('./node');
 //const DRP_SubscribableSource = require('./subscription').DRP_SubscribableSource;
 const DRP_Subscriber = require('./subscription').DRP_Subscriber;
-const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Reply_Error, DRP_RouteOptions, DRP_CmdError } = require('./packet');
+const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Reply_Error, DRP_RouteOptions, DRP_CmdError, DRP_ErrorCode } = require('./packet');
 
 const WebSocket = require('ws');
 
@@ -162,7 +162,8 @@ class DRP_Endpoint {
             packetObj = new DRP_Reply(token, status, err, payload, routeOptions);
             packetString = JSON.stringify(packetObj);
         } catch (e) {
-            packetObj = new DRP_Reply(token, 0, `Failed to stringify response: ${e}`);
+            let errObj = new DRP_CmdError("Circular object encountered", DRP_ErrorCode.BADREQUEST,"JSON.stringify");
+            packetObj = new DRP_Reply(token, 1, errObj, e, null);
             packetString = JSON.stringify(packetObj);
         }
         return thisEndpoint.SendPacketString(packetString);

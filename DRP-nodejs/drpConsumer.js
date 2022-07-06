@@ -16,7 +16,7 @@ let myConsumer = new DRP_Consumer(brokerURL, user, pass, null, async function ()
     //myClient.SendCmd("getCmds", null, false, (response) => { console.dir(response) });
 
     // Execute a pathCmd
-    //myClient.SendCmd("pathCmd", { "method": "cliGetPath", "pathList": ["Providers", "DocMgr1", "Services", "DocMgr", "ClientCmds", "listFiles"], "params": {}, "listOnly": true }, false, (payload) => { console.dir(payload, { "depth": 10 }) });
+    //myClient.SendCmd("pathCmd", { "method": "GetChildItems", "pathList": ["Providers", "DocMgr1", "Services", "DocMgr", "ClientCmds", "listFiles"] }, false, (payload) => { console.dir(payload, { "depth": 10 }) });
 
     // Get data for a class
     //myClient.GetClassRecords("SomeDataClass", (payload) => console.dir(payload) );

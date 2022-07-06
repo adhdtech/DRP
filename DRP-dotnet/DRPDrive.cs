@@ -39,69 +39,26 @@ namespace ADHDTech.DRP
             return drives;
         }
 
+        // Determines if the specified item exists.
         protected override bool ItemExists(string path)
         {
-            //bool isContainer = false;
+            // Update so that we make a DRP call and verify that the item exists
             return true;
-            /*
-            DRPClient myDRPClient = new DRPClient(drpURL);
-
-            while (myDRPClient.ClientWSConn.ReadyState != WebSocketSharp.WebSocketState.Open)
-            {
-                System.Threading.Thread.Sleep(100);
-            }
-
-            JObject returnedData = myDRPClient.SendDRPCmd("cliGetItem", ChunkPath(path));
-            JObject returnItem = (JObject)returnedData["item"];
-            if (returnItem["Type"].Value<string>() == "Array" || returnItem["Type"].Value<string>() == "Object")
-            {
-                isContainer = true;
-            }
-
-            myDRPClient.CloseSession();
-
-            return isContainer;
-            */
         }
 
         protected override bool IsValidPath(string path)
         {
-            bool isValidPath = false;
-
-            string[] pathArray = ChunkPath(path);
-            if (pathArray.Length == 0)
-            {
-                return true;
-            }
-            else
-            {
-                // Send cmd to DRP broker
-                string drpURL = pathArray[0];
-                string[] remainingPath = pathArray.Skip(1).ToArray();
-
-                DRP_Client myDRPClient = new DRP_Client(drpURLHash[drpURL]);
-
-                while (myDRPClient.wsConn.ReadyState != WebSocketSharp.WebSocketState.Open)
-                {
-                    System.Threading.Thread.Sleep(100);
-                }
-
-                JObject returnedData = myDRPClient.SendCmd("cliGetItem", remainingPath);
-
-                if (returnedData["item"].Value<string>() != null)
-                {
-                    isValidPath = true;
-                }
-
-                myDRPClient.CloseSession();
-            }
-
+            // We don't need to verify that the path exists; just that it's syntactically valid
+            bool isValidPath = true;
+            //string[] pathArray = ChunkPath(path);
             return isValidPath;
         }
 
+        // Determines if the item specified by the path is a container.
+        // > test-path -container
         protected override bool IsItemContainer(string path)
         {
-
+            // Update so that we make a DRP call and verify that the item is a container
             return true;
         }
 
@@ -151,7 +108,7 @@ namespace ADHDTech.DRP
                 if (!myDRPClient.Open().GetAwaiter().GetResult()) return;
 
                 //Console.WriteLine("Connected to DRP Broker, sending pathCmd");
-                JObject returnedData = myDRPClient.SendCmd_Async("DRP", "pathCmd", new Dictionary<string, object>() { { "method", "cliGetPath" }, { "pathList", remainingPath }, { "listOnly", false } }).GetAwaiter().GetResult();
+                JObject returnedData = myDRPClient.SendCmd_Async("DRP", "pathCmd", new Dictionary<string, object>() { { "method", "GetItem" }, { "pathList", remainingPath } }).GetAwaiter().GetResult();
 
                 if (returnedData != null && returnedData["pathItem"] != null)
                 {
@@ -203,7 +160,7 @@ namespace ADHDTech.DRP
                     System.Threading.Thread.Sleep(100);
                 }
                 //JObject returnedData = myDRPClient.SendDRPCmd("cliSetItem", new List<Object> { ChunkPath(path), value });
-                JObject returnedData = myDRPClient.SendCmd("pathCmd", new Dictionary<string, object>() { { "method", "cliSetPath" }, { "pathList", remainingPath }, { "objData", value } });
+                JObject returnedData = myDRPClient.SendCmd("pathCmd", new Dictionary<string, object>() { { "method", "SetItem" }, { "pathList", remainingPath }, { "objData", value } });
 
                 if (returnedData["success"] != null)
                 {
@@ -273,7 +230,7 @@ namespace ADHDTech.DRP
                 if (!myDRPClient.Open().GetAwaiter().GetResult()) return;
 
                 //Console.WriteLine("Connected to DRP Broker, sending pathCmd");
-                JObject returnedData = myDRPClient.SendCmd_Async("DRP", "pathCmd", new Dictionary<string, object>() { { "method", "cliGetPath" }, { "pathList", remainingPath }, { "listOnly", true } }).GetAwaiter().GetResult();
+                JObject returnedData = myDRPClient.SendCmd_Async("DRP", "pathCmd", new Dictionary<string, object>() { { "method", "GetChildItems" }, { "pathList", remainingPath } }).GetAwaiter().GetResult();
 
                 if (returnedData != null && returnedData.ContainsKey("pathItemList"))
                 {
@@ -356,7 +313,7 @@ namespace ADHDTech.DRP
                 }
 
                 //Console.WriteLine("Connected to DRP Broker!");
-                JObject returnedData = myDRPClient.SendCmd("pathCmd", new Dictionary<string, object>() { { "method", "cliGetPath" }, { "pathList", remainingPath }, { "listOnly", false } });
+                JObject returnedData = myDRPClient.SendCmd("pathCmd", new Dictionary<string, object>() { { "method", "GetItem" }, { "pathList", remainingPath } });
 
                 if (returnedData != null && returnedData["pathItem"] != null)
                 {

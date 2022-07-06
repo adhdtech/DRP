@@ -58,6 +58,9 @@ class DRP_NodeDeclaration {
 }
 
 class DRP_Node extends DRP_Securable {
+    #MeshKey
+    #debug
+    #testMode
     /**
      * 
      * @param {string[]} nodeRoles Functional Roles ['Registry','Broker','Provider','Producer','Logger']
@@ -80,13 +83,12 @@ class DRP_Node extends DRP_Securable {
 
         this.drpRoute = drpRoute || "/";
         this.DomainName = domainName;
-        this.__MeshKey = meshKey;
-        if (!this.__MeshKey) this.Die("No MeshKey provided");
+        this.#MeshKey = meshKey;
+        if (!this.#MeshKey) this.Die("No MeshKey provided");
         this.Zone = zone || "default";
         /** @type{string} */
         this.RegistryUrl = null;
         this.Debug = false;
-        this.TestMode = false;
         /** @type{string} */
         this.AuthenticationServiceName = null;
         this.HasConnectedToMesh = false;
@@ -154,7 +156,7 @@ class DRP_Node extends DRP_Securable {
         this.Evacuate = this.Evacuate;
 
         this.Mesh = async (params, callingEndpoint) => {
-            let pathData = await thisNode.EvalPath(thisNode.GetBaseObj().Mesh, params, callingEndpoint);
+            let pathData = await thisNode.PathCmd(params, thisNode.GetBaseObj().Mesh, callingEndpoint);
             return pathData;
         }
 
@@ -167,11 +169,13 @@ class DRP_Node extends DRP_Securable {
         this.AddService(DRPService);
     }
 
-    get Debug() { return this.__debug }
-    set Debug(val) { this.__debug = this.IsTrue(val) }
+    /** @type boolean */
+    get Debug() { return this.#debug }
+    set Debug(val) { this.#debug = this.IsTrue(val) }
 
-    get TestMode() { return this.__testMode }
-    set TestMode(val) { this.__testMode = this.IsTrue(val) }
+    /** @type boolean */
+    get TestMode() { return this.#testMode }
+    set TestMode(val) { this.#testMode = this.IsTrue(val) }
 
     /**
      * Print message to stdout
@@ -203,7 +207,7 @@ class DRP_Node extends DRP_Securable {
 
     __GetNodeDeclaration() {
         let thisNode = this;
-        return new DRP_NodeDeclaration(thisNode.NodeID, thisNode.NodeRoles, thisNode.HostID, thisNode.ListeningName, thisNode.DomainName, thisNode.__MeshKey, thisNode.Zone);
+        return new DRP_NodeDeclaration(thisNode.NodeID, thisNode.NodeRoles, thisNode.HostID, thisNode.ListeningName, thisNode.DomainName, thisNode.#MeshKey, thisNode.Zone);
     }
 
     async GetConsumerToken(username, password) {
@@ -367,13 +371,24 @@ class DRP_Node extends DRP_Securable {
             let resultString = "";
 
             try {
-                let resultObj = await thisNode.GetObjFromPath({ "method": "cliGetPath", "pathList": basePathArray.concat(remainingPath), "listOnly": listOnly, "AuthInfo": authInfo, "body": req.body }, thisNode.GetBaseObj());
-
-                if (listOnly && resultObj.pathItemList) {
-                    resultString = JSON.stringify(resultObj.pathItemList, null, format);
-                } else {
-                    resultString = JSON.stringify(resultObj.pathItem, null, format);
+                // Determine the PathCmd method; default to "GetItem"
+                let pathCmdMethod = "GetItem"
+                if (listOnly) {
+                    pathCmdMethod = "GetChildItems"
                 }
+                let resultObj = await thisNode.PathCmd({ "method": pathCmdMethod, "pathList": basePathArray.concat(remainingPath), "AuthInfo": authInfo, "body": req.body }, thisNode.GetBaseObj());
+
+                try {
+                    if (listOnly && resultObj.pathItemList) {
+                        resultString = JSON.stringify(resultObj.pathItemList, null, format);
+                    } else {
+                        resultString = JSON.stringify(resultObj.pathItem, null, format);
+                    }
+                } catch {
+                    resultString = "Circular object encountered";
+                    resCode = DRP_ErrorCode.BADREQUEST;
+                }
+
             } catch (ex) {
                 resCode = ex.code || 500;
                 resultString = ex.message;
@@ -557,8 +572,8 @@ class DRP_Node extends DRP_Securable {
             let recordPath = ["Mesh", "Services", serviceName, "Classes", thisClassName, "cache"];
 
             // Get data
-            let pathParams = { method: "cliGetPath", pathList: recordPath, listOnly: false };
-            let pathData = await thisNode.EvalPath(thisNode.GetBaseObj(), pathParams);
+            let pathParams = { method: "GetItem", pathList: recordPath };
+            let pathData = await thisNode.PathCmd(pathParams, thisNode.GetBaseObj());
 
             results[serviceName] = pathData.pathItem;
 
@@ -578,16 +593,9 @@ class DRP_Node extends DRP_Securable {
 
         if (targetNodeID === thisNode.NodeID) {
             // The target NodeID is local
-            oReturnObject = thisNode.GetObjFromPath(params, thisNode.GetBaseObj());
+            oReturnObject = thisNode.PathCmd(params, thisNode.GetBaseObj());
         } else {
             oReturnObject = await thisNode.ServiceCmd("DRP", "pathCmd", params, targetNodeID, null, true, true, null);
-            /*
-            try {
-                oReturnObject = await thisNode.ServiceCmd("DRP", "pathCmd", params, targetNodeID, null, true, true, null);
-            } catch (ex) {
-                thisNode.log(`Could not find instance of DRP service for NodeID [${targetNodeID}]`);
-            }
-            */
         }
         return oReturnObject;
     }
@@ -706,7 +714,7 @@ class DRP_Node extends DRP_Securable {
                         }
                     }
 
-                    oReturnObject = thisNode.GetObjFromPath(params, streamHash);
+                    oReturnObject = thisNode.PathCmd(params, streamHash);
                     return oReturnObject;
                 },
                 Services: async function (params) {
@@ -739,10 +747,76 @@ class DRP_Node extends DRP_Securable {
         };
     }
 
-    async EvalPath(oCurrentObject, params, callingEndpoint) {
+    /**
+    * @param {object} params Remaining path
+    * @param {Boolean} baseObj Flag to return list of children
+    * @param {object} callingEndpoint Endpoint making request
+    * @returns {object} oReturnObject Return object
+    */
+    async PathCmd(params, oCurrentObject, callingEndpoint) {
+
+        /* 
+         * TODO: Add write/execute support
+         * 
+         * params.method = ('GetItem'|'SetItem'|'GetChildItems')
+         * 
+         * Using a subset of PowerShell NavigationCmdletProvider methods.
+         * May implement more of them so that entire objects do not have
+         * to be returned for Boolean operations.
+         *   ItemExists
+         *   IsValidPath
+         *   IsItemContainer
+         *   GetItem
+         *   SetItem
+         *   GetChildItems
+         *   CopyItem
+         * 
+         * This function currently reads object and automatically executes
+         * any functions it comes across.  Need to update so that it can:
+         * -> Write objects
+         * -> Evaluate permissions for function execution
+         * 
+         * The DRP_Securable class will be useful since any object which is
+         * secureable CheckPermission method is currently set to "read", need
+         * to map the params.method(usually GetItem) to read/write/execute
+         */
+
         let oReturnObject = null;
+        let listOnly = false;
+        let writeOperation = false;
+        let functionExecuted = false;
+
+        switch (params.method) {
+            case "SetItem":
+            case "NewItem":
+                // To create an item, one of the following conventions must be used:
+                // (FILEDATA) -> .../VirtualDirectory/itemKey   Explicit key
+                // (FILEDATA) -> .../VirtualDirectory           Dynamic key
+                // If successful, the key of the new object will be returned via pathItemAffected
+            case "CopyItem":
+                // To copy an item, this convention must be used:
+                // (NEWKEY) -> .../VirtualDirectory/ORIGINALKEY
+                // If successful, the key of the new object will be returned via pathItemAffected
+            case "RemoveItem":
+                // To remove an item, this convention must be used:
+                // () -> .../VirtualDirectory/itemKey   Explicit key
+                // If successful, the key of the removed object will be returned via pathItemAffected
+                writeOperation = true;
+                break;
+            case "GetItem":
+                break;
+            case "GetChildItems":
+                listOnly = true;
+                break;
+
+                // TODO
+                break;
+            default:
+                throw new DRP_CmdError("Invalid method", DRP_ErrorCode.BADREQUEST, "PathCmd");
+        }
 
         let aChildPathArray = params.pathList;
+        let pathItemName
 
         // Do we have a path array?
         if (aChildPathArray.length === 0) {
@@ -753,7 +827,13 @@ class DRP_Node extends DRP_Securable {
             PathLoop:
             for (let i = 0; i < aChildPathArray.length; i++) {
 
-                let pathItemName = aChildPathArray[i];
+                // Function to see if we've arrived at the last item in the path
+                let isFinalItem = () => {
+                    return (i + 1 === aChildPathArray.length)
+                }
+
+                // Current path array element
+                pathItemName = aChildPathArray[i];
 
                 // User is trying to access a hidden attribute; return null
                 if (pathItemName.substring(0, 2) === '__') return null;
@@ -761,18 +841,29 @@ class DRP_Node extends DRP_Securable {
                 // Does the child exist?
                 if (pathItemName in oCurrentObject) {
 
-                    // See what we're dealing with
+                    // If the value is null, return it
+                    if (oCurrentObject[pathItemName] === null) {
+                        if (isFinalItem()) {
+                            oReturnObject = null;
+                            break;
+                        } else {
+                            throw new DRP_CmdError(`Object is not traversable`, DRP_ErrorCode.BADREQUEST, "PathCmd");
+                        }
+                    }
+
+                    // If this is a DRP_Securable object, check permissions
+                    if (oCurrentObject[pathItemName].CheckPermission) {
+                        // This is a securable object - verify the caller has permissions to see it
+                        let isAllowed = oCurrentObject[pathItemName].CheckPermission(params.AuthInfo, "read");
+                        if (!isAllowed) {
+                            throw new DRP_CmdError("Unauthorized", DRP_ErrorCode.UNAUTHORIZED, "PathCmd");
+                        }
+                    }
+
+                    // See what type of object we're dealing with
                     let objectType = typeof oCurrentObject[pathItemName];
                     switch (objectType) {
                         case 'object':
-                            // Check security
-                            if (oCurrentObject[pathItemName].__permissionSet) {
-                                // This is a securable item - verify the caller has permissions to see it
-                                let isAllowed = oCurrentObject[pathItemName].__IsAllowed(params.AuthInfo, "read");
-                                if (!isAllowed) {
-                                    throw new DRP_CmdError("Unauthorized", DRP_ErrorCode.UNAUTHORIZED, "pathCmd");
-                                }
-                            }
 
                             // Special handling needed for Set objects
                             let attrType = Object.prototype.toString.call(oCurrentObject[pathItemName]).match(/^\[object (.*)\]$/)[1];
@@ -781,21 +872,25 @@ class DRP_Node extends DRP_Securable {
                                 case "Set":
                                     // Set current object
                                     oCurrentObject = oCurrentObject[pathItemName];
-                                    if (i + 1 === aChildPathArray.length) {
+                                    if (isFinalItem()) {
                                         // Last one - make this the return object
                                         oReturnObject = [...oCurrentObject];
                                     } else {
                                         // More to the path; skip to the next one
                                         i++;
-                                        let setIndexString = pathItemName;
+                                        let pathItemName = aChildPathArray[i];
                                         // If the provided index isn't a number, return
-                                        if (isNaN(setIndexString)) return oReturnObject;
-                                        let setIndexInt = parseInt(setIndexString);
+                                        if (isNaN(pathItemName)) {
+                                            throw new DRP_CmdError(`Set index must be a number: [${pathItemName}]`, DRP_ErrorCode.BADREQUEST, "PathCmd");
+                                        }
+                                        let setIndexInt = parseInt(pathItemName);
                                         // If the provided index is out of range, return
-                                        if (setIndexInt + 1 > oCurrentObject.size) return oReturnObject;
+                                        if (setIndexInt + 1 > oCurrentObject.size) {
+                                            throw new DRP_CmdError(`Set index out of range: [${pathItemName}]`, DRP_ErrorCode.BADREQUEST, "PathCmd");
+                                        }
                                         oCurrentObject = [...oCurrentObject][setIndexInt];
 
-                                        if (i + 1 === aChildPathArray.length) {
+                                        if (isFinalItem()) {
                                             // Last one - make this the return object
                                             oReturnObject = oCurrentObject;
                                         }
@@ -804,7 +899,7 @@ class DRP_Node extends DRP_Securable {
                                 default:
                                     // Set current object
                                     oCurrentObject = oCurrentObject[pathItemName];
-                                    if (i + 1 === aChildPathArray.length) {
+                                    if (isFinalItem()) {
                                         // Last one - make this the return object
                                         oReturnObject = oCurrentObject;
                                     }
@@ -814,56 +909,57 @@ class DRP_Node extends DRP_Securable {
                             // Send the rest of the path to a function
                             let remainingPath = aChildPathArray.splice(i + 1);
                             params.pathList = remainingPath;
+                            // Must be called this way so the method is aware of the parent
                             oReturnObject = await oCurrentObject[pathItemName](params, callingEndpoint);
+                            functionExecuted = true;
+                            // The function processed the rest of the path list so we'll break out of the loop
                             break PathLoop;
                         case 'string':
                         case 'number':
                         case 'boolean':
+                            if (!isFinalItem()) {
+                                // There are more elements in the path list, but there is nothing past this object
+                                throw new DRP_CmdError(`Object is not traversable`, DRP_ErrorCode.BADREQUEST, "PathCmd");
+                            }
                             oReturnObject = oCurrentObject[pathItemName];
-                            break PathLoop;
+                            break;
                         default:
-                            break PathLoop;
+                            // Unknown object type
+                            throw new DRP_CmdError(`Unknown object type: [${objectType}]`, DRP_ErrorCode.SVCERR, "PathCmd");
                     }
 
                 } else {
                     // Child doesn't exist
-                    throw new DRP_CmdError("Not found", DRP_ErrorCode.NOTFOUND, "pathCmd");
+                    throw new DRP_CmdError("Not found", DRP_ErrorCode.NOTFOUND, "PathCmd");
                 }
             }
         }
 
-        return oReturnObject;
-    }
+        if (writeOperation && !functionExecuted) {
+            throw new DRP_CmdError(`Target is not writeable`, DRP_ErrorCode.BADREQUEST, "PathCmd");
+        }
 
-    /**
-   * @param {object} params Remaining path
-   * @param {Boolean} baseObj Flag to return list of children
-   * @param {object} callingEndpoint Endpoint making request
-   * @returns {object} oReturnObject Return object
-   */
-    async GetObjFromPath(params, baseObj, callingEndpoint) {
-
-        // Return object
-        let oReturnObject = await this.EvalPath(baseObj, params, callingEndpoint);
+        if (writeOperation && functionExecuted && (!oReturnObject || !oReturnObject.pathItemAffected)) {
+            throw new DRP_CmdError(`Target rejected operation`, DRP_ErrorCode.BADREQUEST, "PathCmd");
+        }
 
         // If we have a return object and want only a list of children, do that now
-        if (params.listOnly) {
+        if (listOnly) {
+            // Make sure the return object is properly encapsulated.
+            // If this node had to fetch the path from another node,
+            // it will already be encapsulated.
             if (oReturnObject instanceof Object) {
-                if (oReturnObject.err) {
-                    return oReturnObject;
-                }
                 if (!oReturnObject.pathItemList) {
                     // Return only child keys and data types
                     oReturnObject = { pathItemList: this.ListObjChildren(oReturnObject) };
                 }
             } else {
-                throw new DRP_CmdError("Not a directory", DRP_ErrorCode.BADREQUEST, "GetObjFromPath");
+                throw new DRP_CmdError(`Object is not traversable`, DRP_ErrorCode.BADREQUEST, "PathCmd");
             }
         } else if (oReturnObject) {
-            if (oReturnObject instanceof Object) {
-                if (oReturnObject.err) return oReturnObject;
-            }
-
+            // Make sure the return object is properly encapsulated.
+            // If this node had to fetch the path from another node,
+            // it will already be encapsulated.
             if (!(oReturnObject instanceof Object) || !oReturnObject["pathItem"]) {
                 // Return object as item
                 oReturnObject = { pathItem: oReturnObject };
@@ -1166,7 +1262,7 @@ class DRP_Node extends DRP_Securable {
         // Do the domains match?
         if (!thisNode.DomainName && !declaration.DomainName || thisNode.DomainName === declaration.DomainName) {
             // Do the domain keys match?
-            if (!thisNode.__MeshKey && !declaration.MeshKey || thisNode.__MeshKey === declaration.MeshKey) {
+            if (!thisNode.#MeshKey && !declaration.MeshKey || thisNode.#MeshKey === declaration.MeshKey) {
                 // Yes - allow the remote node to connect
                 returnVal = true;
             }
@@ -1920,7 +2016,7 @@ class DRP_Node extends DRP_Securable {
         });
 
         targetEndpoint.RegisterMethod("pathCmd", async (params, srcEndpoint, token) => {
-            return await thisNode.GetObjFromPath(params, thisNode.GetBaseObj(), srcEndpoint);
+            return await thisNode.PathCmd(params, thisNode.GetBaseObj(), srcEndpoint);
         });
 
         targetEndpoint.RegisterMethod("getRegistry", (params, srcEndpoint, token) => {
@@ -2167,7 +2263,7 @@ class DRP_Node extends DRP_Securable {
             if (params.timeout) pingTimeout = params.timeout;
             if (params.attempts) pingAttempts = params.attempts;
         } else if (params && params.pathList) {
-            // params was passed from cliGetPath
+            // params was passed from PathCmd
             pingAddress = params.pathList.shift();
             pingPort = params.pathList.shift();
             if (!pingAddress || !pingPort) return `Format: \\TCPPing\\{address}\\{port}`;

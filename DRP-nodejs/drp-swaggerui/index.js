@@ -63,11 +63,9 @@ class SwaggerRouter {
         targetEndpoint.RegisterMethod("refreshSwaggerRouter", async function (params, srcEndpoint, token) {
             let serviceName = null;
             if (params && params.serviceName) {
-                // params was passed from cliGetPath
                 serviceName = params.serviceName;
 
             } else if (params && params.pathList && params.pathList.length > 0) {
-                // params was passed from cliGetPath
                 serviceName = params.pathList.shift();
             } else {
                 if (params && params.pathList) return `Format \\refreshSwaggerRouter\\{serviceName}`;

@@ -127,8 +127,18 @@ namespace ADHDTech.DRP
             if (wsConn.ReplyHandlerQueue.ContainsKey(message.token))
             {
                 // Execute callback
+                //Console.WriteLine("Executing callback for token -> [{0}]", message.token);
                 TaskCompletionSource<object> thisTcs = wsConn.ReplyHandlerQueue[message.token];
-                thisTcs.SetResult(message.payload);
+                // Check for error
+                if (message.err != null)
+                {
+                    // An error was set, throw an error
+                    // TO DO - add proper exception handling instead of just throwing back the error
+                    thisTcs.SetResult(message.err);
+                }
+                else {
+                    thisTcs.SetResult(message.payload);
+                }
                 wsConn.ReplyHandlerQueue.Remove(message.token);
             }
             else
@@ -146,7 +156,8 @@ namespace ADHDTech.DRP
             // We received data
             WebSocketSharp.MessageEventArgs messageArgs = (WebSocketSharp.MessageEventArgs)e;
 
-            //Console.WriteLine("> " + messageArgs.Data);
+            Console.WriteLine("> " + messageArgs.Data);
+            //throw new InvalidOperationException("Cannot ReceiveMessage");
 
             // See what we received
             DRP_MsgIn message = Newtonsoft.Json.JsonConvert.DeserializeObject<DRP_MsgIn>(messageArgs.Data);
@@ -271,15 +282,7 @@ namespace ADHDTech.DRP
 
         public async Task<JObject> SendCmd_Async(string serviceName, string cmd, Dictionary<string, object> @params)
         {
-            //return await Task.Run(async() =>
-            //{
             TaskCompletionSource<object> thisTcs = new TaskCompletionSource<object>();
-            /*
-            Task<object> ReturnDataTask = new Task<JObject>(Func<JObject>() =>
-            {
-                return null;
-            });
-            */
 
             // Get token
             string token = AddReplyHandler(wsConn, thisTcs);
@@ -289,10 +292,6 @@ namespace ADHDTech.DRP
             string sendCmdString = null;
             try
             {
-                if (cmd != "hello")
-                {
-                    //sendCmd = new DRP_Cmd("DRP", "pathCmd", "5", null);
-                }
                 sendCmdString = Newtonsoft.Json.JsonConvert.SerializeObject(sendCmd);
             }
             catch (Exception ex)
@@ -330,56 +329,12 @@ namespace ADHDTech.DRP
             }
 
             return returnObject;
-            //});
         }
 
         // Shortcut to execute SendCmd
         public JObject SendCmd(string cmd, object @params)
         {
             return SendCmd(wsConn, null, cmd, @params, this.brokerProfile.Timeout);
-        }
-        /*
-        public async void StartDataGathering()
-        {
-            while (wsConn.ReadyState != WebSocketSharp.WebSocketState.Open)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(1));
-            }
-
-            // We have an open connection - let's do stuff.
-
-            // Create Playbook
-            Playbook StartupPlaybook = new Playbook();
-            StartupPlaybook.AddStep(GetCmds);
-
-            // Complete
-            StartupPlaybook.AddStep(DoneWithStartup);
-
-            // Start the Playbook
-            StartupPlaybook.Run();
-
-        }
-        */
-
-
-        // Sample call - Register
-        /*
-        public void GetCmds(Action nextAction)
-        {
-            SendCmd(wsConn, null, "getCmds", null, data =>
-            {
-                Newtonsoft.Json.Linq.JObject returnData = (Newtonsoft.Json.Linq.JObject)data;
-                int fakeStatsRecvdMsgs = (int)returnData["fakestats"]["ReceivedMessages"];
-                Console.WriteLine("FakeStats Received Messages: [{0}]", fakeStatsRecvdMsgs);
-                nextAction?.Invoke();
-            });
-        }
-        */
-
-        public void DoneWithStartup(Action nextAction)
-        {
-            Console.WriteLine("Done with startup.");
-            nextAction?.Invoke();
         }
     }
 
@@ -401,16 +356,27 @@ namespace ADHDTech.DRP
         }
     }
 
-    public class DRP_Response
+    public class DRP_CmdError
+    {
+        public string name;
+        public ushort code;
+        public string message;
+        public string source;
+        public string stack;
+    }
+
+    public class DRP_Reply
     {
         public string token;
         public string status;
+        public DRP_CmdError err;
         public object payload;
 
-        public DRP_Response(string inToken, string inStatus, object inPayload)
+        public DRP_Reply(string inToken, string inStatus, DRP_CmdError inErr, object inPayload)
         {
             token = inToken;
             status = inStatus;
+            err = inErr;
             payload = inPayload;
         }
     }
@@ -423,6 +389,7 @@ namespace ADHDTech.DRP
         public object @params;
         public object payload;
         public string status;
+        public DRP_CmdError err;
         public string token;
     }
 

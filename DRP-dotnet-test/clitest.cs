@@ -122,13 +122,26 @@ namespace DRP_dotnet_test
                 Console.WriteLine("Connected to DRP Broker!");
             }
 
-            JObject returnedData = myDRPClient.SendCmd_Async("DRP", "pathCmd", new Dictionary<string, object>() { { "method", "cliGetPath" }, { "pathList", testPath }, { "listOnly", true } }).GetAwaiter().GetResult();
+            JObject returnedData = myDRPClient.SendCmd_Async("DRP", "pathCmd", new Dictionary<string, object>() { { "method", "GetChildItems" }, { "pathList", testPath } }).GetAwaiter().GetResult();
 
             if (returnedData != null)
             {
                 Console.WriteLine(returnedData.ToString());
             }
             else {
+                Console.WriteLine("No data found");
+            }
+
+            testPath = new string[] { "NodeID" };
+
+            returnedData = myDRPClient.SendCmd_Async("DRP", "pathCmd", new Dictionary<string, object>() { { "method", "GetItem" }, { "pathList", testPath } }).GetAwaiter().GetResult();
+
+            if (returnedData != null)
+            {
+                Console.WriteLine(returnedData.ToString());
+            }
+            else
+            {
                 Console.WriteLine("No data found");
             }
 
