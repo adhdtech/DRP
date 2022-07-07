@@ -1133,9 +1133,20 @@ class DRP_Node extends DRP_Securable {
     async ServiceCmd(serviceName, method, params, targetNodeID, targetServiceInstanceID, useControlPlane, awaitResponse, callingEndpoint) {
         let thisNode = this;
         let baseErrMsg = "ERROR - ";
+        let msgSource = "ServiceCmd";
+
+        let handleError = (errMsg) => {
+            thisNode.log(`${baseErrMsg}${errMsg}`, true);
+            if (awaitResponse) {
+                throw new DRP_CmdError(errMsg, DRP_ErrorCode.SVCERR, msgSource);
+            }
+        }
 
         // If if no service or command is provided, return null
-        if (!serviceName || !method) return "ServiceCmd: must provide serviceName and method";
+        if (!serviceName || !method) {
+            handleError(`Must provide serviceName and method`);
+            return;
+        }
 
         // If no targetNodeID was provided, we need to find a record in the ServiceTable
         if (!targetNodeID) {
@@ -1150,7 +1161,10 @@ class DRP_Node extends DRP_Securable {
                 targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
 
                 // If no match is found then return null
-                if (!targetServiceRecord) return null;
+                if (!targetServiceRecord) {
+                    handleError(`Could not find instance of service ${serviceName}`);
+                    return;
+                }
 
                 // Assign target Node & Instance IDs
                 targetServiceInstanceID = targetServiceRecord.InstanceID;
@@ -1161,7 +1175,10 @@ class DRP_Node extends DRP_Securable {
                 targetServiceRecord = thisNode.TopologyTracker.ServiceTable[targetServiceInstanceID];
 
                 // If no match is found then return null
-                if (!targetServiceRecord) return null;
+                if (!targetServiceRecord) {
+                    handleError(`Service instance ${targetServiceInstanceID} not found in ServiceTable`);
+                    return;
+                }
 
                 // Assign target Node
                 targetNodeID = targetServiceRecord.NodeID;
@@ -1183,20 +1200,24 @@ class DRP_Node extends DRP_Securable {
             }
 
             if (!localServiceProvider) {
-                thisNode.log(`${baseErrMsg} service ${serviceName} does not exist`, true);
-                return null;
+                handleError(`Service ${serviceName} does not exist`);
+                return;
             }
 
             if (!localServiceProvider[method]) {
-                thisNode.log(`${baseErrMsg} service ${serviceName} does not have method ${method}`, true);
-                return null;
+                handleError(`Service ${serviceName} does not have method ${method}`);
+                return;
             }
 
             if (awaitResponse) {
                 let results = await localServiceProvider[method](params, callingEndpoint);
                 return results;
             } else {
-                localServiceProvider[method](params, callingEndpoint);
+                try {
+                    await localServiceProvider[method](params, callingEndpoint);
+                } catch (ex) {
+                    // Don't care about response
+                }
                 return;
             }
         } else {
@@ -1209,7 +1230,10 @@ class DRP_Node extends DRP_Securable {
                 let remoteNodeEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
 
                 // If the remote Node isn't found, return error message
-                if (!remoteNodeEntry) return `Node ${targetNodeID} not found in NodeTable`;
+                if (!remoteNodeEntry) {
+                    handleError(`Node ${targetNodeID} not found in NodeTable`);
+                    return;
+                }
 
                 // Make sure either the local Node or remote Node are listening; if not, route via control plane
                 if (!localNodeEntry.NodeURL && !remoteNodeEntry.NodeURL) {
@@ -1242,9 +1266,8 @@ class DRP_Node extends DRP_Securable {
             let routeNodeConnection = await thisNode.VerifyNodeConnection(routeNodeID);
 
             if (!routeNodeConnection) {
-                let errMsg = `Could not establish connection from Node[${thisNode.NodeID}] to Node[${routeNodeID}]`;
-                thisNode.log(`ERROR - ${errMsg}`);
-                throw new DRP_CmdError(errMsg, DRP_ErrorCode.SVCERR, "VerifyNodeConnection");
+                handleError(`Could not establish connection from Node[${thisNode.NodeID}] to Node[${routeNodeID}]`);
+                return;
             }
 
             if (awaitResponse) {

@@ -63,14 +63,17 @@
 
             },
             "displayResponse": function (displayData) {
-                let appDataObj = null;
-                try {
-                    appDataObj = JSON.parse(displayData);
+                let displayText = "";
+                if (typeof displayData === "object") {
+                    displayText = JSON.stringify(displayData, null, 2);
+                } else {
+                    try {
+                        let appDataObj = JSON.parse(displayData);
+                        displayText = JSON.stringify(appDataObj, null, 2);
+                    } catch (ex) {
+                        displayText = displayData;
+                    }
                 }
-                catch (ex) {
-                    appDataObj = displayData;
-                }
-                let displayText = JSON.stringify(appDataObj, null, 2);
                 myApp.appVars.bottomPane.innerHTML = "<pre style='font-size: 12px;line-height: 12px;color: #DDD;height: 100%;'>" + displayText + "</pre>";
             }
         };
@@ -102,6 +105,41 @@ Params: <input class="cmdParams" type="text"/><br>
         myApp.appVars.cmdParamsInput = $(myApp.appVars.topPane).find('.cmdParams')[0];
         myApp.appVars.cmdSend = $(myApp.appVars.topPane).find('.cmdSend')[0];
 
+        myApp.appVars.cmdParamsInput.onkeydown = ((keyEvent) => {
+            if (keyEvent.which == 13) {
+                submitDRPCmd();
+                keyEvent.preventDefault();
+            }
+        });
+
+        let submitDRPCmd = async () => {
+            // Get service name
+            let drpService = myApp.appVars.drpServiceSelect.value;
+
+            // Get method name
+            let drpMethod = myApp.appVars.drpMethodSelect.value;
+
+            // Try to parse command data to JSON object
+            let params = {};
+            try {
+                params = JSON.parse(myApp.appVars.cmdParamsInput.value);
+            }
+            catch (ex) {
+                params.pathList = myApp.appVars.cmdParamsInput.value.split(",");
+            }
+
+            // Send DRP command
+            let response = await myApp.sendCmd_StreamHandler(drpService, drpMethod, params, function (streamData) {
+                // Stream handler - persistent
+                myApp.appFuncs.displayResponse(streamData);
+            });
+
+            if (response) {
+                // Response to immediate command
+                myApp.appFuncs.displayResponse(response);
+            }
+        }
+
         // Action when selected service changes
         $(myApp.appVars.drpServiceSelect).on('change', function () {
 
@@ -118,33 +156,8 @@ Params: <input class="cmdParams" type="text"/><br>
             }
         });
 
-        $(myApp.appVars.cmdSend).on('click', async function () {
-
-            // Get service name
-            let drpService = myApp.appVars.drpServiceSelect.value;
-
-            // Get method name
-            let drpMethod = myApp.appVars.drpMethodSelect.value;
-
-            // Try to parse command data to JSON object
-            let appDataObj = null;
-            try {
-                appDataObj = JSON.parse(myApp.appVars.cmdParamsInput.value);
-            }
-            catch (ex) {
-                appDataObj = myApp.appVars.cmdParamsInput.value;
-            }
-
-            // Send DRP command
-            let response = await myApp.sendCmd_StreamHandler(drpService, drpMethod, appDataObj, function (streamData) {
-                // Stream handler - persistent
-                myApp.appFuncs.displayResponse(streamData);
-            });
-
-            if (response) {
-                // Response to immediate command
-                myApp.appFuncs.displayResponse(response);
-            }
+        $(myApp.appVars.cmdSend).on('click', () => {
+            submitDRPCmd();
         });
 
         myApp.appFuncs.refreshServices();

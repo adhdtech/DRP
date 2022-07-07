@@ -13,12 +13,21 @@ const { DRP_SubscribableSource, DRP_Subscriber } = require('drp-mesh').Subscript
 
 class SwaggerRouter {
     constructor(thisNode, swaggerRoute) {
+        this.DRPNode = thisNode;
         /** @type {Object<string,Express_Router}} */
+        thisNode.SwaggerRoute = swaggerRoute;
         thisNode.SwaggerRouters = {};
         thisNode.AddSwaggerRouter = async (serviceName, targetNodeID) => {
 
+            let swaggerObj;
+
             // Reach out to the remote node
-            let swaggerObj = await thisNode.ServiceCmd(serviceName, "getOpenAPIDoc", {}, targetNodeID, null, true, true, null);
+            try {
+                swaggerObj = await thisNode.ServiceCmd(serviceName, "getOpenAPIDoc", {}, targetNodeID, null, true, true, null);
+            } catch (ex) {
+                // Could not add swagger route for service
+                return false;
+            }
 
             // Does it exist?
             if (swaggerObj && swaggerObj.openapi) {
@@ -56,6 +65,7 @@ class SwaggerRouter {
                 thisRouter.get("/", swaggerUI.setup(swaggerObj));
                 thisNode.SwaggerRouters[serviceName] = thisRouter;
             }
+            return true;
         }
 
         // Need to add this to allow refreshing of Swagger Routes
@@ -84,8 +94,12 @@ class SwaggerRouter {
         });
         */
 
+        this.Start();
+    }
+    async Start() {
+        let thisNode = this.DRPNode;
         // Add hooks to expressApp
-        thisNode.WebServer.expressApp.use(`${swaggerRoute}/:serviceName?`, (req, res) => {
+        thisNode.WebServer.expressApp.use(`${thisNode.SwaggerRoute}/:serviceName?`, (req, res) => {
             // What service are we trying to reach?
             let targetServiceName = req.params['serviceName'];
 
@@ -125,7 +139,7 @@ class SwaggerRouter {
                 if (thisNode.SwaggerRouters[serviceEntry.Name]) return;
 
                 // Reach out to the remote node, see if it has a Swagger doc for this service
-                thisNode.AddSwaggerRouter(serviceEntry.Name, serviceEntry.NodeID);
+                await thisNode.AddSwaggerRouter(serviceEntry.Name, serviceEntry.NodeID);
             }
 
             // Is this a service delete?
@@ -162,7 +176,7 @@ class SwaggerRouter {
         let serviceList = thisNode.TopologyTracker.ListServices();
         for (let serviceName of serviceList) {
             // Reach out to the remote node, see if it has a Swagger doc for this service
-            thisNode.AddSwaggerRouter(serviceName, null);
+            await thisNode.AddSwaggerRouter(serviceName, null);
         }
     }
 }
