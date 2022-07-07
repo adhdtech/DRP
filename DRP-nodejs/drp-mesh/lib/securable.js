@@ -76,6 +76,10 @@ class DRP_Securable {
      */
     CheckPermission(callerAuthInfo, operationType) {
         try {
+            // If no permission set is in place, default to allowed
+            if (!this.__permissionSet) {
+                return true;
+            }
             if (callerAuthInfo && callerAuthInfo.type) {
                 // Is it a token or a key?
                 switch (callerAuthInfo.type) {
