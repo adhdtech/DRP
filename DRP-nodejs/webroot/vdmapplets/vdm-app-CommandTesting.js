@@ -122,7 +122,12 @@ Params: <input class="cmdParams" type="text"/><br>
             // Try to parse command data to JSON object
             let params = {};
             try {
-                params = JSON.parse(myApp.appVars.cmdParamsInput.value);
+                let parsedValue = JSON.parse(myApp.appVars.cmdParamsInput.value);
+                let constructorType = parsedValue.constructor.name;
+                if (constructorType !== "Object") {
+                    throw { message: `Expected an object, received a ${constructorType}` };
+                }
+                params = parsedValue;
             }
             catch (ex) {
                 params.pathList = myApp.appVars.cmdParamsInput.value.split(",");
