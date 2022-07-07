@@ -126,20 +126,14 @@ class TestService extends DRP_Service {
             getOpenAPIDoc: async function (cmdObj) { return openAPIDoc; },
             sayHi: async function () {
                 thisService.DRPNode.log("Remote node wants to say hi");
-                return {
-                    pathItem: `Hello from ${thisService.DRPNode.NodeID}`
-                };
+                return `Hello from ${thisService.DRPNode.NodeID}`;
             },
             sayBye: async function () {
                 thisService.DRPNode.log("Remote node wants to say bye");
-                return {
-                    pathItem: `Goodbye from ${thisService.DRPNode.NodeID}`
-                };
+                return `Goodbye from ${thisService.DRPNode.NodeID}`;
             },
             showParams: async function (params) {
-                return {
-                    pathItem: params
-                };
+                return params;
             },
             peerBroadcastTest: async function (params) {
                 thisService.DRPNode.log(`Peer service sent a broadcast test - ${params.message}`);

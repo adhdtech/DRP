@@ -19,7 +19,7 @@ class DirectoryService extends DRP_Service {
     constructor(serviceName, drpNode) {
         super(serviceName, drpNode, "TestService", `${drpNode.NodeID}-${serviceName}`, false, 10, 10, drpNode.Zone, "global", null, null, 1);
         this.ClientCmds = {
-            getProviders: async () => { return { pathItem: this.Classes["HealthProvider"].cache }; },
+            getProviders: async () => { return this.Classes["HealthProvider"].cache },
         };
 
         this.AddClass(new DRP_UMLClass("HealthProvider", [],
