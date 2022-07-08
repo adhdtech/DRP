@@ -736,7 +736,7 @@ class DRP_Node extends DRP_Securable {
 
                         let targetServiceEntry = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
                         if (!targetServiceEntry) {
-                            throw new DRP_CmdError("Not found", DRP_ErrorCode.NOTFOUND, "pathCmd");
+                            throw new DRP_CmdError("Service not found", DRP_ErrorCode.NOTFOUND, "pathCmd");
                         };
 
                         let targetNodeID = targetServiceEntry.NodeID;
@@ -747,6 +747,105 @@ class DRP_Node extends DRP_Securable {
                     } else {
                         // Return list of Service Objects
                         oReturnObject = thisNode.TopologyTracker.GetServicesWithProviders();
+                    }
+                    return oReturnObject;
+                },
+                Zones: async function (params) {
+                    //console.log("Checking Services...");
+                    let remainingChildPath = params.pathList;
+                    let oReturnObject = {};
+                    if (remainingChildPath.length > 0) {
+
+                        let zoneName = remainingChildPath.shift();
+                        // Make sure zone exists
+                        if (!(thisNode.TopologyTracker.ListZones().includes(zoneName))) {
+                            throw DRP_CmdError('Zone not found', DRP_ErrorCode.NOTFOUND, "pathCmd");
+                        }
+
+                        // If the local DRPNode is not in the specified zone, we need to route the call to a Registry in the target zone
+                        if (zoneName !== thisNode.Zone) {
+                            let targetZoneRegistries = thisNode.TopologyTracker.FindRegistriesInZone(zoneName);
+                            if (targetZoneRegistries.length == 0) {
+                                throw DRP_CmdError('No registries for zone', DRP_ErrorCode.UNAVAILABLE, "pathCmd");
+                            }
+                            let targetNodeID = targetZoneRegistries[0].NodeID;
+                            params.pathList = ['Mesh', 'Zones', zoneName].concat(remainingChildPath);
+                            oReturnObject = await thisNode.SendPathCmdToNode(targetNodeID, params);
+                            return oReturnObject;
+                        }
+
+                        // The local DRPNode is in the specified zone, proceed
+                        let levelDefinitions = {
+                            'Nodes': async () => {
+                                let oReturnObject = {};
+                                if (remainingChildPath.length > 0) {
+                                    // Send PathCmd to target
+                                    let targetNodeID = remainingChildPath.shift();
+                                    params.pathList = remainingChildPath;
+                                    oReturnObject = await thisNode.SendPathCmdToNode(targetNodeID, params);
+                                } else {
+                                    // List nodes
+                                    let aNodeKeys = [];
+                                    for (let nodeId in thisNode.TopologyTracker.NodeTable) {
+                                        let checkEntry = thisNode.TopologyTracker.NodeTable[nodeId];
+                                        if (checkEntry.Zone === zoneName) {
+                                            aNodeKeys.push(nodeId);
+                                        }
+                                    }
+                                    // Return nodes as functions (for 'ls' display)
+                                    for (let i = 0; i < aNodeKeys.length; i++) {
+                                        oReturnObject[aNodeKeys[i]] = () => { }
+                                    }
+                                }
+                                return oReturnObject;
+                            },
+                            'Services': async () => {
+                                // Get services for zone
+                                let oReturnObject = {};
+                                if (remainingChildPath && remainingChildPath.length > 0) {
+
+                                    let serviceName = remainingChildPath.shift();
+
+                                    params.pathList = ['Services', serviceName].concat(remainingChildPath);
+
+                                    let targetServiceEntry = thisNode.TopologyTracker.FindInstanceOfService(serviceName, null, zoneName, null, true);
+                                    if (!targetServiceEntry) {
+                                        throw new DRP_CmdError("Service not found", DRP_ErrorCode.NOTFOUND, "pathCmd");
+                                    };
+
+                                    let targetNodeID = targetServiceEntry.NodeID;
+
+                                    oReturnObject = await thisNode.SendPathCmdToNode(targetNodeID, params);
+
+                                } else {
+                                    // Return list of Service Objects
+                                    oReturnObject = thisNode.TopologyTracker.GetServicesWithProviders(zoneName);
+                                }
+                                return oReturnObject;
+                            }
+                        }
+
+                        if (remainingChildPath.length > 0) {
+
+                            // Determine next step
+                            let nextLevel = remainingChildPath.shift();
+                            if (!levelDefinitions[nextLevel]) {
+                                // Invalid path
+                                throw new DRP_CmdError("Not found", DRP_ErrorCode.NOTFOUND, "GetBaseObj");
+                            }
+
+                            return await levelDefinitions[nextLevel]();
+                        } else {
+                            // Return list of elements in Zone
+                            return levelDefinitions;
+                        }
+
+                    } else {
+                        // Return list of Zones
+                        oReturnObject = thisNode.TopologyTracker.ListZones().reduce((map, zoneName) => {
+                            map[zoneName] = () => { }
+                            return map;
+                        }, {});
                     }
                     return oReturnObject;
                 }
@@ -1028,6 +1127,12 @@ class DRP_Node extends DRP_Securable {
                 // Get next hop
                 let nextHopNodeID = thisNode.TopologyTracker.GetNextHop(remoteNodeID);
 
+                if (!thisNode.NodeEndpoints[nextHopNodeID]) {
+                    let errMsg = `Error sending back request to ${remoteNodeID}, next hop ${nextHopNodeID} is unavailable`;
+                    thisNode.log(errMsg);
+                    throw errMsg;
+                }
+
                 if (nextHopNodeID) {
                     // Found the next hop
                     thisNode.log(`Sending back request to ${remoteNodeID}, relaying to [${nextHopNodeID}]`, true);
@@ -1039,7 +1144,7 @@ class DRP_Node extends DRP_Securable {
                     thisNode.NodeEndpoints[nextHopNodeID].SendCmd("DRP", "connectToNode", { "targetNodeID": thisNode.NodeID, "targetURL": thisNode.ListeningName }, false, null, routeOptions);
                 } else {
                     // Could not find the next hop
-                    throw `Could not find next hop to [${remoteNodeID}]`;
+                    thisNode.log(`Could not find next hop to [${remoteNodeID}]`);
                 }
 
             } catch (err) {
@@ -1338,8 +1443,13 @@ class DRP_Node extends DRP_Securable {
                 let zoneRegistryList = thisNode.TopologyTracker.FindRegistriesInZone(declaration.Zone);
                 if (zoneRegistryList.length > 0) {
                     // Let's tell the remote Node to redirect
-                    thisNode.log(`Redirecting Node[${declaration.NodeID}] to one of these registry URLs: ${zoneRegistryList}`);
-                    let redirectResults = await sourceEndpoint.SendCmd("DRP", "connectToRegistryInList", zoneRegistryList, true, null, null);
+                    let registryURLList = [];
+                    for (let nodeEntry of zoneRegistryList) {
+                        registryURLList.push(nodeEntry.NodeURL)
+                    }
+
+                    thisNode.log(`Redirecting Node[${declaration.NodeID}] to one of these registry URLs: ${registryURLList}`);
+                    let redirectResults = await sourceEndpoint.SendCmd("DRP", "connectToRegistryInList", registryURLList, true, null, null);
                     if (redirectResults) {
                         // Successful - terminate connection
                         sourceEndpoint.Close();
@@ -2457,6 +2567,7 @@ class DRP_TopologyTracker {
         this.GetNextHop = this.GetNextHop;
         this.GetServicesWithProviders = this.GetServicesWithProviders;
         this.ListServices = this.ListServices;
+        this.ListZones = this.ListZones;
         this.ListConnectedRegistryNodes = this.ListConnectedRegistryNodes;
         this.FindRegistriesInZone = this.FindRegistriesInZone;
         this.FindInstanceOfService = this.FindInstanceOfService;
@@ -2690,14 +2801,33 @@ class DRP_TopologyTracker {
     }
 
     /**
+    * @returns {string[]} List of zone names
+    */
+    ListZones() {
+        let zoneNameSet = new Set();
+        let nodeInstanceList = Object.keys(this.NodeTable);
+        for (let i = 0; i < nodeInstanceList.length; i++) {
+            /** @type DRP_NodeTableEntry */
+            let nodeTableEntry = this.NodeTable[nodeInstanceList[i]];
+            zoneNameSet.add(nodeTableEntry.Zone);
+        }
+        let returnList = [...zoneNameSet];
+        return returnList;
+    }
+
+    /**
      * @returns {Object.<string,{ServiceName:string,Providers:string[]}>} Dictionary of service names and providers
      */
-    GetServicesWithProviders() {
+    GetServicesWithProviders(zoneName) {
         let oReturnObject = {};
         let serviceInstanceList = Object.keys(this.ServiceTable);
         for (let i = 0; i < serviceInstanceList.length; i++) {
             /** @type DRP_ServiceTableEntry */
             let serviceTableEntry = this.ServiceTable[serviceInstanceList[i]];
+
+            if (zoneName && serviceTableEntry.Zone !== zoneName) {
+                continue;
+            }
 
             if (!oReturnObject[serviceTableEntry.Name]) oReturnObject[serviceTableEntry.Name] = {
                 "ServiceName": serviceTableEntry.Name,
@@ -2717,7 +2847,7 @@ class DRP_TopologyTracker {
      * @param {string} nodeID Specify Node ID (optional)
      * @returns {DRP_ServiceTableEntry} Best Service Table entry
      */
-    FindInstanceOfService(serviceName, serviceType, zone, nodeID) {
+    FindInstanceOfService(serviceName, serviceType, zone, nodeID, forceZone) {
         let thisTopologyTracker = this;
         let thisNode = thisTopologyTracker.DRPNode;
 
@@ -2767,6 +2897,11 @@ class DRP_TopologyTracker {
             // If we offer the service locally, select it and continue
             if (serviceTableEntry.NodeID === thisNode.NodeID) {
                 return serviceTableEntry;
+            }
+
+            // See if we're forcing the specified zone
+            if (forceZone && checkZone !== serviceTableEntry.Zone) {
+                continue;
             }
 
             // Skip if the zone is specified and doesn't match
@@ -3289,6 +3424,11 @@ class DRP_TopologyTracker {
         return connectedRegistryList;
     }
 
+    /**
+     * Returns list of NodeTable records for Registries in specified zone
+     * @param {string} zoneName
+     * @returns{DRP_NodeTableEntry[]}
+     */
     FindRegistriesInZone(zoneName) {
         let thisTopologyTracker = this;
         if (zoneName && typeof zoneName === "object" && zoneName.pathList) {
@@ -3305,7 +3445,7 @@ class DRP_TopologyTracker {
         for (let i = 0; i < nodeIDList.length; i++) {
             let checkNodeEntry = thisTopologyTracker.NodeTable[nodeIDList[i]];
             if (checkNodeEntry.IsRegistry() && checkNodeEntry.Zone === zoneName) {
-                registryList.push(checkNodeEntry.NodeURL);
+                registryList.push(checkNodeEntry);
             }
         }
         return registryList;
