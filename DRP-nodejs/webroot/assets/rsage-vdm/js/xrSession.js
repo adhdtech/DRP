@@ -245,7 +245,7 @@ class XRServerAgent extends DRP_Client_Browser {
         if (Object.keys(thisDRPClient.xrSession.appletProfiles).length) return;
         let appletProfiles = {};
         let getAppletProfilesResponse = await thisDRPClient.SendCmd("VDM", "getXRAppletProfiles", null, true, null);
-        if (getAppletProfilesResponse && getAppletProfilesResponse.payload) appletProfiles = getAppletProfilesResponse.payload;
+        if (getAppletProfilesResponse) appletProfiles = getAppletProfilesResponse;
         let appletProfileNames = Object.keys(appletProfiles);
         for (let i = 0; i < appletProfileNames.length; i++) {
             let thisAppletProfile = appletProfiles[appletProfileNames[i]];

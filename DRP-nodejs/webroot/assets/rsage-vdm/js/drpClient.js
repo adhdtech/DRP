@@ -40,6 +40,26 @@ class DRP_Endpoint_Browser {
         }
     }
 
+    /**
+    * Send serialized packet data
+    * @param {string} drpPacketString JSON string
+    * @returns {number} Error code (0 good, 1 wsConn not open, 2 send error)
+    */
+    SendPacketString(drpPacketString) {
+        let thisEndpoint = this;
+
+        if (thisEndpoint.wsConn.readyState !== WebSocket.OPEN)
+            //return "wsConn not OPEN";
+            return 1;
+        try {
+            thisEndpoint.wsConn.send(drpPacketString);
+            return 0;
+        } catch (e) {
+            //return e;
+            return 2;
+        }
+    }
+
     SendCmd(serviceName, cmd, params, promisify, callback) {
         let thisEndpoint = this;
         let returnVal = null;
@@ -48,20 +68,24 @@ class DRP_Endpoint_Browser {
         if (promisify) {
             // We expect a response, using await; add 'resolve' to queue
             returnVal = new Promise(function (resolve, reject) {
-                token = thisEndpoint.AddReplyHandler(function (message) {
-                    resolve(message);
+                token = thisEndpoint.AddReplyHandler((cmdResponse) => {
+                    if (cmdResponse.err) {
+                        reject(cmdResponse.err)
+                    }
+                    resolve(cmdResponse.payload);
                 });
             });
-        } else if (typeof callback === 'function') {
+        } else if (callback) {
             // We expect a response, using callback; add callback to queue
+            if (typeof callback !== 'function') throw { message: 'Callback is not a function', name: 'SendCmd' }
             token = thisEndpoint.AddReplyHandler(callback);
         } else {
             // We don't expect a response; leave reply token null
         }
 
-        let cmdPacket = new DRP_Client_Cmd(serviceName, cmd, params, token);
-        thisEndpoint.wsConn.send(JSON.stringify(cmdPacket));
-        //console.log("SEND -> " + JSON.stringify(sendCmd));
+        let packetObj = new DRP_Client_Cmd(serviceName, cmd, params, token);
+        let packetString = JSON.stringify(packetObj);
+        thisEndpoint.SendPacketString(packetString);
         return returnVal;
     }
 
@@ -71,16 +95,23 @@ class DRP_Endpoint_Browser {
         let token = null;
 
         if (!params) params = {};
-        params.streamToken = thisEndpoint.AddReplyHandler(callback);
+        params.streamToken = thisEndpoint.AddReplyHandler((cmdResponse) => {
+            if (cmdResponse.err) {
+                throw cmdResponse.err
+            }
+            callback(cmdResponse.payload);
+        });
 
         if (sourceApplet) {
             sourceApplet.streamHandlerTokens.push(params.streamToken);
         }
 
         returnVal = new Promise(function (resolve, reject) {
-            token = thisEndpoint.AddReplyHandler(function (message) {
-                //console.dir(message);
-                resolve(message);
+            token = thisEndpoint.AddReplyHandler((cmdResponse) => {
+                if (cmdResponse.err) {
+                    reject(cmdResponse.err);
+                }
+                resolve(cmdResponse.payload);
             });
         });
 
@@ -93,8 +124,9 @@ class DRP_Endpoint_Browser {
 
     SendReply(wsConn, token, status, payload) {
         if (wsConn.readyState === WebSocket.OPEN) {
-            let replyPacket = new DRP_Client_Reply(token, status, payload);
-            wsConn.send(JSON.stringify(replyPacket));
+            let packetObj = new DRP_Client_Reply(token, status, payload);
+            let packetString = JSON.stringify(packetObj);
+            thisEndpoint.SendPacketString(packetString);
             //console.log("SEND -> " + JSON.stringify(replyCmd));
             return 0;
         } else {

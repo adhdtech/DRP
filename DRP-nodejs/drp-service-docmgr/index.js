@@ -1,5 +1,7 @@
 'use strict';
 
+const { DRP_CmdError, DRP_ErrorCode } = require('drp-mesh/lib/packet');
+
 const DRP_Service = require('drp-mesh').Service;
 
 const MongoClient = require('mongodb').MongoClient;
@@ -160,57 +162,65 @@ class DocManager extends DRP_Service {
                 // return list of service
                 return await thisDocMgr.ListDocServices();
             },
-            listDocs: async function (params) {
-                let serviceName = null;
-                if (params.serviceName) {
-                    serviceName = params.serviceName;
-                } else if (params.pathList && params.pathList.length > 0) {
-                    serviceName = params.pathList[0];
-                } else {
-                    return null;
+            listDocs: async function (cmdObj) {
+                let methodParams = ['serviceName'];
+                let params = thisDocMgr.GetParams(cmdObj, methodParams);
+
+                if (!params.serviceName) {
+                    throw new DRP_CmdError("Must provide serviceName");
                 }
-                let docList = await thisDocMgr.ListDocs(serviceName);
+
+                let docList = await thisDocMgr.ListDocs(params.serviceName);
                 return docList;
             },
-            loadDoc: async function (params) {
-                let docName = null;
-                if (params.serviceName && params.docName) {
-                    serviceName = params.serviceName;
-                    docName = params.docName;
-                } else if (params.pathList && params.pathList.length > 1) {
-                    serviceName = params.pathList[0];
-                    docName = params.pathList[1];
-                } else {
-                    return null;
+            loadDoc: async function (cmdObj) {
+                let methodParams = ['serviceName', 'docName'];
+                let params = thisDocMgr.GetParams(cmdObj, methodParams);
+
+                if (!params.serviceName || !params.docName) {
+                    throw new DRP_CmdError("Must provide serviceName, docName");
                 }
-                let docData = await thisDocMgr.LoadDoc(serviceName, docName);
+
+                let docData = await thisDocMgr.LoadDoc(params.serviceName, params.docName);
                 return docData;
             },
-            saveDoc: async function (params) {
-                await thisDocMgr.SaveDoc(params.serviceName, params.docName, params.docData);
-                return "Saved";
+            saveDoc: async function (cmdObj) {
+                let methodParams = ['serviceName', 'docName', 'docData'];
+                let params = thisDocMgr.GetParams(cmdObj, methodParams);
+
+                if (!params.serviceName || !params.docName || !params.docData) {
+                    throw new DRP_CmdError("Must provide serviceName, docName, docData");
+                }
+
+                let saveResults = await thisDocMgr.SaveDoc(params.serviceName, params.docName, params.docData);
+                return saveResults;
             }
         };
 
-        this.DocServices = async (params) => {
-            let serviceName = null;
-            let docName = null;
-            if (params.pathList) {
-                serviceName = params.pathList.shift();
-                docName = params.pathList.shift();
-            }
-            if (params.serviceName) serviceName = params.serviceName;
-            if (params.docName) docName = params.docName;
+        this.DocServices = async (cmdObj) => {
+
+            let methodParams = ['serviceName', 'docName'];
+            let params = thisDocMgr.GetParams(cmdObj, methodParams);
+
+            let serviceName = params.serviceName;
+            let docName = params.docName;
 
             if (!serviceName) {
                 // return list of service
-                return await thisDocMgr.ListDocServices();
+                let serviceList = await thisDocMgr.ListDocServices();
+                let returnObj = await serviceList.reduce(async (acc, serviceName) => {
+                    let docList = await thisDocMgr.ListDocs(serviceName);
+                    return { ...acc, [serviceName]: docList }
+                }, {});
+                return returnObj;
             } else if (!docName) {
                 // return list of docs
-                return await thisDocMgr.ListDocs(serviceName);
+                return (await thisDocMgr.ListDocs(serviceName)).reduce((a, b) => {
+                    return { ...a, [b]: {} }
+                }, {});
             } else {
                 // return doc
-                return await thisDocMgr.LoadDoc(serviceName, docName); 
+                return await thisDocMgr.LoadDoc(serviceName, docName);
             }
         };
     }
@@ -243,7 +253,7 @@ class DocManager extends DRP_Service {
                 let serviceName = dirData[i];
 
                 // Make sure this is a file
-                let pathStat = await fs.stat(thisDocMgr.basePath  + '/' + serviceName);
+                let pathStat = await fs.stat(thisDocMgr.basePath + '/' + serviceName);
                 if (pathStat.isDirectory()) {
                     returnData.push(serviceName);
                 }
@@ -267,6 +277,7 @@ class DocManager extends DRP_Service {
             let docList = await serviceDocCollection.find({}, { projection: { _id: 0, docName: 1 } }).toArray();
             returnData = docList.map(collectionProfile => { return collectionProfile["docName"]; });
         } else {
+            try {
             dirData = await fs.readdir(thisDocMgr.basePath + '/' + serviceName);
             for (var i = 0; i < dirData.length; i++) {
                 let docName = dirData[i];
@@ -276,6 +287,10 @@ class DocManager extends DRP_Service {
                 if (!pathStat.isDirectory()) {
                     returnData.push(docName);
                 }
+                }
+            } catch (ex) {
+                // Could not read file
+                throw new DRP_CmdError("Service not found", DRP_ErrorCode.NOTFOUND, "DocMgr");
             }
         }
         return returnData;
@@ -291,7 +306,12 @@ class DocManager extends DRP_Service {
             let docObj = await serviceDocCollection.findOne({ docName: docName });
             if (docObj && docObj.docData) docData = docObj.docData;
         } else {
-            docData = await fs.readFile(`${thisDocMgr.basePath}/${serviceName}/${docName}`, 'utf8');
+            try {
+                docData = await fs.readFile(`${thisDocMgr.basePath}/${serviceName}/${docName}`, 'utf8');
+            } catch (ex) {
+                // Could not read file
+                throw new DRP_CmdError("Document not found", DRP_ErrorCode.NOTFOUND, "DocMgr");
+            }
         }
 
         return docData;

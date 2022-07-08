@@ -62,8 +62,12 @@
                 }
 
             },
-            "displayResponse": function (displayData) {
+            "displayResponse": function (displayData, isErr) {
                 let displayText = "";
+                let textColor = "#DDD";
+                if (isErr) {
+                    textColor = "#F66";
+                }
                 if (typeof displayData === "object") {
                     displayText = JSON.stringify(displayData, null, 2);
                 } else {
@@ -74,7 +78,7 @@
                         displayText = displayData;
                     }
                 }
-                myApp.appVars.bottomPane.innerHTML = "<pre style='font-size: 12px;line-height: 12px;color: #DDD;height: 100%;'>" + displayText + "</pre>";
+                myApp.appVars.bottomPane.innerHTML = `<pre style='font-size: 12px;line-height: 12px;color: ${textColor};height: 100%;'>${displayText}</pre>`;
             }
         };
     }
@@ -133,15 +137,25 @@ Params: <input class="cmdParams" type="text"/><br>
                 params.pathList = myApp.appVars.cmdParamsInput.value.split(",");
             }
 
-            // Send DRP command
-            let response = await myApp.sendCmd_StreamHandler(drpService, drpMethod, params, function (streamData) {
-                // Stream handler - persistent
-                myApp.appFuncs.displayResponse(streamData);
-            });
 
-            if (response) {
-                // Response to immediate command
-                myApp.appFuncs.displayResponse(response);
+            // Send DRP command
+            try {
+                //let cmdResponse = await myApp.sendCmd(drpService, drpMethod, params, true);
+                //myApp.appFuncs.displayResponse(cmdResponse);
+                
+                let response = await myApp.sendCmd_StreamHandler(drpService, drpMethod, params, (streamData) => {
+                    // Stream handler - persistent
+                    myApp.appFuncs.displayResponse(streamData);
+                });
+
+                if (response) {
+                    // Response to immediate command
+                    myApp.appFuncs.displayResponse(response);
+                }
+                
+            } catch (ex) {
+                // Caught an error, display it
+                myApp.appFuncs.displayResponse(ex, true);
             }
         }
 

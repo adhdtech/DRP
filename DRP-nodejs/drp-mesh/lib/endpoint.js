@@ -127,18 +127,22 @@ class DRP_Endpoint {
         if (promisify) {
             // We expect a response, using await; add 'resolve' to queue
             returnVal = new Promise(function (resolve, reject) {
-                token = thisEndpoint.AddReplyHandler(function (message) {
-                    resolve(message);
+                token = thisEndpoint.AddReplyHandler((cmdResponse) => {
+                    if (cmdResponse.err) {
+                        reject(cmdResponse.err)
+                    }
+                    resolve(cmdResponse.payload);
                 });
             });
-        } else if (typeof callback === 'function') {
+        } else if (callback) {
             // We expect a response, using callback; add callback to queue
+            if (typeof callback !== 'function') throw { message: 'Callback is not a function', name: 'SendCmd' }
             token = thisEndpoint.AddReplyHandler(callback);
         } else {
             // We don't expect a response; leave reply token null
         }
+
         let packetObj = new DRP_Cmd(serviceName, method, params, token, routeOptions, serviceInstanceID);
-        //console.dir(packetObj);
         let packetString = JSON.stringify(packetObj);
         thisEndpoint.SendPacketString(packetString);
         return returnVal;

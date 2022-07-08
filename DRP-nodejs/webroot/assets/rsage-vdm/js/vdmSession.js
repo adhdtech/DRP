@@ -56,7 +56,7 @@ class rSageApplet extends VDMApplet {
         // Delete stream handlers
         for (let i = 0; i < thisApplet.streamHandlerTokens.length; i++) {
             let thisStreamToken = thisApplet.streamHandlerTokens[i];
-            thisApplet.sendCmd("DRP", "unsubscribe", { streamToken: thisStreamToken}, false);
+            thisApplet.sendCmd("DRP", "unsubscribe", { streamToken: thisStreamToken }, false);
             thisApplet.vdmSession.drpClient.DeleteReplyHandler(thisStreamToken);
         }
         // Delete from 
@@ -83,28 +83,13 @@ class rSageApplet extends VDMApplet {
     async sendCmd(serviceName, cmdName, cmdData, awaitResponse) {
         let thisApplet = this;
         let returnData = null;
-
-        let response = await thisApplet.vdmSession.drpClient.SendCmd(serviceName, cmdName, cmdData, awaitResponse, null);
-
-        if (!response || typeof response.payload === 'undefined') {
-            throw new Error("Empty DRP_Reply received")
-        }
-
-        if (response.err) {
-            throw response.err;
-        }
-
-        returnData = response.payload;
-
+        returnData = await thisApplet.vdmSession.drpClient.SendCmd(serviceName, cmdName, cmdData, awaitResponse, null);
         return returnData;
     }
 
     async sendCmd_StreamHandler(serviceName, cmdName, cmdData, callback) {
         let thisApplet = this;
-        let returnData = null;
-
-        let response = await thisApplet.vdmSession.drpClient.SendCmd_StreamHandler(serviceName, cmdName, cmdData, callback, thisApplet);
-        if (response) returnData = response.payload;
+        let returnData = await thisApplet.vdmSession.drpClient.SendCmd_StreamHandler(serviceName, cmdName, cmdData, callback, thisApplet);
         return returnData;
     }
 }
@@ -147,7 +132,7 @@ class VDMServerAgent extends DRP_Client_Browser {
         if (Object.keys(thisDRPClient.vdmSession.appletProfiles).length) return;
         let appletProfiles = {};
         let getAppletProfilesResponse = await thisDRPClient.SendCmd("VDM", "getVDMAppletProfiles", null, true, null);
-        if (getAppletProfilesResponse && getAppletProfilesResponse.payload) appletProfiles = getAppletProfilesResponse.payload;
+        if (getAppletProfilesResponse) appletProfiles = getAppletProfilesResponse;
         let appletProfileNames = Object.keys(appletProfiles);
         for (let i = 0; i < appletProfileNames.length; i++) {
             let thisAppletProfile = appletProfiles[appletProfileNames[i]];

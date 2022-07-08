@@ -655,8 +655,8 @@ class DRP_Node extends DRP_Securable {
                         if (targetEndpoint) {
                             // Await for command from consumer
                             let results = await targetEndpoint.SendCmd("DRP", "pathCmd", params, true, null);
-                            if (results && results.payload && results.payload) {
-                                oReturnObject = results.payload;
+                            if (results) {
+                                oReturnObject = results;
                             }
                         } else {
                             thisNode.log(`Could not verify consumer connection for [${agentID}]`, true);
@@ -1272,10 +1272,7 @@ class DRP_Node extends DRP_Securable {
 
             if (awaitResponse) {
                 let cmdResponse = await routeNodeConnection.SendCmd(serviceName, method, params, true, null, routeOptions, targetServiceInstanceID);
-                if (cmdResponse.err) {
-                    throw cmdResponse.err
-                }
-                return cmdResponse.payload;
+                return cmdResponse;
             } else {
                 routeNodeConnection.SendCmd(serviceName, method, params, false, null, routeOptions, targetServiceInstanceID);
                 return;
@@ -1343,7 +1340,7 @@ class DRP_Node extends DRP_Securable {
                     // Let's tell the remote Node to redirect
                     thisNode.log(`Redirecting Node[${declaration.NodeID}] to one of these registry URLs: ${zoneRegistryList}`);
                     let redirectResults = await sourceEndpoint.SendCmd("DRP", "connectToRegistryInList", zoneRegistryList, true, null, null);
-                    if (redirectResults.payload) {
+                    if (redirectResults) {
                         // Successful - terminate connection
                         sourceEndpoint.Close();
                         return;
@@ -1494,13 +1491,13 @@ class DRP_Node extends DRP_Securable {
         let thisNode = this;
         // Get peer info
         let getDeclarationResponse = await nodeClient.SendCmd("DRP", "getNodeDeclaration", null, true, null);
-        if (!getDeclarationResponse || !getDeclarationResponse.payload || !getDeclarationResponse.payload.NodeID) {
+        if (!getDeclarationResponse || !getDeclarationResponse.NodeID) {
             thisNode.log(`Tried connecting to Registry at ${registryURL}, but getNodeDeclaration failed`);
             return false;
         }
 
         // Get Peer Declaration
-        let peerDeclaration = getDeclarationResponse.payload;
+        let peerDeclaration = getDeclarationResponse;
 
         // Verify the Peer is a Registry
         if (peerDeclaration.NodeRoles.indexOf("Registry") < 0) {
@@ -1538,8 +1535,21 @@ class DRP_Node extends DRP_Securable {
             retryOnClose = false;
         } else closeCallback = () => { };
 
+        let errorCallback = (err) => {
+            //thisNode.log(`Failed to connect to registry: ${registryURL}, ${err}`, true);
+            if (connTrackingObj && typeof connTrackingObj === 'object') {
+                connTrackingObj.lastConnectionSucceeded = false;
+            }
+        };
+
+        thisNode.log(`Attempting to connect to registry: ${registryURL}`, true);
+
         // Initiate Registry Connection
         let nodeClient = new DRP_NodeClient(registryURL, thisNode.WebProxyURL, thisNode, null, retryOnClose, async () => {
+
+            if (connTrackingObj && typeof connTrackingObj === 'object') {
+                connTrackingObj.lastConnectionSucceeded = true;
+            }
 
             // This is the callback which occurs after our Hello packet has been accepted
             thisNode.log(`RegistryURL: ${registryURL}, IsRegistry: ${thisNode.IsRegistry()}, isConnectedToControlPlane: ${thisNode.isConnectedToControlPlane}`, true);
@@ -1556,7 +1566,7 @@ class DRP_Node extends DRP_Securable {
                 nodeClient.Close();
             }
 
-        }, closeCallback);
+        }, closeCallback, errorCallback);
     }
 
     // This is for non-Registry nodes
@@ -1673,6 +1683,12 @@ class DRP_Node extends DRP_Securable {
                             return;
                         }
 
+                        if (connTrackingObj.lastConnectionSucceeded) {
+                            thisNode.log(`Connection closed to registry ${registryURL}, waiting ${thisNode.ReconnectWaitTimeSeconds} seconds to reconnect`, true);
+                        } else {
+                            thisNode.log(`Connection failed to registry ${registryURL}, waiting ${thisNode.ReconnectWaitTimeSeconds} seconds to reconnect`, true);
+                        }
+
                         // On failure, wait 10 seconds, see if the remote registry is connected back then try again
                         // For each attempt, increase the wait time by 10 seconds up to 5 minutes
                         await thisNode.Sleep(thisNode.ReconnectWaitTimeSeconds * 1000);
@@ -1741,7 +1757,7 @@ class DRP_Node extends DRP_Securable {
                 // Let's tell the remote Node to redirect
                 thisNode.log(`Redirecting Node[${targetNodeID}] to one of these registry URLs: ${registryList}`);
                 let redirectResults = await remoteEndpoint.SendCmd("DRP", "connectToRegistryInList", registryList, true, null, null);
-                if (redirectResults.payload) {
+                if (redirectResults) {
                     // Successful - terminate connection
                     remoteEndpoint.Close();
                     return true;
@@ -2301,23 +2317,19 @@ class DRP_Node extends DRP_Securable {
             // params was passed from PathCmd
             pingAddress = params.pathList.shift();
             pingPort = params.pathList.shift();
-            if (!pingAddress || !pingPort) return `Format: \\TCPPing\\{address}\\{port}`;
         }
 
-        if (!pingAddress || !pingPort) return { "address": "127.0.0.1", "port": "80", "timeout": 3000, "attempts": 3 };
-        //console.dir(params);
-        try {
-            pingInfo = await tcpPing({
-                address: pingAddress,
-                port: pingPort,
-                timeout: pingTimeout,
-                attempts: pingAttempts
-            });
+        if (!pingAddress || !pingPort) {
+            throw new DRP_CmdError(`Must provide address and port`, DRP_ErrorCode.BADREQUEST, "TCPPing");
         }
-        catch (ex) {
-            // Cannot do tcpPing against host:port
-            //thisNode.log(`TCP Pings errored: ${ex}`);
-        }
+
+        pingInfo = await tcpPing({
+            address: pingAddress,
+            port: pingPort,
+            timeout: pingTimeout,
+            attempts: pingAttempts
+        });
+
         return pingInfo;
     }
 
@@ -2381,12 +2393,13 @@ class DRP_NodeClient extends DRP_Client {
     * @param {function} openCallback Execute after connection is established
     * @param {function} closeCallback Execute after connection is terminated
     */
-    constructor(wsTarget, proxy, drpNode, endpointID, retryOnClose, openCallback, closeCallback) {
+    constructor(wsTarget, proxy, drpNode, endpointID, retryOnClose, openCallback, closeCallback, errorCallback) {
         super(wsTarget, proxy, drpNode, endpointID, "Node");
         this.retryOnClose = retryOnClose;
         this.proxy = proxy;
         this.openCallback = openCallback;
         this.closeCallback = closeCallback;
+        this.errorCallback = errorCallback;
         // Register Endpoint commands
         // (methods should return output and optionally accept [params, token] for streaming)
 
@@ -2405,7 +2418,12 @@ class DRP_NodeClient extends DRP_Client {
 
     async CloseHandler(closeCode) {
         let thisEndpoint = this;
-        if (this.DRPNode.Debug) this.DRPNode.log("Node client [" + thisEndpoint.RemoteAddress() + ":" + thisEndpoint.RemotePort() + "] closed with code [" + closeCode + "]");
+        if (thisEndpoint.RemoteAddress() && thisEndpoint.RemotePort()) {
+            // This was a successful connection that is now closed
+            if (this.DRPNode.Debug) this.DRPNode.log("Node client [" + thisEndpoint.RemoteAddress() + ":" + thisEndpoint.RemotePort() + "] closed with code [" + closeCode + "]");
+        } else {
+            // Connection was not made
+        }
 
         thisEndpoint.DRPNode.RemoveEndpoint(thisEndpoint, thisEndpoint.closeCallback);
 
@@ -2417,7 +2435,7 @@ class DRP_NodeClient extends DRP_Client {
     }
 
     async ErrorHandler(error) {
-        if (this.DRPNode.Debug) this.DRPNode.log("Node client encountered error [" + error + "]");
+        this.errorCallback(error);
     }
 
 }
@@ -3080,7 +3098,7 @@ class DRP_TopologyTracker {
         let returnData = await sourceEndpoint.SendCmd("DRP", "getRegistry", { "reqNodeID": thisNode.NodeID }, true, null, null);
         //console.dir(returnData, { depth: 4 });
         let sourceIsRegistry = false;
-        let remoteRegistry = returnData.payload;
+        let remoteRegistry = returnData;
         let runCleanup = false;
 
         if (declaration.NodeRoles.indexOf("Registry") >= 0) {

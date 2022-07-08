@@ -134,9 +134,9 @@ class DRP_RouteHandler {
                 }
                 wsConn.pingTimes.push(null);
 
-                thisWebServerRoute.DRPNode.log(`wsPing timed out to Endpoint ${wsConn.drpEndpoint.EndpointID}`);
-
                 wsConn.missedPings++;
+
+                thisWebServerRoute.DRPNode.log(`wsPing [${wsConn.missedPings}] timed out to Endpoint ${wsConn.drpEndpoint.EndpointID}`);
 
                 if (wsConn.missedPings >= 3) {
                     wsConn.close(4000, "wsPing timeout threshold exceeded");
