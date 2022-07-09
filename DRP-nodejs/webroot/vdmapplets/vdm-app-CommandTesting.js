@@ -124,9 +124,10 @@ Params: <input class="cmdParams" type="text"/><br>
             let drpMethod = myApp.appVars.drpMethodSelect.value;
 
             // Try to parse command data to JSON object
+            let paramsString = myApp.appVars.cmdParamsInput.value;
             let params = {};
             try {
-                let parsedValue = JSON.parse(myApp.appVars.cmdParamsInput.value);
+                let parsedValue = JSON.parse(paramsString);
                 let constructorType = parsedValue.constructor.name;
                 if (constructorType !== "Object") {
                     throw { message: `Expected an object, received a ${constructorType}` };
@@ -134,7 +135,9 @@ Params: <input class="cmdParams" type="text"/><br>
                 params = parsedValue;
             }
             catch (ex) {
-                params.pathList = myApp.appVars.cmdParamsInput.value.split(",");
+                if (paramsString.length > 0) {
+                    params.pathList = paramsString.split(",");
+                }
             }
 
 
