@@ -1827,6 +1827,57 @@ class DRP_Node extends DRP_Securable {
         }
     }
 
+    async EvacuateNode(targetNodeID) {
+        let thisNode = this;
+        /** @type DRP_Endpoint */
+        let remoteEndpoint = thisNode.NodeEndpoints[targetNodeID];
+        let remoteNodeEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
+        if (!remoteNodeEntry.IsRegistry()) {
+            // We need to find another Registry for the client
+
+            let thisTopologyTracker = thisNode.TopologyTracker;
+            let targetZone = remoteNodeEntry.Zone;
+
+            let registryList = [];
+            let nodeIDList = Object.keys(thisTopologyTracker.NodeTable);
+            for (let i = 0; i < nodeIDList.length; i++) {
+                // See if this entry is in the desired zone
+                let checkNodeEntry = thisTopologyTracker.NodeTable[nodeIDList[i]];
+                if (checkNodeEntry.IsRegistry() && checkNodeEntry.NodeID != thisNode.NodeID && checkNodeEntry.Zone === targetZone) {
+                    registryList.push(checkNodeEntry.NodeURL);
+                }
+            }
+
+            if (!registryList.length > 0) {
+                // Didn't find anything in that zone; look for any others
+                for (let i = 0; i < nodeIDList.length; i++) {
+                    // See if this entry is in the desired zone
+                    let checkNodeEntry = thisTopologyTracker.NodeTable[nodeIDList[i]];
+                    if (checkNodeEntry.IsRegistry() && checkNodeEntry.NodeID != thisNode.NodeID) {
+                        registryList.push(checkNodeEntry.NodeURL);
+                    }
+                }
+            }
+
+            if (!registryList.length > 0) {
+                // This must be the last Registry, nowhere to retarget
+                return null;
+            }
+
+            // Let's tell the remote Node to redirect
+            thisNode.log(`Redirecting Node[${targetNodeID}] to one of these registry URLs: ${registryList}`);
+            let redirectResults = await remoteEndpoint.SendCmd("DRP", "connectToRegistryInList", registryList, true, null, null);
+            if (redirectResults) {
+                // Successful - terminate connection
+                remoteEndpoint.Close();
+                return true;
+            } else {
+                // Failure - client could not reach target Registry, let them stay here
+                return false;
+            }
+        }
+    }
+
     /**
      * Tell directly connected non-Registry nodes to go elsewhere
      */
@@ -1836,58 +1887,9 @@ class DRP_Node extends DRP_Securable {
         // Loop over NodeEndpoints
         let nodeIDList = Object.keys(thisNode.NodeEndpoints);
 
-        let EvacuateNode = async (targetNodeID) => {
-            /** @type DRP_Endpoint */
-            let remoteEndpoint = thisNode.NodeEndpoints[targetNodeID];
-            let remoteNodeEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
-            if (!remoteNodeEntry.IsRegistry()) {
-                // We need to find another Registry for the client
-
-                let thisTopologyTracker = thisNode.TopologyTracker;
-                let targetZone = remoteNodeEntry.Zone;
-
-                let registryList = [];
-                let nodeIDList = Object.keys(thisTopologyTracker.NodeTable);
-                for (let i = 0; i < nodeIDList.length; i++) {
-                    // See if this entry is in the desired zone
-                    let checkNodeEntry = thisTopologyTracker.NodeTable[nodeIDList[i]];
-                    if (checkNodeEntry.IsRegistry() && checkNodeEntry.NodeID != thisNode.NodeID && checkNodeEntry.Zone === targetZone) {
-                        registryList.push(checkNodeEntry.NodeURL);
-                    }
-                }
-
-                if (!registryList.length > 0) {
-                    // Didn't find anything in that zone; look for any others
-                    for (let i = 0; i < nodeIDList.length; i++) {
-                        // See if this entry is in the desired zone
-                        let checkNodeEntry = thisTopologyTracker.NodeTable[nodeIDList[i]];
-                        if (checkNodeEntry.IsRegistry() && checkNodeEntry.NodeID != thisNode.NodeID) {
-                            registryList.push(checkNodeEntry.NodeURL);
-                        }
-                    }
-                }
-
-                if (!registryList.length > 0) {
-                    // This must be the last Registry, nowhere to retarget
-                    return null;
-                }
-
-                // Let's tell the remote Node to redirect
-                thisNode.log(`Redirecting Node[${targetNodeID}] to one of these registry URLs: ${registryList}`);
-                let redirectResults = await remoteEndpoint.SendCmd("DRP", "connectToRegistryInList", registryList, true, null, null);
-                if (redirectResults) {
-                    // Successful - terminate connection
-                    remoteEndpoint.Close();
-                    return true;
-                } else {
-                    // Failure - client could not reach target Registry, let them stay here
-                    return false;
-                }
-            }
-        }
 
         // Get topology from all nodes
-        await Promise.all(nodeIDList.map(n => EvacuateNode(n)));
+        await Promise.all(nodeIDList.map(n => thisNode.EvacuateNode(n)));
 
         return "Non-registry Nodes evacuated";
     }
@@ -2327,7 +2329,7 @@ class DRP_Node extends DRP_Securable {
     async Subscribe(thisSubscription) {
         let thisNode = this;
         let results = false;
-
+ 
         // What is the scope?
         if (thisSubscription.scope === "local" && (!thisSubscription.targetNodeID || thisSubscription.targetNodeID === thisNode.NodeID)) {
             // Subscribe directly to the local TopicManager; the result is the Subscriber ID
@@ -2688,10 +2690,28 @@ class DRP_TopologyTracker {
                     // We don't have this one; add it and advertise
                     topologyPacket.data.LearnedFrom = srcNodeID;
 
+                    // Add to the target table
                     targetTable.AddEntry(topologyPacket.id, topologyPacket.data, thisNode.getTimestamp());
                     topologyEntry = targetTable[topologyPacket.id];
-                    if (topologyPacket.type === "service") {
-                        //console.dir(topologyEntry);
+
+                    // If this is a Registry, the new node is a Registry for another zone and we have connected endpoints for that zone, evacuate them
+                    if (thisNode.IsRegistry() && topologyPacket.type === "node" && topologyPacket.data.Roles.indexOf("Registry") >= 0 && srcNodeID === advertisedEntry.NodeID && thisNode.Zone !== topologyPacket.zone) {
+                        // Loop over connected Endpoints, see if any are non-registry and in the same zone as the new Registry
+                        let endpointList = Object.keys(thisNode.NodeEndpoints);
+                        for (let checkNodeId of endpointList) {
+                            thisNode.log(`Evaluating connected Node [${checkNodeId}] for possible evacuation...`, true);
+                            let checkNodeEntry = thisTopologyTracker.NodeTable[checkNodeId];
+                            if (!checkNodeEntry) {
+                                thisNode.log(`No NodeTable entry for connected Node [${checkNodeId}]!`, true);
+                                continue;
+                            }
+                            if (checkNodeEntry.Zone === topologyPacket.zone && !checkNodeEntry.IsRegistry()) {
+                                // Evacuate the Node
+                                thisNode.log(`Evacuating Node [${checkNodeId}] to new Registry in zone [${checkNodeEntry.Zone}]`, true);
+                                thisNode.EvacuateNode(checkNodeId);
+                            }
+                        }
+                        return;
                     }
                 }
                 break;
@@ -3695,6 +3715,18 @@ class DRP_SubscriptionManager {
 
         // Ignore if we don't have any Subscriptions to check against
         if (thisSubMgr.Subscribers.size === 0) return;
+
+        // This is a node add
+        if (topologyPacket.cmd === "add" && topologyPacket.type === "node") {
+            // If these conditions are true:
+            //   - Local node is not a registry
+            //   - Local node is attached to an out-of-zone registry
+            //   - New node is a registry in the same zone as the local node
+            // Then:
+            //   - Connect to the new Registry
+
+            // This logic was implemented in the TopologyTracker module.  Should it be here instead?
+        }
 
         // This is a service add
         if (topologyPacket.cmd === "add" && topologyPacket.type === "service") {
