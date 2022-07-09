@@ -808,7 +808,7 @@ class DRP_Node extends DRP_Securable {
 
                                     params.pathList = ['Services', serviceName].concat(remainingChildPath);
 
-                                    let targetServiceEntry = thisNode.TopologyTracker.FindInstanceOfService(serviceName, null, zoneName, null, true);
+                                    let targetServiceEntry = thisNode.TopologyTracker.FindInstanceOfService(serviceName, null, zoneName, null, "zone");
                                     if (!targetServiceEntry) {
                                         throw new DRP_CmdError("Service not found", DRP_ErrorCode.NOTFOUND, "pathCmd");
                                     };
@@ -1235,7 +1235,7 @@ class DRP_Node extends DRP_Securable {
     }
 
     // Execute a service command with the option of routing via the control plane
-    async ServiceCmd(serviceName, method, params, targetNodeID, targetServiceInstanceID, useControlPlane, awaitResponse, callingEndpoint) {
+    async ServiceCmd(serviceName, method, params, targetNodeID, targetServiceInstanceID, useControlPlane, awaitResponse, callingEndpoint, limitScope) {
         let thisNode = this;
         let baseErrMsg = "ERROR - ";
         let msgSource = "ServiceCmd";
@@ -1263,7 +1263,7 @@ class DRP_Node extends DRP_Securable {
 
             if (!targetServiceInstanceID) {
                 // Update to use the DRP_TopologyTracker object
-                targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
+                targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(serviceName, null, null, null, limitScope);
 
                 // If no match is found then return null
                 if (!targetServiceRecord) {
@@ -1291,7 +1291,15 @@ class DRP_Node extends DRP_Securable {
         }
 
         // We don't have a target NodeID
-        if (!targetNodeID || !thisNode.TopologyTracker.NodeTable[targetNodeID]) return null;
+        if (!targetNodeID) {
+            handleError(`No Node found to service request`);
+            return;
+        }
+
+        if (!thisNode.TopologyTracker.NodeTable[targetNodeID]) {
+            handleError(`Invalid Node [${targetNodeID}]`);
+            return;
+        }
 
         // Where is the service?
         if (targetNodeID === thisNode.NodeID) {
@@ -2845,9 +2853,10 @@ class DRP_TopologyTracker {
      * @param {string} serviceType Type of Service to find (optional)
      * @param {string} zone Name of zone (optional)
      * @param {string} nodeID Specify Node ID (optional)
+     * @param {string} limitScope Limit results to a specific scope
      * @returns {DRP_ServiceTableEntry} Best Service Table entry
      */
-    FindInstanceOfService(serviceName, serviceType, zone, nodeID, forceZone) {
+    FindInstanceOfService(serviceName, serviceType, zone, nodeID, limitScope) {
         let thisTopologyTracker = this;
         let thisNode = thisTopologyTracker.DRPNode;
 
@@ -2899,11 +2908,6 @@ class DRP_TopologyTracker {
                 return serviceTableEntry;
             }
 
-            // See if we're forcing the specified zone
-            if (forceZone && checkZone !== serviceTableEntry.Zone) {
-                continue;
-            }
-
             // Skip if the zone is specified and doesn't match
             switch (serviceTableEntry.Scope) {
                 case "local":
@@ -2916,6 +2920,23 @@ class DRP_TopologyTracker {
                 default:
                     // Unrecognized scope option
                     continue;
+            }
+
+            // Skip if limitScope is specified and doesn't match
+            if (limitScope) {
+                switch (limitScope) {
+                    case "local":
+                        if (thisNode.NodeID !== serviceTableEntry.NodeID) continue;
+                        break;
+                    case "global":
+                        break;
+                    case "zone":
+                        if (checkZone !== serviceTableEntry.Zone) continue;
+                        break;
+                    default:
+                        // Unrecognized scope option
+                        continue;
+                }
             }
 
             // Delete if we don't have a corresponding Node entry
