@@ -202,7 +202,7 @@ class DRP_Service {
 
     /**
      * Get parameters for Service Method
-     * @param {DRP_SvcMethodParams} params Parameters object
+     * @param {DRP_MethodParams} params Parameters object
      * @param {string[]} paramNames Ordered list of parameters to extract
      * @returns {object}
      */
@@ -210,7 +210,7 @@ class DRP_Service {
         /*
          * Parameters can be passed three ways:
          *   - Ordered list of remaining path elements (params.pathList[paramNames[x]])
-         *   - POST or PUT body (params.body.myVar)
+         *   - POST or PUT body (params.payload.myVar)
          *   - Directly in params (params.myVar)
         */
         let returnObj = {};
@@ -224,9 +224,9 @@ class DRP_Service {
                 }
             }
 
-            // Second, see if the parameters were passed in the body (REST)
-            if (params.body && typeof params.body[paramNames[i]] !== 'undefined') {
-                returnObj[paramNames[i]] = params.body[paramNames[i]];
+            // Second, see if the parameters were passed in the payload (REST body)
+            if (params.payload && typeof params.payload[paramNames[i]] !== 'undefined') {
+                returnObj[paramNames[i]] = params.payload[paramNames[i]];
             }
 
             // Third, see if the parameters were passed directly in the params (DRP Exec)
@@ -235,13 +235,6 @@ class DRP_Service {
             }
         }
         return returnObj;
-    }
-}
-
-class DRP_SvcMethodParams {
-    constructor() {
-        this.body = {};
-        this.pathList = [];
     }
 }
 

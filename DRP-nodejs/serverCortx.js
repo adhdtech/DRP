@@ -86,7 +86,7 @@ class DRP_Service_CortxStorage extends DRP_Service {
                 let parsedParams = thisService.GetParams(params, methodParams);
                 let returnObj = null;
                 if (!parsedParams.bucket) return "Must provide bucket name";
-                returnObj = await this.PutObject(parsedParams.bucket, parsedParams.key, parsedParams.body);
+                returnObj = await this.PutObject(parsedParams.bucket, parsedParams.key, parsedParams.payload);
                 return returnObj;
             },
             getAllObjects: async (params) => {

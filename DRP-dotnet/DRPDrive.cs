@@ -108,22 +108,37 @@ namespace ADHDTech.DRP
                 if (!myDRPClient.Open().GetAwaiter().GetResult()) return;
 
                 //Console.WriteLine("Connected to DRP Broker, sending pathCmd");
-                JObject returnedData = myDRPClient.SendCmd_Async("DRP", "pathCmd", new Dictionary<string, object>() { { "method", "GetItem" }, { "pathList", remainingPath } }).GetAwaiter().GetResult();
+                object returnedData = myDRPClient.SendCmd_Async("DRP", "pathCmd", new Dictionary<string, object>() { { "method", "GetItem" }, { "pathList", remainingPath } }).GetAwaiter().GetResult();
 
-                if (returnedData != null && returnedData["pathItem"] != null)
+                JObject returnObject = null;
+
+                //Console.WriteLine("Starting callback passed to SendCmd...");
+                try
+                {
+                    if (returnedData != null && returnedData.GetType() == typeof(JObject))
+                    {
+                        returnObject = (JObject)returnedData;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("Error converting message to JObject: " + ex.Message + "\r\n<<<" + returnedData + ">>>");
+                }
+
+                if (returnObject != null)
                 {
                     string returnJSONString;
-                    string itemType = returnedData["pathItem"].GetType().ToString();
+                    string itemType = returnObject.GetType().ToString();
                     object returnObj;
                     if (itemType.Equals("Newtonsoft.Json.Linq.JValue"))
                     {
-                        returnObj = returnedData["pathItem"].Value<string>();
-                        returnJSONString = returnedData["pathItem"].Value<string>();
+                        returnObj = returnObject.Value<string>();
+                        returnJSONString = returnObject.Value<string>();
                     }
                     else
                     {
-                        returnObj = returnedData["pathItem"];
-                        returnJSONString = returnedData["pathItem"].ToString();
+                        returnObj = returnObject;
+                        returnJSONString = returnObject.ToString();
                     }
                     if (returnObj != null)
                     {
@@ -165,14 +180,14 @@ namespace ADHDTech.DRP
                 if (returnedData["success"] != null)
                 {
                     object returnObj;
-                    string itemType = returnedData["pathItem"].GetType().ToString();
+                    string itemType = returnedData.GetType().ToString();
                     if (itemType.Equals("Newtonsoft.Json.Linq.JValue"))
                     {
-                        returnObj = returnedData["pathItem"].Value<string>();
+                        returnObj = returnedData.Value<string>();
                     }
                     else
                     {
-                        returnObj = returnedData["pathItem"];
+                        returnObj = returnedData;
                     }
                     if (returnObj != null)
                     {
@@ -230,15 +245,30 @@ namespace ADHDTech.DRP
                 if (!myDRPClient.Open().GetAwaiter().GetResult()) return;
 
                 //Console.WriteLine("Connected to DRP Broker, sending pathCmd");
-                JObject returnedData = myDRPClient.SendCmd_Async("DRP", "pathCmd", new Dictionary<string, object>() { { "method", "GetChildItems" }, { "pathList", remainingPath } }).GetAwaiter().GetResult();
+                object returnedData = myDRPClient.SendCmd_Async("DRP", "pathCmd", new Dictionary<string, object>() { { "method", "GetChildItems" }, { "pathList", remainingPath } }).GetAwaiter().GetResult();
 
-                if (returnedData != null && returnedData.ContainsKey("pathItemList"))
+                JArray returnObject = null;
+
+                //Console.WriteLine("Starting callback passed to SendCmd...");
+                try
+                {
+                    if (returnedData != null && returnedData.GetType() == typeof(JArray))
+                    {
+                        returnObject = (JArray)returnedData;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("Error converting message to JArray: " + ex.Message + "\r\n<<<" + returnedData + ">>>");
+                }
+
+                if (returnObject != null)
                 {
 
                     // Return base Objects
                     DataTable returnTable = null;
 
-                    foreach (JObject objData in (JArray)returnedData["pathItemList"])
+                    foreach (JObject objData in (JArray)returnObject)
                     {
                         var fields = new List<Field>();
 
@@ -315,10 +345,9 @@ namespace ADHDTech.DRP
                 //Console.WriteLine("Connected to DRP Broker!");
                 JObject returnedData = myDRPClient.SendCmd("pathCmd", new Dictionary<string, object>() { { "method", "GetItem" }, { "pathList", remainingPath } });
 
-                if (returnedData != null && returnedData["pathItem"] != null)
+                if (returnedData != null)
                 {
-                    //string itemType = returnedData["pathItem"].GetType().ToString();
-                    returnJSONString = returnedData["pathItem"].ToString();
+                    returnJSONString = returnedData.ToString();
                     /*
                     switch (itemType) {
                         case "Newtonsoft.Json.Linq.JObject":

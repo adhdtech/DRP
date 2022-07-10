@@ -96,10 +96,7 @@ class DRP_Endpoint_Browser {
 
         if (!params) params = {};
         params.streamToken = thisEndpoint.AddReplyHandler((cmdResponse) => {
-            if (cmdResponse.err) {
-                throw cmdResponse.err
-            }
-            callback(cmdResponse.payload);
+            callback(cmdResponse);
         });
 
         if (sourceApplet) {
@@ -123,10 +120,26 @@ class DRP_Endpoint_Browser {
     }
 
     SendReply(wsConn, token, status, payload) {
+        let thisEndpoint = this;
         if (wsConn.readyState === WebSocket.OPEN) {
-            let packetObj = new DRP_Client_Reply(token, status, payload);
-            let packetString = JSON.stringify(packetObj);
+
+            let packetString = null;
+            let packetObj = null;
+
+            try {
+                packetObj = new DRP_Client_Reply(token, status, null, payload);
+                packetString = JSON.stringify(packetObj);
+            } catch (e) {
+                let errObj = {
+                    message: "Circular object encountered",
+                    code: 400,
+                    name: "JSON.Stringify"
+                }
+                packetObj = new DRP_Client_Reply(token, 1, errObj, e, null);
+                packetString = JSON.stringify(packetObj);
+            }
             thisEndpoint.SendPacketString(packetString);
+
             //console.log("SEND -> " + JSON.stringify(replyCmd));
             return 0;
         } else {
@@ -371,19 +384,10 @@ class DRP_Endpoint_Browser {
 
         // If we have a return object and want only a list of children, do that now
         if (listOnly) {
-            if (oReturnObject instanceof Object) {
-                if (!oReturnObject.pathItemList) {
-                    // Return only child keys and data types
-                    oReturnObject = { pathItemList: this.ListObjChildren(oReturnObject) };
-                }
-            } else {
-                oReturnObject = null;
-            }
-        } else if (oReturnObject) {
-            if (!(oReturnObject instanceof Object) || !oReturnObject["pathItem"]) {
-                // Return object as item
-                oReturnObject = { pathItem: oReturnObject };
-            }
+            // Return only child keys and data types
+            oReturnObject = this.ListObjChildren(oReturnObject);
+        } else {
+            oReturnObject = oReturnObject;
         }
 
         return oReturnObject;
@@ -481,10 +485,11 @@ class DRP_Client_Cmd {
 }
 
 class DRP_Client_Reply {
-    constructor(token, status, payload) {
+    constructor(token, status, err, payload) {
         this.type = "reply";
         this.token = token;
         this.status = status;
+        this.err = err;
         this.payload = payload;
     }
 }

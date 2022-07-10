@@ -42,7 +42,7 @@ let myConsumer = new DRP_Consumer(brokerURL, user, pass, null, async function ()
     // Save a file
     //response = await myClient.SendCmd("serviceCommand", { "serviceName": "DocMgr", "method": "saveFile", "fileName": "newFile.json", "fileData": JSON.stringify({"someKey":"someVal"}) }, true, null);
 	
-	//response = (await myClient.SendCmd("Greeter", "showParams", {"pathList":["asdf","ijkl"]}, true, null)).payload.pathItem;
+	//response = await myClient.SendCmd("Greeter", "showParams", {"pathList":["asdf","ijkl"]}, true, null);
 
     //console.dir(response, { "depth": 10 });
 });

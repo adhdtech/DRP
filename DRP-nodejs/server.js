@@ -10,7 +10,7 @@ const DRP_AuthResponse = require('drp-mesh').Auth.DRP_AuthResponse;
 const DRP_Authenticator = require('drp-mesh').Auth.DRP_Authenticator;
 const DRP_Logger = require('drp-service-logger');
 const os = require("os");
-const { DRP_PermissionSet, DRP_Permission } = require('drp-mesh/lib/securable');
+const { DRP_PermissionSet, DRP_Permission, DRP_VirtualFunction, DRP_VirtualFunction_Switch } = require('drp-mesh/lib/securable');
 
 var protocol = "ws";
 if (process.env.SSL_ENABLED) {
@@ -103,6 +103,15 @@ myNode.ConnectToMesh(async () => {
     // Add TestService
     let myTestService = new TestService("TestService", myNode, 10, 10, "global");
     myNode.AddService(myTestService);
+
+    myTestService.ClientCmds.testVirtualFunction = new DRP_VirtualFunction(
+        "testVirtualFunction",
+        "A test virtual function",
+        "[OPTIONS]...[PATH]",
+        { "h": new DRP_VirtualFunction_Switch("h", null, "Help") },
+        async () => { },
+        null
+    );
 
     // Add Hive
     let myHiveService = new Hive("Hive", myNode, 10, 10, "global");

@@ -1,5 +1,7 @@
 'use strict';
 
+const { DRP_CmdError, DRP_ErrorCode } = require("./packet");
+
 let IsTrue = function (value) {
     if (typeof (value) === 'string') {
         value = value.trim().toLowerCase();
@@ -154,25 +156,137 @@ class DRP_VirtualObject extends DRP_Securable {
     }
 }
 
+class DRP_VirtualFunction_Switch {
+    constructor(switchName, dataType, description) {
+        this.switchName = switchName;
+        this.dataType = dataType;
+        this.description = description;
+    }
+}
+
 class DRP_VirtualFunction extends DRP_Securable {
-    constructor(securedObject, permissionSet) {
+    /**
+     * Virtual Functions should translate to Swagger Routes
+     * @param {string} name Function name
+     * @param {string} description Description
+     * @param {string} usage Usage describing how function is to be called
+     * @param {Object.<string,DRP_VirtualFunction_Switch>} switches Optional switches
+     * @param {Function} securedFunction Function to execute
+     * @param {DRP_PermissionSet} permissionSet Permissions assigned to function
+     */
+    constructor(name, description, usage, switches, securedFunction, permissionSet) {
         super(permissionSet);
 
         this.name = name;
         this.description = description || '';
         this.usage = usage || '';
         this.switches = switches || {};
-        this.execute = execute || (() => { })();
+        this.function = securedFunction;
     }
 
-    async __Execute(callerAuthInfo, ...params) {
+    /**
+     * Execute Virtual Function
+     * @param {DRP_MethodParams} params
+     */
+    async Execute(params) {
         let results = null;
-        if (this.IsAllowed(callerAuthInfo)) {
-            results = await Execute(...params);
+        if (!this.CheckPermission(params.authInfo, "execute")) {
+            throw new DRP_CmdError("Unauthorized", DRP_ErrorCode.UNAUTHORIZED, "VirtualFunction");
+        }
+
+        if (params.method !== "execute" && params.method !== "SetItem") {
+            throw new DRP_CmdError(`Invalid operation (${params.method})`, DRP_ErrorCode.BADREQUEST, "VirtualFunction");
+        }
+
+        // Throw help
+        if (true) {
+            //results = this.ShowHelp()
+            results = params;
         } else {
-            results = "UNAUTHORIZED";
+            // Parse parameters and pass to function
+            results = await this.function(params);
         }
         return results;
+    }
+
+    ShowHelp() {
+        let output = `Usage: ${this.name} ${this.usage}\r\n`;
+        output += `${this.description}\r\n\r\n`;
+        output += "Optional arguments:\r\n";
+        let switchesKeys = Object.keys(this.switches);
+        if (switchesKeys.length > 0) {
+            for (let i = 0; i < switchesKeys.length; i++) {
+                output += `  -${switchesKeys[i]}\t${this.switches[switchesKeys[i]].description}\r\n`;
+            }
+        } else {
+            output += "  (none)\r\n";
+        }
+        return output;
+    }
+
+    ParseSwitchesAndData(switchesAndData, skipVarEval) {
+        let returnObj = {
+            switches: {},
+            data: ""
+        }
+        if (!switchesAndData) return returnObj;
+        // Built regex
+        /**
+         * 1. Define empty array for switch regex patterns
+         * 2. Iterate over switches, add switch regex to array
+         * 3. Join with OR into string
+         * 4. Add to template
+         * 5. Evaluate
+         **/
+
+        /** List containing  */
+        let switchDataRegExList = [];
+        if (this.switches) {
+            let switchList = Object.keys(this.switches);
+            for (let i = 0; i < switchList.length; i++) {
+                let thisSwitchDataRegEx;
+                let thisParameter = this.switches[switchList[i]];
+                if (thisParameter.dataType) {
+                    thisSwitchDataRegEx = `(?: ?-(?:${thisParameter.switchName}) (?:(?:".*?")|(?:'.*?')|(?:[^-][^ ?]*)))`
+                } else {
+                    thisSwitchDataRegEx = `(?: ?-(?:${thisParameter.switchName}))`
+                }
+                switchDataRegExList.push(thisSwitchDataRegEx);
+            }
+        }
+        let switchDataRegEx = new RegExp('^((?:' + switchDataRegExList.join('|') + ')*)?(?: ?([^-].*))?$');
+        try {
+            let switchRegEx = / ?-(\w)(?: ((?:".*?")|(?:'.*?')|(?:[^-][^ ?]*)))?/g;
+            let switchDataMatch = switchesAndData.match(switchDataRegEx);
+            if (switchDataMatch) {
+                let switchHash = {};
+                let switchMatch;
+                while (switchMatch = switchRegEx.exec(switchDataMatch[1])) {
+                    let varName = switchMatch[1];
+                    let varValue = switchMatch[2] || null;
+                    if (skipVarEval) {
+                        switchHash[varName] = varValue;
+                    } else {
+                        switchHash[varName] = this.EvaluateStringForVariables(varValue);
+                    }
+                }
+                returnObj.switches = switchHash;
+                if (skipVarEval) {
+                    returnObj.data = switchDataMatch[2] || "";
+                } else {
+                    returnObj.data = this.EvaluateStringForVariables(switchDataMatch[2]) || "";
+                }
+            }
+        } catch (ex) {
+            let ted = 1;
+        }
+        return returnObj;
+    }
+
+    // Function will be used as part of a service's Swagger doc.  The route will
+    // be derived by a previous function which scans the service's structure and
+    // looks for virtual functions.  Global ones will be in ClientCmds.
+    TranslateToSwagger() {
     }
 }
 
@@ -182,5 +296,6 @@ module.exports = {
     DRP_Securable: DRP_Securable,
     DRP_VirtualDirectory: DRP_VirtualDirectory,
     DRP_VirtualObject: DRP_VirtualObject,
-    DRP_VirtualFunction: DRP_VirtualFunction
+    DRP_VirtualFunction: DRP_VirtualFunction,
+    DRP_VirtualFunction_Switch: DRP_VirtualFunction_Switch
 }

@@ -5,6 +5,20 @@
 const DRP_Service = require("./service");
 const { v4: uuidv4 } = require('uuid');
 
+class DRP_AuthInfo {
+    /**
+     * Auth info container in DRP_MethodParams
+     * @param {string} type
+     * @param {string} value
+     * @param {any} userInfo
+     */
+    constructor(type, value, userInfo) {
+        this.type = type;
+        this.value = value;
+        this.userInfo = userInfo;
+    }
+}
+
 class DRP_AuthRequest {
     /**
      * A request should consist of a user/pass combo or a pre-shared token for services
@@ -101,5 +115,6 @@ module.exports = {
     DRP_AuthRequest: DRP_AuthRequest,
     DRP_AuthResponse: DRP_AuthResponse,
     DRP_AuthFunction: DRP_AuthFunction,
-    DRP_Authenticator: DRP_Authenticator
+    DRP_Authenticator: DRP_Authenticator,
+    DRP_AuthInfo: DRP_AuthInfo
 };

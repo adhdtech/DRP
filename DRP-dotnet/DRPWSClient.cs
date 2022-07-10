@@ -253,7 +253,7 @@ namespace ADHDTech.DRP
             //Console.WriteLine("Session open!");
 
             // If we have credentials, authenticate
-            JObject returnedData = await SendCmd_Async("DRP", "hello", new Dictionary<string, object>() {
+            object returnedData = await SendCmd_Async("DRP", "hello", new Dictionary<string, object>() {
                     { "userAgent", "dotnet" },
                     { "user", brokerProfile.User },
                     { "pass", brokerProfile.Pass }
@@ -280,7 +280,7 @@ namespace ADHDTech.DRP
             //Console.WriteLine("Close code: '" + closeArgs.Code + "'");
         }
 
-        public async Task<JObject> SendCmd_Async(string serviceName, string cmd, Dictionary<string, object> @params)
+        public async Task<object> SendCmd_Async(string serviceName, string cmd, Dictionary<string, object> @params)
         {
             TaskCompletionSource<object> thisTcs = new TaskCompletionSource<object>();
 
@@ -312,23 +312,8 @@ namespace ADHDTech.DRP
                 // timeout logic
                 return null;
             }
-            JObject returnObject = null;
 
-            //Console.WriteLine("Starting callback passed to SendCmd...");
-            try
-            {
-                if (data != null && data.GetType() == typeof(JObject))
-                {
-                    JObject returnData = (JObject)data;
-                    returnObject = returnData;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine("Error converting message to JObject: " + ex.Message + "\r\n<<<" + data + ">>>");
-            }
-
-            return returnObject;
+            return data;
         }
 
         // Shortcut to execute SendCmd

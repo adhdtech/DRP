@@ -191,8 +191,11 @@ class DRP_Endpoint {
         // Make sure params is an Object
         if (!cmdPacket.params || typeof cmdPacket.params !== 'object') cmdPacket.params = {};
 
-        // Override AuthInfo if the remote end is a Consumer
-        if (thisEndpoint.AuthInfo && (thisEndpoint.AuthInfo.type === "token" || thisEndpoint.AuthInfo.type === "key")) cmdPacket.params.AuthInfo = thisEndpoint.AuthInfo;
+        // If the remote end is a consumer, override authInfo and callerType
+        if (thisEndpoint.AuthInfo && (thisEndpoint.AuthInfo.type === "token" || thisEndpoint.AuthInfo.type === "key")) {
+            cmdPacket.params.authInfo = thisEndpoint.AuthInfo;
+            cmdPacket.params.callerType = "RPC";
+        }
 
         // Execute method
         try {
