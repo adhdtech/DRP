@@ -133,14 +133,25 @@ class DRP_Securable {
 }
 
 class DRP_VirtualDirectory extends DRP_Securable {
-    constructor(securedObject, permissionSet) {
+    #listFunc
+    #getItemFunc
+    constructor(listFunc, getItemFunc, permissionSet) {
         super(permissionSet);
+        this.#listFunc = listFunc;
+        this.#getItemFunc = getItemFunc;
     }
 
     async __Read(callerAuthInfo, ...params) {
     }
 
     async __Write(callerAuthInfo, ...params) {
+    }
+
+    async List(params) {
+        return await this.#listFunc(params);
+    }
+    async GetItem(params, pathFunc) {
+        return await this.#getItemFunc(params);
     }
 }
 
@@ -198,14 +209,9 @@ class DRP_VirtualFunction extends DRP_Securable {
             throw new DRP_CmdError(`Invalid operation (${params.method})`, DRP_ErrorCode.BADREQUEST, "VirtualFunction");
         }
 
-        // Throw help
-        if (true) {
-            //results = this.ShowHelp()
-            results = params;
-        } else {
-            // Parse parameters and pass to function
-            results = await this.function(params);
-        }
+        // Parse parameters and pass to function
+        results = await this.function(params);
+
         return results;
     }
 

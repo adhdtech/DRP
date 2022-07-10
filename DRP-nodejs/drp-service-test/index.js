@@ -1,6 +1,8 @@
 'use strict';
+
 const DRP_Node = require('drp-mesh').Node;
 const DRP_Service = require('drp-mesh').Service;
+const { DRP_VirtualFunction, DRP_VirtualFunction_Switch } = require('drp-mesh').Securable;
 const DRP_UMLAttribute = require('drp-mesh').UML.Attribute;
 const DRP_UMLFunction = require('drp-mesh').UML.Function;
 const DRP_UMLClass = require('drp-mesh').UML.Class;
@@ -141,7 +143,15 @@ class TestService extends DRP_Service {
             sendPeerBroadcastTest: async function (params) {
                 thisService.PeerBroadcast("peerBroadcastTest", { message: `From serviceID ${thisService.InstanceID}` });
                 thisService.DRPNode.log(`Sent a peer broadcast`);
-            }
+            },
+            testVirtualFunction: new DRP_VirtualFunction(
+                "testVirtualFunction",
+                "A test virtual function",
+                "[OPTIONS]...[PATH]",
+                { "h": new DRP_VirtualFunction_Switch("h", null, "Help") },
+                async (params) => { return params },
+                null
+            )
         };
 
 

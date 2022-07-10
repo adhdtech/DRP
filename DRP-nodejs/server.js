@@ -104,15 +104,6 @@ myNode.ConnectToMesh(async () => {
     let myTestService = new TestService("TestService", myNode, 10, 10, "global");
     myNode.AddService(myTestService);
 
-    myTestService.ClientCmds.testVirtualFunction = new DRP_VirtualFunction(
-        "testVirtualFunction",
-        "A test virtual function",
-        "[OPTIONS]...[PATH]",
-        { "h": new DRP_VirtualFunction_Switch("h", null, "Help") },
-        async () => { },
-        null
-    );
-
     // Add Hive
     let myHiveService = new Hive("Hive", myNode, 10, 10, "global");
     myHiveService.Start();

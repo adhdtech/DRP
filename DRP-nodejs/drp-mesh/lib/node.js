@@ -15,7 +15,7 @@ const { DRP_WebServer, DRP_WebServerConfig } = require("./webserver");
 const { DRP_SubscribableSource, DRP_Subscriber } = require('./subscription');
 const { DRP_AuthRequest, DRP_AuthResponse, DRP_AuthFunction, DRP_AuthInfo } = require('./auth');
 const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Stream, DRP_RouteOptions, DRP_CmdError, DRP_ErrorCode } = require('./packet');
-const { DRP_VirtualDirectory, DRP_Permission, DRP_PermissionSet, DRP_Securable, DRP_VirtualFunction } = require('./securable');
+const { DRP_Permission, DRP_PermissionSet, DRP_Securable, DRP_VirtualFunction, DRP_VirtualDirectory } = require('./securable');
 const Express_Request = express.request;
 const Express_Response = express.response;
 const { v4: uuidv4 } = require('uuid');
@@ -40,6 +40,18 @@ class DRP_MethodParams {
         this.callerType = callerType;
         /** @type {DRP_AuthInfo} */
         this.authInfo = authInfo;
+    }
+}
+
+class DRP_RemotePath {
+    constructor(localNode, targetNodeID, params) {
+        this.localNode = localNode;
+        this.targetNodeID = targetNodeID;
+        this.params = Object.assign({}, params);
+    }
+    async CallPath() {
+        let returnObj = await this.localNode.SendPathCmdToNode(this.targetNodeID, this.params);
+        return returnObj;
     }
 }
 
@@ -747,15 +759,23 @@ class DRP_Node extends DRP_Securable {
                     oReturnObject = thisNode.PathCmd(params, streamHash);
                     return oReturnObject;
                 },
-                Services: async function (params) {
-                    //console.log("Checking Services...");
-                    let remainingChildPath = params.pathList;
-                    let oReturnObject = {};
-                    if (remainingChildPath && remainingChildPath.length > 0) {
+                Services: new DRP_VirtualDirectory(
+                    // List Function
+                    async (params) => {
+                        // Get dictionary of available service in Mesh, override type as DRP_RemotePath
+                        let serviceList = Object.keys(thisNode.TopologyTracker.GetServicesWithProviders());
+                        let returnObj = serviceList.reduce((map, serviceName) => {
+                            map[serviceName] = new DRP_RemotePath();
+                            return map;
+                        }, {});
+                        return returnObj;
+                    },
+                    // Get Item Function
+                    async (params) => {
+                        // Find an instance of the service and send a command to that path
+                        let serviceName = params.pathList.shift();
 
-                        let serviceName = remainingChildPath.shift();
-
-                        params.pathList = ['Services', serviceName].concat(remainingChildPath);
+                        params.pathList = ['Services', serviceName].concat(params.pathList);
 
                         let targetServiceEntry = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
                         if (!targetServiceEntry) {
@@ -763,17 +783,14 @@ class DRP_Node extends DRP_Securable {
                         };
 
                         let targetNodeID = targetServiceEntry.NodeID;
-                        //thisNode.log(`Calling node ${targetNodeID}`);
 
-                        oReturnObject = await thisNode.SendPathCmdToNode(targetNodeID, params);
-
-                    } else {
-                        // Return list of Service Objects
-                        oReturnObject = thisNode.TopologyTracker.GetServicesWithProviders();
-                    }
-                    return oReturnObject;
-                },
-                Zones: async function (params) {
+                        let returnObj = new DRP_RemotePath(thisNode, targetNodeID, params);
+                        return returnObj;
+                    },
+                    // Permission set
+                    null
+                ),
+                Zones: async (params) => {
                     //console.log("Checking Services...");
                     let remainingChildPath = params.pathList;
                     let oReturnObject = {};
@@ -957,6 +974,8 @@ class DRP_Node extends DRP_Securable {
             PathLoop:
             for (let i = 0; i < aChildPathArray.length; i++) {
 
+                let remainingPath = aChildPathArray.slice(0).splice(i + 1);
+
                 // Function to see if we've arrived at the last item in the path
                 let isFinalItem = () => {
                     return (i + 1 === aChildPathArray.length)
@@ -1028,18 +1047,45 @@ class DRP_Node extends DRP_Securable {
                                     break;
                                 case "DRP_VirtualFunction":
                                     // Send the rest of the path to a function
+                                    params.pathList = remainingPath;
 
                                     // Set current object
                                     /** @type {DRP_VirtualFunction} */
                                     let execFunction = oCurrentObject[pathItemName];
 
-                                    let remainingPath = aChildPathArray.splice(i + 1);
-                                    params.pathList = remainingPath;
                                     // Execute virtual function
                                     outputObject = await execFunction.Execute(params);
                                     functionExecuted = true;
                                     // The function processed the rest of the path list so we'll break out of the loop
                                     break PathLoop;
+                                case "DRP_VirtualDirectory":
+                                    /** @type DRP_VirtualDirectory */
+                                    let thisVirtualDirectory = oCurrentObject[pathItemName];
+                                    if (isFinalItem()) {
+                                        // Return list
+                                        outputObject = await thisVirtualDirectory.List();
+                                        break PathLoop;
+                                    } else {
+                                        // Return item in hash
+                                        pathItemName = aChildPathArray[i + 1];
+                                        params.pathList = remainingPath;
+                                        oCurrentObject = {};
+                                        oCurrentObject[pathItemName] = await thisVirtualDirectory.GetItem(params);
+                                    }
+                                    break;
+                                case "DRP_RemotePath":
+                                    // DRP_RemotePath objects are functions which execute PathCmd again; return results directly 
+                                    params.pathList = remainingPath;
+
+                                    // Set current object
+                                    /** @type {DRP_RemotePath} */
+                                    let thisRemotePath = oCurrentObject[pathItemName];
+
+                                    // Execute
+                                    outputObject = await thisRemotePath.CallPath();
+
+                                    // Do not continue evaluation; return directly to caller
+                                    return outputObject;
                                 default:
                                     // Set current object
                                     oCurrentObject = oCurrentObject[pathItemName];
@@ -1051,11 +1097,9 @@ class DRP_Node extends DRP_Securable {
                             break;
                         case 'function':
                             // Send the rest of the path to a function
-                            let remainingPath = aChildPathArray.splice(i + 1);
                             params.pathList = remainingPath;
                             // Must be called this way so the method is aware of the parent
                             outputObject = await oCurrentObject[pathItemName](params, callingEndpoint);
-                            functionExecuted = true;
                             // The function processed the rest of the path list so we'll break out of the loop
                             break PathLoop;
                         case 'string':
@@ -1079,16 +1123,13 @@ class DRP_Node extends DRP_Securable {
             }
         }
 
-        if (writeOperation && !functionExecuted) {
-            throw new DRP_CmdError(`Target is not writeable`, DRP_ErrorCode.BADREQUEST, "PathCmd");
-        }
-
-        if (writeOperation && functionExecuted && !outputObject) {
-            throw new DRP_CmdError(`Target rejected operation`, DRP_ErrorCode.BADREQUEST, "PathCmd");
-        }
-
-        // If we have a return object and want only a list of children, do that now
-        if (listOnly) {
+        if (writeOperation) {
+            // We executed some sort of change operation
+            if (writeOperation && !functionExecuted) {
+                throw new DRP_CmdError(`Target is not executable`, DRP_ErrorCode.BADREQUEST, "PathCmd");
+            }
+            returnObject = outputObject;
+        } else if (listOnly) {
             // Determine if a the outputObject has already been converted to a list
             // If so, it will be an array of objects with keys [Name, Type, Value]
             if (outputObject instanceof Object) {
@@ -1352,11 +1393,22 @@ class DRP_Node extends DRP_Securable {
             }
 
             if (awaitResponse) {
-                let results = await localServiceProvider[method](params, callingEndpoint);
+                let results = null;
+                // See if it's a virtual function before executing
+                let constructorName = localServiceProvider[method].constructor.name;
+                if (constructorName === "DRP_VirtualFunction") {
+                    results = await localServiceProvider[method].Execute(params, callingEndpoint);
+                } else {
+                    results = await localServiceProvider[method](params, callingEndpoint);
+                }
                 return results;
             } else {
                 try {
-                    await localServiceProvider[method](params, callingEndpoint);
+                    if (constructorName === "DRP_VirtualFunction") {
+                        await localServiceProvider[method].Execute(params, callingEndpoint);
+                    } else {
+                        await localServiceProvider[method](params, callingEndpoint);
+                    }
                 } catch (ex) {
                     // Don't care about response
                 }

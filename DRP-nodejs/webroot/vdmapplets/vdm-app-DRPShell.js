@@ -632,7 +632,9 @@
                             let serviceName = rpcRegexMatch[1];
                             let cmdName = rpcRegexMatch[2];
                             let paramsString = rpcRegexMatch[3] || "";
-                            let params = {};
+                            let params = {
+                                "method": "execute"
+                            };
                             try {
                                 let parsedValue = JSON.parse(paramsString);
                                 let constructorType = parsedValue.constructor.name;
