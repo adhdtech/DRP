@@ -713,56 +713,75 @@ class DRP_Node extends DRP_Securable {
             },
             Mesh: {
                 Topology: thisNode.TopologyTracker,
-                Nodes: async function (params) {
-                    // List nodes or redirect to target Node
-                    let remainingChildPath = params.pathList;
-                    let oReturnObject = {};
-                    if (remainingChildPath && remainingChildPath.length > 0) {
-                        // Send PathCmd to target
-                        let targetNodeID = remainingChildPath.shift();
-                        params.pathList = remainingChildPath;
-                        oReturnObject = await thisNode.SendPathCmdToNode(targetNodeID, params);
-                    } else {
-                        // List nodes
-                        let aNodeKeys = Object.keys(thisNode.TopologyTracker.NodeTable);
-                        for (let i = 0; i < aNodeKeys.length; i++) {
-                            oReturnObject[aNodeKeys[i]] = {
-                                "ConsumerType": "SomeType1",
-                                "Status": "Unknown"
-                            };
-                        }
-                    }
-                    return oReturnObject;
-                },
-                Streams: async function (params) {
-                    //console.log("Checking Streams...");
-                    let oReturnObject = {};
+                Nodes: new DRP_VirtualDirectory(
+                    // List Function
+                    async (params) => {
+                        // Get dictionary of available nodes in Mesh, override type as DRP_RemotePath
+                        let nodeList = Object.keys(thisNode.TopologyTracker.NodeTable);
+                        let returnObj = nodeList.reduce((map, nodeID) => {
+                            map[nodeID] = new DRP_RemotePath();
+                            return map;
+                        }, {});
+                        return returnObj;
+                    },
+                    // Get Item Function
+                    async (params) => {
+                        // Find an instance of the service and send a command to that path
+                        let targetNodeID = params.pathList.shift();
 
-                    // We need to evaluate the service table, get distinct list of stream names
-                    let streamHash = {};
-                    let thisSubMgr = thisNode.SubscriptionManager;
-                    let serviceTable = thisSubMgr.DRPNode.TopologyTracker.ServiceTable;
-                    let serviceEntryIDList = Object.keys(serviceTable);
-                    for (let i = 0; i < serviceEntryIDList.length; i++) {
-                        let serviceEntry = serviceTable[serviceEntryIDList[i]];
-                        for (let j = 0; j < serviceEntry.Streams.length; j++) {
-                            let thisStreamName = serviceEntry.Streams[j];
-                            if (!streamHash[thisStreamName]) streamHash[thisStreamName] = {};
-                            streamHash[thisStreamName][serviceEntry.NodeID] = async (params) => {
-                                params.pathList = ['DRPNode', 'TopicManager', 'Topics', thisStreamName].concat(params.pathList);
-                                let returnObj = await thisNode.SendPathCmdToNode(serviceEntry.NodeID, params);
-                                return returnObj;
+                        let returnObj = {}
+                        returnObj[targetNodeID] = new DRP_RemotePath(thisNode, targetNodeID, params);
+                        return returnObj;
+                    },
+                    // Permission set
+                    null
+                ),
+                Streams: new DRP_VirtualDirectory(
+                    // List Function
+                    async (params) => {
+                        // Get dictionary of available services in Mesh, override type as DRP_RemotePath
+                        let returnObj = {};
+                        let streamProviders = thisNode.TopologyTracker.GetStreamsWithProviders();
+                        for (let streamName in streamProviders) {
+                            returnObj[streamName] = {};
+                            if (params.pathList.length > 0) {
+                                let providerList = streamProviders[streamName];
+                                providerList.reduce((map, providerNodeID) => {
+                                    let newParams = Object.assign({}, params);
+                                    newParams.pathList = ['DRPNode', 'TopicManager', 'Topics', streamName].concat(params.pathList.slice(0).splice(2));
+                                    map[providerNodeID] = new DRP_RemotePath(thisNode, providerNodeID, newParams);
+                                    return map;
+                                }, returnObj[streamName]);
                             }
                         }
-                    }
-
-                    oReturnObject = thisNode.PathCmd(params, streamHash);
-                    return oReturnObject;
-                },
+                        return returnObj;
+                    },
+                    // Get Item Function
+                    async (params) => {
+                        // Get dictionary of available services in Mesh, override type as DRP_RemotePath
+                        let returnObj = {};
+                        let streamProviders = thisNode.TopologyTracker.GetStreamsWithProviders();
+                        for (let streamName in streamProviders) {
+                            returnObj[streamName] = {};
+                            if (params.pathList.length > 0) {
+                                let providerList = streamProviders[streamName];
+                                providerList.reduce((map, providerNodeID) => {
+                                    let newParams = Object.assign({}, params);
+                                    newParams.pathList = ['DRPNode', 'TopicManager', 'Topics', streamName].concat(params.pathList.slice(0).splice(2));
+                                    map[providerNodeID] = new DRP_RemotePath(thisNode, providerNodeID, newParams);
+                                    return map;
+                                }, returnObj[streamName]);
+                            }
+                        }
+                        return returnObj;
+                    },
+                    // Permission set
+                    null
+                ),
                 Services: new DRP_VirtualDirectory(
                     // List Function
                     async (params) => {
-                        // Get dictionary of available service in Mesh, override type as DRP_RemotePath
+                        // Get dictionary of available services in Mesh, override type as DRP_RemotePath
                         let serviceList = Object.keys(thisNode.TopologyTracker.GetServicesWithProviders());
                         let returnObj = serviceList.reduce((map, serviceName) => {
                             map[serviceName] = new DRP_RemotePath();
@@ -784,7 +803,8 @@ class DRP_Node extends DRP_Securable {
 
                         let targetNodeID = targetServiceEntry.NodeID;
 
-                        let returnObj = new DRP_RemotePath(thisNode, targetNodeID, params);
+                        let returnObj = {}
+                        returnObj[serviceName] = new DRP_RemotePath(thisNode, targetNodeID, params);
                         return returnObj;
                     },
                     // Permission set
@@ -1063,14 +1083,13 @@ class DRP_Node extends DRP_Securable {
                                     let thisVirtualDirectory = oCurrentObject[pathItemName];
                                     if (isFinalItem()) {
                                         // Return list
-                                        outputObject = await thisVirtualDirectory.List();
+                                        outputObject = await thisVirtualDirectory.List(params);
                                         break PathLoop;
                                     } else {
                                         // Return item in hash
                                         pathItemName = aChildPathArray[i + 1];
                                         params.pathList = remainingPath;
-                                        oCurrentObject = {};
-                                        oCurrentObject[pathItemName] = await thisVirtualDirectory.GetItem(params);
+                                        oCurrentObject = await thisVirtualDirectory.GetItem(params);
                                     }
                                     break;
                                 case "DRP_RemotePath":
@@ -2925,7 +2944,7 @@ class DRP_TopologyTracker {
     }
 
     /**
-     * @returns {Object.<string,{ServiceName:string,Providers:string[]}>} Dictionary of service names and providers
+     * @returns {Object.<string,string[]>} Dictionary of service names and providers
      */
     GetServicesWithProviders(zoneName) {
         let oReturnObject = {};
@@ -2938,12 +2957,31 @@ class DRP_TopologyTracker {
                 continue;
             }
 
-            if (!oReturnObject[serviceTableEntry.Name]) oReturnObject[serviceTableEntry.Name] = {
-                "ServiceName": serviceTableEntry.Name,
-                "Providers": []
-            };
+            if (!oReturnObject[serviceTableEntry.Name]) oReturnObject[serviceTableEntry.Name] = [];
+            oReturnObject[serviceTableEntry.Name].push(serviceTableEntry.NodeID);
+        }
+        return oReturnObject;
+    }
 
-            oReturnObject[serviceTableEntry.Name].Providers.push(serviceTableEntry.NodeID);
+    /**
+    * @returns {Object.<string,string[]>} Dictionary of stream names and providers
+    */
+    GetStreamsWithProviders(zoneName) {
+        let oReturnObject = {};
+        let serviceInstanceList = Object.keys(this.ServiceTable);
+        for (let i = 0; i < serviceInstanceList.length; i++) {
+            /** @type DRP_ServiceTableEntry */
+            let serviceTableEntry = this.ServiceTable[serviceInstanceList[i]];
+
+            if (zoneName && serviceTableEntry.Zone !== zoneName) {
+                continue;
+            }
+
+            for (let j = 0; j < serviceTableEntry.Streams.length; j++) {
+                let thisStreamName = serviceTableEntry.Streams[j];
+                if (!oReturnObject[thisStreamName]) oReturnObject[thisStreamName] = [];
+                oReturnObject[thisStreamName].push(serviceTableEntry.NodeID);
+            }
         }
         return oReturnObject;
     }
