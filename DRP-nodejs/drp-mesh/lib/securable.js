@@ -150,7 +150,7 @@ class DRP_VirtualDirectory extends DRP_Securable {
     async List(params) {
         return await this.#listFunc(params);
     }
-    async GetItem(params, pathFunc) {
+    async GetItem(params) {
         return await this.#getItemFunc(params);
     }
 }
