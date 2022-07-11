@@ -922,9 +922,13 @@ class DRP_Node extends DRP_Securable {
     async PathCmd(params, oCurrentObject, callingEndpoint) {
 
         /* 
-         * TODO: Add write/execute support
+         * REST Calls
+         * params.method = ('GetItem'|'GetChildItems'|'SetItem')
          * 
-         * params.method = ('GetItem'|'SetItem'|'GetChildItems')
+         * RPC Calls
+         * params.method = ('GetItem'|'GetChildItems'|'execute')
+         * 
+         * DRP_VirtualFunction accepts methods 'execute' and 'SetItem'
          * 
          * Using a subset of PowerShell NavigationCmdletProvider methods.
          * May implement more of them so that entire objects do not have
@@ -936,15 +940,6 @@ class DRP_Node extends DRP_Securable {
          *   SetItem
          *   GetChildItems
          *   CopyItem
-         * 
-         * This function currently reads object and automatically executes
-         * any functions it comes across.  Need to update so that it can:
-         * -> Write objects
-         * -> Evaluate permissions for function execution
-         * 
-         * The DRP_Securable class will be useful since any object which is
-         * secureable CheckPermission method is currently set to "read", need
-         * to map the params.method(usually GetItem) to read/write/execute
          */
 
         let outputObject = null;
