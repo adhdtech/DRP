@@ -47,8 +47,12 @@ class DRP_RemotePath {
     constructor(localNode, targetNodeID, params) {
         this.localNode = localNode;
         this.targetNodeID = targetNodeID;
-        this.params = Object.assign({}, params);
-        this.params.pathList = Object.assign({}, params.pathList);
+        if (params) {
+            this.params = Object.assign({}, params);
+            if (params.pathList) {
+                this.params.pathList = params.pathList.slice(0);
+            }
+        }
     }
     async CallPath() {
         let returnObj = await this.localNode.SendPathCmdToNode(this.targetNodeID, this.params);
