@@ -1,7 +1,7 @@
 'use strict';
 
 const DRP_Service = require('drp-mesh').Service;
-
+const { DRP_CmdError, DRP_ErrorCode } = require('drp-mesh/lib/packet');
 const MongoClient = require('mongodb').MongoClient;
 const MongoDB = require('mongodb').Db;
 
@@ -37,7 +37,14 @@ class Logger extends DRP_Service {
         }
 
         this.ClientCmds = {
-            writeLog: async function (params) {
+            writeLog: async (cmdObj) => {
+                let methodParams = ['serviceName', 'logData'];
+                let params = thisLogger.GetParams(cmdObj, methodParams);
+
+                if (!params.serviceName || !params.logData) {
+                    throw new DRP_CmdError("Must provide serviceName, logData");
+                }
+
                 let writeResult = await thisLogger.InsertDoc(params.serviceName, params.logData);
                 return writeResult;
             }

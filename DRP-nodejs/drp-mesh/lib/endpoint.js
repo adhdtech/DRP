@@ -166,7 +166,7 @@ class DRP_Endpoint {
             packetObj = new DRP_Reply(token, status, err, payload, routeOptions);
             packetString = JSON.stringify(packetObj);
         } catch (e) {
-            let errObj = new DRP_CmdError("Circular object encountered", DRP_ErrorCode.BADREQUEST,"JSON.stringify");
+            let errObj = new DRP_CmdError("Circular object encountered", DRP_ErrorCode.BADREQUEST, "JSON.stringify");
             packetObj = new DRP_Reply(token, 1, errObj, e, null);
             packetString = JSON.stringify(packetObj);
         }
@@ -201,7 +201,13 @@ class DRP_Endpoint {
         try {
             cmdResults.output = await thisEndpoint.DRPNode.ServiceCmd(cmdPacket.serviceName, cmdPacket.method, cmdPacket.params, null, cmdPacket.serviceInstanceID, false, true, thisEndpoint);
         } catch (err) {
-            cmdResults.err = err;
+            cmdResults.err = {
+                message: err.message,
+                name: err.name,
+                code: err.code || 500,
+                source: err.source,
+                stack: err.stack,
+            }
         }
 
         // Reply with results
