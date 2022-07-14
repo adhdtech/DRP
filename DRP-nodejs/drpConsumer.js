@@ -2,8 +2,8 @@
 const DRP_Consumer = require('drp-mesh').Consumer;
 
 let brokerURL = process.env.BROKERURL || "ws://localhost:8080";
-let user = process.env.USER || null;
-let pass = process.env.PASS || null;
+let user = process.env.DRPUSER || null;
+let pass = process.env.DRPPASS || null;
 
 console.log(`Starting Test Consumer, connecting to Broker Node @ ${brokerURL}`);
 let myConsumer = new DRP_Consumer(brokerURL, user, pass, null, async function () {
