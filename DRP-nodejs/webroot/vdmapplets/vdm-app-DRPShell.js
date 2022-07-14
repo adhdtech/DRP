@@ -599,7 +599,7 @@
                             // Error
                             term.write(`\x1B[91m${results}\x1B[0m\r\n`);
                         } else if (results) {
-                            // Have pathItem
+                            // Item was returned
                             if (doPipeOut) returnObj = results;
                             else {
                                 if (typeof results === "object") {
