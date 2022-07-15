@@ -824,14 +824,14 @@ class DRP_Node extends DRP_Securable {
                         let zoneName = remainingChildPath.shift();
                         // Make sure zone exists
                         if (!(thisNode.TopologyTracker.ListZones().includes(zoneName))) {
-                            throw DRP_CmdError('Zone not found', DRP_ErrorCode.NOTFOUND, "pathCmd");
+                            throw new DRP_CmdError('Zone not found', DRP_ErrorCode.NOTFOUND, "pathCmd");
                         }
 
                         // If the local DRPNode is not in the specified zone, we need to route the call to a Registry in the target zone
                         if (zoneName !== thisNode.Zone) {
                             let targetZoneRegistries = thisNode.TopologyTracker.FindRegistriesInZone(zoneName);
                             if (targetZoneRegistries.length == 0) {
-                                throw DRP_CmdError('No registries for zone', DRP_ErrorCode.UNAVAILABLE, "pathCmd");
+                                throw new DRP_CmdError('No registries for zone', DRP_ErrorCode.UNAVAILABLE, "pathCmd");
                             }
                             let targetNodeID = targetZoneRegistries[0].NodeID;
                             params.pathList = ['Mesh', 'Zones', zoneName].concat(remainingChildPath);
