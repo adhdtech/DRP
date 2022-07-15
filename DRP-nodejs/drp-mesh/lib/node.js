@@ -2655,7 +2655,10 @@ class DRP_NodeClient extends DRP_Client {
     }
 
     async ErrorHandler(error) {
-        this.errorCallback(error);
+        if (this.DRPNode.Debug) this.DRPNode.log("Node client encountered error [" + error + "]");
+        if (this.errorCallback && typeof this.errorCallback === "function") {
+            this.errorCallback(error);
+        }
     }
 
 }
