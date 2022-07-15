@@ -1,5 +1,6 @@
 const DRP_Service = require('drp-mesh').Service;
 const DRP_Node = require('drp-mesh').Node;
+const { DRP_CmdError, DRP_ErrorCode } = require('drp-mesh').Packet;
 
 class Hive extends DRP_Service {
     /**
@@ -98,7 +99,6 @@ class Hive extends DRP_Service {
             getUKMKFKObj: function (params) {
                 //let thisHive = this;
                 let returnObj = {
-                    params: params,
                     records: {},
                     err: null
                 };
@@ -124,7 +124,7 @@ class Hive extends DRP_Service {
 
                 if (!checkKey || !stereoType || typeof thisHive.HiveIndexes[stereoType] === "undefined" || typeof thisHive.HiveIndexes[stereoType].IndexRecords[checkKey] === "undefined") {
                     //console.log("    ...no index for item");
-                    returnObj["err"] = `No index for (${stereoType})[${checkKey}]`;
+                    throw new DRP_CmdError(`No index for (${stereoType})[${checkKey}]`, DRP_ErrorCode.NOTFOUND, "Hive");
                 } else {
                     //console.log("    ...found index");
                     let assocRoot = thisHive.HiveIndexes[stereoType].IndexRecords[checkKey];
@@ -156,7 +156,6 @@ class Hive extends DRP_Service {
             getUKMKFKGCObj: function (params) {
                 //let thisHive = this;
                 let returnObj = {
-                    params: params,
                     records: {},
                     err: null
                 };
@@ -181,7 +180,7 @@ class Hive extends DRP_Service {
                 //console.log("Getting UKMKFKGC " + appData['StereoType'] + "[" + checkKey + "]");
                 if (!checkKey || !stereoType || typeof thisHive.HiveIndexes[stereoType] === "undefined" || typeof thisHive.HiveIndexes[stereoType].IndexRecords[checkKey] === "undefined") {
                     //console.log("    ...no index for item");
-                    returnObj["err"] = `No index for (${stereoType})[${checkKey}]`;
+                    throw new DRP_CmdError(`No index for (${stereoType})[${checkKey}]`, DRP_ErrorCode.NOTFOUND, "Hive");
                 } else {
                     //console.log("    ...found index");
                     let assocRoot = thisHive.HiveIndexes[stereoType].IndexRecords[checkKey];
