@@ -419,6 +419,7 @@ class DRP_Node extends DRP_Securable {
                         }
                         break;
                     case "POST":
+                    case "PUT":
                         pathCmdMethod = "SetItem"
                         break;
                     default:
