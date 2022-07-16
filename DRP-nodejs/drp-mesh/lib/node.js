@@ -2815,7 +2815,6 @@ class DRP_TopologyTracker {
                                 thisNode.EvacuateNode(checkNodeId);
                             }
                         }
-                        return;
                     }
                 }
                 break;
