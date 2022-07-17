@@ -70,6 +70,7 @@ class DRP_Subscriber {
         this.sendFailCallback = sendFailCallback;
         /** @type {Set<DRP_SubscribableSource>} */
         this.subscribedTo = new Set();
+        this.connectingToTarget = false;
 
         // If a sendFailCallback is not specified, execute Terminate by default
         if (!sendFailCallback || typeof this.sendFailCallback !== 'function') {

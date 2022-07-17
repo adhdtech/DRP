@@ -99,6 +99,7 @@ class DRP_TopicManager_Topic extends DRP_SubscribableSource {
         this.HistoryLength = historyLength || 10;
         /** @type Array<DRP_TopicMessage> */
         this.History = [];
+        this.GetHistory = this.GetHistory;
     }
 
     async Send(message) {
@@ -120,6 +121,23 @@ class DRP_TopicManager_Topic extends DRP_SubscribableSource {
             (sendFailed) => { thisTopic.TopicManager.DRPNode.log(`Topic[${thisTopic.TopicName}] subscriber removed forcefully, failure response -> ${sendFailed}`); }
         );
 
+    }
+
+    GetHistory(cmdObj) {
+        let thisTopic = this;
+        let returnObj = null;
+        let outputMsgOnly = false;
+
+        if (cmdObj && (cmdObj.outputMsgOnly && thisTopic.TopicManager.DRPNode.IsTrue(cmdObj.outputMsgOnly) || cmdObj.pathList && cmdObj.pathList.length > 0 && thisTopic.TopicManager.DRPNode.IsTrue(cmdObj.pathList && cmdObj.pathList[0]))) {
+            outputMsgOnly = true;
+        }
+
+        if (outputMsgOnly) {
+            returnObj = thisTopic.History.map(thisEntry => thisEntry.Message);
+        } else {
+            returnObj = thisTopic.History;
+        }
+        return returnObj;
     }
 }
 

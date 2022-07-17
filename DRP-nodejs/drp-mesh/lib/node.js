@@ -124,14 +124,15 @@ class DRP_Node extends DRP_Securable {
         this.HasConnectedToMesh = false;
         /** @type{function} */
         this.onControlPlaneConnect = null;
-        this.ListeningName = null;
+        this.ListeningURL = null;
+        this.PendingRegistryConnections = new Set();
 
         // If we have a web server config, start listening
         if (this.WebServerConfig && this.WebServerConfig.ListeningURL) {
             this.WebServer = new DRP_WebServer(webServerConfig);
             this.WebServer.start();
 
-            this.ListeningName = this.WebServer.config.ListeningURL;
+            this.ListeningURL = this.WebServer.config.ListeningURL;
         }
 
         /** @type{string[]} */
@@ -165,7 +166,7 @@ class DRP_Node extends DRP_Securable {
         // Create topology tracker
         this.TopologyTracker = new DRP_TopologyTracker(thisNode);
 
-        let newNodeEntry = new DRP_NodeTableEntry(thisNode.NodeID, null, nodeRoles, this.ListeningName, "global", this.Zone, this.NodeID, this.HostID);
+        let newNodeEntry = new DRP_NodeTableEntry(thisNode.NodeID, null, nodeRoles, this.ListeningURL, "global", this.Zone, this.NodeID, this.HostID);
         let addNodePacket = new DRP_TopologyPacket(newNodeEntry.NodeID, "add", "node", newNodeEntry.NodeID, newNodeEntry.Scope, newNodeEntry.Zone, newNodeEntry);
         thisNode.TopologyTracker.ProcessPacket(addNodePacket, this.NodeID);
 
@@ -237,12 +238,19 @@ class DRP_Node extends DRP_Securable {
         min = (min < 10 ? "0" : "") + min;
         let sec = date.getSeconds();
         sec = (sec < 10 ? "0" : "") + sec;
+        let ms = date.getMilliseconds();
+        if (ms < 10) {
+            ms = "00" + ms;
+        } else if (ms < 100) {
+            ms = "0" + ms;
+        }
+        ms = (ms < 10 ? "0" : "") + ms;
         let year = date.getFullYear();
         let month = date.getMonth() + 1;
         month = (month < 10 ? "0" : "") + month;
         let day = date.getDate();
         day = (day < 10 ? "0" : "") + day;
-        return year + "" + month + "" + day + "" + hour + "" + min + "" + sec;
+        return year + "" + month + "" + day + "" + hour + "" + min + "" + sec + "." + ms;
     }
 
     ToggleDebug() {
@@ -255,7 +263,7 @@ class DRP_Node extends DRP_Securable {
 
     __GetNodeDeclaration() {
         let thisNode = this;
-        return new DRP_NodeDeclaration(thisNode.NodeID, thisNode.NodeRoles, thisNode.HostID, thisNode.ListeningName, thisNode.DomainName, thisNode.#MeshKey, thisNode.Zone);
+        return new DRP_NodeDeclaration(thisNode.NodeID, thisNode.NodeRoles, thisNode.HostID, thisNode.ListeningURL, thisNode.DomainName, thisNode.#MeshKey, thisNode.Zone);
     }
 
     async GetConsumerToken(username, password) {
@@ -666,7 +674,7 @@ class DRP_Node extends DRP_Securable {
         let thisNode = this;
         return {
             NodeID: thisNode.NodeID,
-            NodeURL: thisNode.ListeningName,
+            NodeURL: thisNode.ListeningURL,
             DRPNode: thisNode,
             Services: thisNode.Services,
             Streams: thisNode.TopicManager.Topics,
@@ -1223,7 +1231,7 @@ class DRP_Node extends DRP_Securable {
         }
 
         // If this node is listening, try sending a back connection request to the remote node via the registry
-        if ((!thisNodeEndpoint || !thisNodeEndpoint.IsReady()) && thisNode.ListeningName) {
+        if ((!thisNodeEndpoint || !thisNodeEndpoint.IsReady()) && thisNode.ListeningURL) {
 
             thisNode.log("Sending back request...", true);
             // Let's try having the Provider call us; send command through Registry
@@ -1239,13 +1247,13 @@ class DRP_Node extends DRP_Securable {
 
                 if (nextHopNodeID) {
                     // Found the next hop
-                    thisNode.log(`Sending back request to ${remoteNodeID}, relaying to [${nextHopNodeID}]`, true);
+                    thisNode.log(`Sending back request to ${remoteNodeID} to connect to this node @[${thisNode.ListeningURL}], relaying to [${nextHopNodeID}]`, true);
                     let routeOptions = {
                         srcNodeID: thisNode.NodeID,
                         tgtNodeID: remoteNodeID,
                         routeHistory: []
                     };
-                    thisNode.NodeEndpoints[nextHopNodeID].SendCmd("DRP", "connectToNode", { "targetNodeID": thisNode.NodeID, "targetURL": thisNode.ListeningName }, false, null, routeOptions);
+                    thisNode.NodeEndpoints[nextHopNodeID].SendCmd("DRP", "connectToNode", { "targetNodeID": thisNode.NodeID, "targetURL": thisNode.ListeningURL }, false, null, routeOptions);
                 } else {
                     // Could not find the next hop
                     thisNode.log(`Could not find next hop to [${remoteNodeID}]`);
@@ -1587,6 +1595,18 @@ class DRP_Node extends DRP_Securable {
 
             results = { status: "OK" };
 
+            // Hold inbound requests from non-Registries until pending Registry connections complete
+            if (thisNode.IsRegistry() && !sourceIsRegistry) {
+                // If we have a Registry connection in flight, wait until that completes
+                let timeoutCountdown = 10;
+                while (thisNode.PendingRegistryConnections.size > 0 && timeoutCountdown > 0) {
+                    // Wait 1 second then check again; timeout after 10 seconds
+                    thisNode.log(`Remote node client [${declaration.NodeID}] connected, but outgoing registry connection in progress.  Waiting...`, true)
+                    await thisNode.Sleep(1000);
+                    timeoutCountdown--;
+                }
+            }
+
             // Add to NodeEndpoints
             sourceEndpoint.EndpointID = declaration.NodeID;
             thisNode.NodeEndpoints[declaration.NodeID] = sourceEndpoint;
@@ -1770,12 +1790,15 @@ class DRP_Node extends DRP_Securable {
 
         let errorCallback = (err) => {
             //thisNode.log(`Failed to connect to registry: ${registryURL}, ${err}`, true);
+            thisNode.PendingRegistryConnections.delete(registryURL);
             if (connTrackingObj && typeof connTrackingObj === 'object') {
                 connTrackingObj.lastConnectionSucceeded = false;
             }
         };
 
         thisNode.log(`Attempting to connect to registry: ${registryURL}`, true);
+
+        thisNode.PendingRegistryConnections.add(registryURL);
 
         // Initiate Registry Connection
         let nodeClient = new DRP_NodeClient(registryURL, thisNode.WebProxyURL, thisNode, null, retryOnClose, async () => {
@@ -1798,6 +1821,8 @@ class DRP_Node extends DRP_Securable {
             } else {
                 nodeClient.Close();
             }
+
+            thisNode.PendingRegistryConnections.delete(registryURL);
 
         }, closeCallback, errorCallback);
     }
@@ -1882,6 +1907,10 @@ class DRP_Node extends DRP_Securable {
             let srvHash = await thisNode.PingDomainRegistries(thisNode.DomainName);
             let srvKeys = Object.keys(srvHash);
 
+            // Insert a random delay of up to 5 seconds to avoid a race condition
+            let startupDelayMs = Math.floor(Math.random() * 5000);
+            await thisNode.Sleep(startupDelayMs);
+
             // Connect to all remote registries
             for (let i = 0; i < srvKeys.length; i++) {
                 let checkRegistry = srvHash[srvKeys[i]];
@@ -1889,22 +1918,33 @@ class DRP_Node extends DRP_Securable {
                 // Skip the local registry
                 let checkNamePort = `^wss?://${checkRegistry.name}:${checkRegistry.port}$`;
                 let regExp = new RegExp(checkNamePort);
-                if (thisNode.ListeningName.match(regExp)) {
+                if (thisNode.ListeningURL.match(regExp)) {
+                    continue;
+                }
+
+                // Dirty check to see if the port is SSL; are the last three digits 44x?
+                let protocol = "ws";
+                let portString = checkRegistry.port.toString();
+                let checkString = portString.slice(-3, 3);
+                if (checkString === "44") {
+                    protocol = "wss";
+                }
+
+                // Define URL
+                let registryURL = `${protocol}://${checkRegistry.name}:${checkRegistry.port}`;
+
+                // See if the Registry has already connected to this one; if so, skip it
+                let checkNodeID = thisNode.TopologyTracker.GetNodeWithURL(registryURL);
+                if (checkNodeID) {
+                    // Already connected
+                    thisNode.log(`Registry Node [${checkNodeID}] connected to this node during the random startup wait, skipping client connection`, true);
                     continue;
                 }
 
                 // Is the registry host reachable?
                 if (checkRegistry.pingInfo && checkRegistry.pingInfo.avg) {
-                    // Dirty check to see if the port is SSL; are the last three digits 44x?
-                    let protocol = "ws";
-                    let portString = checkRegistry.port.toString();
-                    let checkString = portString.slice(-3, 3);
-                    if (checkString === "44") {
-                        protocol = "wss";
-                    }
-                    // Connect to target
-                    let registryURL = `${protocol}://${checkRegistry.name}:${checkRegistry.port}`;
 
+                    // Connect to target
                     thisNode.ReconnectWaitTimeSeconds = 10;
 
                     let connTrackingObj = {
@@ -2079,7 +2119,7 @@ class DRP_Node extends DRP_Securable {
             // We already have this NodeEndpoint registered and the wsConn is opening or open
             thisNode.log(`Received back request, already have NodeEndpoints[${targetNodeID}]`, true);
         } else {
-            thisNode.log(`Received back request, connecting to [${targetNodeID}] @ ${params.wsTarget}`, true);
+            thisNode.log(`Received back request, connecting to [${targetNodeID}] @ ${targetURL}`, true);
             thisNode.NodeEndpoints[targetNodeID] = new DRP_NodeClient(targetURL, thisNode.WebProxyURL, thisNode, targetNodeID, false, null, null);
         }
     }
@@ -2447,6 +2487,11 @@ class DRP_Node extends DRP_Securable {
         let returnVal = null;
         // Subscribe to a remote topic
         let thisNodeEndpoint = await thisNode.VerifyNodeConnection(targetNodeID);
+        if (!thisNodeEndpoint) {
+            // Could not contact remote endpoint
+            thisNode.log(`Could not connect to Node [${targetNodeID}] to subscribe to topic ${topicName}`)
+            return returnVal;
+        }
         let sourceStreamToken = thisNodeEndpoint.AddReplyHandler(streamProcessor);
 
         // Await for command from source node
@@ -2750,7 +2795,9 @@ class DRP_TopologyTracker {
                     }
 
                     // We are a Registry and learned about a newer route from another Registry; warm handoff?
-                    if (thisNode.IsRegistry() && (sourceIsRegistry || sourceNodeEntry && sourceNodeEntry.IsRegistry()) && advertisedEntry.LearnedFrom === advertisedEntry.NodeID && advertisedNodeEntry.LearnedFrom !== advertisedEntry.NodeID) {
+                    if (thisNode.IsRegistry() &&
+                        (sourceIsRegistry || sourceNodeEntry && sourceNodeEntry.IsRegistry()) &&
+                        advertisedEntry.LearnedFrom === advertisedEntry.NodeID) {
                         //thisNode.log(`Ignoring ${topologyPacket.type} table entry [${topologyPacket.id}] from Node [${srcNodeID}], not not relayed from an authoritative source`);
                         thisNode.log(`Updating LearnedFrom for ${topologyPacket.type} [${topologyPacket.id}] from [${targetTable[topologyPacket.id].LearnedFrom}] to [${srcNodeID}]`, true);
                         targetTable[topologyPacket.id].LearnedFrom = srcNodeID;
@@ -2798,7 +2845,8 @@ class DRP_TopologyTracker {
                             thisNode.log(`Evaluating connected Node [${checkNodeId}] for possible evacuation...`, true);
                             let checkNodeEntry = thisTopologyTracker.NodeTable[checkNodeId];
                             if (!checkNodeEntry) {
-                                thisNode.log(`No NodeTable entry for connected Node [${checkNodeId}]!`, true);
+                                // This will occur if the Node is still in the process of connecting
+                                thisNode.log(`No NodeTable entry for connected Node [${checkNodeId}], possibly still connecting`, true);
                                 continue;
                             }
                             if (checkNodeEntry.Zone === topologyPacket.zone && !checkNodeEntry.IsRegistry()) {
@@ -2863,8 +2911,18 @@ class DRP_TopologyTracker {
                 } else {
                     // Ignore delete command
                     thisNode.log(`Ignoring delete from Node[${srcNodeID}]`, true);
-                    //console.dir(targetTable[topologyPacket.id]);
-                    //console.dir(topologyPacket);
+                    let tableEntryExists = false;
+                    if (targetTable[topologyPacket.id]) tableEntryExists = true;
+                    if (thisNode.Debug) {
+                        console.dir({
+                            tableEntryExists: tableEntryExists,
+                            isTargetNodeSource: isTargetNodeSource,
+                            isTargetLearnedFromSource: isTargetLearnedFromSource,
+                            isLocalNodeSource: isLocalNodeSource,
+                            packet: topologyPacket,
+                            tableEntry: targetTable[topologyPacket.id]
+                        })
+                    }
                     return;
                 }
                 break;
@@ -3433,10 +3491,18 @@ class DRP_TopologyTracker {
         let thisNode = thisTopologyTracker.DRPNode;
         // Remove node; this should trigger an autoremoval of entries learned from it
 
-        // If we are not a Registry and we just disconnected from a Registry, hold off on this process!
         let thisNodeEntry = thisTopologyTracker.NodeTable[thisNode.NodeID];
         let disconnectedNodeEntry = thisTopologyTracker.NodeTable[disconnectedNodeID];
 
+        // See if we're connected to other Registry Nodes
+        let hasAnotherRegistryConnection = thisTopologyTracker.ListConnectedRegistryNodes().length > 0;
+
+        if (!thisNodeEntry.IsRegistry() && !hasAnotherRegistryConnection) {
+            // See if we have any registry connections
+            thisNode.isConnectedToControlPlane = false;
+        }
+
+        // If we are not a Registry and we just disconnected from a Registry, hold off on this process!
         if (!disconnectedNodeEntry) {
             thisNode.log(`Ran ProcessNodeDisconnect on non-existent Node [${disconnectedNodeID}]`);
             return;
@@ -3447,16 +3513,12 @@ class DRP_TopologyTracker {
         // If both the local and remote are non-Registry nodes, skip further processing.  May just be a direct connection timing out.
         if (!thisNodeEntry.IsRegistry() && !disconnectedNodeEntry.IsRegistry()) return;
 
-        // See if we're connected to other Registry Nodes
-        let hasAnotherRegistryConnection = thisTopologyTracker.ListConnectedRegistryNodes().length > 0;
-
         // Do we need to hold off on purging the Registry?
         if (!thisNodeEntry.IsRegistry() && disconnectedNodeEntry && disconnectedNodeEntry.IsRegistry() && !hasAnotherRegistryConnection) {
             // Do not go through with the cleanup process; delete only the disconnected Registry node
             // for now and we'll run the StaleEntryCleanup when we connect to the next Registry.
             thisNode.log(`We disconnected from Registry Node[${disconnectedNodeID}] and have no other Registry connections`);
             delete thisTopologyTracker.NodeTable[disconnectedNodeID];
-            thisNode.isConnectedToControlPlane = false;
             return;
         }
 
@@ -3849,27 +3911,50 @@ class DRP_SubscriptionManager {
             /** @type {DRP_ServiceTableEntry} */
             let serviceEntry = topologyPacket.data;
 
+            // Only Brokers should evaluate subscriptions for remote nodes.  Non-Brokers won't have subscription
+            // requests registered until the service is advertised.
+            if (!thisNode.IsBroker() && !thisNode.IsPortal()) {
+                return;
+            }
+
             for (let subscriber of thisSubMgr.Subscribers) {
                 // Does the newly discovered service provide what this subscription is asking for?
                 if (!thisSubMgr.EvaluateServiceTableEntry(serviceEntry, subscriber.topicName, subscriber.scope, thisNode.Zone)) continue;
 
-                // If this is a single instance subscriber, see if the new entry is more preferable
-                if (subscriber.singleInstance && subscriber.subscribedTo.size > 0) {
-                    /** @type {DRP_SubscribableSource} */
-                    let currentSubscribedTarget = [...(subscriber.subscribedTo)][0];
-                    let currentSubscribedTargetZone = thisNode.TopologyTracker.NodeTable[currentSubscribedTarget.NodeID].Zone;
+                // Is this a single instance subscriber?
+                if (subscriber.singleInstance) {
 
-                    // See if the serviceEntry Node is local or in the local Zone and the current target is not
-                    if (serviceEntry.NodeID === thisNode.NodeID || currentSubscribedTargetZone !== thisNode.Zone && serviceEntry.Zone === thisNode.Zone) {
-                        // Yes - eliminate the existing subscription and we'll connect to the new one
-                        currentSubscribedTarget.RemoveSubscription(subscriber);
-                    } else {
-                        // No - skip this Subscriber
+                    // If connecting to target, skip
+                    if (subscriber.connectingToTarget) {
                         continue;
                     }
-                }
 
-                await this.RegisterSubscriberWithTargetSource(serviceEntry, subscriber);
+                    // If already connected, see if the new entry is more preferable
+                    if (subscriber.subscribedTo.size > 0) {
+                        /** @type {DRP_SubscribableSource} */
+                        let currentSubscribedTarget = [...(subscriber.subscribedTo)][0];
+                        let currentSubscribedTargetZone = thisNode.TopologyTracker.NodeTable[currentSubscribedTarget.NodeID].Zone;
+
+                        // See if the serviceEntry Node is local or in the local Zone and the current target is not
+                        if (serviceEntry.NodeID === thisNode.NodeID || currentSubscribedTargetZone !== thisNode.Zone && serviceEntry.Zone === thisNode.Zone) {
+                            // Yes - eliminate the existing subscription and we'll connect to the new one
+                            this.DRPNode.log(`Found a better subscription for client, switching from [${currentSubscribedTarget.NodeID}] ${currentSubscribedTarget.TopicName} to ${serviceEntry.NodeID}`, true);
+                            currentSubscribedTarget.RemoveSubscription(subscriber);
+                            subscriber.connectingToTarget = true;
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        thisNode.log(`Single instance subscriber has no subs and connectingToTarget=${subscriber.connectingToTarget}, subscribing to ${serviceEntry.NodeID}`,true);
+                    }
+                }
+                try {
+                    await this.RegisterSubscriberWithTargetSource(serviceEntry, subscriber);
+                } catch (ex) {
+                    // Failed to subscribe
+                    thisNode.log(`Failed to subscribe to target -> ${ex}`);
+                }
+                subscriber.connectingToTarget = false;
             }
         }
 
@@ -3906,6 +3991,8 @@ class DRP_SubscriptionManager {
                 for (let subscriber of reprocessSubscriptions) {
                     let candidateList = this.GetStreamsForSubscriber(subscriber);
                     if (candidateList.length > 0) {
+                        let subList = candidateList.map(svcEntry => `<${svcEntry.Zone}>${svcEntry.NodeID}`);
+                        this.DRPNode.log(`Single instance subscriber lost target, subscribing to first in list: ${subList.join(",")}`, true);
                         await this.RegisterSubscriberWithTargetSource(candidateList[0], subscriber);
                     }
                 }
@@ -3947,6 +4034,8 @@ class DRP_SubscriptionManager {
             if (subscriber.singleInstance) {
                 // The subscriber only wants a single instance, get the first one
                 if (candidateList.length > 0) {
+                    let subList = candidateList.map(svcEntry => `<${svcEntry.Zone}> ${svcEntry.NodeID}`);
+                    this.DRPNode.log(`Single instance subscriber added, subscribing to first in list: ${subList.join(",")}`, true);
                     await this.RegisterSubscriberWithTargetSource(candidateList[0], subscriber);
                 }
             } else {
@@ -3980,7 +4069,7 @@ class DRP_SubscriptionManager {
             let serviceEntry = serviceTable[serviceEntryIDList[i]];
 
             // Does the service provide what this subscription is asking for?
-            if (!thisSubMgr.EvaluateServiceTableEntry(serviceEntry, subscriber.topicName, subscriber.scope, thisNode.Zone)) continue;
+            if (!thisSubMgr.EvaluateServiceTableEntry(serviceEntry, subscriber.topicName, subscriber.scope, thisSubMgr.DRPNode.Zone)) continue;
 
             // Add to candidate list in order of preference
             let spliceIndex = 0;
@@ -3994,7 +4083,7 @@ class DRP_SubscriptionManager {
                     if (compareCandidate.Zone !== thisSubMgr.DRPNode.Zone) {
                         // The compare entry is in another zone, insert here
                         spliceIndex = j;
-                        continue;
+                        break;
                     }
                 }
             } else {
@@ -4029,12 +4118,23 @@ class DRP_SubscriptionManager {
         return true;
     }
 
+    /**
+     * Register Subscription with Target Source
+     * @param {DRP_ServiceTableEntry} serviceEntry
+     * @param {DRP_Subscriber} subscriber
+     */
     async RegisterSubscriberWithTargetSource(serviceEntry, subscriber) {
         let thisSubMgr = this;
         let thisNode = thisSubMgr.DRPNode;
 
         /** @type {DRP_SubscribableSource} */
         let targetSource = null;
+
+        if (subscriber.singleInstance && subscriber.subscribedTo.size > 0) {
+            // Should not reach this
+            thisNode.log(`Tried to register a single instance subscriber with multiple sources, rejecting request`, true);
+            return;
+        }
 
         // Is this local or remote?
         if (serviceEntry.NodeID === thisNode.NodeID) {

@@ -161,6 +161,9 @@
                     if (startupParams.targetNodeID) {
                         watchApp.title += ` @ ${startupParams.targetNodeID}`;
                     }
+                    if (startupParams.singleInstance) {
+                        watchApp.title += `, single instance`;
+                    }
 
                     // Prerequisites
                     watchApp.preReqs = [
@@ -191,8 +194,9 @@
                             let topicName = watchApp.appVars.startupParams.topicName;
                             let scope = watchApp.appVars.startupParams.scope;
                             let targetNodeID = watchApp.appVars.startupParams.targetNodeID;
+                            let singleInstance = watchApp.appVars.startupParams.singleInstance;
                             try {
-                                watchApp.sendCmd_StreamHandler("DRP", "subscribe", { topicName: topicName, scope: scope, targetNodeID: targetNodeID }, (streamData) => {
+                                watchApp.sendCmd_StreamHandler("DRP", "subscribe", { topicName: topicName, scope: scope, targetNodeID: targetNodeID, singleInstance: singleInstance }, (streamData) => {
                                     if (typeof streamData.payload.Message === "string") {
                                         watchApp.appVars.term.write(`\x1B[94m[${streamData.payload.TimeStamp}] \x1B[97m${streamData.payload.Message}\x1B[0m\r\n`);
                                     } else {
@@ -830,6 +834,7 @@
                         "z": new drpMethodSwitch("z", null, "Switch scope to zone"),
                         "g": new drpMethodSwitch("g", null, "Switch scope to global"),
                         "n": new drpMethodSwitch("n", "string", "Target NodeID"),
+                        "i": new drpMethodSwitch("i", null, "Single Instance"),
                         "l": new drpMethodSwitch("l", null, "List available streams"),
                     },
                     async function (switchesAndDataString, doPipeOut, pipeDataIn) {
@@ -924,6 +929,7 @@
                             let topicName = switchesAndData.data;
                             let scope = switchesAndData.switches["s"] || "local";
                             let targetNodeID = switchesAndData.switches["n"] || null;
+                            let singleInstance = false;
 
                             // If a specific NodeID is set, override the scope
                             if (targetNodeID) {
@@ -935,6 +941,10 @@
 
                                 if ("g" in switchesAndData.switches) {
                                     scope = "global";
+                                }
+
+                                if ("i" in switchesAndData.switches) {
+                                    singleInstance = true;
                                 }
                             }
 
@@ -949,7 +959,7 @@
                                     return;
                             }
 
-                            let newApp = new watchWindowApplet.appletClass(watchWindowApplet, { topicName: topicName, scope: scope, targetNodeID: targetNodeID });
+                            let newApp = new watchWindowApplet.appletClass(watchWindowApplet, { topicName: topicName, scope: scope, targetNodeID: targetNodeID, singleInstance: singleInstance });
                             await myApp.vdmDesktop.newWindow(newApp);
                             myApp.vdmDesktop.appletInstances[newApp.appletIndex] = newApp;
 
