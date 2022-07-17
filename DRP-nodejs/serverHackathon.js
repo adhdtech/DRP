@@ -84,7 +84,7 @@ myNode.ConnectToMesh(async () => {
     // Add a FedEx service
     myNode.AddService(new FedExAPIMgr("FedEx", myNode, 10, 10, "global", apiKey, secretKey, shippingAccount, serviceBaseURL));
 
-    if (myNode.ListeningName) {
-        myNode.log(`Listening at: ${myNode.ListeningName}`);
+    if (myNode.ListeningURL) {
+        myNode.log(`Listening at: ${myNode.ListeningURL}`);
     }
 });

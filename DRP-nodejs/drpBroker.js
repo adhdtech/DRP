@@ -65,7 +65,7 @@ myNode.ConnectToMesh(async () => {
         new DRP_SwaggerUI(myNode, '/api-doc');
     }
 
-    if (myNode.ListeningName) {
-        myNode.log(`Listening at: ${myNode.ListeningName}`);
+    if (myNode.ListeningURL) {
+        myNode.log(`Listening at: ${myNode.ListeningURL}`);
     }
 });

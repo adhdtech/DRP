@@ -44,7 +44,7 @@ myNode.ConnectToMesh(async () => {
     // Add a test service
     myNode.AddService(new TestService("TestService", myNode));
 
-    if (myNode.ListeningName) {
-        myNode.log(`Listening at: ${myNode.ListeningName}`);
+    if (myNode.ListeningURL) {
+        myNode.log(`Listening at: ${myNode.ListeningURL}`);
     }
 });

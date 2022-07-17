@@ -34,5 +34,5 @@ myNode.Debug = debug;
 myNode.TestMode = testMode;
 myNode.ConnectToMesh();
 
-myNode.log(`Listening at: ${myNode.ListeningName}`);
+myNode.log(`Listening at: ${myNode.ListeningURL}`);
 myNode.log(`Node in zone: ${myNode.Zone}`);

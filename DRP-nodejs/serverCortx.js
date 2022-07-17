@@ -551,7 +551,7 @@ myNode.ConnectToMesh(async () => {
         myNode.AddService(hiveService);
     });
 
-    if (myNode.ListeningName) {
-        myNode.log(`Listening at: ${myNode.ListeningName}`);
+    if (myNode.ListeningURL) {
+        myNode.log(`Listening at: ${myNode.ListeningURL}`);
     }
 });

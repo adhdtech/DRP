@@ -54,7 +54,7 @@ myNode.ConnectToMesh(async () => {
     let myService = new CacheManager(serviceName, myNode, priority, weight, scope, mongoHost, mongoUser, mongoPw);
     myNode.AddService(myService);
 
-    if (myNode.ListeningName) {
-        myNode.log(`Listening at: ${myNode.ListeningName}`);
+    if (myNode.ListeningURL) {
+        myNode.log(`Listening at: ${myNode.ListeningURL}`);
     }
 });
