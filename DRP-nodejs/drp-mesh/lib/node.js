@@ -1142,6 +1142,7 @@ class DRP_Node extends DRP_Securable {
                             params.pathList = remainingPath;
                             // Must be called this way so the method is aware of the parent
                             outputObject = await oCurrentObject[pathItemName](params, callingEndpoint);
+                            functionExecuted = true;
                             // The function processed the rest of the path list so we'll break out of the loop
                             break PathLoop;
                         case 'string':
