@@ -389,6 +389,8 @@ class DRP_Node extends DRP_Securable {
                 xapitoken = req.headers['x-api-token'];
             } else if (req.headers.cookie && /^x-api-token=.*$/.test(req.headers.cookie)) {
                 xapitoken = req.headers.cookie.match(/^x-api-token=(.*)$/)[1];
+            } else if (req.headers['x-gitlab-token']) {
+                xapikey = req.headers['x-gitlab-token']
             }
 
             if (xapikey) {
