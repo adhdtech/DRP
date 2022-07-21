@@ -141,16 +141,18 @@ class DRP_VirtualDirectory extends DRP_Securable {
         this.#getItemFunc = getItemFunc;
     }
 
-    async __Read(callerAuthInfo, ...params) {
-    }
-
-    async __Write(callerAuthInfo, ...params) {
-    }
-
     async List(params) {
+        if (!this.CheckPermission(params.authInfo, "read")) {
+            throw new DRP_CmdError("Unauthorized", DRP_ErrorCode.UNAUTHORIZED, "VirtualDirectory");
+        }
+
         return await this.#listFunc(params);
     }
     async GetItem(params) {
+        if (!this.CheckPermission(params.authInfo, "read")) {
+            throw new DRP_CmdError("Unauthorized", DRP_ErrorCode.UNAUTHORIZED, "VirtualDirectory");
+        }
+
         return await this.#getItemFunc(params);
     }
 }
@@ -158,12 +160,6 @@ class DRP_VirtualDirectory extends DRP_Securable {
 class DRP_VirtualObject extends DRP_Securable {
     constructor(securedObject, permissionSet) {
         super(permissionSet);
-    }
-
-    async __Read(callerAuthInfo, ...params) {
-    }
-
-    async __Write(callerAuthInfo, ...params) {
     }
 }
 
