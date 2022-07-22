@@ -111,13 +111,10 @@
              * @param {Object.<string, topologyNode>} topologyObj DRP Topology
              */
             "importMeshTopology": async function (topologyObj) {
-                //let jsonText = `{"elements":{"nodes":[{"data":{"group":"nodes","id":"49d895b6-1953-4139-bbd4-7a9d40afb6f9","label":"node1"},"position":{"x":119,"y":133},"group":"nodes","removed":false,"selected":false,"selectable":true,"locked":false,"grabbable":true,"classes":""},{"data":{"group":"nodes","id":"d1ba0134-5ed1-46be-8a65-1ea0b0183642","label":"node2"},"position":{"x":270,"y":202},"group":"nodes","removed":false,"selected":false,"selectable":true,"locked":false,"grabbable":true,"classes":""}],"edges":[{"data":{"source":"49d895b6-1953-4139-bbd4-7a9d40afb6f9","target":"d1ba0134-5ed1-46be-8a65-1ea0b0183642","label":"dynamic","id":"ed551066-37f6-453e-a08c-ca2b571a7357"},"position":{},"group":"edges","removed":false,"selected":false,"selectable":true,"locked":false,"grabbable":true,"classes":""}]},"style":[{"selector":"node","style":{"label":"data(label)"}},{"selector":"edge","style":{"target-arrow-shape":"triangle"}},{"selector":":selected","style":{}}],"zoomingEnabled":true,"userZoomingEnabled":true,"zoom":1,"minZoom":1e-50,"maxZoom":1e+50,"panningEnabled":true,"userPanningEnabled":true,"pan":{"x":47,"y":-24},"boxSelectionEnabled":true,"renderer":{"name":"canvas"},"wheelSensitivity":0.25}`;
-                //let jsonParsed = JSON.parse(jsonText);
-                //myApp.appVars.cy.json(jsonParsed);
 
                 let typeStyle = "grid-column: 1/ span 2;text-align: center; font-size: large;";
                 let headerStyle = "text-align: right; padding-right: 10px;";
-                let dataStyle = "color: lightseagreen; font-weight: bold;";
+                let dataStyle = "color: lightseagreen; font-weight: bold; user-select: text; overflow-wrap: break-word;";
 
                 // Clear existing nodes and edges
 
@@ -308,7 +305,12 @@
     async runStartup() {
         let myApp = this;
 
-        myApp.appVars.cyBox = myApp.windowParts["data"];
+        myApp.appVars.dataPane = myApp.windowParts["data"];
+
+        let cyBox = document.createElement("div");
+        cyBox.style = `position: absolute; z-index: 0; overflow: hidden; width: 100%; height: 100%;`;
+        myApp.appVars.dataPane.appendChild(cyBox);
+        myApp.appVars.cyBox = cyBox;
 
         let cy = cytoscape({
             container: myApp.appVars.cyBox,
@@ -415,7 +417,7 @@
 
             // If the node has a "ShowDetails" function AND its details are currently in the detail box, remove and hide
             if (myApp.appVars.displayedNodeID && myApp.appVars.displayedNodeID === targetNodeData.id) {
-                myApp.appVars.detailsDiv.style['display'] = 'none';
+                //myApp.appVars.detailsDiv.style['display'] = 'none';
             }
         });
 
@@ -592,19 +594,20 @@
 
         myApp.appFuncs.loadNodeTopology();
 
-        // Add the drop window
+        // Add details menu
         let detailsDiv = document.createElement('div');
         detailsDiv.className = "detailsDiv";
-        detailsDiv.style = `width: 400px;height: 200px;z-index: 1;margin: 0;position: absolute;bottom: 0;right: 0;text-align: left;font-size: 14px;line-height: normal; color: khaki; background-color: black;opacity: .9; box-sizing: border-box; padding: 10px;
+        detailsDiv.style = `width: 400px;height: 200px;margin: 0;position: absolute;bottom: 0;right: 0;text-align: left;font-size: 14px;line-height: normal; color: khaki; background-color: black;opacity: .9; box-sizing: border-box; padding: 10px;
     display: none;
     grid-template-columns: 25% 75%;
     grid-template-rows: 25px 25px 25px 25px 25px 25px;
-    border-radius: 20px;`;
+    border-radius: 20px;
+    z-index: 1;`;
         detailsDiv.innerHTML = "&nbsp;";
 
         myApp.appVars.detailsDiv = detailsDiv;
 
-        myApp.appVars.cyBox.appendChild(detailsDiv);
+        myApp.appVars.dataPane.appendChild(detailsDiv);
     }
 });
 //# sourceURL=vdm-app-DRPTopology.js
