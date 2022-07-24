@@ -458,10 +458,12 @@ class DRP_Node extends DRP_Securable {
             remainingPath.shift();
 
             let listOnly = false;
+            let showHelp = false;
             let format = null;
             let resCode = 200;
 
             if (req.query.listOnly) listOnly = thisNode.IsTrue(req.query.listOnly);
+            if (req.query.showHelp) showHelp = thisNode.IsTrue(req.query.showHelp);
             if (req.query.format) format = thisNode.IsTrue(req.query.format);
 
             // Treat as "getPath"
@@ -472,23 +474,26 @@ class DRP_Node extends DRP_Securable {
                 // Determine the PathCmd method; default to "GetItem"
 
                 let pathCmdMethod = null;
-
-                switch (req.method) {
-                    case "GET":
-                        if (listOnly) {
-                            pathCmdMethod = "GetChildItems"
-                        } else {
-                            pathCmdMethod = "GetItem"
-                        }
-                        break;
-                    case "POST":
-                    case "PUT":
-                        pathCmdMethod = "SetItem"
-                        break;
-                    default:
-                        resultString = `Invalid method: ${req.method}`;
-                        resCode = DRP_ErrorCode.BADREQUEST;
-                        break RUNTRY;
+                if (showHelp) {
+                    pathCmdMethod = "man"
+                } else {
+                    switch (req.method) {
+                        case "GET":
+                            if (listOnly) {
+                                pathCmdMethod = "GetChildItems"
+                            } else {
+                                pathCmdMethod = "GetItem"
+                            }
+                            break;
+                        case "POST":
+                        case "PUT":
+                            pathCmdMethod = "SetItem"
+                            break;
+                        default:
+                            resultString = `Invalid method: ${req.method}`;
+                            resCode = DRP_ErrorCode.BADREQUEST;
+                            break RUNTRY;
+                    }
                 }
                 let params = new DRP_MethodParams(pathCmdMethod, basePathArray.concat(remainingPath), req.body, "REST", authInfo);
                 let resultObj = await thisNode.PathCmd(params, thisNode.GetBaseObj());

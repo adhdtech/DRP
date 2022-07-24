@@ -204,7 +204,8 @@ class TestService extends DRP_Service {
 
         // Start sending data to TestStream
         setInterval(function () {
-            thisService.DRPNode.TopicManager.SendToTopic("TestStream", `Test message from [${thisService.InstanceID}]`);
+            thisService.DRPNode.TopicManager.SendToTopic("TestStream", `Test string message from [${thisService.InstanceID}]`);
+            thisService.DRPNode.TopicManager.SendToTopic("TestStream", { subject: `Test object message from [${thisService.InstanceID}]` });
         }, 3000);
     }
 }
