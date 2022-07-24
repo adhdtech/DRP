@@ -185,6 +185,7 @@ class DRP_Node extends DRP_Securable {
         this.GetServiceDefinitions = this.GetServiceDefinitions;
         this.ListClassInstances = this.ListClassInstances;
         this.ToggleDebug = this.ToggleDebug;
+        this.GetDebug = () => { return this.Debug; }
 
         this.Evacuate = this.Evacuate;
 
@@ -259,6 +260,7 @@ class DRP_Node extends DRP_Securable {
         } else {
             this.Debug = true;
         }
+        return this.Debug;
     }
 
     /**
