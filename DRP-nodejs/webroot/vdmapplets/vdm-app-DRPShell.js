@@ -180,11 +180,22 @@
                             }
                         },
                         "Output": {
-                            "Objects single line": () => {
-                                watchApp.appVars.objectsMultiLine = false;
+                            "Pretty print objects": () => {
+                                watchApp.appVars.startupParams.prettyPrint = true;
                             },
-                            "Objects formatted": () => {
-                                watchApp.appVars.objectsMultiLine = true;
+                            "Objects single line": () => {
+                                watchApp.appVars.startupParams.prettyPrint = false;
+                            }
+                        },
+                        "Format": {
+                            "Timestamp": () => {
+                                watchApp.appVars.startupParams.format = "timestamp";
+                            },
+                            "Bare": () => {
+                                watchApp.appVars.startupParams.format = "bare";
+                            },
+                            "Full": () => {
+                                watchApp.appVars.startupParams.format = "full";
                             }
                         }
                     };
@@ -197,15 +208,33 @@
                             let singleInstance = watchApp.appVars.startupParams.singleInstance;
                             try {
                                 watchApp.sendCmd_StreamHandler("DRP", "subscribe", { topicName: topicName, scope: scope, targetNodeID: targetNodeID, singleInstance: singleInstance }, (streamData) => {
-                                    if (typeof streamData.payload.Message === "string") {
-                                        watchApp.appVars.term.write(`\x1B[94m[${streamData.payload.TimeStamp}] \x1B[97m${streamData.payload.Message}\x1B[0m\r\n`);
+                                    let outputTimestamp = true;
+                                    let outputData = streamData.payload.Message;
+                                    switch (watchApp.appVars.startupParams.format) {
+                                        case 'bare':
+                                            outputTimestamp = false;
+                                            break;
+                                        case 'full':
+                                            outputTimestamp = false;
+                                            outputData = streamData.payload;
+                                            break;
+                                        default:
+
+                                    }
+                                    let writeMessage = "";
+                                    if (outputTimestamp) {
+                                        writeMessage += `\x1B[94m[${streamData.payload.TimeStamp}] `;
+                                    }
+                                    if (typeof outputData === "string") {
+                                        writeMessage += `\x1B[97m${streamData.payload.Message}\x1B[0m\r\n`;
                                     } else {
-                                        if (watchApp.appVars.objectsMultiLine) {
-                                            watchApp.appVars.term.write(`\x1B[94m[${streamData.payload.TimeStamp}] \x1B[92m${JSON.stringify(streamData.payload.Message, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
+                                        if (watchApp.appVars.startupParams.prettyPrint) {
+                                            writeMessage += `\x1B[92m${JSON.stringify(outputData, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`;
                                         } else {
-                                            watchApp.appVars.term.write(`\x1B[94m[${streamData.payload.TimeStamp}] \x1B[92m${JSON.stringify(streamData.payload.Message)}\x1B[0m\r\n`);
+                                            writeMessage += `\x1B[92m${JSON.stringify(outputData)}\x1B[0m\r\n`;        
                                         }
                                     }
+                                    watchApp.appVars.term.write(writeMessage);
                                 });
                             } catch (ex) {
                                 console.dir(ex);
@@ -221,8 +250,7 @@
                     };
 
                     watchApp.appVars = {
-                        startupParams: startupParams,
-                        objectsMultiLine: false
+                        startupParams: startupParams
                     };
 
                     watchApp.recvCmd = {
@@ -835,6 +863,8 @@
                         "g": new drpMethodSwitch("g", null, "Switch scope to global"),
                         "n": new drpMethodSwitch("n", "string", "Target NodeID"),
                         "i": new drpMethodSwitch("i", null, "Single Instance"),
+                        "f": new drpMethodSwitch("f", "string", "Format [timestamp(default)|bare|full]"),
+                        "p": new drpMethodSwitch("p", null, "Pretty print objects (multi-line)"),
                         "l": new drpMethodSwitch("l", null, "List available streams"),
                     },
                     async function (switchesAndDataString, doPipeOut, pipeDataIn) {
@@ -930,6 +960,8 @@
                             let scope = switchesAndData.switches["s"] || "local";
                             let targetNodeID = switchesAndData.switches["n"] || null;
                             let singleInstance = false;
+                            let prettyPrint = false;
+                            let format = switchesAndData.switches["f"] || null;
 
                             // If a specific NodeID is set, override the scope
                             if (targetNodeID) {
@@ -942,10 +974,16 @@
                                 if ("g" in switchesAndData.switches) {
                                     scope = "global";
                                 }
+                            }
 
-                                if ("i" in switchesAndData.switches) {
-                                    singleInstance = true;
-                                }
+                            // Check for single instance
+                            if ("i" in switchesAndData.switches) {
+                                singleInstance = true;
+                            }
+
+                            // Check for pretty print
+                            if ("p" in switchesAndData.switches) {
+                                prettyPrint = true;
                             }
 
                             switch (scope) {
@@ -959,7 +997,26 @@
                                     return;
                             }
 
-                            let newApp = new watchWindowApplet.appletClass(watchWindowApplet, { topicName: topicName, scope: scope, targetNodeID: targetNodeID, singleInstance: singleInstance });
+                            switch (format) {
+                                case null:
+                                case "timestamp":
+                                case "bare":
+                                case "full":
+                                    break;
+                                default:
+                                    term.write(`\x1B[91mInvalid format: ${format}\x1B[0m\r\n`);
+                                    term.write(`\x1B[91mSyntax: watch [-f [timestamp(default)|bare|full] {streamName}\x1B[0m\r\n`);
+                                    return;
+                            }
+
+                            let newApp = new watchWindowApplet.appletClass(watchWindowApplet, {
+                                topicName: topicName,
+                                scope: scope,
+                                targetNodeID: targetNodeID,
+                                singleInstance: singleInstance,
+                                format: format,
+                                prettyPrint: prettyPrint
+                            });
                             await myApp.vdmDesktop.newWindow(newApp);
                             myApp.vdmDesktop.appletInstances[newApp.appletIndex] = newApp;
 
