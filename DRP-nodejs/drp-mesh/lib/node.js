@@ -1028,7 +1028,7 @@ class DRP_Node extends DRP_Securable {
          * params.method = ('GetItem'|'GetChildItems'|'SetItem')
          * 
          * RPC Calls
-         * params.method = ('GetItem'|'GetChildItems'|'execute')
+         * params.method = ('cat'|'ls'|'exec')
          * 
          * DRP_VirtualFunction accepts methods 'execute' and 'SetItem'
          * 
@@ -1049,8 +1049,12 @@ class DRP_Node extends DRP_Securable {
         let listOnly = false;
         let writeOperation = false;
         let functionExecuted = false;
+        let manPageOnly = false;
 
         switch (params.method) {
+            case "man":
+                manPageOnly = true;
+            case "exec":
             case "SetItem":
             case "NewItem":
             // To create an item, one of the following conventions must be used:
@@ -1067,8 +1071,10 @@ class DRP_Node extends DRP_Securable {
                 // If successful, the key of the removed object will be returned via pathItemAffected
                 writeOperation = true;
                 break;
+            case "cat":
             case "GetItem":
                 break;
+            case "ls":
             case "GetChildItems":
                 listOnly = true;
                 break;
@@ -1181,7 +1187,11 @@ class DRP_Node extends DRP_Securable {
                                     let execFunction = oCurrentObject[pathItemName];
 
                                     // Execute virtual function
-                                    outputObject = await execFunction.Execute(params);
+                                    if (manPageOnly) {
+                                        outputObject = await execFunction.ShowHelp();
+                                    } else {
+                                        outputObject = await execFunction.Execute(params);
+                                    }
                                     functionExecuted = true;
                                     // The function processed the rest of the path list so we'll break out of the loop
                                     break PathLoop;
@@ -1190,7 +1200,7 @@ class DRP_Node extends DRP_Securable {
                                     let thisVirtualDirectory = oCurrentObject[pathItemName];
                                     if (isFinalItem()) {
                                         // Check for read-only listing
-                                        if (!listOnly) {
+                                        if (!listOnly && !manPageOnly) {
                                             throw new DRP_CmdError(`Object is a directory`, DRP_ErrorCode.BADREQUEST, "PathCmd");
                                         }
 
@@ -1231,6 +1241,9 @@ class DRP_Node extends DRP_Securable {
                             // Send the rest of the path to a function
                             params.pathList = remainingPath;
                             // Must be called this way so the method is aware of the parent
+                            if (manPageOnly && isFinalItem()) {
+                                throw new DRP_CmdError("Simple function does not have man page", DRP_ErrorCode.BADREQUEST, "PathCmd");
+                            }
                             outputObject = await oCurrentObject[pathItemName](params, callingEndpoint);
                             functionExecuted = true;
                             // The function processed the rest of the path list so we'll break out of the loop
@@ -1259,7 +1272,11 @@ class DRP_Node extends DRP_Securable {
         if (writeOperation) {
             // We executed some sort of change operation
             if (writeOperation && !functionExecuted) {
-                throw new DRP_CmdError(`Target is not executable`, DRP_ErrorCode.BADREQUEST, "PathCmd");
+                if (manPageOnly) {
+                    throw new DRP_CmdError(`Target is not executable, does not have man page`, DRP_ErrorCode.BADREQUEST, "PathCmd");
+                } else {
+                    throw new DRP_CmdError(`Target is not executable`, DRP_ErrorCode.BADREQUEST, "PathCmd");
+                }
             }
             returnObject = outputObject;
         } else if (listOnly) {
@@ -2651,7 +2668,7 @@ class DRP_Node extends DRP_Securable {
 
     async TCPPing(cmdObj, srcEndpoint, token) {
         let thisNode = this;
-        let methodParams = ['address','port','timeout','attempts'];
+        let methodParams = ['address', 'port', 'timeout', 'attempts'];
         let params = thisNode.GetParams(cmdObj, methodParams);
 
         let pingInfo = null;

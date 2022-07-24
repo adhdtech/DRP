@@ -231,7 +231,7 @@
                                         if (watchApp.appVars.startupParams.prettyPrint) {
                                             writeMessage += `\x1B[92m${JSON.stringify(outputData, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`;
                                         } else {
-                                            writeMessage += `\x1B[92m${JSON.stringify(outputData)}\x1B[0m\r\n`;        
+                                            writeMessage += `\x1B[92m${JSON.stringify(outputData)}\x1B[0m\r\n`;
                                         }
                                     }
                                     watchApp.appVars.term.write(writeMessage);
@@ -505,7 +505,7 @@
                         let results = null;
 
                         try {
-                            results = await myApp.sendCmd("DRP", "pathCmd", { method: "GetChildItems", pathList: pathList }, true);
+                            results = await myApp.sendCmd("DRP", "pathCmd", { method: "ls", pathList: pathList }, true);
                         } catch (ex) {
                             let errMsg = ex.message;
                             if (doPipeOut) return errMsg + "\r\n";
@@ -621,28 +621,24 @@
                         let results = null;
 
                         try {
-                            results = await myApp.sendCmd("DRP", "pathCmd", { method: "GetItem", pathList: pathList }, true);
+                            results = await myApp.sendCmd("DRP", "pathCmd", { method: "cat", pathList: pathList }, true);
                         } catch (ex) {
                             term.write(`\x1B[91m${ex.message}\x1B[0m`);
                             return;
                         }
 
-                        if (typeof results === "string") {
-                            // Error
-                            term.write(`\x1B[91m${results}\x1B[0m\r\n`);
-                        } else if (results) {
-                            // Item was returned
-                            if (doPipeOut) returnObj = results;
-                            else {
-                                if (typeof results === "object") {
-                                    term.write(`\x1B[0m${JSON.stringify(results, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
-                                } else if (typeof results === "string") {
-                                    term.write(`\x1B[0m${results.replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
-                                } else {
-                                    term.write(`\x1B[0m${results}\x1B[0m\r\n`);
-                                }
+                        // Item was returned
+                        if (doPipeOut) returnObj = results;
+                        else {
+                            if (typeof results === "object") {
+                                term.write(`\x1B[0m${JSON.stringify(results, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                            } else if (typeof results === "string") {
+                                term.write(`\x1B[0m${results.replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                            } else {
+                                term.write(`\x1B[0m${results}\x1B[0m\r\n`);
                             }
                         }
+
                         return returnObj;
                     }));
 
@@ -665,7 +661,7 @@
                             let cmdName = rpcRegexMatch[2];
                             let paramsString = rpcRegexMatch[3] || "";
                             let params = {
-                                "method": "execute"
+                                "method": "exec"
                             };
                             try {
                                 let parsedValue = JSON.parse(paramsString);
@@ -674,6 +670,7 @@
                                     throw { message: `Expected an object, received a ${constructorType}` };
                                 }
                                 params = parsedValue;
+                                params.method = "exec";
                             }
                             catch (ex) {
                                 if (paramsString.length > 0) {
@@ -719,7 +716,7 @@
                             }
 
                             try {
-                                results = await myApp.sendCmd("DRP", "pathCmd", { method: "SetItem", pathList: pathList }, true);
+                                results = await myApp.sendCmd("DRP", "pathCmd", { method: "exec", pathList: pathList }, true);
                             } catch (ex) {
                                 term.write(`\x1B[91m${ex.message}\x1B[0m`);
                                 return;
@@ -728,7 +725,83 @@
 
                         // Do stuff with output
                         if (doPipeOut) returnObj = results;
-                        else term.write(`\x1B[0m${JSON.stringify(results, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                        else {
+                            if (typeof results === "object") {
+                                term.write(`\x1B[0m${JSON.stringify(results, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                            } else if (typeof results === "string") {
+                                term.write(`\x1B[0m${results.replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                            } else {
+                                term.write(`\x1B[0m${results}\x1B[0m\r\n`);
+                            }
+                        }
+
+                        return returnObj;
+                    }));
+
+                this.AddMethod(new drpMethod("man",
+                    "Get man page for function",
+                    "[path to function]",
+                    {},
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        // Get Service, Method
+                        let returnObj = null;
+                        let results = null;
+                        let rpcRegexMatch = null;
+
+                        // First, try to match the <method> convention
+                        if (rpcRegexMatch = switchesAndDataString.match(/^(\w+)$/)) {
+                            let cmdName = rpcRegexMatch[1];
+
+                            // Execute RPC method
+                            if (thisShell.drpMethods[cmdName]) {
+                                results = thisShell.drpMethods[cmdName].ShowHelp();
+                            } else {
+                                term.write(`\x1B[91mUnknown shell command: ${cmdName}\x1B[0m`);
+                                return;
+                            }
+                        // Second, try to match the <service>.<method> convention
+                        } else if (rpcRegexMatch = switchesAndDataString.match(/^(\w+)\.(\w+)\s*$/)) {
+                            let serviceName = rpcRegexMatch[1];
+                            let cmdName = rpcRegexMatch[2];
+                            let params = {
+                                method: "man"
+                            };
+
+                            // Execute RPC method
+                            try {
+                                //term.write(`\x1B[0m${JSON.stringify(debugOut, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                                results = await myApp.sendCmd(serviceName, cmdName, params, true);
+                            } catch (ex) {
+                                term.write(`\x1B[91m${ex.message}\x1B[0m`);
+                                return;
+                            }
+                        // Finally, try to match the path convention
+                        } else {
+                            let pathList = [];
+                            pathList = switchesAndDataString.split(/[\/\\]/g);
+
+                            // Remove leading empty entries
+                            while (pathList.length > 0 && pathList[0] === "") pathList.shift();
+
+                            // Remove trailing empty entries
+                            while (pathList.length > 0 && pathList[pathList.length - 1] === "") pathList.pop();
+
+                            if (pathList.length < 2) {
+                                term.write(this.ShowHelp());
+                                return;
+                            }
+
+                            try {
+                                results = await myApp.sendCmd("DRP", "pathCmd", { method: "man", pathList: pathList }, true);
+                            } catch (ex) {
+                                term.write(`\x1B[91m${ex.message}\x1B[0m`);
+                                return;
+                            }
+                        }
+
+                        // Do stuff with output
+                        if (doPipeOut) returnObj = results;
+                        else term.write(`\x1B[0m${results}\x1B[0m\r\n`);
 
                         return returnObj;
                     }));

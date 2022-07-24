@@ -197,11 +197,19 @@ class DRP_VirtualFunction extends DRP_Securable {
      */
     async Execute(params) {
         let results = null;
+
+        // Check permissions
         if (!this.CheckPermission(params.authInfo, "execute")) {
             throw new DRP_CmdError("Unauthorized", DRP_ErrorCode.UNAUTHORIZED, "VirtualFunction");
         }
 
-        if (params.method !== "execute" && params.method !== "SetItem") {
+        // If the user wants info on the function, return ShowHelp
+        if (params.method === "man") {
+            return this.ShowHelp();
+        }
+
+        // Verify that the user is making a call to execute
+        if (params.method !== "exec" && params.method !== "SetItem") {
             throw new DRP_CmdError(`Invalid operation (${params.method})`, DRP_ErrorCode.BADREQUEST, "VirtualFunction");
         }
 
