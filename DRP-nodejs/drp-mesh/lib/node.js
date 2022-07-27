@@ -2137,7 +2137,7 @@ class DRP_Node extends DRP_Securable {
 
             if (!registryList.length > 0) {
                 // This must be the last Registry, nowhere to retarget
-                return null;
+                return false;
             }
 
             // Let's tell the remote Node to redirect
@@ -2152,6 +2152,7 @@ class DRP_Node extends DRP_Securable {
                 return false;
             }
         }
+        return false;
     }
 
     /**
@@ -2162,10 +2163,11 @@ class DRP_Node extends DRP_Securable {
 
         // Loop over NodeEndpoints
         let nodeIDList = Object.keys(thisNode.NodeEndpoints);
-
+        thisNode.log(`Attempting to evacuate Nodes [${nodeIDList}]`, true);
 
         // Get topology from all nodes
         await Promise.all(nodeIDList.map(n => thisNode.EvacuateNode(n)));
+        thisNode.log('Non-registry Nodes evacuated', true);
 
         return "Non-registry Nodes evacuated";
     }
@@ -2402,9 +2404,9 @@ class DRP_Node extends DRP_Securable {
         for (let i = 0; i < nodeIDList.length; i++) {
             let nodeID = nodeIDList[i];
             /** @type DRP_Endpoint */
-            let thisEndpoint = thisNode.NodeEndpoints[nodeID];
-            if (thisEndpoint.IsServer()) {
-                nodeClientConnections.nodeClients[nodeID] = thisEndpoint.ConnectionStats();
+            let nodeEndpoint = thisNode.NodeEndpoints[nodeID];
+            if (nodeEndpoint.IsServer()) {
+                nodeClientConnections.nodeClients[nodeID] = nodeEndpoint.ConnectionStats();
             }
         }
 
@@ -2413,8 +2415,18 @@ class DRP_Node extends DRP_Securable {
         for (let i = 0; i < consumerIDList.length; i++) {
             let consumerID = consumerIDList[i];
             /** @type DRP_Endpoint */
-            let thisEndpoint = thisNode.ConsumerEndpoints[consumerID];
-            nodeClientConnections.consumerClients[consumerID] = thisEndpoint.ConnectionStats();
+            let consumerEndpoint = thisNode.ConsumerEndpoints[consumerID];
+            let userInfo = consumerEndpoint.AuthInfo.userInfo;
+            let consumerObj = {
+                UserName: userInfo.UserName,
+                FullName: userInfo.FullName,
+                Groups: userInfo.Groups,
+                IPAddress: consumerEndpoint.RemoteAddress(),
+                Port: consumerEndpoint.RemotePort()
+            }
+            Object.assign(consumerObj, consumerEndpoint.ConnectionStats());
+            nodeClientConnections.consumerClients[consumerID] = consumerObj;
+
         }
 
         return nodeClientConnections;

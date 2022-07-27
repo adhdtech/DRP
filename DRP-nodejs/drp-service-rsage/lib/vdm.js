@@ -2,57 +2,9 @@ const DRP_Node = require('drp-mesh').Node;
 const DRP_Service = require('drp-mesh').Service;
 const express = require('express');
 const Express_Application = express.application;
-const Express_Request = express.request;
-const Express_Response = express.response;
-const DRP_AuthResponse = require('drp-mesh').Auth.DRP_AuthResponse;
+const { DRP_CmdError, DRP_ErrorCode } = require('drp-mesh').Packet;
 const basicAuth = require('express-basic-auth');
 const fs = require('fs').promises;
-
-/*
-class VDMServer_UserAppInstance {
-    constructor(conn, appletIndex, appletName, vdmServer) {
-        this.conn = conn;
-        this.appletIndex = appletIndex;
-        this.appletName = appletName;
-        this.vdmServer = vdmServer;
-        this.subscriptions = [];
-    }
-
-    RemoveSubscriptions() {
-        // Remove subscription hooks specific to app
-        let userAppObj = this;
-        for (let subIdx in userAppObj.subscriptions) {
-            let publisherObj = userAppObj.subscriptions[subIdx];
-            publisherObj['subscribers'].splice(publisherObj['subscribers'].indexOf(userAppObj), 1);
-        }
-        userAppObj['subscriptions'] = [];
-    }
-
-    SubscribeTo(publisherObj) {
-        // Add subscription hook
-        let userAppObj = this;
-        publisherObj['subscribers'].push(userAppObj);
-        userAppObj['subscriptions'].push(publisherObj);
-    }
-
-    UnsubscribeFrom(publisherObj) {
-        // Remove subscription hook
-        let userAppObj = this;
-        publisherObj['subscribers'].splice(publisherObj['subscribers'].indexOf(userAppObj), 1);
-        userAppObj['subscriptions'].splice(userAppObj['subscriptions'].indexOf(publisherObj), 1);
-    }
-
-    ToObject() {
-        // Return this
-        let returnObj = {};
-        let userAppObj = this;
-        returnObj.appletIndex = userAppObj.appletIndex;
-        returnObj.appletName = userAppObj.appletName;
-        //returnObj.remoteAddress = userAppObj.remoteAddress;
-        return returnObj;
-    }
-}
-*/
 
 class VDMAppletProfile {
     constructor(appletName, title, sizeX, sizeY, appletIcon, showInMenu, appletScript, preReqs) {
@@ -146,60 +98,12 @@ class VDMServer extends DRP_Service {
         // Register Endpoint commands
         // (methods should return output and optionally accept [params, wsConn, token] for streaming)
 
-        this.clientSessions = {};
-
         this.VDMAppletProfiles = {};
         this.XRAppletProfiles = {};
 
         this.ClientCmds = {
             "getVDMAppletProfiles": async (...args) => { return await thisVDMServer.GetVDMAppletProfiles(...args); },
             "getXRAppletProfiles": async (...args) => { return await thisVDMServer.GetXRAppletProfiles(...args); },
-            "listClientSessions": function () {
-                let returnObj = {};
-                let clientSessionIDList = Object.keys(thisVDMServer.clientSessions);
-                for (let i = 0; i < clientSessionIDList.length; i++) {
-                    let thisClientSessionID = clientSessionIDList[i];
-                    let thisClientObj = thisVDMServer.clientSessions[thisClientSessionID];
-
-                    if (thisClientObj) {
-                        let remoteAddress = null;
-                        let readyState = null;
-                        if (thisClientObj.wsConn && thisClientObj.wsConn._socket) {
-                            remoteAddress = thisClientObj.wsConn._socket.remoteAddress + ":" + thisClientObj.wsConn._socket.remotePort;
-                            readyState = thisClientObj.wsConn._socket.readyState;
-                        }
-                        returnObj[thisClientSessionID] = {
-                            remoteAddress: remoteAddress,
-                            readyState: readyState,
-                            sessionID: thisClientObj['sessionID'],
-                            userName: thisClientObj['userName'],
-                            openApps: {}
-                        };
-                        let appKeys = Object.keys(thisClientObj.openApps);
-                        for (let j = 0; j < appKeys.length; j++) {
-                            let appObj = thisClientObj.openApps[appKeys[j]].ToObject();
-                            returnObj[thisClientSessionID].openApps[appObj.appletIndex] = appObj;
-                        }
-                    } else {
-                        returnObj[thisClientSessionID] = {
-                            remoteAddress: null, //thisVDMServer.wsClients[i]._socket.remoteAddress,
-                            sessionID: null,
-                            userName: null,
-                            openApps: {}
-                        };
-                    }
-                }
-
-                return returnObj;
-            },
-            /*
-            "openUserApp": (params, wsConn) => {
-                thisVDMServer.OpenUserApp(params, wsConn);
-            },
-            "closeUserApp": (params, wsConn) => {
-                thisVDMServer.CloseUserApp(params, wsConn);
-            },
-            */
             "uploadVDMApplet": async (params, wsConn) => {
                 // Create new Applet Profile
                 let newAppletProfile = thisVDMServer.AddVDMAppletProfile(params.appletName, params.title, params.sizeX, params.sizeY, params.appletIcon, params.showInMenu, params.appletScript, params.preReqs);
@@ -409,38 +313,6 @@ window.onload = function () {
 
     GetXRAppletProfiles() {
         return this.XRAppletProfiles;
-    }
-    /*
-    OpenUserApp(params, wsConn) {
-        let thisVDMServer = this;
-        thisVDMServer.LogWSClientEvent(wsConn, "opened app '" + params["appletName"] + "' [" + params["appletIndex"] + "]");
-        // Create object to represent open app under client connection['openApps'] object
-        wsConn.clientObj.openApps[params["appletIndex"]] = new VDMServer_UserAppInstance(wsConn, params["appletIndex"], params["appletName"], thisVDMServer);
-    }
-
-    CloseUserApp(params, wsConn) {
-        let thisVDMServer = this;
-        thisVDMServer.LogWSClientEvent(wsConn, "closed app '" + params["appletName"] + "' [" + params["appletIndex"] + "]");
-        // Remove Subscriptions
-        wsConn.clientObj.openApps[params["appletIndex"]].RemoveSubscriptions();
-        // Remove from user app hash
-        delete wsConn.clientObj.openApps[params["appletIndex"]];
-    }
-
-    CloseAllUserApps(clientObj) {
-        let thisVDMServer = this;
-        Object.keys(clientObj.openApps).forEach(function (appletIndex) {
-            thisVDMServer.LogWSClientEvent(clientObj.openApps[appletIndex]["conn"], "closed app '" + clientObj.openApps[appletIndex]["appletName"] + "' [" + clientObj.openApps[appletIndex]["appletIndex"] + "] - FORCED");
-            // Remove Subscriptions
-            clientObj.openApps[appletIndex].RemoveSubscriptions();
-            // Remove from user app hash
-            delete clientObj.openApps[appletIndex];
-        });
-    }
-    */
-    LogWSClientEvent(conn, logMsg) {
-        let thisVDMServer = this;
-        thisVDMServer.DRPNode.log(logMsg);
     }
 }
 

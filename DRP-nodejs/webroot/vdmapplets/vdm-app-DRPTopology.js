@@ -68,18 +68,29 @@
                     myApp.appVars.refreshActive = false;
                 }
             },
-            "placeNode": function (nodeClass) {
+            "placeNode": function (nodeClass, index, total) {
                 let returnPosition = { x: 0, y: 0 };
                 let colsPerRow = 6;
                 switch (nodeClass) {
                     case "Registry":
                         returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Registry"]);
-                        myApp.appVars.nodeCursors["Registry"].y += 75;
+                        //myApp.appVars.nodeCursors["Registry"].y += 75;
+                        let arrangeMultiple = total > 1 ? true : false;
+                        if (arrangeMultiple) {
+                            let isEven = index % 2 === 0;
+                            if (!isEven) {
+                                // Put on left
+                                returnPosition.x -= 75;
+                            } else {
+                                // Put on right
+                                returnPosition.x += 75;
+                            }
+                        }
+                        returnPosition.y += (75 * (Math.floor(index / 2)));
                         break;
                     case "Broker":
                         returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Broker"]);
-                        returnPosition.y += myApp.appVars.nodeCursors["Broker"].index * 250;
-                        myApp.appVars.nodeCursors["Broker"].index++;
+                        myApp.appVars.nodeCursors["Broker"].y += 150;
                         break;
                     case "Provider":
                         returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Provider"]);
@@ -116,88 +127,222 @@
                 let headerStyle = "text-align: right; padding-right: 10px;";
                 let dataStyle = "color: lightseagreen; font-weight: bold; user-select: text; overflow-wrap: break-word;";
 
-                // Clear existing nodes and edges
-
-                // Loop over DRP Nodes in topology
+                let zones = {};
                 let nodeIDs = Object.keys(topologyObj);
+
+                // Loop over DRP Nodes, assign Nodes to Zones
                 for (let i = 0; i < nodeIDs.length; i++) {
                     let drpNodeID = nodeIDs[i];
                     let drpNode = topologyObj[drpNodeID];
+                    if (!zones[drpNode.Zone]) {
+                        zones[drpNode.Zone] = {
+                            Registry: [],
+                            Broker: [],
+                            Provider: [],
+                            Logger: [],
+                            allnodes: []
+                        }
+                    }
+                    if (drpNode.Roles.includes("Registry")) {
+                        zones[drpNode.Zone].Registry.push(drpNode);
+                    } else if (drpNode.Roles.includes("Broker")) {
+                        zones[drpNode.Zone].Broker.push(drpNode);
+                    } else if (drpNode.Roles.includes("Provider")) {
+                        zones[drpNode.Zone].Provider.push(drpNode);
+                    } else if (drpNode.Roles.includes("Logger")) {
+                        zones[drpNode.Zone].Logger.push(drpNode);
+                    }
 
-                    let labelData = `${drpNode.NodeID}\n[${drpNode.HostID}]`;
-                    if (drpNode.NodeURL) labelData = `${labelData}\n${drpNode.NodeURL}`;
+                    zones[drpNode.Zone].allnodes.push(drpNode);
+                }
 
-                    // Add DRP Node as Cytoscape node
+                // Get Zone names
+                let zoneNames = Object.keys(zones);
+
+                let zoneVerticalOffset = 75;
+                let zoneHorizontalOffset = 0;
+
+                // Loop over Zones
+                for (let i = 0; i < zoneNames.length; i++) {
+                    let zoneName = zoneNames[i];
+
+                    let maxZoneHeight = Math.max(
+                        zones[zoneName].Registry.length,
+                        zones[zoneName].Broker.length,
+                        zones[zoneName].Provider.length,
+                        zones[zoneName].Logger.length
+                    );
+
+                    myApp.appVars.nodeCursors["Registry"].y = zoneVerticalOffset + ((maxZoneHeight - 1) * 75) / 2
+                    myApp.appVars.nodeCursors["Broker"].y = zoneVerticalOffset
+                    myApp.appVars.nodeCursors["Provider"].y = zoneVerticalOffset
+                    myApp.appVars.nodeCursors["Logger"].y = zoneVerticalOffset
+                    myApp.appVars.nodeCursors["Consumer"].y = zoneVerticalOffset
+
+                    myApp.appVars.nodeCursors["Registry"].index = 0;
+                    myApp.appVars.nodeCursors["Broker"].index = 0;
+                    myApp.appVars.nodeCursors["Provider"].index = 0;
+                    myApp.appVars.nodeCursors["Logger"].index = 0;
+                    myApp.appVars.nodeCursors["Consumer"].index = 0;
+
+                    let zoneWidth = 1000;
+
                     myApp.appVars.cy.add({
                         group: 'nodes',
                         data: {
-                            id: drpNodeID,
-                            label: labelData,
-                            drpNode: drpNode,
-                            ShowDetails: async () => {
-                                let returnVal = `<span style="${typeStyle}">Mesh Node</span>` +
-                                    `<span style="${headerStyle}">Node ID:</span><span style="${dataStyle}">${drpNode.NodeID}</span>` +
-                                    `<span style="${headerStyle}">Host ID:</span><span style="${dataStyle}">${drpNode.HostID}</span>`;
-                                if (drpNode.NodeURL) {
-                                    returnVal += `<span style="${headerStyle}">URL:</span><span style="${dataStyle}">${drpNode.NodeURL}</span>`;
-                                } else {
-                                    returnVal += `<span style="${headerStyle}">URL:</span><span style="${dataStyle}">(non-listening)</span>`;
-                                }
-                                returnVal += `<span style="${headerStyle}">Scope:</span><span style="${dataStyle}">${drpNode.Scope}</span>` +
-                                    `<span style="${headerStyle}">Zone:</span><span style="${dataStyle}">${drpNode.Zone}</span>` +
-                                    `<span style="${headerStyle}">Roles:</span><span style="${dataStyle}">${drpNode.Roles}</span>`;
-                                return returnVal;
-                            }
+                            id: zoneName
                         },
-                        classes: drpNode.Roles.join(" "),
-                        position: myApp.appFuncs.placeNode(drpNode.Roles[0])
+                        classes: "Zone",
+                        //position: { x: zoneWidth/2, y: zoneVerticalOffset + 150},
+                        style: {
+                            'shape': "square",
+                            'background-color': '#F8F8F8',
+                            'font-size': '30px',
+                            'content': 'data(label)',
+                            'opacity': 1,
+                            'events': 'no'
+                        },
+                        //grabbable: false
                     });
 
-                    // Loop over Node services
-                    let serviceNameList = Object.keys(drpNode.Services);
-                    for (let j = 0; j < serviceNameList.length; j++) {
+                    myApp.appVars.cy.add({
+                        group: 'nodes',
+                        data: {
+                            id: `${zoneName}-label`,
+                            label: zoneName,
+                            parent: zoneName,
+                        },
+                        classes: "Zone",
+                        //position: { x: zoneWidth/2, y: zoneVerticalOffset + 150},
+                        style: {
+                            'shape': "square",
+                            'background-color': '#F8F8F8',
+                            'font-size': '30px',
+                            'content': 'data(label)',
+                            'opacity': 1,
+                            'events': 'no'
+                        },
+                        position: { x: 400, y: zoneVerticalOffset - 25}
+                        //grabbable: false
+                    });
 
-                        let serviceName = serviceNameList[j];
-                        if (serviceName === "DRP") {
-                            continue;
-                        }
-                        let serviceObj = drpNode.Services[serviceName];
-                        let serviceNodeID = serviceObj.InstanceID;
+                    // Loop over DRP Nodes in Zone
+                    for (let drpNode of zones[zoneName].allnodes) {
 
-                        // See if service node exists
-                        let svcNodeObj = myApp.appVars.cy.getElementById(serviceNodeID);
-                        if (svcNodeObj.length === 0) {
-                            // No - create it
-                            myApp.appVars.cy.add({
-                                group: 'nodes',
-                                data: {
-                                    id: serviceNodeID,
-                                    label: serviceName,
-                                    ShowDetails: async () => {
-                                        let returnVal = `<span style="${typeStyle}">Mesh Service</span>` +
-                                            `<span style="${headerStyle}">Name:</span><span style="${dataStyle}">${serviceName}</span>` +
-                                            `<span style="${headerStyle}">Instance ID:</span><span style="${dataStyle}">${serviceObj.InstanceID}</span>` +
-                                            `<span style="${headerStyle}">Node ID:</span><span style="${dataStyle}">${drpNode.NodeID}</span>` +
-                                            `<span style="${headerStyle}">Scope:</span><span style="${dataStyle}">${serviceObj.Scope}</span>` +
-                                            `<span style="${headerStyle}">Zone:</span><span style="${dataStyle}">${serviceObj.Zone}</span>`;
-                                        return returnVal;
+                        let labelData = `${drpNode.NodeID}\n[${drpNode.HostID}]`;
+                        if (drpNode.NodeURL) labelData = `${labelData}\n${drpNode.NodeURL}`;
+                        let primaryRole = drpNode.Roles[0];
+                        let nodeIDs = zones[zoneName][primaryRole].map((nodeObj) => {
+                            return nodeObj.NodeID
+                        });
+                        let index = nodeIDs.indexOf(drpNode.NodeID);
+                        let nodePosition = myApp.appFuncs.placeNode(primaryRole, index, nodeIDs.length);
+
+                        // Add DRP Node as Cytoscape node
+                        myApp.appVars.cy.add({
+                            group: 'nodes',
+                            data: {
+                                id: drpNode.NodeID,
+                                label: labelData,
+                                parent: zoneName,
+                                drpNode: drpNode,
+                                ShowDetails: async () => {
+                                    let returnVal = `<span style="${typeStyle}">Mesh Node</span>` +
+                                        `<span style="${headerStyle}">Node ID:</span><span style="${dataStyle}">${drpNode.NodeID}</span>` +
+                                        `<span style="${headerStyle}">Host ID:</span><span style="${dataStyle}">${drpNode.HostID}</span>`;
+                                    if (drpNode.NodeURL) {
+                                        returnVal += `<span style="${headerStyle}">URL:</span><span style="${dataStyle}">${drpNode.NodeURL}</span>`;
+                                    } else {
+                                        returnVal += `<span style="${headerStyle}">URL:</span><span style="${dataStyle}">(non-listening)</span>`;
                                     }
+                                    returnVal += `<span style="${headerStyle}">Scope:</span><span style="${dataStyle}">${drpNode.Scope}</span>` +
+                                        `<span style="${headerStyle}">Zone:</span><span style="${dataStyle}">${drpNode.Zone}</span>` +
+                                        `<span style="${headerStyle}">Roles:</span><span style="${dataStyle}">${drpNode.Roles}</span>`;
+                                    return returnVal;
                                 },
-                                classes: "Service",
-                                position: myApp.appFuncs.placeNode("Service")
+                                Evacuate: async () => {
+                                    let response = await myApp.appFuncs.evacuate(drpNode.NodeID);
+                                    return response;
+                                }
+                            },
+                            classes: drpNode.Roles.join(" "),
+                            position: nodePosition
+                        });
+
+                        // Get list of Node services
+                        let serviceNameList = Object.keys(drpNode.Services);
+
+                        // The service count will exclude DRP
+                        let serviceCount = serviceNameList.length - 1;
+                        let arrangeMultiple = serviceCount > 1 ? true : false;
+
+                        // Loop over Node Services
+                        for (let j = 0; j < serviceNameList.length; j++) {
+
+                            let serviceName = serviceNameList[j];
+                            if (serviceName === "DRP") {
+                                continue;
+                            }
+                            let serviceObj = drpNode.Services[serviceName];
+                            let serviceNodeID = serviceObj.InstanceID;
+
+                            let servicePosition = { x: 0, y: 0 };
+                            Object.assign(servicePosition, nodePosition);
+
+                            if (arrangeMultiple) {
+                                let isEven = j % 2 === 0;
+                                if (!isEven) {
+                                    // Put on top
+                                    servicePosition.y -= 20;
+                                } else {
+                                    // Put on bottom
+                                    servicePosition.y += 20;
+                                }
+                                servicePosition.x -= (100 + 75 * (Math.floor((j - 1) / 2)));
+                                console.log(servicePosition)
+                            } else {
+                                servicePosition.x -= 100;
+                            }
+
+                            // See if service node exists
+                            let svcNodeObj = myApp.appVars.cy.getElementById(serviceNodeID);
+                            if (svcNodeObj.length === 0) {
+                                // No - create it
+                                myApp.appVars.cy.add({
+                                    group: 'nodes',
+                                    data: {
+                                        id: serviceNodeID,
+                                        label: serviceName,
+                                        parent: zoneName,
+                                        ShowDetails: async () => {
+                                            let returnVal = `<span style="${typeStyle}">Mesh Service</span>` +
+                                                `<span style="${headerStyle}">Name:</span><span style="${dataStyle}">${serviceName}</span>` +
+                                                `<span style="${headerStyle}">Instance ID:</span><span style="${dataStyle}">${serviceObj.InstanceID}</span>` +
+                                                `<span style="${headerStyle}">Node ID:</span><span style="${dataStyle}">${drpNode.NodeID}</span>` +
+                                                `<span style="${headerStyle}">Scope:</span><span style="${dataStyle}">${serviceObj.Scope}</span>` +
+                                                `<span style="${headerStyle}">Zone:</span><span style="${dataStyle}">${serviceObj.Zone}</span>`;
+                                            return returnVal;
+                                        }
+                                    },
+                                    classes: "Service",
+                                    position: servicePosition
+                                });
+                            }
+
+                            // Create edge
+                            myApp.appVars.cy.add({
+                                group: 'edges',
+                                data: {
+                                    id: `${serviceNodeID}_${drpNode.NodeID}`,
+                                    source: serviceNodeID,
+                                    target: drpNode.NodeID
+                                },
+                                classes: "NodeService"
                             });
                         }
-
-                        // Create edge
-                        myApp.appVars.cy.add({
-                            group: 'edges',
-                            data: {
-                                id: `${serviceNodeID}_${drpNodeID}`,
-                                source: serviceNodeID,
-                                target: drpNodeID
-                            }
-                        });
                     }
+
+                    zoneVerticalOffset = maxZoneHeight * 75 + 150;
                 }
 
                 // Loop over DRP Nodes again; create Edges
@@ -227,23 +372,21 @@
                     // Loop over consumerClients
                     let consumerClientIDs = Object.keys(drpNode.ConsumerClients);
                     for (let j = 0; j < consumerClientIDs.length; j++) {
-                        let consumerIndex = consumerClientIDs[j];
-                        let consumerID = `${drpNodeID}-c:${consumerClientIDs[j]}`;
+                        let consumerID = consumerClientIDs[j];
+                        let consumerNodeID = `${drpNodeID}-c:${consumerID}`;
+                        let consumerObj = drpNode.ConsumerClients[consumerID];
 
                         myApp.appVars.cy.add({
                             group: 'nodes',
                             data: {
-                                id: consumerID,
+                                id: consumerNodeID,
                                 label: `${consumerClientIDs[j]}`,
+                                parent: drpNode.Zone,
                                 ShowDetails: async () => {
                                     // Get User Details
-                                    let pathListArray = `Mesh/Nodes/${drpNodeID}/DRPNode/ConsumerEndpoints/${consumerIndex}/AuthInfo/userInfo`.split('/');
-                                    let results = await myApp.sendCmd("DRP", "pathCmd", { method: "GetItem", pathList: pathListArray }, true);
-                                    if (results) {
-                                        return `<span style="${typeStyle}">Consumer</span>` +
-                                            `<span style="${headerStyle}">User ID:</span><span style="${dataStyle}">${results.UserName}</span>` +
-                                            `<span style="${headerStyle}">Name:</span><span style="${dataStyle}">${results.FullName}</span>`;
-                                    }
+                                    return `<span style="${typeStyle}">Consumer</span>` +
+                                        `<span style="${headerStyle}">User ID:</span><span style="${dataStyle}">${consumerObj.UserName}</span>` +
+                                        `<span style="${headerStyle}">Name:</span><span style="${dataStyle}">${consumerObj.FullName}</span>`;
                                 }
                             },
                             classes: "Consumer",
@@ -253,11 +396,10 @@
                         myApp.appVars.cy.add({
                             group: 'edges',
                             data: {
-                                id: `${consumerID}_${drpNodeID}`,
-                                source: consumerID,
+                                id: `${consumerNodeID}_${drpNodeID}`,
+                                source: consumerNodeID,
                                 target: drpNodeID,
-                                //label: drpNode.consumerClients[consumerClientIDs[j]]['pingTimeMs'] + " ms\n" + drpNode.consumerClients[consumerClientIDs[j]]['uptimeSeconds'] + " s"
-                                label: drpNode.ConsumerClients[consumerClientIDs[j]]['pingTimeMs'] + " ms"
+                                label: consumerObj.pingTimeMs + " ms"
                             }
                         });
                     }
@@ -268,7 +410,7 @@
 
                 myApp.appVars.nodeCursors = {
                     Registry: { x: 400, y: 50, index: 0 },
-                    Broker: { x: 650, y: 100, index: 0 },
+                    Broker: { x: 700, y: 100, index: 0 },
                     Provider: { x: 200, y: 100, index: 0 },
                     Logger: { x: 450, y: 250, index: 0 },
                     Consumer: { x: 825, y: 100, index: 0 },
@@ -278,6 +420,11 @@
                 /** @type {Object.<string, topologyNode>}} */
                 let topologyObj = await myApp.sendCmd("DRP", "getTopology", null, true);
                 myApp.appFuncs.importMeshTopology(topologyObj);
+            },
+            "evacuate": async function (nodeID) {
+                let pathListArray = ['Mesh', 'Nodes', nodeID, 'DRPNode', 'Evacuate'];
+                let evacuateResponse = await myApp.sendCmd("DRP", "pathCmd", { method: "exec", pathList: pathListArray }, true);
+                return evacuateResponse;
             }
         };
 
@@ -290,7 +437,7 @@
             currentFile: "",
             nodeCursors: {
                 Registry: { x: 400, y: 50, index: 0 },
-                Broker: { x: 650, y: 100, index: 0 },
+                Broker: { x: 700, y: 100, index: 0 },
                 Provider: { x: 200, y: 100, index: 0 },
                 Logger: { x: 450, y: 250, index: 0 },
                 Consumer: { x: 825, y: 100, index: 0 }
@@ -308,21 +455,19 @@
         myApp.appVars.dataPane = myApp.windowParts["data"];
 
         let cyBox = document.createElement("div");
-        cyBox.style = `position: absolute; z-index: 0; overflow: hidden; width: 100%; height: 100%;`;
+        cyBox.style = `position: absolute; z-index: 0; overflow: hidden; width: 100%; height: 100%; background: #aaa`;
         myApp.appVars.dataPane.appendChild(cyBox);
         myApp.appVars.cyBox = cyBox;
 
         let cy = cytoscape({
             container: myApp.appVars.cyBox,
             wheelSensitivity: .25,
-            zoom: 1,
-            //pan: { "x": 300, "y": 160 },
+            zoom: .75,
+            pan: { "x": 100, "y": 25 },
 
             style: [{
                 selector: 'node',
                 style: {
-                    //'font-family' : 'FontAwesome',
-                    //'content' : '\uf099  twitter'
                     'font-size': '12px',
                     'text-wrap': 'wrap',
                     'content': 'data(label)',
@@ -353,6 +498,12 @@
                     'background-color': '#654321'
                 }
             }, {
+                selector: 'node.Service',
+                style: {
+                    'height': 20,
+                    'width': 20
+                }
+            }, {
                 selector: 'node.Consumer',
                 style: {
                     'shape': "circle",
@@ -377,8 +528,16 @@
                     'text-rotation': 'autorotate'
                 }
             }, {
+                selector: 'edge.NodeService',
+                style: {
+                    'line-color': '#88f',
+                    'line-style': 'dashed',
+                    'target-arrow-color': '#88f',
+                }
+            }, {
                 selector: 'edge.hover',
                 style: {
+                    'width': 1,
                     'opacity': 1.0
                 }
             }, {
@@ -407,7 +566,11 @@
             if (targetNodeData.ShowDetails) {
                 myApp.appVars.displayedNodeID = targetNodeData.id;
                 myApp.appVars.detailsDiv.style['display'] = 'grid';
-                myApp.appVars.detailsDiv.innerHTML = await targetNodeData.ShowDetails();
+                try {
+                    myApp.appVars.detailsDiv.innerHTML = await targetNodeData.ShowDetails();
+                } catch (ex) {
+                    myApp.appVars.detailsDiv.innerHTML = ex.message;
+                }
             }
         });
         cy.on('mouseout', 'node', async function (e) {
@@ -433,156 +596,24 @@
         var contextMenu = myApp.appVars.cy.contextMenus({
             menuItems: [
                 {
-                    id: 'remove',
-                    content: 'remove',
-                    selector: 'node, edge',
-                    onClickFunction: function (event) {
-                        var target = event.cyTarget;
-                        removed = target.remove();
+                    id: 'evacuate',
+                    content: 'evacuate',
+                    selector: 'node.Registry',
+                    onClickFunction: async function (e) {
+                        let targetNodeData = e.cyTarget.data();
 
-                        contextMenu.showMenuItem('undo-last-remove');
-                    },
-                    hasTrailingDivider: true
-                }, {
-                    id: 'undo-last-remove',
-                    content: 'undo last remove',
-                    selector: 'node, edge',
-                    show: false,
-                    coreAsWell: true,
-                    onClickFunction: function (event) {
-                        if (removed) {
-                            removed.restore();
-                        }
-                        contextMenu.hideMenuItem('undo-last-remove');
-                    },
-                    hasTrailingDivider: true
-                }, {
-                    id: 'hide',
-                    content: 'hide',
-                    selector: '*',
-                    onClickFunction: function (event) {
-                        var target = event.cyTarget;
-                        target.hide();
-                    },
-                    disabled: false
-                }, {
-                    id: 'add-node',
-                    content: 'add node',
-                    coreAsWell: true,
-                    onClickFunction: function (event) {
-                        var data = {
-                            group: 'nodes'
-                        };
-
-                        var pos = event.position || event.cyPosition;
-
-                        cy.add({
-                            data: data,
-                            position: {
-                                x: pos.x,
-                                y: pos.y
-                            }
-                        });
-                    }
-                }, {
-                    id: 'remove-selected',
-                    content: 'remove selected',
-                    coreAsWell: true,
-                    show: true,
-                    onClickFunction: function (event) {
-                        removedSelected = cy.$(':selected').remove();
-
-                        contextMenu.hideMenuItem('remove-selected');
-                        contextMenu.showMenuItem('restore-selected');
-                    }
-                }, {
-                    id: 'restore-selected',
-                    content: 'restore selected',
-                    coreAsWell: true,
-                    show: false,
-                    onClickFunction: function (event) {
-                        if (removedSelected) {
-                            removedSelected.restore();
-                        }
-                        contextMenu.showMenuItem('remove-selected');
-                        contextMenu.hideMenuItem('restore-selected');
-                    }
-                }, {
-                    id: 'select-all-nodes',
-                    content: 'select all nodes',
-                    selector: 'node',
-                    show: true,
-                    onClickFunction: function (event) {
-                        selectAllOfTheSameType(event.target || event.cyTarget);
-
-                        contextMenu.hideMenuItem('select-all-nodes');
-                        contextMenu.showMenuItem('unselect-all-nodes');
-                    }
-                }, {
-                    id: 'unselect-all-nodes',
-                    content: 'unselect all nodes',
-                    selector: 'node',
-                    show: false,
-                    onClickFunction: function (event) {
-                        unselectAllOfTheSameType(event.target || event.cyTarget);
-
-                        contextMenu.showMenuItem('select-all-nodes');
-                        contextMenu.hideMenuItem('unselect-all-nodes');
-                    }
-                }, {
-                    id: 'select-all-edges',
-                    content: 'select all edges',
-                    selector: 'edge',
-                    show: true,
-                    onClickFunction: function (event) {
-                        selectAllOfTheSameType(event.target || event.cyTarget);
-
-                        contextMenu.hideMenuItem('select-all-edges');
-                        contextMenu.showMenuItem('unselect-all-edges');
-                    }
-                }, {
-                    id: 'unselect-all-edges',
-                    content: 'unselect all edges',
-                    selector: 'edge',
-                    show: false,
-                    onClickFunction: function (event) {
-                        unselectAllOfTheSameType(event.target || event.cyTarget);
-
-                        contextMenu.showMenuItem('select-all-edges');
-                        contextMenu.hideMenuItem('unselect-all-edges');
-                    }
-                }, {
-                    id: 'link-from',
-                    content: 'link from this node',
-                    selector: 'node',
-                    show: true,
-                    onClickFunction: function (event) {
-                        //selectAllOfTheSameType(event.target || event.cyTarget);
-                        myApp.appVars.linkFromObj = event.target || event.cyTarget;
-
-                        contextMenu.showMenuItem('link-to');
-                    }
-                }, {
-                    id: 'link-to',
-                    content: 'link to',
-                    selector: 'node',
-                    show: false,
-                    onClickFunction: function (event) {
-                        //selectAllOfTheSameType(event.target || event.cyTarget);
-                        //myApp.appVars.linkFromObj = event.target || event.cyTarget;
-                        let linkToObj = event.target || event.cyTarget;
-                        cy.add([{
-                            group: 'edges',
-                            data: {
-                                source: myApp.appVars.linkFromObj._private.data.id,
-                                target: linkToObj._private.data.id,
-                                label: 'dynamic'
+                        // If the node has a "ShowDetails" function, execute and display in details box
+                        if (targetNodeData.Evacuate) {
+                            try {
+                                myApp.appVars.detailsDiv.innerHTML = await targetNodeData.Evacuate();
+                                myApp.appVars.detailsDiv.style['display'] = 'block';
+                                myApp.appFuncs.loadNodeTopology();
+                            } catch (ex) {
+                                myApp.appVars.detailsDiv.innerHTML = ex.message;
                             }
                         }
-                        ]);
-
-                        contextMenu.hideMenuItem('link-to');
-                    }
+                    },
+                    //hasTrailingDivider: true
                 }
             ]
         });
