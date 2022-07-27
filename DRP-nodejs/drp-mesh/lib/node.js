@@ -399,6 +399,9 @@ class DRP_Node extends DRP_Securable {
         let tmpBasePath = basePath || "";
         let basePathArray = tmpBasePath.replace(/^\/|\/$/g, '').split('/');
 
+        // Get a list of valid HTTP codes, convert to numeric values for later comparison
+        let validHttpCodes = Object.keys(require('http').STATUS_CODES).map(statusCode => parseInt(statusCode));
+
         /**
          * 
          * @param {Express_Request} req Request
@@ -506,7 +509,12 @@ class DRP_Node extends DRP_Securable {
                 }
 
             } catch (ex) {
-                resCode = ex.code || 500;
+                // An exception was thrown at some point in the call.  If the code isn't a valid HTTP code, use 500.
+                if (validHttpCodes.includes(ex.code)) {
+                    resCode = ex.code;
+                } else {
+                    resCode = 500;
+                }
                 resultString = ex.message;
             }
             res.status(resCode).send(resultString);
