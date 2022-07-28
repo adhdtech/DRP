@@ -176,7 +176,7 @@
                     myApp.appVars.nodeCursors["Registry"].y = zoneVerticalOffset + ((maxZoneHeight - 1) * 75) / 2
                     myApp.appVars.nodeCursors["Broker"].y = zoneVerticalOffset
                     myApp.appVars.nodeCursors["Provider"].y = zoneVerticalOffset
-                    myApp.appVars.nodeCursors["Logger"].y = zoneVerticalOffset
+                    myApp.appVars.nodeCursors["Logger"].y = zoneVerticalOffset + 75
                     myApp.appVars.nodeCursors["Consumer"].y = zoneVerticalOffset
 
                     myApp.appVars.nodeCursors["Registry"].index = 0;
@@ -196,7 +196,7 @@
                         //position: { x: zoneWidth/2, y: zoneVerticalOffset + 150},
                         style: {
                             'shape': "square",
-                            'background-color': '#F8F8F8',
+                            'background-color': '#FFF',
                             'font-size': '30px',
                             'content': 'data(label)',
                             'opacity': 1,
@@ -216,7 +216,7 @@
                         //position: { x: zoneWidth/2, y: zoneVerticalOffset + 150},
                         style: {
                             'shape': "square",
-                            'background-color': '#F8F8F8',
+                            'background-color': '#FFF',
                             'font-size': '30px',
                             'content': 'data(label)',
                             'opacity': 1,
@@ -298,10 +298,9 @@
                                     // Put on bottom
                                     servicePosition.y += 20;
                                 }
-                                servicePosition.x -= (100 + 75 * (Math.floor((j - 1) / 2)));
-                                console.log(servicePosition)
+                                servicePosition.x -= (125 + 100 * (Math.floor((j - 1) / 2)));
                             } else {
-                                servicePosition.x -= 100;
+                                servicePosition.x -= 125;
                             }
 
                             // See if service node exists
@@ -342,7 +341,7 @@
                         }
                     }
 
-                    zoneVerticalOffset = maxZoneHeight * 75 + 150;
+                    zoneVerticalOffset+= maxZoneHeight * 75 + 150;
                 }
 
                 // Loop over DRP Nodes again; create Edges
