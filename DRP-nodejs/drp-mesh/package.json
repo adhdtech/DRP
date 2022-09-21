@@ -25,6 +25,7 @@
     "body-parser": "*",
     "express": "*",
     "express-ws": "*",
+    "express-http-proxy": "*",
     "cors": "*",
     "ping": "*",
     "tcp-ping": "*",
