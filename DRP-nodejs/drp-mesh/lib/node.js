@@ -245,7 +245,6 @@ class DRP_Node extends DRP_Securable {
         } else if (ms < 100) {
             ms = "0" + ms;
         }
-        ms = (ms < 10 ? "0" : "") + ms;
         let year = date.getFullYear();
         let month = date.getMonth() + 1;
         month = (month < 10 ? "0" : "") + month;
