@@ -7,42 +7,28 @@ let pass = process.env.DRPPASS || null;
 
 console.log(`Starting Test Consumer, connecting to Broker Node @ ${brokerURL}`);
 let myConsumer = new DRP_Consumer(brokerURL, user, pass, null, async function () {
+    let myClient = myConsumer.BrokerClient;
     // Connection established - let's do stuff
     let response = null;
 
-    // See what commands are available;
-    //response = await myClient.SendCmd("getCmds", null, true, null);
-    //console.dir(response, { "depth": 10 });
-    //myClient.SendCmd("getCmds", null, false, (response) => { console.dir(response) });
-
     // Execute a pathCmd
-    //myClient.SendCmd("pathCmd", { "method": "GetChildItems", "pathList": ["Providers", "DocMgr1", "Services", "DocMgr", "ClientCmds", "listFiles"] }, false, (payload) => { console.dir(payload, { "depth": 10 }) });
+    response = await myClient.SendCmd("DRP", "pathCmd", { "method": "GetChildItems", "pathList": ["Mesh", "Services"] }, true);
+    let serviceList = Object.keys(response);
+    console.log(`Found [${serviceList.length}] DRP services`)
 
     // Get data for a class
-    //myClient.GetClassRecords("SomeDataClass", (payload) => console.dir(payload) );
+    let className = "BUS.Location";
+    response = await myClient.SendCmd("DRP", "getClassRecords", { className: className }, true);
+    let serviceNames = Object.keys(response);
+    let totalRecords = 0;
+    for (let i = 0; i < serviceNames.length; i++) {
+        totalRecords = + Object.keys(response[serviceNames[i]]).length;
+    }
+    console.log(`Found [${totalRecords}] records from [${serviceNames.length}] services for class ${className}`);
 
     // Subscribe to a stream
-    let streamName = "TestStream";
-    myConsumer.BrokerClient.WatchStream(streamName, "global", (payload) => {
+    let streamName = "TopologyTracker";
+    myClient.WatchStream(streamName, "local", (payload) => {
         console.log(`[${streamName}] -> ${JSON.stringify(payload, null, 2)}`);
     });
-    myConsumer.BrokerClient.WatchStream("TopologyTracker", "local", (payload) => {
-        console.log(`[TopologyTracker] -> ${JSON.stringify(payload, null, 2)}`);
-    });
-
-    // Execute a service command
-    //myClient.SendCmd("serviceCommand", { "serviceName": "Hive", "method": "listStereoTypes" }, false, (payload) => { console.dir(payload) });
-
-    // List Files
-    //myClient.SendCmd("serviceCommand", { "serviceName": "DocMgr", "method": "listFiles" }, false, (payload) => { console.dir(payload) });
-
-    // Load a file
-    //response = await myClient.SendCmd("serviceCommand", { "serviceName": "DocMgr", "method": "loadFile", "fileName": "newFile.json" }, true, null);
-
-    // Save a file
-    //response = await myClient.SendCmd("serviceCommand", { "serviceName": "DocMgr", "method": "saveFile", "fileName": "newFile.json", "fileData": JSON.stringify({"someKey":"someVal"}) }, true, null);
-	
-	//response = await myClient.SendCmd("Greeter", "showParams", {"pathList":["asdf","ijkl"]}, true, null);
-
-    //console.dir(response, { "depth": 10 });
 });
