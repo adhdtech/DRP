@@ -124,6 +124,9 @@ class VDMServer extends DRP_Service {
             },
             "removeVDMApplet": async (params, wsConn) => {
                 return thisVDMServer.RemoveVDMApplet(params.appletName);
+            },
+            "loadApplets": async () => {
+                return await thisVDMServer.LoadApplets();
             }
 
         };
@@ -138,9 +141,10 @@ class VDMServer extends DRP_Service {
 
     async LoadApplets() {
         let thisVDMServer = this;
+        let appletsLoaded = 0;
         // List VDM applet profiles
         let vdmDirData = await fs.readdir(thisVDMServer.clientStaticDir + '/' + thisVDMServer.vdmAppletsDir);
-        for (var i = 0; i < vdmDirData.length; i++) {
+        for (let i = 0; i < vdmDirData.length; i++) {
             let fileName = vdmDirData[i];
 
             if (fileName.match(/^vdm-app-.*\.json$/)) {
@@ -150,12 +154,13 @@ class VDMServer extends DRP_Service {
                 let appletProfile = JSON.parse(fileData);
                 //console.dir(appletProfile);
                 thisVDMServer.AddVDMAppletProfile(appletProfile.appletName, appletProfile.title, appletProfile.sizeX, appletProfile.sizeY, appletProfile.appletIcon, appletProfile.showInMenu, appletProfile.appletScript, appletProfile.preReqs);
+                appletsLoaded++;
             }
         }
 
         // List XR applet profiles
         let xrDirData = await fs.readdir(thisVDMServer.clientStaticDir + '/' + thisVDMServer.xrAppletsDir);
-        for (var i = 0; i < xrDirData.length; i++) {
+        for (let i = 0; i < xrDirData.length; i++) {
             let fileName = xrDirData[i];
 
             if (fileName.match(/^xr-app-.*\.json$/)) {
@@ -165,8 +170,11 @@ class VDMServer extends DRP_Service {
                 let appletProfile = JSON.parse(fileData);
                 //console.dir(appletProfile);
                 thisVDMServer.AddXRAppletProfile(appletProfile.appletName, appletProfile.title, appletProfile.appletIcon, appletProfile.showInMenu, appletProfile.appletScript, appletProfile.preReqs);
+                appletsLoaded++;
             }
         }
+
+        return `Loaded [${appletsLoaded}] applets`;
     }
 
     /**
