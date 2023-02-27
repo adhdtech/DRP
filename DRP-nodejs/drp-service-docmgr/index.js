@@ -185,15 +185,26 @@ class DocManager extends DRP_Service {
                 return docData;
             },
             saveDoc: async function (cmdObj) {
-                let methodParams = ['serviceName', 'docName', 'docData'];
+                let methodParams = ['serviceName', 'docName', 'docData', 'parseDates'];
                 let params = thisDocMgr.GetParams(cmdObj, methodParams);
 
                 if (!params.serviceName || !params.docName || !params.docData) {
                     throw new DRP_CmdError("Must provide serviceName, docName, docData");
                 }
 
-                let saveResults = await thisDocMgr.SaveDoc(params.serviceName, params.docName, params.docData);
+                let saveResults = await thisDocMgr.SaveDoc(params.serviceName, params.docName, params.docData, params.parseDates);
                 return saveResults;
+            },
+            deleteDoc: async function (cmdObj) {
+                let methodParams = ['serviceName', 'docName'];
+                let params = thisDocMgr.GetParams(cmdObj, methodParams);
+
+                if (!params.serviceName || !params.docName) {
+                    throw new DRP_CmdError("Must provide serviceName, docName");
+                }
+
+                let deleteResult = await thisDocMgr.DeleteDoc(params.serviceName, params.docName);
+                return deleteResult;
             }
         };
 
@@ -317,7 +328,7 @@ class DocManager extends DRP_Service {
         return docData;
     }
 
-    async SaveDoc(serviceName, docName, docData) {
+    async SaveDoc(serviceName, docName, docData, parseDates) {
         let thisDocMgr = this;
 
         // Verify necessary attributes are not empty
@@ -330,11 +341,50 @@ class DocManager extends DRP_Service {
         if (this.__MongoHost) {
             // Connect to Service doc collection
             let serviceDocCollection = thisDocMgr.__DocMgrDB.collection(serviceName);
+            if (parseDates) {
+                let dateRegex = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*))(?:Z|(\+|-)([\d|:]*))?$/;
+                let tmpString = JSON.stringify(docData);
+                let dateParser = function (key, value) {
+                    if (typeof value === 'string') {
+                        let dateRegexMatch = dateRegex.exec(value);
+                        if (dateRegexMatch)
+                            return new Date(value);
+                    }
+                    return value;
+                }
+                docData = JSON.parse(tmpString, dateParser);
+            }
             saveResults = await serviceDocCollection.updateOne({ docName: docName }, { $set: { docData: docData } }, { upsert: true });
         } else {
             saveResults = await fs.writeFile(`${thisDocMgr.basePath}/${serviceName}/${docName}`, docData);
         }
         return saveResults;
+    }
+
+    async DeleteDoc(serviceName, docName) {
+        let thisDocMgr = this;
+        let docDeleted = false;
+        // Delete doc
+        if (this.__MongoHost) {
+            // Connect to Service doc collection
+            let serviceDocCollection = thisDocMgr.__DocMgrDB.collection(serviceName);
+            let result = await serviceDocCollection.deleteOne({ docName: docName });
+            if (result.deletedCount === 1) {
+                docDeleted = true;
+            } else {
+                throw new DRP_CmdError("Document not found", DRP_ErrorCode.NOTFOUND, "DocMgr");
+            }
+        } else {
+            try {
+                await fs.rm(`${thisDocMgr.basePath}/${serviceName}/${docName}`);
+                docDeleted = true;
+            } catch (ex) {
+                // Could not delete file
+                throw new DRP_CmdError("Document not found", DRP_ErrorCode.NOTFOUND, "DocMgr");
+            }
+        }
+
+        return docDeleted;
     }
 }
 
