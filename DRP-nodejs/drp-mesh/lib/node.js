@@ -4,6 +4,7 @@ const os = require('os');
 const util = require('util');
 const tcpp = require('tcp-ping');
 const tcpPing = util.promisify(tcpp.ping);
+const ping = require('ping');
 const dns = require('dns').promises;
 const express = require('express');
 const DRP_Endpoint = require("./endpoint");
@@ -501,7 +502,14 @@ class DRP_Node extends DRP_Securable {
                 let resultObj = await thisNode.PathCmd(params, thisNode.GetBaseObj());
 
                 try {
-                    resultString = JSON.stringify(resultObj, null, format);
+                    let objectType = typeof resultObj;
+                    if (objectType === "string" ||
+                        objectType === "number" ||
+                        objectType === "boolean") {
+                        resultString = resultObj;
+                    } else {
+                        resultString = JSON.stringify(resultObj, null, format);
+                    }
                 } catch {
                     resultString = "Circular object encountered";
                     resCode = DRP_ErrorCode.BADREQUEST;
@@ -2515,6 +2523,51 @@ class DRP_Node extends DRP_Securable {
 
         targetEndpoint.RegisterMethod("tcpPing", async (...args) => {
             return thisNode.TCPPing(...args);
+        });
+
+        targetEndpoint.RegisterMethod("ping", async (cmdObj) => {
+            let params = DRP_Service.prototype.GetParams(cmdObj, ['host','timeout','min_reply']);
+            let host = params['host'];
+            let timeout = params['timeout'] || 1;
+            let min_reply = params['min_reply'] || 1;
+
+            // Reject if no hostname was supplied
+            if (!host) {
+                throw new DRP_CmdError(`Must provide hostname`, DRP_ErrorCode.BADREQUEST, "ping");
+            }
+
+            let options = {
+                timeout: timeout,
+                min_reply: min_reply,
+            };
+
+            let pingResults = await ping.promise.probe(host, options);
+            return pingResults;
+        });
+
+        targetEndpoint.RegisterMethod("resolve", async (cmdObj) => {
+            let params = DRP_Service.prototype.GetParams(cmdObj, ['hostname', 'resolveMethod', 'server']);
+            let hostname = params['hostname'];
+            let method = params['resolveMethod'] || 'resolve4';
+            let dnsServer = params['server'];
+            let resolver = dns;
+
+            if (dnsServer) {
+                resolver = new dns.Resolver();
+                resolver.setServers([dnsServer]);
+            }
+
+            // Reject if no hostname was supplied
+            if (!hostname) {
+                throw new DRP_CmdError(`Must provide hostname`, DRP_ErrorCode.BADREQUEST, "resolve");
+            }
+
+            // Make sure the method is valid
+            if (!dns[method]) {
+                throw new DRP_CmdError(`Invalid method [${method}]`, DRP_ErrorCode.BADREQUEST, "resolve");
+            }
+
+            return await resolver[method](hostname);
         });
 
         targetEndpoint.RegisterMethod("findInstanceOfService", async (params) => {
