@@ -17,7 +17,7 @@ class DRP_Consumer {
         this.pass = pass;
         this.brokerURL = wsTarget;
         this.WebProxyURL = proxy;
-        /** @type {DRP_Client} */
+        /** @type {DRP_ConsumerClient} */
         this.BrokerClient = null;
         this.Start(openHandler);
     }
@@ -25,6 +25,10 @@ class DRP_Consumer {
     async Start(openHandler) {
         this.BrokerClient = new DRP_ConsumerClient(this.brokerURL, this.user, this.pass, openHandler);
         this.BrokerClient.DRPNode = this;
+    }
+
+    log(message) {
+        console.log(message);
     }
 }
 
