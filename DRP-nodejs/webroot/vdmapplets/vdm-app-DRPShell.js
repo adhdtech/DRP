@@ -229,7 +229,7 @@
                                         writeMessage += `\x1B[97m${streamData.payload.Message}\x1B[0m\r\n`;
                                     } else {
                                         if (watchApp.appVars.startupParams.prettyPrint) {
-                                            writeMessage += `\x1B[92m${JSON.stringify(outputData, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`;
+                                            writeMessage += `\x1B[92m${JSON.stringify(outputData, null, 4).replace(/\r?\n/g, "\r\n")}\x1B[0m\r\n`;
                                         } else {
                                             writeMessage += `\x1B[92m${JSON.stringify(outputData)}\x1B[0m\r\n`;
                                         }
@@ -848,7 +848,7 @@
                             tmpResults = await myApp.sendCmd("DRP", "getTopology", null, true);
                         }
                         if (doPipeOut) returnObj = tmpResults;
-                        else term.write(`\x1B[96m${JSON.stringify(tmpResults, null, 4).replace(/\n/g, "\r\n")}\x1B[0m\r\n`);
+                        else term.write(`\x1B[96m${JSON.stringify(tmpResults, null, 4).replace(/\r?\n/g, "\r\n")}\x1B[0m\r\n`);
 
                         return returnObj;
                     }));
@@ -1821,7 +1821,7 @@
                                         printVal = `[${varType}]`;
                                         break;
                                     case "String":
-                                        printVal = JSON.stringify(varValue.substr(0, 60)); //.replaceAll(/\r/g, '\\r')
+                                        printVal = JSON.stringify(varValue.substr(0, 60));
                                         break;
                                     default:
                                         returnVal = varType;
@@ -1880,7 +1880,7 @@
                             host: switchesAndData.data,
                             min_reply: switchesAndData.switches["c"] || 4
                         }, true);
-                        output = pingResults.output;
+                        output = pingResults.output.replace(/\r?\n/g, "\r\n");
 
                         if (!doPipeOut) {
                             term.write(output);
@@ -1909,13 +1909,12 @@
                             return
                         }
 
-                        //'hostname', 'resolveMethod', 'server'
-                        let pingResults = await myApp.sendCmd("DRP", "resolve", {
+                        let resolveResults = await myApp.sendCmd("DRP", "resolve", {
                             hostname: switchesAndData.data,
                             type: switchesAndData.switches["t"] || "A",
                             server: switchesAndData.switches["s"] || "" 
                         }, true);
-                        output = JSON.stringify(pingResults, null, 4).replace(/\n/g, "\r\n");
+                        output = JSON.stringify(resolveResults, null, 4).replace(/\r?\n/g, "\r\n");
 
                         if (!doPipeOut) {
                             term.write(output);
@@ -1952,7 +1951,7 @@
                         jsonPathQuery = jsonPathQuery.replace(/^"|"$/g, '');
                         jsonPathQuery = jsonPathQuery.replace(/^'|'$/g, '');
 
-                        output = JSON.stringify(jsonPath(inputObj, jsonPathQuery), null, 4).replace(/\n/g, "\r\n");
+                        output = JSON.stringify(jsonPath(inputObj, jsonPathQuery), null, 4).replace(/\r?\n/g, "\r\n");
 
                         if (!doPipeOut) {
                             term.write(output);
