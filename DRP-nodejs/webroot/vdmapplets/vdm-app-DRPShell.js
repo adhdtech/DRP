@@ -1856,6 +1856,73 @@
                         return output;
                     }));
 
+                this.AddMethod(new drpMethod("ping",
+                    "Ping a host",
+                    "[HOSTNAME or IP]",
+                    {
+                        "h": new drpMethodSwitch("h", null, "Help menu"),
+                        "c": new drpMethodSwitch("c", "integer", "Number of requests to send"),
+                    },
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
+                        let output = "";
+
+                        if ("h" in switchesAndData.switches) {
+                            term.write(this.ShowHelp());
+                            return
+                        }
+                        if (!switchesAndData.data) {
+                            term.write(this.ShowHelp());
+                            return
+                        }
+
+                        let pingResults = await myApp.sendCmd("DRP", "ping", {
+                            host: switchesAndData.data,
+                            min_reply: switchesAndData.switches["c"] || 4
+                        }, true);
+                        output = pingResults.output;
+
+                        if (!doPipeOut) {
+                            term.write(output);
+                        }
+                        return output;
+                    }));
+
+                this.AddMethod(new drpMethod("resolve",
+                    "Resolve a host",
+                    "[HOSTNAME]",
+                    {
+                        "h": new drpMethodSwitch("h", null, "Help menu"),
+                        "t": new drpMethodSwitch("t", "string", "Record type (A,CNAME,SRV,...)"),
+                        "s": new drpMethodSwitch("s", "string", "DNS server")
+                    },
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
+                        let output = "";
+
+                        if ("h" in switchesAndData.switches) {
+                            term.write(this.ShowHelp());
+                            return
+                        }
+                        if (!switchesAndData.data) {
+                            term.write(this.ShowHelp());
+                            return
+                        }
+
+                        //'hostname', 'resolveMethod', 'server'
+                        let pingResults = await myApp.sendCmd("DRP", "resolve", {
+                            hostname: switchesAndData.data,
+                            type: switchesAndData.switches["t"] || "A",
+                            server: switchesAndData.switches["s"] || "" 
+                        }, true);
+                        output = JSON.stringify(pingResults, null, 4).replace(/\n/g, "\r\n");
+
+                        if (!doPipeOut) {
+                            term.write(output);
+                        }
+                        return output;
+                    }));
+
                 this.AddMethod(new drpMethod("jsonpath",
                     "Retrieve data from JSON object",
                     "[OPTIONS]",
@@ -2022,7 +2089,11 @@
                             pipeData = await this.drpMethods[methodName].execute(switchesAndData, doPipeOut, pipeDataIn);
 
                         } catch (ex) {
-                            term.write(`\x1B[91mError executing command [${methodName}]: ${ex}\x1B[0m\r\n`);
+                            let outputMessage = ex;
+                            if (ex.message) {
+                                outputMessage = ex.message;
+                            }
+                            term.write(`\x1B[91mError executing command [${methodName}]: ${outputMessage}\x1B[0m\r\n`);
                             break;
                         }
                     }

@@ -2546,9 +2546,9 @@ class DRP_Node extends DRP_Securable {
         });
 
         targetEndpoint.RegisterMethod("resolve", async (cmdObj) => {
-            let params = DRP_Service.prototype.GetParams(cmdObj, ['hostname', 'resolveMethod', 'server']);
+            let params = DRP_Service.prototype.GetParams(cmdObj, ['hostname', 'type', 'server']);
             let hostname = params['hostname'];
-            let method = params['resolveMethod'] || 'resolve4';
+            let type = params['type'];
             let dnsServer = params['server'];
             let resolver = dns;
 
@@ -2562,12 +2562,7 @@ class DRP_Node extends DRP_Securable {
                 throw new DRP_CmdError(`Must provide hostname`, DRP_ErrorCode.BADREQUEST, "resolve");
             }
 
-            // Make sure the method is valid
-            if (!dns[method]) {
-                throw new DRP_CmdError(`Invalid method [${method}]`, DRP_ErrorCode.BADREQUEST, "resolve");
-            }
-
-            return await resolver[method](hostname);
+            return await resolver.resolve(hostname, type);
         });
 
         targetEndpoint.RegisterMethod("findInstanceOfService", async (params) => {
