@@ -927,6 +927,99 @@
                         pom.click();
                     }));
 
+                this.AddMethod(new drpMethod("jsontable",
+                    "Display piped JSON as a table",
+                    null,
+                    null,
+                    async function (switchesAndDataString, doPipeOut, pipeDataIn) {
+                        let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
+                        let inputArray;
+                        //if (switchesAndData.data) downloadFileName = switchesAndData.data;
+
+                        let maxColLength = 30;
+
+                        // Did this function receive a string that needs to be parsed?
+                        if (typeof pipeDataIn === 'string') {
+                            inputArray = JSON.parse(pipeDataIn);
+                        } else {
+                            inputArray = pipeDataIn;
+                        }
+
+                        if (!inputArray || !inputArray.length) {
+                            throw { message: `No data received to display` };
+                        }
+
+                        let output = "";
+                        let headerLabels = [];
+                        let headerLengths = {};
+                        // Loop over input records
+                        for (let thisRecord of inputArray) {
+                            // Loop over headers
+                            let thisRecordHeaders = Object.keys(thisRecord);
+                            for (let thisRecordHeader of thisRecordHeaders) {
+                                // Make sure header exists
+                                if (!headerLabels.includes(thisRecordHeader)) {
+                                    headerLabels.push(thisRecordHeader);
+                                    headerLengths[thisRecordHeader] = thisRecordHeader.length;
+                                }
+
+                                let fieldData = thisRecord[thisRecordHeader];
+                                let fieldDataString = "";
+
+                                if (typeof fieldData === "object") {
+                                    fieldDataString = String(fieldData);
+                                } else if (typeof fieldData === "string") {
+                                    fieldDataString = fieldData;
+                                } else {
+                                    fieldDataString = String(fieldData);
+                                }
+
+                                // See if the current fieldData is longer than the header
+                                headerLengths[thisRecordHeader] = Math.max(headerLengths[thisRecordHeader], fieldDataString.length);
+                                if (headerLengths[thisRecordHeader] > maxColLength) {
+                                    headerLengths[thisRecordHeader] = maxColLength;
+                                }
+                            }
+                        }
+
+                        let headerColorCtrl = '\x1B[40;1;95m';
+                        let headerList = headerLabels.map(thisHeader => `${headerColorCtrl}${thisHeader.padEnd(headerLengths[thisHeader], ' ')}\x1B[0m`);
+                        output += `\r\n` + headerList.join(' ') + `\r\n`;
+
+                        // Loop over input records
+                        for (let thisRecord of inputArray) {
+                            // Loop over headers
+                            let dataStrings = [];
+                            for (let thisRecordHeader of headerLabels) {
+
+                                let fieldData = thisRecord[thisRecordHeader];
+                                let fieldDataString = "";
+
+                                if (typeof fieldData === "object") {
+                                    fieldDataString = String(fieldData);
+                                } else if (typeof fieldData === "string") {
+                                    fieldDataString = fieldData;
+                                } else {
+                                    fieldDataString = String(fieldData);
+                                }
+
+                                fieldDataString = fieldDataString.substr(0, headerLengths[thisRecordHeader]).padEnd(headerLengths[thisRecordHeader], ' ');
+                                fieldDataString = `\x1B[0m${fieldDataString}\x1B[0m`;
+                                dataStrings.push(fieldDataString)
+                            }
+                            output += `${dataStrings.join(' ')}\r\n`;
+                        }
+
+                        if (doPipeOut) {
+                            // Sanitize output by removing terminal control characters
+                            output = output.replace(/\x1b\[\d{1,2}(?:;\d{1,2})*m/g, '');
+                        } else {
+                            term.write(output);
+                        }
+
+                        return output;
+                    }));
+
                 this.AddMethod(new drpMethod("watch",
                     "Subscribe to topic name and output the data stream",
                     "[OPTIONS]... [STREAM]",
