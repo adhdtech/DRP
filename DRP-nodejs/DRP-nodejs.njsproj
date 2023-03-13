@@ -12,15 +12,14 @@
 DOMAINNAME=mydomain.xyz
 MESHKEY=supersecretkey
 DEBUG=true
-TESTMODE=true
-USESWAGGER=true
+TESTMODE=false
+USESWAGGER=false
 ZONENAME=zone1
 AUTHENTICATORSERVICE=TestAuthenticator
-
-SSL_ENABLED=true
+SSL_ENABLED=
 SSL_KEYFILE=C:\Temp\privkey.pem
 SSL_CRTFILE=C:\Temp\fullchain.pem</Environment>
-    <NodejsPort>443</NodejsPort>
+    <NodejsPort>8080</NodejsPort>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -51,6 +50,7 @@ SSL_CRTFILE=C:\Temp\fullchain.pem</Environment>
     <Content Include="cucm-sql-async\package.json" />
     <Content Include="cucm-sql-async\README.md" />
     <Content Include="Dockerfile" />
+    <Content Include="Dockerfile-full" />
     <Content Include="drp-mesh\index.js" />
     <Content Include="drp-mesh\lib\consumer.js" />
     <Content Include="drp-mesh\lib\client.js" />
