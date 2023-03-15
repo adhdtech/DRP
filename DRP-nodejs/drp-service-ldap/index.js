@@ -104,7 +104,21 @@ class DRP_LDAP extends DRP_Authenticator {
             });
             //console.dir(results);
             if (results && results.length) {
-                let userEntry = results.shift().object;
+
+                let thisObj = results.shift();
+                let thisRecord = thisObj.pojo;
+
+                let userEntryBare = thisRecord.attributes.reduce((thisMap, thisValue) => {
+                    thisMap[thisValue.type] = thisValue.values;
+                    return thisMap;
+                }, {});
+
+                let userEntry = {
+                    cn: userEntryBare.cn.shift(),
+                    memberOf: userEntryBare.memberOf,
+                    givenName: userEntryBare.givenName.shift(),
+                    sn: userEntryBare.sn.shift()
+                }
                 let groupList = [];
                 if (userEntry.memberOf) {
                     if (typeof userEntry.memberOf === "string") {
@@ -116,7 +130,8 @@ class DRP_LDAP extends DRP_Authenticator {
                 authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName, userEntry.cn, groupList, null, thisService.serviceName, thisService.DRPNode.getTimestamp());
                 if (thisService.DRPNode.Debug) thisService.DRPNode.log(`Authenticate [${authRequest.UserName}] -> SUCCEEDED`);
                 thisService.DRPNode.TopicManager.SendToTopic("AuthLogs", authResponse);
-                thisService.DRPNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse });
+                let logResponse = await thisService.DRPNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse }, null, null, null, true, null, null);
+                console.dir(logResponse);
             }
         } catch (ex) {
             thisService.DRPNode.log(`Exception while authenticating [${authRequest.UserName}]`);
