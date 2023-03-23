@@ -4,6 +4,8 @@ const DRP_WebServer = require('drp-mesh').WebServer;
 const CacheManager = require('drp-service-cache');
 const os = require("os");
 
+require('dotenv').config()
+
 var protocol = "ws";
 if (process.env.SSL_ENABLED) {
     protocol = "wss";
@@ -54,7 +56,7 @@ myNode.ConnectToMesh(async () => {
     let myService = new CacheManager(serviceName, myNode, priority, weight, scope, mongoHost, mongoUser, mongoPw);
     myNode.AddService(myService);
 
-    if (myNode.ListeningURL) {
-        myNode.log(`Listening at: ${myNode.ListeningURL}`);
+    if (myNode.ListeningName) {
+        myNode.log(`Listening at: ${myNode.ListeningName}`);
     }
 });
