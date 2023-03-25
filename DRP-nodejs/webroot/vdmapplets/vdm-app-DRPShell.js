@@ -1610,8 +1610,8 @@
                         "i": new drpMethodSwitch("i", null, "Case Insensitive"),
                         "v": new drpMethodSwitch("v", null, "Select non-matching lines"),
                         "n": new drpMethodSwitch("n", null, "Output line number"),
-                        "A": new drpMethodSwitch("A", "integer", "Print lines before match"),
-                        "B": new drpMethodSwitch("B", "integer", "Print lines after match"),
+                        "B": new drpMethodSwitch("B", "integer", "Print lines before match"),
+                        "A": new drpMethodSwitch("A", "integer", "Print lines after match"),
                         "C": new drpMethodSwitch("C", "integer", "Print lines before and after match")
                     },
                     async function (switchesAndDataString, doPipeOut, pipeDataIn) {
@@ -1621,8 +1621,8 @@
                         let switchA = Number.parseInt(switchesAndData.switches["A"]) || 0;
                         let switchB = Number.parseInt(switchesAndData.switches["B"]) || 0;
                         let switchC = Number.parseInt(switchesAndData.switches["C"]) || 0;
-                        let contextLinesBefore = Math.max(switchA, switchC) || 0;
-                        let contextLinesAfter = Math.max(switchB, switchC) || 0;
+                        let contextLinesBefore = Math.max(switchB, switchC) || 0;
+                        let contextLinesAfter = Math.max(switchA, switchC) || 0;
 
                         if (contextLinesBefore || contextLinesAfter) {
                             printingContext = true;
