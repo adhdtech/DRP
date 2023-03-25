@@ -1610,8 +1610,8 @@
                         "i": new drpMethodSwitch("i", null, "Case Insensitive"),
                         "v": new drpMethodSwitch("v", null, "Select non-matching lines"),
                         "n": new drpMethodSwitch("n", null, "Output line number"),
-                        "A": new drpMethodSwitch("A", "integer", "Print lines before match"),
-                        "B": new drpMethodSwitch("B", "integer", "Print lines after match"),
+                        "B": new drpMethodSwitch("B", "integer", "Print lines before match"),
+                        "A": new drpMethodSwitch("A", "integer", "Print lines after match"),
                         "C": new drpMethodSwitch("C", "integer", "Print lines before and after match")
                     },
                     async function (switchesAndDataString, doPipeOut, pipeDataIn) {
