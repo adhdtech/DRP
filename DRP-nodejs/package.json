@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "cucm-sql-async": "./cucm-sql-async",
+    "dotenv": "^16.0.3",
     "drp-mesh": "./drp-mesh",
     "drp-service-bluecat": "./drp-service-bluecat",
     "drp-service-cache": "./drp-service-cache",

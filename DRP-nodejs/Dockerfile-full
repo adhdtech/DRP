@@ -1,4 +1,4 @@
-FROM adhdtech/drp-nodejs:alpine
+FROM adhdtech/drp-nodejs:latest
 
 RUN apk add --update libaio libnsl libc6-compat && \
     ln -s /usr/lib/libnsl.so.3 /usr/lib/libnsl.so.1 && \
@@ -12,7 +12,7 @@ ENV NODE_ENV=production
 # Create app directory
 WORKDIR /app
 
-RUN npm install --production dotenv axios node-rest-client mssql oracledb stomp-client cucm-sql-async ldapjs csv-string neo4j-driver pg simple-git node-ssh ssh2shell mongodb @influxdata/influxdb-client
+RUN npm install --production axios node-rest-client mssql oracledb stomp-client cucm-sql-async ldapjs csv-string neo4j-driver pg simple-git node-ssh ssh2shell mongodb @influxdata/influxdb-client
 # If you are building your code for production
 # RUN npm ci --only=production
 
