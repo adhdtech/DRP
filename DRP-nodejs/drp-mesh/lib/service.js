@@ -137,7 +137,7 @@ class DRP_Service {
 
     async ReadClassCacheFromService(className) {
         let thisService = this;
-        let replyObj = await thisService.DRPNode.ServiceCmd("CacheManager", "readClassCache", { "serviceName": thisService.serviceName, "className": className }, null, null, false, true, null);
+        let replyObj = await thisService.DRPNode.ServiceCmd("CacheManager", "readClassCache", { "serviceName": thisService.serviceName, "className": className });
         if (replyObj.err) {
             thisService.DRPNode.log("Could not read cached objects for " + thisService.serviceName + "\\" + className + " -> " + replyObj.err);
             thisService.Classes[className].records = {};
@@ -169,7 +169,7 @@ class DRP_Service {
                 "className": className,
                 "cacheData": cacheData,
                 "snapTime": thisService.snapStartTime
-            }, null, null, false, true, null);
+            });
             return replyObj;
         }
     }
@@ -196,7 +196,9 @@ class DRP_Service {
         // Loop over peers, broadcast command
         for (let i = 0; i < peerServiceIDList.length; i++) {
             let peerServiceID = peerServiceIDList[i];
-            thisService.DRPNode.ServiceCmd(thisService.serviceName, method, params, null, peerServiceID);
+            thisService.DRPNode.ServiceCmd(thisService.serviceName, method, params, {
+                targetServiceInstanceID: peerServiceID
+            });
         }
     }
 

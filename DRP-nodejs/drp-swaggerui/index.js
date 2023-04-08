@@ -23,7 +23,10 @@ class SwaggerRouter {
 
             // Reach out to the remote node
             try {
-                swaggerObj = await thisNode.ServiceCmd(serviceName, "getOpenAPIDoc", {}, targetNodeID, null, true, true, null);
+                swaggerObj = await thisNode.ServiceCmd(serviceName, "getOpenAPIDoc", null, {
+                    targetNodeID: targetNodeID,
+                    useControlPlane: true
+                });
             } catch (ex) {
                 // Could not add swagger route for service
                 return false;

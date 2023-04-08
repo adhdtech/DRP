@@ -58,13 +58,15 @@ class DRP_Cmd extends DRP_Packet {
      * @param {number} token Reply Token
      * @param {DRP_RouteOptions} routeOptions Route Options
      * @param {string} serviceInstanceID Execute on specific Service Instance
+     * @param {string} limitScope Limit execution scope (local|zone|global)
      */
-    constructor(serviceName, method, params, token, routeOptions, serviceInstanceID) {
+    constructor(serviceName, method, params, token, routeOptions, serviceInstanceID, limitScope) {
         super("cmd", routeOptions, token);
         this.method = method;
         this.params = params;
         this.serviceName = serviceName;
         this.serviceInstanceID = serviceInstanceID;
+        this.limitScope = limitScope;
     }
 }
 

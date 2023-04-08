@@ -496,7 +496,9 @@ myNode.ConnectToMesh(async () => {
             authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName, "Some User", ["Users"], null, thisService.serviceName, thisService.DRPNode.getTimestamp());
         }
         myNode.TopicManager.SendToTopic("AuthLogs", authResponse);
-        myNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse });
+        myNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse }, {
+            sendOnly: true
+        });
         return authResponse;
     };
 

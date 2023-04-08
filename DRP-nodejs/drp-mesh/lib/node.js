@@ -320,7 +320,10 @@ class DRP_Node extends DRP_Securable {
                     let checkNode = thisNode.TopologyTracker.NodeTable[nodeIDList[i]];
                     if (checkNode.NodeID !== thisNode.NodeID && checkNode.IsBroker() && checkNode.Zone === thisNode.Zone) {
                         // Send command to remote Broker
-                        thisNode.ServiceCmd("DRP", "addConsumerToken", { tokenPacket: authResults }, checkNode.NodeID, null, false, false, null);
+                        thisNode.ServiceCmd("DRP", "addConsumerToken", { tokenPacket: authResults }, {
+                            targetNodeID: checkNode.NodeID,
+                            sendOnly: true
+                        });
                     }
                 }
             }
@@ -545,7 +548,9 @@ class DRP_Node extends DRP_Securable {
             delete logMessage.req.headers["authorization"];
             thisNode.TopicManager.SendToTopic("RESTLogs", logMessage);
             if (writeToLogger) {
-                thisNode.ServiceCmd("Logger", "writeLog", { serviceName: "REST", logData: logMessage });
+                thisNode.ServiceCmd("Logger", "writeLog", { serviceName: "REST", logData: logMessage }, {
+                    sendOnly: true
+                });
             }
         };
 
@@ -640,7 +645,12 @@ class DRP_Node extends DRP_Securable {
             // Unlike before, we don't distribute the actual service definitions in
             // the declarations.  We need to go out to each service and get the info
             let bestInstance = thisNode.TopologyTracker.FindInstanceOfService(serviceName);
-            let response = await thisNode.ServiceCmd("DRP", "getServiceDefinition", { serviceName: serviceName }, bestInstance.NodeID, bestInstance.InstanceID, true, true, callingEndpoint);
+            let response = await thisNode.ServiceCmd("DRP", "getServiceDefinition", { serviceName: serviceName }, {
+                targetNodeID: bestInstance.NodeID,
+                targetServiceInstanceID: bestInstance.InstanceID,
+                useControlPlane: true,
+                callingEndpoint: callingEndpoint
+            });
             response.NodeID = bestInstance.NodeID;
             serviceDefinitions[serviceName] = response;
         }
@@ -726,7 +736,10 @@ class DRP_Node extends DRP_Securable {
             // The target NodeID is local
             oReturnObject = thisNode.PathCmd(params, thisNode.GetBaseObj());
         } else {
-            oReturnObject = await thisNode.ServiceCmd("DRP", "pathCmd", params, targetNodeID, null, true, true, null);
+            oReturnObject = await thisNode.ServiceCmd("DRP", "pathCmd", params, {
+                targetNodeID: targetNodeID,
+                useControlPlane: true
+            });
         }
         return oReturnObject;
     }
@@ -1474,21 +1487,40 @@ class DRP_Node extends DRP_Securable {
          */
     }
 
-    // Execute a service command with the option of routing via the control plane
-    async ServiceCmd(serviceName, method, params, targetNodeID, targetServiceInstanceID, useControlPlane, awaitResponse, callingEndpoint, limitScope) {
+    /**
+     * Execute a service command with the option of routing via the control plane
+     * @param {string} serviceName Target service name
+     * @param {string} methodName Target method name
+     * @param {Object} methodParams Method parameters
+     * @param {Object} execParams DRP execution parameters
+     * @param {string} execParams.targetNodeID Send command to a specific Node
+     * @param {string} execParams.targetServiceInstanceID Send command to a specific service instance
+     * @param {boolean} execParams.useControlPlane Force use of control plane?
+     * @param {boolean} execParams.sendOnly Do not expect a response
+     * @param {DRP_Endpoint} execParams.callingEndpoint Endpoint initiating the call
+     * @param {boolean} execParams.limitScope Limit scope to local or zone
+     */
+    async ServiceCmd(serviceName, methodName, methodParams, execParams) {
         let thisNode = this;
         let baseErrMsg = "ERROR - ";
         let msgSource = "ServiceCmd";
 
+        let targetNodeID = execParams.targetNodeID || null;
+        let targetServiceInstanceID = execParams.targetServiceInstanceID || null;
+        let useControlPlane = execParams.useControlPlane || false;
+        let sendOnly = execParams.sendOnly || false;
+        let callingEndpoint = execParams.callingEndpoint || null;
+        let limitScope = execParams.limitScope || null;
+
         let handleError = (errMsg) => {
             thisNode.log(`${baseErrMsg}${errMsg}`, true);
-            if (awaitResponse) {
+            if (!sendOnly) {
                 throw new DRP_CmdError(errMsg, DRP_ErrorCode.SVCERR, msgSource);
             }
         }
 
         // If if no service or command is provided, return null
-        if (!serviceName || !method) {
+        if (!serviceName || !methodName) {
             handleError(`Must provide serviceName and method`);
             return;
         }
@@ -1504,6 +1536,7 @@ class DRP_Node extends DRP_Securable {
             if (!targetServiceInstanceID) {
                 // Update to use the DRP_TopologyTracker object
                 targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(serviceName, null, null, null, limitScope);
+                //console.dir(thisNode.TopologyTracker.ServiceTable)
 
                 // If no match is found then return null
                 if (!targetServiceRecord) {
@@ -1557,27 +1590,27 @@ class DRP_Node extends DRP_Securable {
                 return;
             }
 
-            if (!localServiceProvider[method]) {
-                handleError(`Service ${serviceName} does not have method ${method}`);
+            if (!localServiceProvider[methodName]) {
+                handleError(`Service ${serviceName} does not have method ${methodName}`);
                 return;
             }
 
-            if (awaitResponse) {
+            if (!sendOnly) {
                 let results = null;
                 // See if it's a virtual function before executing
-                let constructorName = localServiceProvider[method].constructor.name;
+                let constructorName = localServiceProvider[methodName].constructor.name;
                 if (constructorName === "DRP_VirtualFunction") {
-                    results = await localServiceProvider[method].Execute(params, callingEndpoint);
+                    results = await localServiceProvider[methodName].Execute(methodParams, callingEndpoint);
                 } else {
-                    results = await localServiceProvider[method](params, callingEndpoint);
+                    results = await localServiceProvider[methodName](methodParams, callingEndpoint);
                 }
                 return results;
             } else {
                 try {
                     if (constructorName === "DRP_VirtualFunction") {
-                        await localServiceProvider[method].Execute(params, callingEndpoint);
+                        await localServiceProvider[methodName].Execute(methodParams, callingEndpoint);
                     } else {
-                        await localServiceProvider[method](params, callingEndpoint);
+                        await localServiceProvider[methodName](methodParams, callingEndpoint);
                     }
                 } catch (ex) {
                     // Don't care about response
@@ -1634,11 +1667,11 @@ class DRP_Node extends DRP_Securable {
                 return;
             }
 
-            if (awaitResponse) {
-                let cmdResponse = await routeNodeConnection.SendCmd(serviceName, method, params, true, null, routeOptions, targetServiceInstanceID);
+            if (!sendOnly) {
+                let cmdResponse = await routeNodeConnection.SendCmd(serviceName, methodName, methodParams, true, null, routeOptions, targetServiceInstanceID);
                 return cmdResponse;
             } else {
-                routeNodeConnection.SendCmd(serviceName, method, params, false, null, routeOptions, targetServiceInstanceID);
+                routeNodeConnection.SendCmd(serviceName, methodName, methodParams, false, null, routeOptions, targetServiceInstanceID);
                 return;
             }
         }
@@ -2360,8 +2393,16 @@ class DRP_Node extends DRP_Securable {
             let topologyNode = {};
 
             let nodeTableEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
-            let nodeClientConnections = await thisNode.ServiceCmd("DRP", "listClientConnections", null, targetNodeID, null, true, true, callingEndpoint);
-            let nodeServices = await thisNode.ServiceCmd("DRP", "getLocalServiceDefinitions", null, targetNodeID, null, true, true, callingEndpoint);
+            let nodeClientConnections = await thisNode.ServiceCmd("DRP", "listClientConnections", null, {
+                targetNodeID: targetNodeID,
+                useControlPlane: true,
+                callingEndpoint: callingEndpoint
+            });
+            let nodeServices = await thisNode.ServiceCmd("DRP", "getLocalServiceDefinitions", null, {
+                targetNodeID: targetNodeID,
+                useControlPlane: true,
+                callingEndpoint: callingEndpoint
+            });
 
             // Assign Node Table Entry attributes
             Object.assign(topologyNode, nodeTableEntry);
@@ -2730,7 +2771,9 @@ class DRP_Node extends DRP_Securable {
             if (authenticationServiceRecord) authenticationServiceName = authenticationServiceRecord.Name;
         }
         if (authenticationServiceName) {
-            authResponse = await thisNode.ServiceCmd(authenticationServiceName, "authenticate", new DRP_AuthRequest(userName, password, token), null, null, true, true, null);
+            authResponse = await thisNode.ServiceCmd(authenticationServiceName, "authenticate", new DRP_AuthRequest(userName, password, token), {
+                useControlPlane: true
+            });
         } else {
             // No authentication service found
             thisNode.log(`Attempted to authenticate Consumer but no Authenticator was specified or found`, true);
