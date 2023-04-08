@@ -701,6 +701,7 @@
                                 return;
                             }
                         } else {
+                            // Did not match the <service>.<method> convention, treat as a path
                             let pathList = [];
                             pathList = switchesAndDataString.split(/[\/\\]/g);
 
@@ -759,7 +760,7 @@
                                 term.write(`\x1B[91mUnknown shell command: ${cmdName}\x1B[0m`);
                                 return;
                             }
-                        // Second, try to match the <service>.<method> convention
+                            // Second, try to match the <service>.<method> convention
                         } else if (rpcRegexMatch = switchesAndDataString.match(/^(\w+)\.(\w+)\s*$/)) {
                             let serviceName = rpcRegexMatch[1];
                             let cmdName = rpcRegexMatch[2];
@@ -775,7 +776,7 @@
                                 term.write(`\x1B[91m${ex.message}\x1B[0m`);
                                 return;
                             }
-                        // Finally, try to match the path convention
+                            // Finally, try to match the path convention
                         } else {
                             let pathList = [];
                             pathList = switchesAndDataString.split(/[\/\\]/g);
@@ -2005,7 +2006,7 @@
                         let resolveResults = await myApp.sendCmd("DRP", "resolve", {
                             hostname: switchesAndData.data,
                             type: switchesAndData.switches["t"] || "A",
-                            server: switchesAndData.switches["s"] || "" 
+                            server: switchesAndData.switches["s"] || ""
                         }, true);
                         output = JSON.stringify(resolveResults, null, 4).replace(/\r?\n/g, "\r\n");
 
@@ -2172,6 +2173,13 @@
                         pipeData = "";
 
                         try {
+                            // See if the method is actually a service and method name combo
+                            if (cmdArray[i].match(/^(\w+)\.(\w+)\((.*)\)$/)) {
+                                // This is a direct function call
+                                methodName = "exec";
+                                switchesAndData = cmdArray[i];
+                            }
+
                             if (!this.drpMethods[methodName]) {
                                 // Write error to terminal; unknown method
                                 this.term.write(`\x1B[91mInvalid command [${methodName}]\x1B[0m`);

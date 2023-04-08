@@ -1602,6 +1602,9 @@ class DRP_Node extends DRP_Securable {
                 if (constructorName === "DRP_VirtualFunction") {
                     results = await localServiceProvider[methodName].Execute(methodParams, callingEndpoint);
                 } else {
+                    if (methodName !== "pathCmd" && methodParams && methodParams.method && methodParams.method === "man") {
+                        throw new DRP_CmdError("Simple function does not have man page", DRP_ErrorCode.BADREQUEST, "PathCmd");
+                    }
                     results = await localServiceProvider[methodName](methodParams, callingEndpoint);
                 }
                 return results;
