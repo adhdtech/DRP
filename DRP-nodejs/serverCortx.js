@@ -15,6 +15,8 @@ const DRP_Logger = require('drp-service-logger');
 const os = require("os");
 const AWS = require('aws-sdk');
 
+require('dotenv').config()
+
 // Must install this package first:
 // "aws-sdk": "^2.892.0",
 
