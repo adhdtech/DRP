@@ -115,9 +115,9 @@ class SPASession {
 
     }
 
-    startSession(wsTarget, appletName) {
+    startSession(wsTarget, appletName, appletService) {
         let thisSPASession = this;
-        thisSPASession.drpClient = new SPAServerAgent(thisSPASession, appletName);
+        thisSPASession.drpClient = new SPAServerAgent(thisSPASession, appletName, appletService);
         thisSPASession.drpClient.connect(wsTarget);
     }
 
@@ -317,12 +317,14 @@ class SPAServerAgent extends DRP_Client_Browser {
      * Agent which connects to DRP_Node (Broker)
      * @param {SPASession} spaSession SPA Session object
      * @param {string} appletName Applet name to load
+     * @param {string} appletService Primary service for applet
      */
-    constructor(spaSession, appletName) {
+    constructor(spaSession, appletName, appletService) {
         super();
 
         this.spaSession = spaSession;
         this.appletName = appletName;
+        this.appletService = appletService;
     }
 
     async OpenHandler(wsConn, req) {
@@ -341,9 +343,10 @@ class SPAServerAgent extends DRP_Client_Browser {
         if (!response) window.location.reload();
 
         // If we don't have any appletProfiles, request them
+        let targetAppletService = thisDRPClient.appletService || "VDM";
         if (Object.keys(thisDRPClient.spaSession.appletProfiles).length) return;
         let appletProfiles = {};
-        let getAppletProfilesResponse = await thisDRPClient.SendCmd("VDM", "getVDMAppletProfiles", null, true, null);
+        let getAppletProfilesResponse = await thisDRPClient.SendCmd(targetAppletService, "getVDMAppletProfiles", null, true, null);
         if (getAppletProfilesResponse) appletProfiles = getAppletProfilesResponse;
         let appletProfileNames = Object.keys(appletProfiles);
         for (let i = 0; i < appletProfileNames.length; i++) {
