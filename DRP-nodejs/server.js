@@ -12,7 +12,9 @@ const DRP_Logger = require('drp-service-logger');
 const os = require("os");
 const { DRP_PermissionSet, DRP_Permission, DRP_VirtualFunction, DRP_VirtualFunction_Switch } = require('drp-mesh/lib/securable');
 
-var protocol = "ws";
+require('dotenv').config()
+
+let protocol = "ws";
 if (process.env.SSL_ENABLED) {
     protocol = "wss";
 }
