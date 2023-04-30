@@ -3,6 +3,8 @@ const DRP_Node = require('drp-mesh').Node;
 const vdmServer = require('drp-service-rsage').VDM;
 const os = require("os");
 
+require('dotenv').config()
+
 let port = process.env.PORT || 8082;
 let listeningName = process.env.LISTENINGNAME || os.hostname();
 let hostID = process.env.HOSTID || os.hostname();
@@ -22,7 +24,7 @@ let weight = process.env.WEIGHT || null;
 let scope = process.env.SCOPE || null;
 let writeToLogger = process.env.WRITETOLOGGER || false;
 
-var protocol = "ws";
+let protocol = "ws";
 if (process.env.SSL_ENABLED) {
     protocol = "wss";
 }
