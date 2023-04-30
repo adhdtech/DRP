@@ -2,8 +2,6 @@
 const DRP_Node = require('drp-mesh').Node;
 const os = require("os");
 
-require('dotenv').config()
-
 let protocol = "ws";
 if (process.env.SSL_ENABLED) {
     protocol = "wss";

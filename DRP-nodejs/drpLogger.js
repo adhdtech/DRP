@@ -4,8 +4,6 @@ const DRP_WebServerConfig = require('drp-mesh').WebServer.DRP_WebServerConfig;
 const DRP_Logger = require('drp-service-logger');
 const os = require("os");
 
-require('dotenv').config()
-
 let protocol = "ws";
 if (isTrue(process.env.SSL_ENABLED)) {
     protocol = "wss";

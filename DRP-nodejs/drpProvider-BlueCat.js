@@ -3,8 +3,6 @@ const DRP_Node = require('drp-mesh').Node;
 const BlueCatManager = require('drp-service-bluecat');
 const os = require("os");
 
-require('dotenv').config()
-
 let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || null;
 let meshKey = process.env.MESHKEY || null;
