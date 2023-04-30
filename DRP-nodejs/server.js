@@ -14,7 +14,8 @@ const { DRP_PermissionSet, DRP_Permission, DRP_VirtualFunction, DRP_VirtualFunct
 
 require('dotenv').config()
 
-var protocol = "ws";
+let protocol = "ws";
+
 if (process.env.SSL_ENABLED) {
     protocol = "wss";
 }

@@ -160,6 +160,7 @@ class DRP_VirtualDirectory extends DRP_Securable {
 class DRP_VirtualObject extends DRP_Securable {
     constructor(securedObject, permissionSet) {
         super(permissionSet);
+        this.securedObject = securedObject;
     }
 }
 
