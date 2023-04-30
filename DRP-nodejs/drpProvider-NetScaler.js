@@ -3,8 +3,6 @@ const DRP_Node = require('drp-mesh').Node;
 const NetScalerManager = require('drp-service-netscaler');
 const os = require("os");
 
-require('dotenv').config()
-
 // Node variables
 let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || null;

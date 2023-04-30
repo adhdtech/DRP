@@ -1248,14 +1248,6 @@ class DRP_Node extends DRP_Securable {
                                         oCurrentObject[pathItemName] = await thisVirtualDirectory.GetItem(params);
                                     }
                                     break;
-                                case "DRP_VirtualObject":
-                                    // Set current object
-                                    oCurrentObject = oCurrentObject[pathItemName].securedObject;
-                                    if (isFinalItem()) {
-                                        // Last one - make this the return object
-                                        outputObject = oCurrentObject;
-                                    }
-                                    break;
                                 case "DRP_RemotePath":
                                     // DRP_RemotePath objects are functions which execute PathCmd again; return results directly 
                                     params.pathList = remainingPath;
