@@ -15,6 +15,8 @@ const DRP_Logger = require('drp-service-logger');
 const os = require("os");
 const AWS = require('aws-sdk');
 
+require('dotenv').config()
+
 // Must install this package first:
 // "aws-sdk": "^2.892.0",
 
@@ -496,7 +498,9 @@ myNode.ConnectToMesh(async () => {
             authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName, "Some User", ["Users"], null, thisService.serviceName, thisService.DRPNode.getTimestamp());
         }
         myNode.TopicManager.SendToTopic("AuthLogs", authResponse);
-        myNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse });
+        myNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse }, {
+            sendOnly: true
+        });
         return authResponse;
     };
 

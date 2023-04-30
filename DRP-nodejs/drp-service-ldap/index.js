@@ -130,7 +130,9 @@ class DRP_LDAP extends DRP_Authenticator {
                 authResponse = new DRP_AuthResponse(thisService.GetToken(), authRequest.UserName, userEntry.cn, groupList, null, thisService.serviceName, thisService.DRPNode.getTimestamp());
                 if (thisService.DRPNode.Debug) thisService.DRPNode.log(`Authenticate [${authRequest.UserName}] -> SUCCEEDED`);
                 thisService.DRPNode.TopicManager.SendToTopic("AuthLogs", authResponse);
-                let logResponse = await thisService.DRPNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse }, null, null, null, true, null, null);
+                let logResponse = await thisService.DRPNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse }, {
+                    sendOnly: true
+                });
                 console.dir(logResponse);
             }
         } catch (ex) {

@@ -37,13 +37,13 @@ myNode.ConnectToMesh(async () => {
 		// This is executed on inital load and refreshes
 
 		// Get Set Names
-		let setNames = await myNode.ServiceCmd("DocMgr", "listDocs", { serviceName: "NetScaler" }, null, null, false, true, null);
+		let setNames = await myNode.ServiceCmd("DocMgr", "listDocs", { serviceName: "NetScaler" });
 
 		// Loop over config set names
 		for (let i = 0; i < setNames.length; i++) {
 			let thisSetName = setNames[i];
 			if (!thisSetName) continue;
-			let thisSetDoc = await myNode.ServiceCmd("DocMgr", "loadDoc", { serviceName: "NetScaler", docName: thisSetName }, null, null, false, true, null);
+			let thisSetDoc = await myNode.ServiceCmd("DocMgr", "loadDoc", { serviceName: "NetScaler", docName: thisSetName });
 			thisSvc.AddSet(thisSetName, thisSetDoc.Hosts, thisSetDoc.PrivateKey);
 		}
 	});

@@ -186,10 +186,13 @@ class DRP_Endpoint {
             output: null
         };
 
-        //console.dir(cmdPacket);
-
         // Make sure params is an Object
         if (!cmdPacket.params || typeof cmdPacket.params !== 'object') cmdPacket.params = {};
+
+        let sendOnly = true;
+        if (typeof cmdPacket.token !== "undefined" && cmdPacket.token !== null) {
+            sendOnly = false;
+        }
 
         // If the remote end is a consumer, override authInfo and callerType
         if (thisEndpoint.AuthInfo && (thisEndpoint.AuthInfo.type === "token" || thisEndpoint.AuthInfo.type === "key")) {
@@ -198,28 +201,41 @@ class DRP_Endpoint {
         }
 
         // Execute method
-        try {
-            cmdResults.output = await thisEndpoint.DRPNode.ServiceCmd(cmdPacket.serviceName, cmdPacket.method, cmdPacket.params, null, cmdPacket.serviceInstanceID, false, true, thisEndpoint);
-        } catch (err) {
-            cmdResults.err = {
-                message: err.message,
-                name: err.name,
-                code: err.code || 500,
-                source: err.source,
-                stack: err.stack,
+        if (sendOnly) {
+            try {
+                thisEndpoint.DRPNode.ServiceCmd(cmdPacket.serviceName, cmdPacket.method, cmdPacket.params, {
+                    targetServiceInstanceID: cmdPacket.serviceInstanceID,
+                    limitScope: cmdPacket.limitScope,
+                    sendOnly: sendOnly,
+                    callingEndpoint: thisEndpoint
+                })
+            } catch (ex) {
+                // Do nothing, caller is not expecting a response
             }
-        }
+        } else {
+            try {
+                cmdResults.output = await thisEndpoint.DRPNode.ServiceCmd(cmdPacket.serviceName, cmdPacket.method, cmdPacket.params, {
+                    targetServiceInstanceID: cmdPacket.serviceInstanceID,
+                    limitScope: cmdPacket.limitScope,
+                    callingEndpoint: thisEndpoint
+                });
+            } catch (err) {
+                cmdResults.err = {
+                    message: err.message,
+                    name: err.name,
+                    code: err.code || 500,
+                    source: err.source,
+                    stack: err.stack,
+                }
+            }
 
-        // Reply with results
-        if (typeof cmdPacket.token !== "undefined" && cmdPacket.token !== null) {
+            // Reply with results
             let routeOptions = null;
             if (cmdPacket.routeOptions && cmdPacket.routeOptions.tgtNodeID === thisEndpoint.DRPNode.NodeID) {
                 routeOptions = new DRP_RouteOptions(thisEndpoint.DRPNode.NodeID, cmdPacket.routeOptions.srcNodeID);
             }
             thisEndpoint.SendReply(cmdPacket.token, cmdResults.status, cmdResults.err, cmdResults.output, routeOptions);
         }
-
-        //console.dir(cmdResults);
     }
 
     /**

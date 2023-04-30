@@ -15,6 +15,7 @@ const { DRP_PermissionSet, DRP_Permission, DRP_VirtualFunction, DRP_VirtualFunct
 require('dotenv').config()
 
 let protocol = "ws";
+
 if (process.env.SSL_ENABLED) {
     protocol = "wss";
 }
@@ -79,7 +80,9 @@ myNode.ConnectToMesh(async () => {
 
             if (thisService.DRPNode.Debug) thisService.DRPNode.log(`Authenticate [${authRequest.UserName}] -> SUCCEEDED`);
             thisService.DRPNode.TopicManager.SendToTopic("AuthLogs", authResponse);
-            thisService.DRPNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse });
+            thisService.DRPNode.ServiceCmd("Logger", "writeLog", { serviceName: thisService.serviceName, logData: authResponse }, {
+                sendOnly: true
+            });
         }
         return authResponse;
     };
