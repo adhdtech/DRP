@@ -3,8 +3,6 @@ const DRP_Node = require('drp-mesh').Node;
 const rSageHive = require('drp-service-rsage').Hive;
 const os = require("os");
 
-require('dotenv').config()
-
 let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || "";
 let meshKey = process.env.MESHKEY || "supersecretkey";
