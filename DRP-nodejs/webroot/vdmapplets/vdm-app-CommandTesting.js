@@ -87,7 +87,7 @@
         let myApp = this;
 
         // Split data pane vertically
-        var newPanes = myApp.splitPaneVertical(myApp.windowParts["data"], 100, false, false);
+        let newPanes = myApp.splitPaneVertical(myApp.windowParts["data"], 100, false, false);
         myApp.appVars.topPane = newPanes[0];
         myApp.appVars.hDiv = newPanes[1];
         myApp.appVars.bottomPane = newPanes[2];
@@ -179,6 +179,7 @@ Params: <input class="cmdParams" type="text"/><br>
         });
 
         $(myApp.appVars.cmdSend).on('click', () => {
+            myApp.appFuncs.displayResponse("");
             submitDRPCmd();
         });
 
