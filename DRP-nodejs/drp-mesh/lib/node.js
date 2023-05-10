@@ -1540,6 +1540,8 @@ class DRP_Node extends DRP_Securable {
         let baseErrMsg = "ERROR - ";
         let msgSource = "ServiceCmd";
 
+        if (!execParams) execParams = {};
+
         let targetNodeID = execParams.targetNodeID || null;
         let targetServiceInstanceID = execParams.targetServiceInstanceID || null;
         let useControlPlane = execParams.useControlPlane || false;
@@ -1630,10 +1632,10 @@ class DRP_Node extends DRP_Securable {
                 return;
             }
 
+            let constructorName = localServiceProvider[methodName].constructor.name;
             if (!sendOnly) {
                 let results = null;
                 // See if it's a virtual function before executing
-                let constructorName = localServiceProvider[methodName].constructor.name;
                 if (constructorName === "DRP_VirtualFunction") {
                     results = await localServiceProvider[methodName].Execute(methodParams, callingEndpoint);
                 } else {
