@@ -18,7 +18,7 @@ class Logger extends DRP_Service {
      * @param {string} mongoPw Mongo Password
      */
     constructor(serviceName, drpNode, priority, weight, scope, mongoHost, mongoUser, mongoPw) {
-        super(serviceName, drpNode, "Logger", null, false, priority, weight, drpNode.Zone, scope, null, null, 1);
+        super(serviceName, drpNode, "Logger", null, false, priority, weight, drpNode.Zone, scope, null, ["LoggingErrors"], 1);
         let thisLogger = this;
 
         /** @type {string} Mongo URL */
@@ -40,12 +40,17 @@ class Logger extends DRP_Service {
             writeLog: async (cmdObj) => {
                 let methodParams = ['serviceName', 'logData'];
                 let params = thisLogger.GetParams(cmdObj, methodParams);
+                let writeResult;
 
-                if (!params.serviceName || !params.logData) {
-                    throw new DRP_CmdError("Must provide serviceName, logData");
+                try {
+                    if (!params.serviceName || !params.logData) {
+                        throw new DRP_CmdError("Must provide serviceName, logData");
+                    }
+                    writeResult = await thisLogger.InsertDoc(params.serviceName, params.logData);
+                } catch (ex) {
+                    thisLogger.DRPNode.TopicManager.SendToTopic("LoggingErrors", { err: ex.message, serviceName: params.serviceName, logData: params.logData });
+                    throw (ex);
                 }
-
-                let writeResult = await thisLogger.InsertDoc(params.serviceName, params.logData);
                 return writeResult;
             }
         };
