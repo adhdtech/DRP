@@ -737,8 +737,7 @@ class DRP_Node extends DRP_Securable {
             oReturnObject = thisNode.PathCmd(params, thisNode.GetBaseObj());
         } else {
             oReturnObject = await thisNode.ServiceCmd("DRP", "pathCmd", params, {
-                targetNodeID: targetNodeID,
-                useControlPlane: true
+                targetNodeID: targetNodeID
             });
         }
         return oReturnObject;
