@@ -1,6 +1,6 @@
 'use strict';
 const DRP_Node = require('drp-mesh').Node;
-const DRP_AuthRequest = require('drp-mesh').Auth.DRP_AuthResponse;
+const DRP_AuthRequest = require('drp-mesh').Auth.DRP_AuthRequest;
 const DRP_AuthResponse = require('drp-mesh').Auth.DRP_AuthResponse;
 const DRP_Authenticator = require('drp-mesh').Auth.DRP_Authenticator;
 const os = require("os");

@@ -184,6 +184,35 @@ class DocManager extends DRP_Service {
                 let docData = await thisDocMgr.LoadDoc(params.serviceName, params.docName);
                 return docData;
             },
+            loadDocList: async (cmdObj) => {
+                let methodParams = ['serviceName', 'docNameList'];
+                let params = thisDocMgr.GetParams(cmdObj, methodParams);
+
+                if (!params.serviceName || !params.docNameList) {
+                    throw new DRP_CmdError("Must provide serviceName, docNameList");
+                }
+
+                let docNameList = [];
+                if (Array.isArray(params.docNameList)) {
+                    docNameList = params.docNameList;
+                } else {
+                    docNameList = params.docNameList.split(',');
+                }
+
+                let docDataList = await thisDocMgr.LoadDocList(params.serviceName, docNameList);
+                return docDataList;
+            },
+            loadAllDocs: async (cmdObj) => {
+                let methodParams = ['serviceName'];
+                let params = thisDocMgr.GetParams(cmdObj, methodParams);
+
+                if (!params.serviceName) {
+                    throw new DRP_CmdError("Must provide serviceName");
+                }
+
+                let docDataObj = await thisDocMgr.LoadAllDocs(params.serviceName);
+                return docDataObj;
+            },
             saveDoc: async function (cmdObj) {
                 let methodParams = ['serviceName', 'docName', 'docData', 'parseDates'];
                 let params = thisDocMgr.GetParams(cmdObj, methodParams);
@@ -289,15 +318,15 @@ class DocManager extends DRP_Service {
             returnData = docList.map(collectionProfile => { return collectionProfile["docName"]; });
         } else {
             try {
-            dirData = await fs.readdir(thisDocMgr.basePath + '/' + serviceName);
-            for (var i = 0; i < dirData.length; i++) {
-                let docName = dirData[i];
+                dirData = await fs.readdir(thisDocMgr.basePath + '/' + serviceName);
+                for (var i = 0; i < dirData.length; i++) {
+                    let docName = dirData[i];
 
-                // Make sure this is a file
-                let pathStat = await fs.stat(thisDocMgr.basePath + '/' + serviceName + '/' + docName);
-                if (!pathStat.isDirectory()) {
-                    returnData.push(docName);
-                }
+                    // Make sure this is a file
+                    let pathStat = await fs.stat(thisDocMgr.basePath + '/' + serviceName + '/' + docName);
+                    if (!pathStat.isDirectory()) {
+                        returnData.push(docName);
+                    }
                 }
             } catch (ex) {
                 // Could not read file
@@ -326,6 +355,32 @@ class DocManager extends DRP_Service {
         }
 
         return docData;
+    }
+
+    async LoadDocList(serviceName, docNameList) {
+        let thisDocMgr = this;
+        // Load file data
+        let docDataObj = {};
+
+        // Connect to Service doc collection
+        let serviceDocCollection = thisDocMgr.__DocMgrDB.collection(serviceName);
+        let docObjList = await serviceDocCollection.find({ docName: { "$in": docNameList } }).toArray();
+        docObjList.map(item => { docDataObj[item.docName] = item.docData; });
+
+        return docDataObj;
+    }
+
+    async LoadAllDocs(serviceName, docNameList) {
+        let thisDocMgr = this;
+        // Load file data
+        let docDataObj = {};
+
+        // Connect to Service doc collection
+        let serviceDocCollection = thisDocMgr.__DocMgrDB.collection(serviceName);
+        let docObjList = await serviceDocCollection.find().toArray();
+        docObjList.map(item => { docDataObj[item.docName] = item.docData; });
+
+        return docDataObj;
     }
 
     async SaveDoc(serviceName, docName, docData, parseDates) {

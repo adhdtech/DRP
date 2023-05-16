@@ -737,8 +737,7 @@ class DRP_Node extends DRP_Securable {
             oReturnObject = thisNode.PathCmd(params, thisNode.GetBaseObj());
         } else {
             oReturnObject = await thisNode.ServiceCmd("DRP", "pathCmd", params, {
-                targetNodeID: targetNodeID,
-                useControlPlane: true
+                targetNodeID: targetNodeID
             });
         }
         return oReturnObject;
@@ -1380,62 +1379,89 @@ class DRP_Node extends DRP_Securable {
         }
 
         // If this node is listening, try sending a back connection request to the remote node via the registry
-        if ((!thisNodeEndpoint || !thisNodeEndpoint.IsReady()) && thisNode.ListeningURL) {
+        if (thisNode.ListeningURL) {
 
-            thisNode.log("Sending back request...", true);
-            // Let's try having the Provider call us; send command through Registry
-            try {
-                // Get next hop
-                let nextHopNodeID = thisNode.TopologyTracker.GetNextHop(remoteNodeID);
+            if (thisNodeEndpoint) {
+                // Wait for inbound connection to complete
+                for (let i = 0; i < 50; i++) {
 
-                if (!thisNode.NodeEndpoints[nextHopNodeID]) {
-                    let errMsg = `Error sending back request to ${remoteNodeID}, next hop ${nextHopNodeID} is unavailable`;
-                    thisNode.log(errMsg);
-                    throw errMsg;
+                    // Are we still trying?
+                    if (!thisNode.NodeEndpoints[remoteNodeID] || !thisNode.NodeEndpoints[remoteNodeID].IsReady()) {
+                        // Yes - wait
+                        await thisNode.Sleep(100);
+                    } else {
+                        // No - break the for loop
+                        //thisNode.log(`Waited ${(i*100)}mS for connection from remote node [${remoteNodeID}]`, true);
+                        i = 50;
+                    }
                 }
 
-                if (nextHopNodeID) {
-                    // Found the next hop
-                    thisNode.log(`Sending back request to ${remoteNodeID} to connect to this node @[${thisNode.ListeningURL}], relaying to [${nextHopNodeID}]`, true);
-                    let routeOptions = {
-                        srcNodeID: thisNode.NodeID,
-                        tgtNodeID: remoteNodeID,
-                        routeHistory: []
-                    };
-                    thisNode.NodeEndpoints[nextHopNodeID].SendCmd("DRP", "connectToNode", { "targetNodeID": thisNode.NodeID, "targetURL": thisNode.ListeningURL }, false, null, routeOptions);
+                if (thisNode.NodeEndpoints[remoteNodeID] && thisNode.NodeEndpoints[remoteNodeID].IsReady()) {
+                    return thisNode.NodeEndpoints[remoteNodeID];
                 } else {
-                    // Could not find the next hop
-                    thisNode.log(`Could not find next hop to [${remoteNodeID}]`);
+                    return null;
                 }
-
-            } catch (err) {
-                thisNode.log(`ERR!!!! [${err}]`);
-            }
-
-            this.log("Starting wait...", true);
-            // Wait a few seconds
-            for (let i = 0; i < 50; i++) {
-
-                // Are we still trying?
-                if (!thisNode.NodeEndpoints[remoteNodeID] || !thisNode.NodeEndpoints[remoteNodeID].IsReady()) {
-                    // Yes - wait
-                    await thisNode.Sleep(100);
-                } else {
-                    // No - break the for loop
-                    thisNode.log(`Received back connection from remote node [${remoteNodeID}]`, true);
-                    i = 50;
-                }
-            }
-
-            // If still not successful, delete DRP_NodeClient
-            if (!thisNode.NodeEndpoints[remoteNodeID] || !thisNode.NodeEndpoints[remoteNodeID].IsReady()) {
-                thisNode.log(`Could not open connection to Node [${remoteNodeID}]`, true);
-                if (thisNode.NodeEndpoints[remoteNodeID]) {
-                    delete thisNode.NodeEndpoints[remoteNodeID];
-                }
-                //throw new Error(`Could not get connection to Provider ${remoteNodeID}`);
             } else {
-                thisNodeEndpoint = thisNode.NodeEndpoints[remoteNodeID];
+
+                thisNode.log("Sending back request...", true);
+
+                // Add placeholder, will be overwritten by inbound connection
+                thisNode.NodeEndpoints[remoteNodeID] = new DRP_Endpoint();
+
+                // Let's try having the Provider call us; send command through Registry
+                try {
+                    // Get next hop
+                    let nextHopNodeID = thisNode.TopologyTracker.GetNextHop(remoteNodeID);
+
+                    if (!thisNode.NodeEndpoints[nextHopNodeID]) {
+                        let errMsg = `Error sending back request to ${remoteNodeID}, next hop ${nextHopNodeID} is unavailable`;
+                        thisNode.log(errMsg);
+                        throw errMsg;
+                    }
+
+                    if (nextHopNodeID) {
+                        // Found the next hop
+                        thisNode.log(`Sending back request to ${remoteNodeID} to connect to this node @[${thisNode.ListeningURL}], relaying to [${nextHopNodeID}]`, true);
+                        let routeOptions = {
+                            srcNodeID: thisNode.NodeID,
+                            tgtNodeID: remoteNodeID,
+                            routeHistory: []
+                        };
+                        thisNode.NodeEndpoints[nextHopNodeID].SendCmd("DRP", "connectToNode", { "targetNodeID": thisNode.NodeID, "targetURL": thisNode.ListeningURL }, false, null, routeOptions);
+                    } else {
+                        // Could not find the next hop
+                        thisNode.log(`Could not find next hop to [${remoteNodeID}]`);
+                    }
+
+                } catch (err) {
+                    thisNode.log(`ERR!!!! [${err}]`);
+                }
+
+                this.log("Starting wait...", true);
+                // Wait a few seconds
+                for (let i = 0; i < 50; i++) {
+
+                    // Are we still trying?
+                    if (!thisNode.NodeEndpoints[remoteNodeID] || !thisNode.NodeEndpoints[remoteNodeID].IsReady()) {
+                        // Yes - wait
+                        await thisNode.Sleep(100);
+                    } else {
+                        // No - break the for loop
+                        thisNode.log(`Received back connection from remote node [${remoteNodeID}]`, true);
+                        i = 50;
+                    }
+                }
+
+                // If still not successful, delete DRP_NodeClient
+                if (!thisNode.NodeEndpoints[remoteNodeID] || !thisNode.NodeEndpoints[remoteNodeID].IsReady()) {
+                    thisNode.log(`Could not open connection to Node [${remoteNodeID}]`, true);
+                    if (thisNode.NodeEndpoints[remoteNodeID]) {
+                        delete thisNode.NodeEndpoints[remoteNodeID];
+                    }
+                    //throw new Error(`Could not get connection to Provider ${remoteNodeID}`);
+                } else {
+                    thisNodeEndpoint = thisNode.NodeEndpoints[remoteNodeID];
+                }
             }
         }
 
@@ -1512,6 +1538,8 @@ class DRP_Node extends DRP_Securable {
         let thisNode = this;
         let baseErrMsg = "ERROR - ";
         let msgSource = "ServiceCmd";
+
+        if (!execParams) execParams = {};
 
         let targetNodeID = execParams.targetNodeID || null;
         let targetServiceInstanceID = execParams.targetServiceInstanceID || null;
@@ -1603,10 +1631,10 @@ class DRP_Node extends DRP_Securable {
                 return;
             }
 
+            let constructorName = localServiceProvider[methodName].constructor.name;
             if (!sendOnly) {
                 let results = null;
                 // See if it's a virtual function before executing
-                let constructorName = localServiceProvider[methodName].constructor.name;
                 if (constructorName === "DRP_VirtualFunction") {
                     results = await localServiceProvider[methodName].Execute(methodParams, callingEndpoint);
                 } else {
