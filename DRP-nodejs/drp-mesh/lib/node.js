@@ -65,7 +65,7 @@ class DRP_NodeDeclaration {
     /**
      * 
      * @param {string} nodeID Node ID
-     * @param {string[]} nodeRoles Functional Roles ['Registry','Broker','Provider','Producer','Logger']
+     * @param {string[]} nodeRoles Functional Roles ['Registry','Broker','Portal','Provider','Producer','Sidecar','Logger']
      * @param {string} hostID Host Identifier
      * @param {string} nodeURL Listening URL (optional)
      * @param {string} domainName Domain Name
@@ -2389,8 +2389,14 @@ class DRP_Node extends DRP_Securable {
 
     IsPortal() {
         let thisNode = this;
-        let isBroker = thisNode.NodeRoles.indexOf("Portal") >= 0;
-        return isBroker;
+        let isPortal = thisNode.NodeRoles.indexOf("Portal") >= 0;
+        return isPortal;
+    }
+
+    IsSidecar() {
+        let thisNode = this;
+        let isSidecar = thisNode.NodeRoles.indexOf("Sidecar") >= 0;
+        return isSidecar;
     }
 
     /**
