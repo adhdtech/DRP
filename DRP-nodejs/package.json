@@ -31,6 +31,7 @@
     "drp-service-logger": "./drp-service-logger",
     "drp-service-netscaler": "./drp-service-netscaler",
     "drp-service-rsage": "./drp-service-rsage",
+    "drp-service-sidecar": "./drp-service-sidecar",
     "drp-service-test": "./drp-service-test",
     "drp-swaggerui": "./drp-swaggerui"
   }

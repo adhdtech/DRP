@@ -1,0 +1,19 @@
+{
+  "name": "drp-service-sidecar",
+  "version": "1.0.0",
+  "description": "DRP Sidecar Service",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "drp",
+    "service",
+    "sidecar"
+  ],
+  "author": "Pete Brown <jpbrown@adhdtech.com>",
+  "license": "ISC",
+  "dependencies": {
+    "drp-mesh": "*"
+  }
+}

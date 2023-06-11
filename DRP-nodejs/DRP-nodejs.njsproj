@@ -8,17 +8,8 @@
     <ScriptArguments>
     </ScriptArguments>
     <NodeExeArguments>--max-old-space-size=4096</NodeExeArguments>
-    <Environment>REGISTRYURL=ws://localhost:8082
-DOMAINNAME=mydomain.xyz
-MESHKEY=supersecretkey
-DEBUG=true
-TESTMODE=false
-USESWAGGER=false
-ZONENAME=zone1
-AUTHENTICATORSERVICE=TestAuthenticator
-SSL_ENABLED=
-SSL_KEYFILE=C:\Temp\privkey.pem
-SSL_CRTFILE=C:\Temp\fullchain.pem</Environment>
+    <Environment>
+    </Environment>
     <NodejsPort>8080</NodejsPort>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
@@ -90,6 +81,8 @@ SSL_CRTFILE=C:\Temp\fullchain.pem</Environment>
     <Content Include="drp-service-rsage\lib\hive.js" />
     <Content Include="drp-service-rsage\lib\vdm.js" />
     <Content Include="drp-service-rsage\package.json" />
+    <Content Include="drp-service-sidecar\index.js" />
+    <Content Include="drp-service-sidecar\package.json" />
     <Content Include="drp-service-test\index.js" />
     <Content Include="drp-service-test\package.json" />
     <Content Include="drp-swaggerui\index.js" />
@@ -179,6 +172,7 @@ SSL_CRTFILE=C:\Temp\fullchain.pem</Environment>
     <Folder Include="drp-service-netscaler\" />
     <Folder Include="drp-service-rsage\" />
     <Folder Include="drp-service-rsage\lib\" />
+    <Folder Include="drp-service-sidecar\" />
     <Folder Include="drp-service-test\" />
     <Folder Include="drp-swaggerui\" />
     <Folder Include="jsondocs\" />

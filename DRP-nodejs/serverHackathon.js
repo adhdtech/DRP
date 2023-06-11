@@ -75,7 +75,7 @@ myNode.ConnectToMesh(async () => {
     let myVDMServer = new vdmServer("VDM", myNode, webRoot, "vdmapplets");
 
     myNode.AddService(myVDMServer);
-    myNode.EnableREST("/Mesh", "Mesh");
+    myNode.EnableREST(myNode.WebServer, "/Mesh", "Mesh");
 
     // Add another service for demo
     let myService = new DocMgr("DocMgr", myNode, 10, 10, "global", "jsondocs", null, null, null);

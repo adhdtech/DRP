@@ -141,14 +141,6 @@ class DRP_Node extends DRP_Securable {
             this.ListeningURL = this.WebServer.config.ListeningURL;
         }
 
-        // If this is a sidecar, set up a local listener
-        if (this.WebServerConfig && this.IsSidecar()) {
-            this.WebServer = new DRP_WebServer(webServerConfig);
-            this.WebServer.start().then(() => {
-                this.EnableREST("/Mesh", "Mesh", false);
-            });
-        }
-
         // By default, Registry nodes are "connected" to the Control Plane and non-Registry nodes aren't
         this.isConnectedToControlPlane = thisNode.IsRegistry();
 
@@ -368,10 +360,10 @@ class DRP_Node extends DRP_Securable {
      * @param {boolean} writeToLogger If true, output REST Logs to Logger
      * @returns {number} Failure code
      */
-    EnableREST(restRoute, basePath, writeToLogger) {
+    EnableREST(webServer, restRoute, basePath, writeToLogger) {
         let thisNode = this;
 
-        if (!thisNode.WebServer || !thisNode.WebServer.expressApp) return 1;
+        if (!webServer || !webServer.expressApp) return 1;
 
         // Set Consumer Token Cleanup Interval - 60 seconds
         let checkFrequencyMs = 60000;
@@ -566,11 +558,11 @@ class DRP_Node extends DRP_Securable {
             }
         };
 
-        thisNode.WebServer.expressApp.all(`${restRoute}`, nodeRestHandler);
-        thisNode.WebServer.expressApp.all(`${restRoute}/*`, nodeRestHandler);
+        webServer.expressApp.all(`${restRoute}`, nodeRestHandler);
+        webServer.expressApp.all(`${restRoute}/*`, nodeRestHandler);
 
         // Get Token
-        thisNode.WebServer.expressApp.post('/token', async (req, res) => {
+        webServer.expressApp.post('/token', async (req, res) => {
             // Get an auth token
             let username = req.body.username;
             let password = req.body.password;
