@@ -269,3 +269,4 @@ DRP-nodejs/bin/
 /DRP-nodejs/drp-mesh/package-lock.json
 DRP-nodejs/package-lock.json
 /DRP-go/drpclient.x
+/DRP-nodejs/.env

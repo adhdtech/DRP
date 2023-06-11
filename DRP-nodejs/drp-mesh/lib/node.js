@@ -128,6 +128,11 @@ class DRP_Node extends DRP_Securable {
         this.ListeningURL = null;
         this.PendingRegistryConnections = new Set();
 
+        /** @type{string[]} */
+        this.NodeRoles = nodeRoles || [];
+        /** @type{string} */
+        this.WebProxyURL = null;
+
         // If we have a web server config, start listening
         if (this.WebServerConfig && this.WebServerConfig.ListeningURL) {
             this.WebServer = new DRP_WebServer(webServerConfig);
@@ -136,10 +141,13 @@ class DRP_Node extends DRP_Securable {
             this.ListeningURL = this.WebServer.config.ListeningURL;
         }
 
-        /** @type{string[]} */
-        this.NodeRoles = nodeRoles || [];
-        /** @type{string} */
-        this.WebProxyURL = null;
+        // If this is a sidecar, set up a local listener
+        if (this.WebServerConfig && this.IsSidecar()) {
+            this.WebServer = new DRP_WebServer(webServerConfig);
+            this.WebServer.start().then(() => {
+                this.EnableREST("/Mesh", "Mesh", false);
+            });
+        }
 
         // By default, Registry nodes are "connected" to the Control Plane and non-Registry nodes aren't
         this.isConnectedToControlPlane = thisNode.IsRegistry();
@@ -438,7 +446,11 @@ class DRP_Node extends DRP_Securable {
                 xapikey = req.headers['x-gitlab-token']
             }
 
-            if (xapikey) {
+            if (thisNode.IsSidecar()) {
+                // No auth required from client, pass through sidecar creds
+                authInfo.type = 'sidecar';
+                authInfo.value = null;
+            } else if (xapikey) {
                 authInfo.type = 'key';
                 authInfo.value = xapikey;
             } else if (xapitoken) {

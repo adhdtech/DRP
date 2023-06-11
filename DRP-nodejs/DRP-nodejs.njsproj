@@ -44,6 +44,7 @@ SSL_CRTFILE=C:\Temp\fullchain.pem</Environment>
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include=".env" />
     <Content Include="activation.json" />
     <Content Include="cucm-sql-async\index.js" />
     <Content Include="cucm-sql-async\LICENSE" />
@@ -106,6 +107,7 @@ SSL_CRTFILE=C:\Temp\fullchain.pem</Environment>
     <Content Include="drpProvider-Test-Authenticator.js" />
     <Content Include="drpProvider-Webex.js" />
     <Content Include="drpProvider-Test-PublicDirectory.js" />
+    <Content Include="drpSidecar.js" />
     <Content Include="jsondocs\SomeSvc1\test.json" />
     <Content Include="drpBroker.js" />
     <Content Include="package.yaml" />
