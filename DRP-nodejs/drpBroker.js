@@ -1,12 +1,19 @@
 'use strict';
 const DRP_Node = require('drp-mesh').Node;
+const DRP_WebServerConfig = require('drp-mesh').WebServer.DRP_WebServerConfig;
 const vdmServer = require('drp-service-rsage').VDM;
 const os = require("os");
 
 require('dotenv').config()
 
+let protocol = "ws";
+if (process.env.SSL_ENABLED) {
+    protocol = "wss";
+}
+let drpWSRoute = "";
 let port = process.env.PORT || 8082;
 let listeningName = process.env.LISTENINGNAME || os.hostname();
+let listeningURL = process.env.LISTENINGURL || `${protocol}://${listeningName}:${port}${drpWSRoute}`;
 let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || "";
 let meshKey = process.env.MESHKEY || "supersecretkey";
@@ -24,16 +31,10 @@ let weight = process.env.WEIGHT || null;
 let scope = process.env.SCOPE || null;
 let writeToLogger = process.env.WRITETOLOGGER || false;
 
-let protocol = "ws";
-if (process.env.SSL_ENABLED) {
-    protocol = "wss";
-}
-
-let drpWSRoute = "";
-
 // Set config
+/** @type {DRP_WebServerConfig} */
 let myServerConfig = {
-    "ListeningURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
+    "ListeningURL": listeningURL,
     "Port": port,
     "SSLEnabled": process.env.SSL_ENABLED || false,
     "SSLKeyFile": process.env.SSL_KEYFILE || "",

@@ -10,9 +10,11 @@ let protocol = "ws";
 if (isTrue(process.env.SSL_ENABLED)) {
     protocol = "wss";
 }
+let drpWSRoute = "";
 let isListening = isFalse(process.env.ISLISTENING);
 let port = process.env.PORT || 8081;
 let listeningName = process.env.LISTENINGNAME || os.hostname();
+let listeningURL = process.env.LISTENINGURL || `${protocol}://${listeningName}:${port}${drpWSRoute}`;
 let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || "";
 let meshKey = process.env.MESHKEY || "supersecretkey";
@@ -39,7 +41,7 @@ let myWebServerConfig = null;
 if (isListening) {
     // Set config
     myWebServerConfig = {
-        "ListeningURL": `${protocol}://${listeningName}:${port}${drpWSRoute}`,
+        "ListeningURL": listeningURL,
         "Port": port,
         "SSLEnabled": isTrue(process.env.SSL_ENABLED),
         "SSLKeyFile": process.env.SSL_KEYFILE || "",
