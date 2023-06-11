@@ -14,11 +14,11 @@ let testMode = process.env.TESTMODE || false;
 
 let sidecarIP = process.env.SIDECARIP || "127.0.0.1";
 let sidecarPort = process.env.SIDECARPORT || "8080";
-let sidecarBaseURL = process.env.SIDECARBASEURL || "http://127.0.0.1:8081/";
+let targetBaseURL = process.env.TARGETBASEURL || "http://127.0.0.1:8081/";
 
 // Create Registry
 console.log(`Starting DRP Node`);
-let myNode = new DRP_Node(["Sidecar"], hostID, domainName, meshKey, zoneName);
+let myNode = new DRP_Node(["Provider","Sidecar"], hostID, domainName, meshKey, zoneName);
 myNode.Debug = debug;
 myNode.TestMode = testMode;
 myNode.ConnectToMesh(async () => {
@@ -26,7 +26,7 @@ myNode.ConnectToMesh(async () => {
     let mySidecar = new DRP_SidecarService("TestSidecar", myNode, 10, 10, "global", {
         "BindingIP": sidecarIP,
         "Port": sidecarPort,
-        "TargetBaseURL": sidecarBaseURL
+        "TargetBaseURL": targetBaseURL
     });
     myNode.AddService(mySidecar);
 });
