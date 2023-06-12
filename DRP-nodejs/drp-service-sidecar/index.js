@@ -9,7 +9,7 @@ const axios = require('axios');
 // Create test service class
 class SidecarService extends DRP_Service {
     constructor(serviceName, drpNode, priority, weight, scope, sidecarConfig) {
-        super(serviceName, drpNode, "Sidecar", null, false, priority, weight, drpNode.Zone, scope, null, ["RESTLogs"], 1);
+        super(serviceName, drpNode, "Sidecar", null, false, priority, weight, drpNode.Zone, scope, null, ["RESTLogs","WebhookLogs"], 1);
         let thisService = this;
 
         /** @type DRP_Node */
@@ -106,19 +106,31 @@ class SidecarService extends DRP_Service {
                     if (streamPacket.payload && streamPacket.payload.Route) streamPacket.payload.Route.push(thisNode.NodeID);
 
                     try {
-                        await thisService.__restAgent.put(params.webhook, streamPacket.payload);
+                        let response = await thisService.__restAgent.put(params.webhook, streamPacket.payload);
                         errCount = 0;
+                        let logPacket = {
+                            code: response.status,
+                            baseURL: response.config.baseURL,
+                            method: response.config.method,
+                            url: response.config.url,
+                            headers: response.config.headers
+                        }
+                        thisNode.TopicManager.SendToTopic("WebhookLogs", logPacket);
+                        if (thisNode.Debug) {
+                            console.dir(logPacket);
+                        }
                     } catch (ex) {
                         errCount++;
-                        let errPacket = {
-                            path: ex.request._currentUrl,
+                        let logPacket = {
                             code: ex.code,
-                            header: ex.request._options.headers
-
+                            baseURL: ex.config.baseURL,
+                            method: ex.config.method,
+                            url: ex.config.url,
+                            headers: ex.config.headers
                         };
-                        thisNode.TopicManager.SendToTopic("Webhooks", errPacket);
+                        thisNode.TopicManager.SendToTopic("WebhookLogs", logPacket);
                         if (thisNode.Debug) {
-                            console.dir(errPacket);
+                            console.dir(logPacket);
                         }
 
                         // See if the error threshold has been exceeded
