@@ -11,6 +11,9 @@ class SidecarService extends DRP_Service {
         super(serviceName, drpNode, "Sidecar", null, false, priority, weight, drpNode.Zone, scope, null, ["RESTLogs"], 1);
         let thisService = this;
 
+        /** @type DRP_Node */
+        let thisNode = drpNode;
+
         // If this is a sidecar, set up a local listener
         this.WebServer = new DRP_WebServer(sidecarConfig);
         this.WebServer.start().then(() => {
@@ -40,6 +43,65 @@ class SidecarService extends DRP_Service {
                     params: params.params
                 });
                 return returnObj.data;
+            },
+            subscribeWebhook: async (cmdObj) => {
+                // Local service uses this to push streams to webhooks
+                let params = thisService.GetParams(cmdObj, ['topicName', 'scope', 'webhook']);
+                if (!params.topicName || !params.scope) {
+                    throw new DRP_CmdError(`Must specify topicName,scope`, DRP_ErrorCode.BADREQUEST, "subscribe");
+                }
+
+                // Find a relay
+                let relayList = await thisNode.ToplogyTracker.FindRelaysInZone(thisNode.Zone);
+                if (!relayList.length) {
+                    throw new DRP_CmdError(`No subscription relays found`, DRP_ErrorCode.NOTFOUND, "subscribe");
+                }
+
+                let targetNodeID = null;
+
+                // Evaluate relays
+                for (let thisRecord of relayList) {
+                    // See if localNode is in list
+                    if (thisRecord.NodeID === thisNode.NodeID) {
+                        targetNodeID = thisNode.NodeID;
+                        break;
+                    }
+                }
+                if (!targetNodeID) {
+                    // See if a dedicated Relay is in list
+                    if (thisRecord.NodeRoles.length === 1) {
+                        targetNodeID = thisNode.NodeID;
+                        break;
+                    }
+                }
+                
+                if (!targetNodeID) {
+                    // See if the connected Node is in list
+                }
+                
+                if (!targetNodeID) {
+                    // Pick the first one
+                    let targetNodeRecord = relayList.shift();
+                    targetNodeID = targetNodeRecord.NodeID;
+                }
+
+                let streamToken = await thisNode.SubscribeRemote(targetNodeID, params.topicName, params.scope, async (streamPacket) => {
+                    // TODO - use streamPacket.status to see if this is the last packet?
+
+                    // If we're relaying a message from a topic, add the local NodeID to the route
+                    if (streamPacket.payload && streamPacket.payload.Route) streamPacket.payload.Route.push(thisNode.NodeID);
+
+                    try {
+                        await thisService.__restAgent.put(params.webhook, streamPacket.payload);
+                    } catch (ex) {
+                        thisNode.TopicManager.SendToTopic("Webhooks", ex);
+                        if (thisNode.Debug) {
+                            console.dir(ex);
+                        }
+                    }
+                });
+
+                return streamToken;
             }
         };
     }

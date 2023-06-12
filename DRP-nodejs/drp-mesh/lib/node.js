@@ -2397,6 +2397,12 @@ class DRP_Node extends DRP_Securable {
         return isPortal;
     }
 
+    IsRelay() {
+        let thisNode = this;
+        let isRelay = thisNode.NodeRoles.indexOf("Relay") >= 0;
+        return isRelay;
+    }
+
     IsSidecar() {
         let thisNode = this;
         let isSidecar = thisNode.NodeRoles.indexOf("Sidecar") >= 0;
@@ -2674,8 +2680,8 @@ class DRP_Node extends DRP_Securable {
         });
 
         targetEndpoint.RegisterMethod("subscribe", async function (params, srcEndpoint, token) {
-            // Only allow if the scope is local or this Node is a Broker
-            if (params.scope !== "local" && !thisNode.IsBroker() && !thisNode.IsPortal()) return null;
+            // Only allow if the scope is local or this Node is a Broker|Portal|Relay
+            if (params.scope !== "local" && !thisNode.IsBroker() && !thisNode.IsPortal() && !thisNode.IsRelay()) return null;
 
             let sendFunction = async (message) => {
                 // Returns send status; error if not null
@@ -2759,10 +2765,11 @@ class DRP_Node extends DRP_Securable {
      * 
      * @param {string} targetNodeID Target Node ID
      * @param {string} topicName Topic Name
+     * @param {string} scope Scope
      * @param {function} streamProcessor Function for processing stream data
      * @returns {string} Subscription token
      */
-    async SubscribeRemote(targetNodeID, topicName, streamProcessor) {
+    async SubscribeRemote(targetNodeID, topicName, scope, streamProcessor) {
         let thisNode = this;
         let returnVal = null;
         // Subscribe to a remote topic
@@ -2775,7 +2782,7 @@ class DRP_Node extends DRP_Securable {
         let sourceStreamToken = thisNodeEndpoint.AddReplyHandler(streamProcessor);
 
         // Await for command from source node
-        let successful = await thisNodeEndpoint.SendCmd("DRP", "subscribe", { "topicName": topicName, "streamToken": sourceStreamToken, "scope": "local" }, true, null);
+        let successful = await thisNodeEndpoint.SendCmd("DRP", "subscribe", { "topicName": topicName, "streamToken": sourceStreamToken, "scope": scope }, true, null);
         if (successful) returnVal = sourceStreamToken;
         return returnVal;
     }
@@ -3955,6 +3962,33 @@ class DRP_TopologyTracker {
         }
         return registryList;
     }
+
+    /**
+     * Returns list of NodeTable records for Relays in specified zone
+     * @param {string} zoneName
+     * @returns{DRP_NodeTableEntry[]}
+     */
+    FindRelaysInZone(zoneName) {
+        let thisTopologyTracker = this;
+        if (zoneName && typeof zoneName === "object" && zoneName.pathList) {
+            // This was called from the CLI
+            let remainingChildPath = zoneName.pathList;
+            if (remainingChildPath && remainingChildPath.length > 0) {
+                zoneName = remainingChildPath.shift();
+            } else {
+                zoneName = null;
+            }
+        }
+        let relayList = [];
+        let nodeIDList = Object.keys(thisTopologyTracker.NodeTable);
+        for (let i = 0; i < nodeIDList.length; i++) {
+            let checkNodeEntry = thisTopologyTracker.NodeTable[nodeIDList[i]];
+            if (checkNodeEntry.IsRelay() && checkNodeEntry.Zone === zoneName) {
+                relayList.push(checkNodeEntry);
+            }
+        }
+        return relayList;
+    }
 }
 
 class DRP_TrackingTableEntry {
@@ -4030,6 +4064,12 @@ class DRP_NodeTableEntry extends DRP_TrackingTableEntry {
         let thisNodeTableEntry = this;
         let isBroker = thisNodeTableEntry.Roles.indexOf("Broker") >= 0;
         return isBroker;
+    }
+
+    IsRelay() {
+        let thisNodeTableEntry = this;
+        let isRelay = thisNodeTableEntry.Roles.indexOf("Relay") >= 0;
+        return isRelay;
     }
 
     UsesProxy(checkNodeID) {
@@ -4458,7 +4498,7 @@ class DRP_SubscriptionManager {
                 thisSubMgr.DRPNode.UnsubscribeRemote(newRemoteSubscription.NodeID, newRemoteSubscription.StreamToken);
             });
             thisSubMgr.RemoteSubscriptions[remoteSubscriptionID] = newRemoteSubscription;
-            let streamToken = await thisSubMgr.DRPNode.SubscribeRemote(targetNodeID, topicName, (streamPacket) => {
+            let streamToken = await thisSubMgr.DRPNode.SubscribeRemote(targetNodeID, topicName, "local", (streamPacket) => {
                 // TODO - use streamPacket.status to see if this is the last packet?
 
                 // If we're relaying a message from a topic, add the local NodeID to the route

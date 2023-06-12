@@ -33,7 +33,7 @@ let myServerConfig = {
 
 // Create Registry
 console.log(`Starting DRP Node`);
-let myNode = new DRP_Node(["Registry"], hostID, domainName, meshKey, zoneName, myServerConfig, drpWSRoute);
+let myNode = new DRP_Node(["Registry","Relay"], hostID, domainName, meshKey, zoneName, myServerConfig, drpWSRoute);
 myNode.Debug = debug;
 myNode.TestMode = testMode;
 myNode.ConnectToMesh();
