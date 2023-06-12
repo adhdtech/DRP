@@ -3,6 +3,7 @@
 const DRP_Node = require('drp-mesh').Node;
 const DRP_Service = require('drp-mesh').Service;
 const { DRP_WebServer, DRP_WebServerConfig } = require('drp-mesh').WebServer;
+const { DRP_Packet, DRP_Cmd, DRP_Reply, DRP_Reply_Error, DRP_RouteOptions, DRP_CmdError, DRP_ErrorCode } = require('drp-mesh').Packet;
 const axios = require('axios');
 
 // Create test service class
@@ -29,6 +30,8 @@ class SidecarService extends DRP_Service {
             proxy: false
         });
 
+        thisService.StreamRelayNodeID = null;
+
         // Need to come up with a way to take a legacy web service's OpenAPI doc and translate that to DRP calls
 
         // Define global methods
@@ -46,15 +49,15 @@ class SidecarService extends DRP_Service {
             },
             subscribeWebhook: async (cmdObj) => {
                 // Local service uses this to push streams to webhooks
-                let params = thisService.GetParams(cmdObj, ['topicName', 'scope', 'webhook']);
-                if (!params.topicName || !params.scope) {
-                    throw new DRP_CmdError(`Must specify topicName,scope`, DRP_ErrorCode.BADREQUEST, "subscribe");
+                let params = thisService.GetParams(cmdObj, ['topicName', 'scope', 'webhook', 'maxErrors']);
+                if (!params.topicName || !params.scope || !params.webhook) {
+                    throw new DRP_CmdError(`Must specify topicName,scope,webhook`, DRP_ErrorCode.BADREQUEST, "subscribeWebhook");
                 }
 
                 // Find a relay
-                let relayList = await thisNode.ToplogyTracker.FindRelaysInZone(thisNode.Zone);
+                let relayList = await thisNode.TopologyTracker.FindRelaysInZone(thisNode.Zone);
                 if (!relayList.length) {
-                    throw new DRP_CmdError(`No subscription relays found`, DRP_ErrorCode.NOTFOUND, "subscribe");
+                    throw new DRP_CmdError(`No subscription relays found`, DRP_ErrorCode.NOTFOUND, "subscribeWebhook");
                 }
 
                 let targetNodeID = null;
@@ -68,21 +71,33 @@ class SidecarService extends DRP_Service {
                     }
                 }
                 if (!targetNodeID) {
-                    // See if a dedicated Relay is in list
-                    if (thisRecord.NodeRoles.length === 1) {
-                        targetNodeID = thisNode.NodeID;
+                    for (let thisRecord of relayList) {
+                        // See if a dedicated Relay is in list
+                        if (thisRecord.Roles.length === 1) {
+                            targetNodeID = thisNode.NodeID;
+                        }
                     }
                 }
-                
+
                 if (!targetNodeID) {
                     // See if the connected Node is in list
                 }
-                
+
                 if (!targetNodeID) {
                     // Pick the first one
                     let targetNodeRecord = relayList.shift();
                     targetNodeID = targetNodeRecord.NodeID;
                 }
+
+                thisService.StreamRelayNodeID = targetNodeID;
+
+                let maxErrors = 1;
+                if (params.maxErrors) {
+                    maxErrors = parseInt(params.maxErrors);
+                }
+
+                let errCount = 0;
+                let unsubscribed = false;
 
                 let streamToken = await thisNode.SubscribeRemote(targetNodeID, params.topicName, params.scope, async (streamPacket) => {
                     // TODO - use streamPacket.status to see if this is the last packet?
@@ -92,15 +107,47 @@ class SidecarService extends DRP_Service {
 
                     try {
                         await thisService.__restAgent.put(params.webhook, streamPacket.payload);
+                        errCount = 0;
                     } catch (ex) {
-                        thisNode.TopicManager.SendToTopic("Webhooks", ex);
+                        errCount++;
+                        let errPacket = {
+                            path: ex.request._currentUrl,
+                            code: ex.code,
+                            header: ex.request._options.headers
+
+                        };
+                        thisNode.TopicManager.SendToTopic("Webhooks", errPacket);
                         if (thisNode.Debug) {
-                            console.dir(ex);
+                            console.dir(errPacket);
+                        }
+
+                        // See if the error threshold has been exceeded
+                        if (errCount >= maxErrors && !unsubscribed) {
+                            if (thisNode.Debug) {
+                                console.log(`Sending unsubscribe to NodeID ${targetNodeID} for streamToken ${streamToken}`);
+                            }
+                            unsubscribed = true;
+                            thisNode.UnsubscribeRemote(targetNodeID, streamToken);
                         }
                     }
                 });
 
                 return streamToken;
+            },
+            unsubscribeWebhook: async (cmdObj) => {
+                // Local service uses this to push streams to webhooks
+                let params = thisService.GetParams(cmdObj, ['streamToken']);
+                if (!params.streamToken) {
+                    throw new DRP_CmdError(`Must specify streamToken`, DRP_ErrorCode.BADREQUEST, "unsubscribeWebhook");
+                }
+
+                if (!thisService.StreamRelayNodeID) {
+                    throw new DRP_CmdError(`No subscription relay`, DRP_ErrorCode.NOTFOUND, "unsubscribeWebhook");
+                }
+
+                thisNode.UnsubscribeRemote(thisService.StreamRelayNodeID, params.streamToken);
+
+                return "Unsubscribed";
             }
         };
     }
