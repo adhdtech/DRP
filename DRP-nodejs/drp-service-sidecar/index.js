@@ -71,7 +71,6 @@ class SidecarService extends DRP_Service {
                     // See if a dedicated Relay is in list
                     if (thisRecord.NodeRoles.length === 1) {
                         targetNodeID = thisNode.NodeID;
-                        break;
                     }
                 }
                 
