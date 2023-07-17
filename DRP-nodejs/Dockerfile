@@ -15,6 +15,7 @@ WORKDIR /app
 COPY cucm-sql-async cucm-sql-async
 COPY drp-mesh drp-mesh
 COPY drp-swaggerui drp-swaggerui
+COPY drp-service-sidecar drp-service-sidecar
 COPY drp-service-cache drp-service-cache
 COPY drp-service-logger drp-service-logger
 COPY drp-service-docmgr drp-service-docmgr
@@ -31,6 +32,7 @@ COPY drpRegistry.js .
 COPY drpBroker.js .
 COPY drpConsumer.js .
 COPY drpLogger.js .
+COPY drpSidecar.js .
 COPY drpProvider-Cache.js .
 COPY drpProvider-DocMgr.js .
 COPY drpProvider-Hive.js .
