@@ -32,6 +32,7 @@ class SidecarService extends DRP_Service {
 
         thisService.StreamRelayNodeID = null;
         thisService.openAPIDoc = null;
+        thisService.config = sidecarConfig;
 
         if (sidecarConfig.OpenAPIDocPath) {
             (async () => {
