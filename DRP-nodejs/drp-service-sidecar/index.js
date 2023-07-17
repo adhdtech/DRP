@@ -31,11 +31,20 @@ class SidecarService extends DRP_Service {
         });
 
         thisService.StreamRelayNodeID = null;
+        thisService.openAPIDoc = null;
+
+        if (sidecarConfig.OpenAPIDocPath) {
+            (async () => {
+                let responseObj = await thisService.__restAgent.get(sidecarConfig.OpenAPIDocPath);
+                thisService.openAPIDoc = responseObj.data;
+            })()
+        }
 
         // Need to come up with a way to take a legacy web service's OpenAPI doc and translate that to DRP calls
 
         // Define global methods
         this.ClientCmds = {
+            //getOpenAPIDoc: async function (cmdObj) { return openAPIDoc; },
             call: async (cmdObj) => {
                 // Remote services use this to make a call to the local legacy web service
                 let params = thisService.GetParams(cmdObj, ['urlmethod', 'path', 'params']);
@@ -162,6 +171,12 @@ class SidecarService extends DRP_Service {
                 return "Unsubscribed";
             }
         };
+
+        thisService.REST = async (cmdObj) => {
+            // Need to translate path, cmdObj verbs and params to callParams
+            let callParams = {};
+            return await thisService.ClientCmds.call(callParams);
+        }
     }
 }
 

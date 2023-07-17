@@ -26,7 +26,8 @@ myNode.ConnectToMesh(async () => {
     let mySidecar = new DRP_SidecarService("TestSidecar", myNode, 10, 10, "global", {
         "BindingIP": sidecarIP,
         "Port": sidecarPort,
-        "TargetBaseURL": targetBaseURL
+        "TargetBaseURL": targetBaseURL,
+        "OpenAPIDocPath": null
     });
     myNode.AddService(mySidecar);
 });
