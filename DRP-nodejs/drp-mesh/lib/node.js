@@ -412,148 +412,169 @@ class DRP_Node extends DRP_Securable {
          * @param {function} next Next step
          */
         let nodeRestHandler = async function (req, res, next) {
-            // Get Auth Key
-            let authInfo = {
-                type: null,
-                value: null
-            };
 
-            // Check for authInfo:
-            //   x-api-key - apps (static)
-            //   x-api-token - users (dynamic)
-            let xapikey = null;
-            let xapitoken = null;
+            OUTERTRY:
+            try {
+                // Get Auth Key
+                let authInfo = {
+                    type: null,
+                    value: null
+                };
 
-            if (req.headers['x-api-key']) {
-                xapikey = req.headers['x-api-key'];
-            } else if (req.query['x-api-key']) {
-                xapikey = req.query['x-api-key'];
-            } else if (req.headers.cookie && /^x-api-key=.*$/.test(req.headers.cookie)) {
-                xapikey = req.headers.cookie.match(/^x-api-key=(.*)$/)[1];
-            } else if (req.headers['x-api-token']) {
-                xapitoken = req.headers['x-api-token'];
-            } else if (req.headers.cookie && /^x-api-token=.*$/.test(req.headers.cookie)) {
-                xapitoken = req.headers.cookie.match(/^x-api-token=(.*)$/)[1];
-            } else if (req.headers['x-gitlab-token']) {
-                xapikey = req.headers['x-gitlab-token']
-            }
+                // Check for authInfo:
+                //   x-api-key - apps (static)
+                //   x-api-token - users (dynamic)
+                let xapikey = null;
+                let xapitoken = null;
 
-            if (thisNode.IsSidecar()) {
-                // No auth required from client, pass through sidecar creds
-                authInfo.type = 'sidecar';
-                authInfo.value = null;
-            } else if (xapikey) {
-                authInfo.type = 'key';
-                authInfo.value = xapikey;
-            } else if (xapitoken) {
-                authInfo.type = 'token';
-                authInfo.value = xapitoken;
+                if (req.headers['x-api-key']) {
+                    xapikey = req.headers['x-api-key'];
+                } else if (req.query['x-api-key']) {
+                    xapikey = req.query['x-api-key'];
+                } else if (req.headers.cookie && /^x-api-key=.*$/.test(req.headers.cookie)) {
+                    xapikey = req.headers.cookie.match(/^x-api-key=(.*)$/)[1];
+                } else if (req.headers['x-api-token']) {
+                    xapitoken = req.headers['x-api-token'];
+                } else if (req.headers.cookie && /^x-api-token=.*$/.test(req.headers.cookie)) {
+                    xapitoken = req.headers.cookie.match(/^x-api-token=(.*)$/)[1];
+                } else if (req.headers['x-gitlab-token']) {
+                    xapikey = req.headers['x-gitlab-token']
+                }
 
-                // Make sure the token is current
-                if (!thisNode.ConsumerTokens[authInfo.value]) {
-                    // We don't recognize this token
-                    res.status(401).send("Invalid token");
+                if (thisNode.IsSidecar()) {
+                    // No auth required from client, pass through sidecar creds
+                    authInfo.type = 'sidecar';
+                    authInfo.value = null;
+                } else if (xapikey) {
+                    authInfo.type = 'key';
+                    authInfo.value = xapikey;
+                } else if (xapitoken) {
+                    authInfo.type = 'token';
+                    authInfo.value = xapitoken;
+
+                    // Make sure the token is current
+                    if (!thisNode.ConsumerTokens[authInfo.value]) {
+                        // We don't recognize this token
+                        res.status(401).send("Invalid token");
+                        return;
+                    }
+                    authInfo.userInfo = thisNode.ConsumerTokens[authInfo.value];
+                } else {
+                    // Unauthorized
+                    res.status(401).send("No x-api-token or x-api-key provided");
                     return;
                 }
-                authInfo.userInfo = thisNode.ConsumerTokens[authInfo.value];
-            } else {
-                // Unauthorized
-                res.status(401).send("No x-api-token or x-api-key provided");
-                return;
-            }
 
-            // Turn path into list, remove first element
-            let decodedPath = decodeURIComponent(req.path);
-            let remainingPath = decodedPath.replace(/^\/|\/$/g, '').split('/');
-            remainingPath.shift();
+                // Turn path into list, remove first element
+                let decodedPath = decodeURIComponent(req.path);
+                let remainingPath = decodedPath.replace(/^\/|\/$/g, '').split('/');
+                remainingPath.shift();
 
-            let listOnly = false;
-            let showHelp = false;
-            let format = null;
-            let resCode = 200;
+                let listOnly = false;
+                let showHelp = false;
+                let format = null;
+                let resCode = 200;
 
-            if (req.query.listOnly) listOnly = thisNode.IsTrue(req.query.listOnly);
-            if (req.query.showHelp) showHelp = thisNode.IsTrue(req.query.showHelp);
-            if (req.query.format) format = thisNode.IsTrue(req.query.format);
+                if (req.query.listOnly) listOnly = thisNode.IsTrue(req.query.listOnly);
+                if (req.query.showHelp) showHelp = thisNode.IsTrue(req.query.showHelp);
+                if (req.query.format) format = thisNode.IsTrue(req.query.format);
 
-            // Treat as "getPath"
-            let resultString = "";
+                // Treat as "getPath"
+                let resultString = "";
 
-            RUNTRY:
-            try {
-                // Determine the PathCmd method; default to "GetItem"
-
-                let pathCmdMethod = null;
-                if (showHelp) {
-                    pathCmdMethod = "man"
-                } else {
-                    switch (req.method) {
-                        case "GET":
-                            if (listOnly) {
-                                pathCmdMethod = "GetChildItems"
-                            } else {
-                                pathCmdMethod = "GetItem"
-                            }
-                            break;
-                        case "POST":
-                        case "PUT":
-                            pathCmdMethod = "SetItem"
-                            break;
-                        default:
-                            resultString = `Invalid method: ${req.method}`;
-                            resCode = DRP_ErrorCode.BADREQUEST;
-                            break RUNTRY;
-                    }
-                }
-                let params = new DRP_MethodParams(pathCmdMethod, basePathArray.concat(remainingPath), req.body, "REST", authInfo);
-                let resultObj = await thisNode.PathCmd(params, thisNode.GetBaseObj());
-
+                RUNTRY:
                 try {
-                    let objectType = typeof resultObj;
-                    if (objectType === "string" ||
-                        objectType === "number" ||
-                        objectType === "boolean") {
-                        resultString = resultObj;
+                    // Determine the PathCmd method; default to "GetItem"
+
+                    let pathCmdMethod = null;
+                    if (showHelp) {
+                        pathCmdMethod = "man"
                     } else {
-                        resultString = JSON.stringify(resultObj, null, format);
+                        switch (req.method) {
+                            case "GET":
+                                if (listOnly) {
+                                    pathCmdMethod = "GetChildItems"
+                                } else {
+                                    pathCmdMethod = "GetItem"
+                                }
+                                break;
+                            case "POST":
+                            case "PUT":
+                                pathCmdMethod = "SetItem"
+                                break;
+                            default:
+                                resultString = `Invalid method: ${req.method}`;
+                                resCode = DRP_ErrorCode.BADREQUEST;
+                                break RUNTRY;
+                        }
                     }
-                } catch {
-                    resultString = "Circular object encountered";
-                    resCode = DRP_ErrorCode.BADREQUEST;
+                    let params = new DRP_MethodParams(pathCmdMethod, basePathArray.concat(remainingPath), req.body, "REST", authInfo);
+                    let resultObj = await thisNode.PathCmd(params, thisNode.GetBaseObj());
+
+                    try {
+                        // The res.send() method cannot accept numbers.  Convert the result if it's not already a string.
+                        let objectType = typeof resultObj;
+                        switch (objectType) {
+                            case "string":
+                                resultString = resultObj;
+                                break;
+                            case "number":
+                            case "boolean":
+                                resultString = resultObj.toString();
+                                break;
+                            default:
+                                resultString = JSON.stringify(resultObj, null, format);
+                        }
+                    } catch {
+                        resultString = "Could not convert result to string";
+                        resCode = DRP_ErrorCode.BADREQUEST;
+                    }
+
+                } catch (ex) {
+                    // An exception was thrown at some point in the call.  If the code isn't a valid HTTP code, use 500.
+                    if (validHttpCodes.includes(ex.code)) {
+                        resCode = ex.code;
+                    } else {
+                        resCode = 500;
+                    }
+                    resultString = ex.message;
+                }
+                res.status(resCode).send(resultString);
+                let logMessage = {
+                    req: {
+                        hostname: req.hostname,
+                        ip: req.ip,
+                        method: req.method,
+                        protocol: req.protocol,
+                        path: req.path,
+                        headers: Object.assign({}, req.headers),
+                        query: req.query,
+                        baseUrl: req.baseUrl,
+                        body: req.body
+                    },
+                    res: {
+                        code: resCode,
+                        length: resultString.length
+                    }
+                };
+                delete logMessage.req.headers["authorization"];
+                thisNode.TopicManager.SendToTopic("RESTLogs", logMessage);
+                if (writeToLogger) {
+                    thisNode.ServiceCmd("Logger", "writeLog", { serviceName: "REST", logData: logMessage }, {
+                        sendOnly: true
+                    });
                 }
 
+                return;
             } catch (ex) {
-                // An exception was thrown at some point in the call.  If the code isn't a valid HTTP code, use 500.
-                if (validHttpCodes.includes(ex.code)) {
-                    resCode = ex.code;
-                } else {
-                    resCode = 500;
-                }
-                resultString = ex.message;
-            }
-            res.status(resCode).send(resultString);
-            let logMessage = {
-                req: {
-                    hostname: req.hostname,
-                    ip: req.ip,
+                console.log(`Could not respond to REST request:`);
+                console.dir(ex);
+                console.dir({
+                    url: req.url,
                     method: req.method,
-                    protocol: req.protocol,
-                    path: req.path,
-                    headers: Object.assign({}, req.headers),
-                    query: req.query,
-                    baseUrl: req.baseUrl,
-                    body: req.body
-                },
-                res: {
-                    code: resCode,
-                    length: resultString.length
-                }
-            };
-            delete logMessage.req.headers["authorization"];
-            thisNode.TopicManager.SendToTopic("RESTLogs", logMessage);
-            if (writeToLogger) {
-                thisNode.ServiceCmd("Logger", "writeLog", { serviceName: "REST", logData: logMessage }, {
-                    sendOnly: true
+                    headers: req.headers,
+                    body: req.body,
+                    ip: req.ip
                 });
             }
         };
@@ -2622,7 +2643,7 @@ class DRP_Node extends DRP_Securable {
         });
 
         targetEndpoint.RegisterMethod("ping", async (cmdObj) => {
-            let params = DRP_Service.prototype.GetParams(cmdObj, ['host','timeout','min_reply']);
+            let params = DRP_Service.prototype.GetParams(cmdObj, ['host', 'timeout', 'min_reply']);
             let host = params['host'];
             let timeout = params['timeout'] || 1;
             let min_reply = params['min_reply'] || 1;
