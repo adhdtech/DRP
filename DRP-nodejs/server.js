@@ -95,7 +95,7 @@ myNode.ConnectToMesh(async () => {
     // Create VDM Server on node
     let myVDMServer = new vdmServer("VDM", myNode, webRoot, "vdmapplets", "xrapplets", null, "DRP Desktop");
     myNode.AddService(myVDMServer);
-    myNode.EnableREST("/Mesh", "Mesh");
+    myNode.EnableREST(myNode.WebServer, "/Mesh", "Mesh");
 
     let DRP_SwaggerUI = require('drp-swaggerui')
     new DRP_SwaggerUI(myNode, '/api-doc');
