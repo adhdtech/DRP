@@ -12,6 +12,7 @@ set ZONENAME=Bangor
 start "Registry-Bangor" node %STARTPARAMS% drpRegistry.js
 timeout /T 1
 set PORT=8080
+set VDMTITLE=Bangor
 start "Broker-Bangor" node %STARTPARAMS% drpBroker.js
 set PORT=
 start "Authenticator-Bangor" node %STARTPARAMS% drpProvider-Test-Authenticator.js
@@ -24,6 +25,7 @@ set ZONENAME=Portland
 start "Registry-Portland" node %STARTPARAMS% drpRegistry.js
 timeout /T 1
 set PORT=8081
+set VDMTITLE=Portland
 start "Broker-Portland" node %STARTPARAMS% drpBroker.js
 set PORT=
 start "Authenticator-Portland" node %STARTPARAMS% drpProvider-Test-Authenticator.js

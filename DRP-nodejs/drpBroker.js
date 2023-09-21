@@ -30,6 +30,7 @@ let priority = process.env.PRIORITY || null;
 let weight = process.env.WEIGHT || null;
 let scope = process.env.SCOPE || null;
 let writeToLogger = process.env.WRITETOLOGGER || false;
+let vdmTitle = process.env.VDMTITLE || "DRP Desktop";
 
 // Set config
 /** @type {DRP_WebServerConfig} */
@@ -58,7 +59,7 @@ myNode.AuthenticationServiceName = authenticatorService;
 myNode.RegistryUrl = registryUrl;
 myNode.ConnectToMesh(async () => {
     // Create VDM Server on node
-    let myVDMServer = new vdmServer(serviceName, myNode, webRoot, "vdmapplets", "xrapplets", null, "DRP Desktop");
+    let myVDMServer = new vdmServer(serviceName, myNode, webRoot, "vdmapplets", "xrapplets", null, vdmTitle);
 
     myNode.AddService(myVDMServer);
     myNode.EnableREST(myNode.WebServer, "/Mesh", "Mesh", myNode.IsTrue(writeToLogger));
