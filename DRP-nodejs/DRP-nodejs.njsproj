@@ -18,7 +18,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>ba4b474a-fa17-4e27-bcda-500a68bbbb3a</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>server.js</StartupFile>
+    <StartupFile>serverCity.js</StartupFile>
     <StartWebBrowser>False</StartWebBrowser>
     <SearchPath>
     </SearchPath>
@@ -96,8 +96,10 @@
     <Content Include="drpProvider-FedEx.js" />
     <Content Include="drpProvider-Hive.js" />
     <Content Include="drpProvider-LDAP-Authenticator.js" />
+    <Content Include="drpProvider-State.js" />
     <Content Include="drpProvider-NetScaler.js" />
     <Content Include="drpProvider-Test-Authenticator.js" />
+    <Content Include="drpProvider-Municipality.js" />
     <Content Include="drpProvider-Webex.js" />
     <Content Include="drpProvider-Test-PublicDirectory.js" />
     <Content Include="drpSidecar.js" />
@@ -110,8 +112,10 @@
     <Content Include="drpProvider-Test-NoListener.js" />
     <Content Include="drpProvider-Test.js" />
     <Content Include="drpRegistry.js" />
+    <Content Include="serverCity.js" />
     <Content Include="serverCortx.js" />
     <Content Include="serverHackathon.js" />
+    <Content Include="startTestEnvironmentMunicipal.bat" />
     <Content Include="startTestEnvironment.bat" />
     <Content Include="test.js" />
     <Content Include="uploadApplet.js" />
