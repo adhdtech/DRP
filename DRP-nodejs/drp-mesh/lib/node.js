@@ -1163,9 +1163,14 @@ class DRP_Node extends DRP_Securable {
 
                 // Current path array element
                 pathItemName = aChildPathArray[i];
+                if (!pathItemName) {
+                    throw new DRP_CmdError(`Empty path element at index ${i}`, DRP_ErrorCode.BADREQUEST, "PathCmd");
+                }
 
-                // User is trying to access a hidden attribute; return null
-                if (pathItemName.substring(0, 2) === '__') return null;
+                // User is trying to access a hidden attribute
+                if (pathItemName.substring(0, 2) === '__') {
+                    throw new DRP_CmdError(`Cannot access hidden elements`, DRP_ErrorCode.BADREQUEST, "PathCmd");
+                }
 
                 // Is current object valid?
                 if (!oCurrentObject) {
