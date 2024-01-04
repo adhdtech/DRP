@@ -18,7 +18,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>ba4b474a-fa17-4e27-bcda-500a68bbbb3a</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>serverCity.js</StartupFile>
+    <StartupFile>drpBroker.js</StartupFile>
     <StartWebBrowser>False</StartWebBrowser>
     <SearchPath>
     </SearchPath>
@@ -122,6 +122,11 @@
     <Content Include="webroot\assets\cytoscape\css\cytoscape-context-menus.css" />
     <Content Include="webroot\assets\cytoscape\js\cytoscape-context-menus.js" />
     <Content Include="webroot\assets\cytoscape\js\cytoscape.min.js" />
+    <Content Include="webroot\assets\drp\css\vdm.css" />
+    <Content Include="webroot\assets\drp\img\pattern12.png" />
+    <Content Include="webroot\assets\drp\js\vdm.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="webroot\assets\rsage-vdm\css\vdm.css" />
     <Content Include="webroot\assets\rsage-vdm\img\collapse-small-blue.png" />
     <Content Include="webroot\assets\rsage-vdm\img\expand-small-blue.png" />
@@ -144,6 +149,12 @@
     <Content Include="webroot\assets\xterm\css\xterm.css" />
     <Content Include="webroot\assets\xterm\lib\xterm.js" />
     <Content Include="webroot\favicon.ico" />
+    <Content Include="webroot\monacotest.html">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="webroot\vdmtest.html">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="webroot\vdmapplets\vdm-app-Blank.js" />
     <Content Include="webroot\vdmapplets\vdm-app-CommandTesting.js" />
     <Content Include="webroot\vdmapplets\vdm-app-CommandTesting.json" />
@@ -186,6 +197,10 @@
     <Folder Include="webroot\assets\cytoscape\" />
     <Folder Include="webroot\assets\cytoscape\css\" />
     <Folder Include="webroot\assets\cytoscape\js\" />
+    <Folder Include="webroot\assets\drp\" />
+    <Folder Include="webroot\assets\drp\js\" />
+    <Folder Include="webroot\assets\drp\css\" />
+    <Folder Include="webroot\assets\drp\img\" />
     <Folder Include="webroot\assets\rsage-vdm\" />
     <Folder Include="webroot\assets\rsage-vdm\css\" />
     <Folder Include="webroot\assets\rsage-vdm\img\" />

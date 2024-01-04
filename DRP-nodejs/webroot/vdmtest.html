@@ -1,0 +1,41 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test VDM Desktop</title>
+    <meta name="msapplication-TileColor" content="#5bc0de" />
+
+    <!-- External CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.min.css">
+
+    <!-- VDM -->
+    <link rel="stylesheet" href="assets/drp/css/vdm.css">
+
+</head>
+<body>
+
+    <!-- External Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js"></script>
+    <script>self.require = { paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } };</script>
+
+    <!-- VDM Client script -->
+    <script type="module">
+import {VDMDesktop, VDMApplet, VDMAppletProfile} from "./assets/drp/js/vdm.js"
+window.onload = async function () {
+
+    // Set applets path
+    let vdmAppletsPath = "vdmapplets";
+
+    let thisVDMDesktop = new VDMDesktop(null, "Test VDM Desktop", vdmAppletsPath);
+
+    let testAppProfileText = await thisVDMDesktop.fetchURLResource('vdm-app-TestApp.js');
+    let testAppProfile = eval(testAppProfileText);
+
+    thisVDMDesktop.addAppletProfile(testAppProfile);
+};
+    </script>
+
+</body>
+</html>
