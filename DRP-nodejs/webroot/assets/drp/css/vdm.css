@@ -297,7 +297,6 @@ textarea {
         top: 18px;
         overflow: visible;
         width: 100%;
-        z-index: 2;
     }
 
         .vdmWindow .vdmWindowMenu ul {
@@ -309,6 +308,7 @@ textarea {
             list-style: none outside none;
             margin: 0;
             padding-left: 8px;
+            z-index: 3;
         }
 
             .vdmWindow .vdmWindowMenu ul > li > ul {
@@ -456,7 +456,7 @@ textarea {
         top: 38px;
         bottom: 16px;
         color: #222;
-        z-index: 1;
+        z-index: 2;
     }
 
         .vdmWindow .vdmWindowData input,
