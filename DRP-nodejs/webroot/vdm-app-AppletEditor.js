@@ -110,7 +110,7 @@
 <div>&nbsp;</div>
 		
 <div style="padding: 0px 2px 0px 2px;">
-<span style="vertical-align: middle;">Name</span><span style="float: right;"><input class="scriptName" value="MyApplet" style="
+<span style="vertical-align: middle;">Name</span><span style="float: right;"><input class="scriptName" value="HelloWorld" style="
     font-size: 10px;
     background-color: #888;
     vertical-align: middle;
@@ -118,7 +118,7 @@
 "></span></div>
 
 <div style="padding: 0px 2px 0px 2px;">
-<span style="vertical-align: middle;">Title</span><span style="float: right;"><input class="title" value="My Applet" style="
+<span style="vertical-align: middle;">Title</span><span style="float: right;"><input class="title" value="Hello World" style="
     font-size: 10px;
     background-color: #888;
     vertical-align: middle;
@@ -163,15 +163,52 @@
 
             let libSource = `
 /**
+ * VDM Applet Profile Parts
+ */
+class VDMAppletProfile {
+    /**
+	 * Applet name (used in to create filename)
+	 */
+    appletName: string
+    /**
+	 * Text to display in the window title
+	 */
+    title: string
+    /**
+	 * Initial window width
+	 */
+    sizeX: number
+    /**
+	 * Initial window height
+	 */
+    sizeY: number
+    /**
+	 * Name of Font Awesome icon
+	 */
+    appletIcon: string
+    /**
+	 * Add applet to main menu
+	 */
+    showInMenu: boolean
+    /**
+	 * Javascript and CSS pre-requisites
+	 */
+    preReqs: string[]
+}
+
+/**
  * VDM Window Parts
  */
 class VDMWindowParts {
     header: HTMLElement
     menu: HTMLElement
+    /**
+	 * Applet data window
+	 */
     data: HTMLElement
-    footer: HTMLElement,
-    popover: HTMLElement,
-    maximize: HTMLElement,
+    footer: HTMLElement
+    popover: HTMLElement
+    maximize: HTMLElement
     close: HTMLElement
 }
 
@@ -204,52 +241,76 @@ class VDMApplet extends VDMWindow {
 	/**
 	 * Creates and returns window
 	 */
+    constructor(appletProfile: VDMAppletProfile);
 }
 `
-            let initialEditorScriptValue = `class extends VDMApplet {
+            let initialEditorScriptValue = `class HelloWorldApplet extends VDMApplet {
   constructor(appletProfile) {
     super(appletProfile);
     let thisApplet = this;
-      
-    // Dropdown menu items
+
+    /**
+     * Applet instantiation process:
+     *    1. Initial applet setup - thisApplet.constructor()
+     *    2. Window element creation - VDMDesktop.newWindow(thisApplet)
+     *    3. Applet data population - thisApplet.runStartup()
+     */
+    
+     /** 
+     * This code block is for initial applet setup:
+     *   - Menu definition (OPTIONAL - menu bar hidden if not defined)
+     *   - Setting class attributes (OPTIONAL)
+     *   - Overriding appletProfile values prior to window creation
+     * 
+     * The runStartup() method is used to populate the applet's data pane
+     * which is referenced using 'thisApplet.windowParts.data' (DIV element).
+    */
+
+    // Dropdown menu (OPTIONAL)
     thisApplet.menu = {
+      // First level - initial dropdown options (like File, Edit, etc)
       "Test Functions": {
+        // Second level - items with actions
         "Alert": () => {
+          // Action to execute on click
           alert("Hello world")
         },
         "RickRoll": () => {
-          thisApplet.appFuncs.rickRoll();
+          thisApplet.RickRoll();
         }
       }
     };
 
-    thisApplet.appFuncs = {
-      clearDataPane: () => {
-        thisApplet.windowParts.data.innerHTML = "";
-      },
-      populateDataPane: () => {
-        thisApplet.windowParts.data.innerHTML = thisApplet.appVars.foo;
-      },
-      rickRoll: () => {
-          thisApplet.appFuncs.clearDataPane();
-          let iFrame = document.createElement("iframe");
-          iFrame.style.width = "100%";
-          iFrame.style.height = "100%";
-          iFrame.allow = "autoplay";
-          iFrame.src = thisApplet.appVars.rickRollURL;
-          thisApplet.windowParts.data.appendChild(iFrame);
-      }
-    };
-
-    thisApplet.appVars = {
-      foo: "The data of foo",
-      rickRollURL: "https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&amp;autoplay=1&amp;controls=0&amp;showinfo=0"
-    };
+    // Set some applet specific attributes (OPTIONAL)
+    thisApplet.rickRollURL = "https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&amp;autoplay=1&amp;controls=0&amp;showinfo=0";
   }
 
+  /** Function executed after VDMWindow is created */
   runStartup() {
     let thisApplet = this;
-    thisApplet.appFuncs.populateDataPane();
+
+    // The data pane is empty by default; put something in it
+    thisApplet.windowParts.data.innerHTML = "Hello, world!";
+  }
+
+  // APPLET SPECIFIC METHODS
+
+  /** Function to clear data pane */
+  ClearDataPane() {
+    let thisApplet = this;
+    thisApplet.windowParts.data.innerHTML = "";
+  }
+
+  /** Play the greatest video known to mankind */
+  RickRoll() {
+    let thisApplet = this;
+    thisApplet.ClearDataPane();
+    let iFrame = document.createElement("iframe");
+    iFrame.style.width = "100%";
+    iFrame.style.height = "100%";
+    iFrame.allow = "autoplay";
+    iFrame.src = thisApplet.rickRollURL;
+    thisApplet.windowParts.data.appendChild(iFrame);
   }
 }
 `
