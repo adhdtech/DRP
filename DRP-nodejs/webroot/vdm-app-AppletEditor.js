@@ -18,9 +18,22 @@
             // Dropdown menu items
             myApp.menu = {
                 "File": {
-                    "Download": () => { },
-                    "Add to local menu": () => { },
-                    "Upload to profile": () => { }
+                    "Download": () => {
+                        let filename = `vdm-app-${myApp.appVars.nameField.value}.js`;
+                        let data = myApp.appFuncs.generateAppletCode();
+                        const blob = new Blob([data], { type: 'application/octet-stream' });
+                        if (window.navigator.msSaveOrOpenBlob) {
+                            window.navigator.msSaveBlob(blob, filename);
+                        }
+                        else {
+                            const elem = window.document.createElement('a');
+                            elem.href = window.URL.createObjectURL(blob);
+                            elem.download = filename;
+                            document.body.appendChild(elem);
+                            elem.click();
+                            document.body.removeChild(elem);
+                        }
+                    }
                 }
             };
 
@@ -49,6 +62,24 @@
                         //reader.readAsDataURL(file);
                         reader.readAsBinaryString(file);
                     });
+                },
+                generateAppletCode: () => {
+                    let preReqsString = "[]";
+
+                    // Create appletObj
+                    let appletCode = `({
+    "appletName": "${myApp.appVars.nameField.value}",
+    "title": "${myApp.appVars.titleField.value}",
+    "sizeX": ${myApp.appVars.sizeXField.value},
+    "sizeY": ${myApp.appVars.sizeYField.value},
+    "appletIcon": "fa-list-alt",
+    "showInMenu": false,
+    "preReqs": ${preReqsString},
+    "appletClass": ${myApp.appVars.editor.getValue()}
+})
+//# sourceURL=vdm-app-${myApp.appVars.nameField.value}.js`
+
+                    return appletCode;
                 }
             };
 
@@ -79,7 +110,7 @@
 <div>&nbsp;</div>
 		
 <div style="padding: 0px 2px 0px 2px;">
-<span style="vertical-align: middle;">Name</span><span style="float: right;"><input class="scriptName" value="MyApp" style="
+<span style="vertical-align: middle;">Name</span><span style="float: right;"><input class="scriptName" value="MyApplet" style="
     font-size: 10px;
     background-color: #888;
     vertical-align: middle;
@@ -87,7 +118,7 @@
 "></span></div>
 
 <div style="padding: 0px 2px 0px 2px;">
-<span style="vertical-align: middle;">Title</span><span style="float: right;"><input class="title" value="My App" style="
+<span style="vertical-align: middle;">Title</span><span style="float: right;"><input class="title" value="My Applet" style="
     font-size: 10px;
     background-color: #888;
     vertical-align: middle;
@@ -97,7 +128,7 @@
 <div style="padding: 0px 2px 0px 2px;">
     <span><span style="vertical-align: middle;">Size</span><span style="
     padding-left: 10px;
-"><input class="sizeX" value="1250" style="
+"><input class="sizeX" value="600" style="
     font-size: 10px;
     background-color: #888;
     vertical-align: middle;
@@ -105,7 +136,7 @@
 "></span>
 <span style="vertical-align: middle;">x</span><span style="
     padding-left: 5px;
-"><input class="sizeY" value="800" style="
+"><input class="sizeY" value="400" style="
     font-size: 10px;
     background-color: #888;
     vertical-align: middle;
@@ -118,27 +149,38 @@
 <span>Dependencies:</span>
 </div>
 <div style="padding: 0px 2px 0px 2px;">
-<span><textarea class="preReqs" style="font-size: 10px;">(list of dependencies)</textarea></span></div>
+<span><textarea class="preReqs" style="font-size: 10px;"></textarea></span></div>
 <div style="padding: 0px 2px 0px 2px;">
 <span><button class="execute">Execute</button></span></div>`;
 
-            let nameField = leftPane.querySelector('.scriptName');
-            let titleField = leftPane.querySelector('.title');
-            let sizeXField = leftPane.querySelector('.sizeX');
-            let sizeYField = leftPane.querySelector('.sizeY');
-            let preReqsField = leftPane.querySelector('.preReqs');
+            myApp.appVars.nameField = leftPane.querySelector('.scriptName');
+            myApp.appVars.titleField = leftPane.querySelector('.title');
+            myApp.appVars.sizeXField = leftPane.querySelector('.sizeX');
+            myApp.appVars.sizeYField = leftPane.querySelector('.sizeY');
+            myApp.appVars.preReqsField = leftPane.querySelector('.preReqs');
 
             require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
 
-            //myApp.windowParts["data"].innerHTML = '<pre style="height: 100%; margin: 0;"><code class="language-javascript" style="height: 100%"></code></pre>';
-            //let targetContainer = $(myApp.windowParts["data"]).find('.language-javascript')[0];
-            //hljs.highlightElement(el);
             let libSource = `
+/**
+ * VDM Window Parts
+ */
+class VDMWindowParts {
+    header: HTMLElement
+    menu: HTMLElement
+    data: HTMLElement
+    footer: HTMLElement,
+    popover: HTMLElement,
+    maximize: HTMLElement,
+    close: HTMLElement
+}
+
 /**
  * VDM Window
  */
 class VDMWindow {
 	constructor(targetDiv: HTMLElement);
+    windowParts: VDMWindowParts
 	/**
 	 * Closes window
 	 */
@@ -154,8 +196,63 @@ class VDMDesktop {
 	 */
 	newWindow():VDMWindow
 }
-`
 
+/**
+ * VDM Applet
+ */
+class VDMApplet extends VDMWindow {
+	/**
+	 * Creates and returns window
+	 */
+}
+`
+            let initialEditorScriptValue = `class extends VDMApplet {
+  constructor(appletProfile) {
+    super(appletProfile);
+    let thisApplet = this;
+      
+    // Dropdown menu items
+    thisApplet.menu = {
+      "Test Functions": {
+        "Alert": () => {
+          alert("Hello world")
+        },
+        "RickRoll": () => {
+          thisApplet.appFuncs.rickRoll();
+        }
+      }
+    };
+
+    thisApplet.appFuncs = {
+      clearDataPane: () => {
+        thisApplet.windowParts.data.innerHTML = "";
+      },
+      populateDataPane: () => {
+        thisApplet.windowParts.data.innerHTML = thisApplet.appVars.foo;
+      },
+      rickRoll: () => {
+          thisApplet.appFuncs.clearDataPane();
+          let iFrame = document.createElement("iframe");
+          iFrame.style.width = "100%";
+          iFrame.style.height = "100%";
+          iFrame.allow = "autoplay";
+          iFrame.src = thisApplet.appVars.rickRollURL;
+          thisApplet.windowParts.data.appendChild(iFrame);
+      }
+    };
+
+    thisApplet.appVars = {
+      foo: "The data of foo",
+      rickRollURL: "https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&amp;autoplay=1&amp;controls=0&amp;showinfo=0"
+    };
+  }
+
+  runStartup() {
+    let thisApplet = this;
+    thisApplet.appFuncs.populateDataPane();
+  }
+}
+`
             //libSource = await myApp.vdmDesktop.fetchURLResource('assets/drp/js/vdm.js');
 
             if (monaco.editor.getModels().length) {
@@ -171,8 +268,8 @@ class VDMDesktop {
             // Creating a model for the library allows "peek definition/references" commands to work with the library.
             monaco.editor.createModel(libSource, "typescript", monaco.Uri.parse(libUri));
 
-            let editor = monaco.editor.create(rightPane, {
-                value: `function x() {\n  console.log("Hello world!");\n}`,
+            myApp.appVars.editor = monaco.editor.create(rightPane, {
+                value: initialEditorScriptValue,
                 language: 'javascript',
                 theme: 'vs-dark',
                 automaticLayout: true,
@@ -184,25 +281,9 @@ class VDMDesktop {
 
             let executeButton = leftPane.querySelector('.execute');
             executeButton.onclick = async () => {
-                let preReqsString = "[]";
-
-                // Create appletObj
-                let appletCode = `({
-    "appletName": "${nameField.value}",
-    "title": "${titleField.value}",
-    "sizeX": ${sizeXField.value},
-    "sizeY": ${sizeYField.value},
-    "appletIcon": "fa-list-alt",
-    "showInMenu": false,
-    "preReqs": ${preReqsString},
-    "appletClass": ${editor.getValue()}
-})
-//# sourceURL=vdm-app-${nameField.value}.js`
-
                 // TODO - Add sanity checks
-
+                let appletCode = myApp.appFuncs.generateAppletCode();
                 let appletObj = eval(appletCode);
-                //console.dir(appletCode);
                 myApp.vdmDesktop.openApp(appletObj);
             };
 
@@ -247,7 +328,7 @@ class VDMDesktop {
                     }
 
                     // See if it's a valid applet
-                    let appletPattern = /\({\r?\n((?:\s*"(?:appletName|title|sizeX|sizeY|appletIcon|showInMenu)": .*,\r?\n)+)(\s*"preReqs": \[\r?\n(?:\s+(?:\/\/)?{.*},?\r?\n)*\s+],)\r?\n\s+"appletClass": (class extends (?:VDMApplet|rSageApplet) {(?:.|\r?\n)*)}\)\r?\n\/\/\# sourceURL=(.*\.js)/gm;
+                    let appletPattern = /\({\r?\n((?:\s*"(?:appletName|title|sizeX|sizeY|appletIcon|showInMenu)": .*,\r?\n)+)(\s*"preReqs": \[(?:\r?\n(?:\s+(?:\/\/)?{.*},?\r?\n)*\s+)?],)\r?\n\s+"appletClass": (class extends (?:VDMApplet|rSageApplet) {(?:.|\r?\n)*)}\)\r?\n\/\/\# sourceURL=(.*\.js)/gm;
                     let appletParts = appletPattern.exec(fileObj.contents);
 
                     if (!appletParts) {
@@ -264,16 +345,16 @@ class VDMDesktop {
                     // Set the relevant fields
 
                     // Set script name
-                    nameField.value = metaData.appletName;
+                    myApp.appVars.nameField.value = metaData.appletName;
 
                     // Set title
-                    titleField.value = metaData.title;
+                    myApp.appVars.titleField.value = metaData.title;
 
                     // Set sizeX
-                    sizeXField.value = metaData.sizeX;
+                    myApp.appVars.sizeXField.value = metaData.sizeX;
 
                     // Set sizeY
-                    sizeYField.value = metaData.sizeY;
+                    myApp.appVars.sizeYField.value = metaData.sizeY;
 
                     // Set preReqs
                     let preReqStringArray = [];
@@ -282,10 +363,10 @@ class VDMDesktop {
                             preReqStringArray.push(`${key}: ${value}`);
                         }
                     }
-                    preReqsField.value = preReqStringArray.join(",\n");
+                    myApp.appVars.preReqsField.value = preReqStringArray.join(",\n");
 
                     // Apply code to editor
-                    editor.setValue(scriptData);
+                    myApp.appVars.editor.setValue(scriptData);
                 }
             };
         }
