@@ -152,6 +152,8 @@
     <Content Include="webroot\monacotest.html">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="webroot\vdm-app-AppletEditor.js" />
+    <Content Include="webroot\vdm-app-TestApp.js" />
     <Content Include="webroot\vdmtest.html">
       <SubType>Code</SubType>
     </Content>

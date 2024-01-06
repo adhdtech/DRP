@@ -30,9 +30,12 @@ window.onload = async function () {
 
     let thisVDMDesktop = new VDMDesktop(null, "Test VDM Desktop", vdmAppletsPath);
 
+    let editorAppProfileText = await thisVDMDesktop.fetchURLResource('vdm-app-AppletEditor.js');
+    let editorAppProfile = eval(editorAppProfileText);
+    thisVDMDesktop.addAppletProfile(editorAppProfile);
+
     let testAppProfileText = await thisVDMDesktop.fetchURLResource('vdm-app-TestApp.js');
     let testAppProfile = eval(testAppProfileText);
-
     thisVDMDesktop.addAppletProfile(testAppProfile);
 };
     </script>
