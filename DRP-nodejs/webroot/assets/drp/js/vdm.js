@@ -83,7 +83,7 @@ class VDMDesktop {
         };
 
         // Allow Applet JS files to be dropped and immediately instantiated
-        this.enableAppletDropOnElement(this.vdmWindowsDiv);
+        //this.enableAppletDropOnElement(this.vdmWindowsDiv);
     }
 
     enableAppletDropOnElement(targetElement) {
@@ -140,16 +140,8 @@ class VDMDesktop {
                 // If it's an applet profile, instantiate it
                 if (droppedApplet.appletName) {
                     //this.addAppletProfile(droppedJSONObj, true);
-                    await this.loadAppletPreReqs(droppedApplet);
 
-                    // Create new instance of applet
-                    let newApp = new droppedApplet.appletClass(droppedApplet, null);
-
-                    // Attach window to applet
-                    await this.newWindow(newApp);
-
-                    // Add to Applet list
-                    this.appletInstances[newApp.appletIndex] = newApp;
+                    this.openApp(droppedApplet);
                 }
             }
         };
@@ -211,11 +203,11 @@ class VDMDesktop {
             thisVDMDesktop.appletProfiles[appletProfile.appletName] = appletProfile;
         }
 
-        thisVDMDesktop.loadAppletResources(appletProfile, override);
+        //thisVDMDesktop.loadAppletResources(appletProfile, override);
 
         if (appletProfile.showInMenu) {
             thisVDMDesktop.addDropDownMenuItem(function () {
-                thisVDMDesktop.openApp(appletProfile.appletName, null);
+                thisVDMDesktop.openApp(appletProfile, null);
             }, appletProfile.appletIcon, appletProfile.title);
         }
     }
@@ -386,27 +378,20 @@ class VDMDesktop {
     }
 
     // Instantiate an applet using a registered profile name and parameters
-    async openApp(appletName, parameters) {
+    async openApp(appDefinition, parameters) {
         let thisVDMDesktop = this;
 
-        if (appletName !== "") {
+        // Load prerequisites
+        await this.loadAppletPreReqs(appDefinition);
 
-            // Get app profile
-            let appDefinition = thisVDMDesktop.appletProfiles[appletName];
-            if (!appDefinition) {
-                console.log("Tried to open non-existent app [" + appletName + "]");
-                return null;
-            }
+        // Create new instance of applet
+        let newApp = new appDefinition.appletClass(appDefinition, parameters);
 
-            // Create new instance of applet
-            let newApp = new appDefinition.appletClass(appDefinition, parameters);
+        // Attach window to applet
+        await thisVDMDesktop.newWindow(newApp);
 
-            // Attach window to applet
-            await thisVDMDesktop.newWindow(newApp);
-
-            // Add to Applet list
-            thisVDMDesktop.appletInstances[newApp.appletIndex] = newApp;
-        }
+        // Add to Applet list
+        thisVDMDesktop.appletInstances[newApp.appletIndex] = newApp;
     }
 
     // Create a new window using the provided profile (not necessarily registered)
@@ -849,12 +834,12 @@ class VDMWindow {
 
         $(b).mousedown(function (e) {
             let mouseStartX = e.pageX;
-            let pageStartX = parseInt($(b).css('left'));
+            let pageStartX = parseInt(b.style.left);
             $(paneDiv).bind('mousemove', function (e) {
                 let newOffset = pageStartX + (e.pageX - mouseStartX);
-                $(b).css({ left: newOffset + 'px' });
-                $(a).css({ width: newOffset - 1 + 'px' });
-                $(c).css({ left: newOffset + 4 + 'px' });
+                b.style.left = newOffset + 'px';
+                a.style.width = newOffset - 1 + 'px';
+                c.style.left = newOffset + 4 + 'px';
             });
             $(paneDiv).bind('mouseup', function (e) {
                 $(this).unbind('mousemove');
@@ -898,9 +883,9 @@ class VDMWindow {
             let pageStartY = parseInt($(b).css('top'));
             $(paneDiv).bind('mousemove', function (e) {
                 let newOffset = pageStartY + (e.pageY - mouseStartY);
-                $(b).css({ top: newOffset + 'px' });
-                $(a).css({ height: newOffset - 1 + 'px' });
-                $(c).css({ top: newOffset + 4 + 'px' });
+                b.style.top = newOffset + 'px';
+                a.style.height = newOffset - 1 + 'px';
+                c.style.top = newOffset + 4 + 'px';
             });
             $(paneDiv).bind('mouseup', function (e) {
                 $(this).unbind('mousemove');
