@@ -6,8 +6,8 @@
     <meta name="msapplication-TileColor" content="#5bc0de" />
 
     <!-- External CSS -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
-    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.min.css">
+    <!--<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">-->
+    <link rel="stylesheet" href="assets/fontawesome/font-awesome.min.css">  
 
     <!-- VDM -->
     <link rel="stylesheet" href="assets/drp/css/vdm.css">
@@ -16,9 +16,10 @@
 <body>
 
     <!-- External Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js"></script>
-    <script>self.require = { paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } };</script>
+    <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>-->
+    <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/jquery-ui.min.js"></script>-->
+    <script src="assets/jquery/jquery.min.js"></script>
+    <script src="assets/jquery-ui/jquery-ui.min.js"></script>
 
     <!-- VDM Client script -->
     <script type="module">
@@ -30,9 +31,9 @@ window.onload = async function () {
 
     let thisVDMDesktop = new VDMDesktop(null, "Test VDM Desktop", vdmAppletsPath);
 
-    let editorAppProfileText = await thisVDMDesktop.fetchURLResource('vdm-app-AppletEditor.js');
+    let editorAppProfileText = await thisVDMDesktop.FetchURLResource('vdm-app-AppletEditor.js');
     let editorAppProfile = eval(editorAppProfileText);
-    thisVDMDesktop.addAppletProfile(editorAppProfile);
+    thisVDMDesktop.AddAppletProfile(editorAppProfile);
 };
     </script>
 

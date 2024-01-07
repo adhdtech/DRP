@@ -50,7 +50,7 @@ class VDMDesktop {
         };
 
         // Disable F5 and backspace keys unless we're in a text input
-        this.disableBackAndRefreshKeys();
+        this.DisableBackAndRefreshKeys();
 
         // Populate vdmDiv
         this.vdmDiv.innerHTML = `
@@ -86,7 +86,7 @@ class VDMDesktop {
         //this.enableAppletDropOnElement(this.vdmWindowsDiv);
     }
 
-    enableAppletDropOnElement(targetElement) {
+    EnableAppletDropOnElement(targetElement) {
         let thisVDMDesktop = this;
 
         // Add Applet Drop logic
@@ -123,7 +123,7 @@ class VDMDesktop {
                 let fileObj;
                 let droppedApplet;
                 try {
-                    fileObj = await this.readDroppedFile(file);
+                    fileObj = await this.ReadDroppedFile(file);
                 } catch (ex) {
                     //console.log("Could not read file");
                     return;
@@ -141,13 +141,13 @@ class VDMDesktop {
                 if (droppedApplet.appletName) {
                     //this.addAppletProfile(droppedJSONObj, true);
 
-                    this.openApp(droppedApplet);
+                    this.OpenApp(droppedApplet);
                 }
             }
         };
     }
 
-    readDroppedFile(file) {
+    ReadDroppedFile(file) {
         // Return a promise outputting the uploaded file object
         return new Promise((resolve, reject) => {
             let reader = new FileReader();
@@ -173,7 +173,7 @@ class VDMDesktop {
         });
     }
 
-    disableBackAndRefreshKeys() {
+    DisableBackAndRefreshKeys() {
         document.onkeydown = function (e) {
             if ((e.which || e.keyCode) === 116) {
                 e.preventDefault();
@@ -189,7 +189,7 @@ class VDMDesktop {
      * @param {VDMAppletProfile} appletProfile Profile describing new Window
      * @param {boolean} override Force VDM to override the existing appletProfile
      */
-    addAppletProfile(appletProfile, override) {
+    AddAppletProfile(appletProfile, override) {
         let thisVDMDesktop = this;
 
         // Check to see if we have a name and the necessary attributes
@@ -206,13 +206,13 @@ class VDMDesktop {
         //thisVDMDesktop.loadAppletResources(appletProfile, override);
 
         if (appletProfile.showInMenu) {
-            thisVDMDesktop.addDropDownMenuItem(function () {
-                thisVDMDesktop.openApp(appletProfile, null);
+            thisVDMDesktop.AddDropDownMenuItem(function () {
+                thisVDMDesktop.OpenApp(appletProfile, null);
             }, appletProfile.appletIcon, appletProfile.title);
         }
     }
 
-    evalWithinContext(context, code) {
+    EvalWithinContext(context, code) {
         let outerResults = function (code) {
             let innerResults = eval(code);
             return innerResults;
@@ -224,14 +224,14 @@ class VDMDesktop {
      * Retrieve applet class code from URL, eval and assign the class object
     * @param {VDMAppletProfile} appletProfile
     */
-    async loadAppletClassObject(appletProfile) {
+    async LoadAppletClassObject(appletProfile) {
         let thisVDMDesktop = this;
         let appletClassText = null;
         if (appletProfile.appletClassText) {
             appletClassText = appletProfile.appletClassText;
         } else {
             let classScriptURL = thisVDMDesktop.appletPath + '/' + appletProfile.appletClassFile;
-            appletClassText = await thisVDMDesktop.fetchURLResource(classScriptURL);
+            appletClassText = await thisVDMDesktop.FetchURLResource(classScriptURL);
         }
         appletProfile.appletClass = eval(appletClassText);
     }
@@ -240,7 +240,7 @@ class VDMDesktop {
      * Load applet prerequisites
      * @param {VDMAppletProfile} appletProfile
      */
-    async loadAppletPreReqs(appletProfile) {
+    async LoadAppletPreReqs(appletProfile) {
         let thisVDMDesktop = this;
 
         // Load prerequisites
@@ -249,55 +249,64 @@ class VDMDesktop {
             let preReqKeys = Object.keys(preReqHash);
             for (let j = 0; j < preReqKeys.length; j++) {
                 let preReqType = preReqKeys[j];
-                let preReqLocation = preReqHash[preReqType];
+                let preReqValue = preReqHash[preReqType];
 
                 switch (preReqType) {
                     case 'CSS':
-                        if (thisVDMDesktop.loadedResources.indexOf(preReqLocation) === -1) {
-                            thisVDMDesktop.loadedResources.push(preReqLocation);
+                        if (thisVDMDesktop.loadedResources.indexOf(preReqValue) === -1) {
+                            thisVDMDesktop.loadedResources.push(preReqValue);
 
                             // Append it to HEAD
-                            let resourceText = await thisVDMDesktop.fetchURLResource(preReqLocation);
+                            let resourceText = await thisVDMDesktop.FetchURLResource(preReqValue);
                             let styleNode = document.createElement("style");
                             styleNode.innerHTML = resourceText;
                             document.head.appendChild(styleNode);
                         }
                         break;
+                    case 'CSS-Link':
+                        if (thisVDMDesktop.loadedResources.indexOf(preReqValue) === -1) {
+                            thisVDMDesktop.loadedResources.push(preReqValue);
+
+                            const template = document.createElement('template');
+                            template.innerHTML = preReqValue;
+                            document.head.appendChild(template.content.children[0]);
+                        }
+                        break;
                     case 'JS':
-                        if (thisVDMDesktop.loadedResources.indexOf(preReqLocation) === -1) {
-                            thisVDMDesktop.loadedResources.push(preReqLocation);
+                        if (thisVDMDesktop.loadedResources.indexOf(preReqValue) === -1) {
+                            thisVDMDesktop.loadedResources.push(preReqValue);
 
                             // Run it globally now
-                            let resourceText = await thisVDMDesktop.fetchURLResource(preReqLocation);
+                            let resourceText = await thisVDMDesktop.FetchURLResource(preReqValue);
                             jQuery.globalEval(resourceText);
                         }
                         break;
                     case 'JS-Runtime':
 
                         // Cache for execution at runtime (executes before runStartup)
-                        let resourceText = await thisVDMDesktop.fetchURLResource(preReqLocation);
+                        let resourceText = await thisVDMDesktop.FetchURLResource(preReqValue);
                         appletProfile.startupScript = resourceText;
 
                         break;
                     case 'JS-Head':
-                        if (thisVDMDesktop.loadedResources.indexOf(preReqLocation) === -1) {
-                            thisVDMDesktop.loadedResources.push(preReqLocation);
+                        if (thisVDMDesktop.loadedResources.indexOf(preReqValue) === -1) {
+                            thisVDMDesktop.loadedResources.push(preReqValue);
 
                             // Run it globally now
                             let script = document.createElement('script');
-                            script.src = preReqLocation;
+                            script.src = preReqValue;
                             script.defer = true;
 
                             document.head.appendChild(script);
                         }
                         break;
                     case 'JSON':
-                        if (thisVDMDesktop.loadedResources.indexOf(preReqLocation) === -1) {
-                            thisVDMDesktop.loadedResources.push(preReqLocation);
+                        if (thisVDMDesktop.loadedResources.indexOf(preReqValue) === -1) {
+                            thisVDMDesktop.loadedResources.push(preReqValue);
 
                             // Cache for use at runtime
-                            let resourceText = await thisVDMDesktop.fetchURLResource(preReqLocation);
-                            thisVDMDesktop.sharedJSON[preReqLocation] = resourceText;
+                            let resourceText = await thisVDMDesktop.FetchURLResource(preReqValue);
+                            thisVDMDesktop.sharedJSON[preReqValue] = resourceText;
 
                         }
                         break;
@@ -314,7 +323,7 @@ class VDMDesktop {
      * @param {VDMAppletProfile} appletProfile
      * @param {boolean} override
      */
-    async loadAppletResources(appletProfile, override) {
+    async LoadAppletResources(appletProfile, override) {
         let thisVDMDesktop = this;
 
         // Skip if already loaded
@@ -324,17 +333,17 @@ class VDMDesktop {
 
         // If class object isn't set, fetch class code and eval to assign to profile
         if (!appletProfile.appletClass) {
-            await thisVDMDesktop.loadAppletClassObject(appletProfile);
+            await thisVDMDesktop.LoadAppletClassObject(appletProfile);
         }
 
         // Fetch any prerequisites
-        await thisVDMDesktop.loadAppletPreReqs(appletProfile);
+        await thisVDMDesktop.LoadAppletPreReqs(appletProfile);
 
         // Set resourcesLoaded to true so we don't try to load them again
         appletProfile.resourcesLoaded = true;
     }
 
-    fetchURLResource(url) {
+    FetchURLResource(url) {
         let thisVDMDesktop = this;
         return new Promise(function (resolve, reject) {
             let xhr = new XMLHttpRequest();
@@ -360,7 +369,7 @@ class VDMDesktop {
     }
 
     // Add Item to Drop down menu
-    addDropDownMenuItem(onClickAction, iconClass, itemLabel) {
+    AddDropDownMenuItem(onClickAction, iconClass, itemLabel) {
         let thisVDMDesktop = this;
 
         let itemLI = document.createElement("li");
@@ -378,24 +387,24 @@ class VDMDesktop {
     }
 
     // Instantiate an applet using a registered profile name and parameters
-    async openApp(appDefinition, parameters) {
+    async OpenApp(appDefinition, parameters) {
         let thisVDMDesktop = this;
 
         // Load prerequisites
-        await this.loadAppletPreReqs(appDefinition);
+        await this.LoadAppletPreReqs(appDefinition);
 
         // Create new instance of applet
         let newApp = new appDefinition.appletClass(appDefinition, parameters);
 
         // Attach window to applet
-        await thisVDMDesktop.newWindow(newApp);
+        await thisVDMDesktop.NewWindow(newApp);
 
         // Add to Applet list
         thisVDMDesktop.appletInstances[newApp.appletIndex] = newApp;
     }
 
     // Create a new window using the provided profile (not necessarily registered)
-    async newWindow(newAppletObj) {
+    async NewWindow(newAppletObj) {
         let thisVDMDesktop = this;
 
         // Link back to VDM Desktop
@@ -507,18 +516,18 @@ class VDMDesktop {
 
         // Assign action to Close button
         newAppletObj.windowParts.close.onclick = async function () {
-            thisVDMDesktop.closeWindow(newAppletObj);
+            thisVDMDesktop.CloseWindow(newAppletObj);
         };
 
         // If we have an HTML template file, retrieve and copy to the data window
         if (typeof newAppletObj.htmlFile !== "undefined") {
-            let resourceText = await thisVDMDesktop.fetchURLResource(newAppletObj.htmlFile);
+            let resourceText = await thisVDMDesktop.FetchURLResource(newAppletObj.htmlFile);
             newAppletObj.windowParts.data.innerHTML = resourceText;
         }
 
         // If we have a Startup Script, run it
         if (newAppletObj.appletName && thisVDMDesktop.appletProfiles[newAppletObj.appletName] && thisVDMDesktop.appletProfiles[newAppletObj.appletName].startupScript !== '') {
-            thisVDMDesktop.evalWithinContext(newAppletObj, thisVDMDesktop.appletProfiles[newAppletObj.appletName].startupScript);
+            thisVDMDesktop.EvalWithinContext(newAppletObj, thisVDMDesktop.appletProfiles[newAppletObj.appletName].startupScript);
         }
 
         // Create and populate menu element
@@ -618,7 +627,7 @@ class VDMDesktop {
         // Make Window active on mouse down (if not already selected)
         $(thisWindowDiv).bind("mousedown", function (e) {
             if (newAppletObj !== thisVDMDesktop.currentActiveWindow) {
-                thisVDMDesktop.switchActiveWindow(newAppletObj);
+                thisVDMDesktop.SwitchActiveWindow(newAppletObj);
             }
         });
 
@@ -649,23 +658,23 @@ class VDMDesktop {
         });
 
         // Run post open handler
-        if (newAppletObj.postOpenHandler) {
-            newAppletObj.postOpenHandler();
+        if (newAppletObj.PostOpenHandler) {
+            newAppletObj.PostOpenHandler();
         }
 
         // Run startup script
-        if (newAppletObj.runStartup) {
-            newAppletObj.runStartup();
+        if (newAppletObj.RunStartup) {
+            newAppletObj.RunStartup();
         }
 
         // Add to vdmWindows array
         this.vdmWindows.push(newAppletObj);
 
         // Make Window active now
-        thisVDMDesktop.switchActiveWindow(newAppletObj);
+        thisVDMDesktop.SwitchActiveWindow(newAppletObj);
     }
 
-    closeWindow(closeWindow) {
+    CloseWindow(closeWindow) {
         let thisVDMDesktop = this;
 
         // Run Pre Close Handler if it exists
@@ -691,7 +700,7 @@ class VDMDesktop {
      * 
      * @param {VDMWindow} newActiveWindow
      */
-    switchActiveWindow(newActiveWindow) {
+    SwitchActiveWindow(newActiveWindow) {
         let thisVDMDesktop = this;
 
         // Note previous active window and update the current active window
@@ -802,7 +811,7 @@ class VDMWindow {
         this.appVars = {};
     }
 
-    runStartup() {
+    RunStartup() {
     }
 
     /**
@@ -813,7 +822,7 @@ class VDMWindow {
      * @param {boolean} scrollRight Offer scroll on returned right pane
      * @return {HTMLDivElement[]} Array of return elements [leftPane, divider, rightPane]
      */
-    splitPaneHorizontal(paneDiv, splitOffset, scrollLeft, scrollRight) {
+    SplitPaneHorizontal(paneDiv, splitOffset, scrollLeft, scrollRight) {
         let thisVDMWindow = this;
         paneDiv.classList.add("parent");
         let a = document.createElement("div");
@@ -859,7 +868,7 @@ class VDMWindow {
      * @param {boolean} scrollBottom Offer scroll on returned bottom pane
      * @return {HTMLDivElement[]} Array of return elements [topPane, divider, bottomPane]
      */
-    splitPaneVertical(paneDiv, splitOffset, scrollTop, scrollBottom) {
+    SplitPaneVertical(paneDiv, splitOffset, scrollTop, scrollBottom) {
         let thisVDMWindow = this;
         $(paneDiv).addClass("parent");
         let a = document.createElement("div");
