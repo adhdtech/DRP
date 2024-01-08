@@ -14,7 +14,7 @@
 body {
     min-height: 100%;
     height: 100%;
-    background-image: url(../img/pattern12.png);
+    background-image: url(../img/vdmbg.png);
     font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
     margin: 0;
 }
@@ -43,19 +43,18 @@ textarea {
 }
 
 .vdmTopBar {
-
     background-color: #000;
     -webkit-user-select: none;
     -moz-user-select: none;
     user-select: none;
     height: 32px;
+    display: table;
 }
 
     .vdmTopBar .topMenu {
         position: absolute;
         margin: 3px;
-        top: 0;
-        left: 10px;
+        padding-left: 10px;
         border: 0;
         border-radius: 6px;
         width: 175px;
@@ -221,6 +220,40 @@ textarea {
                     content: "\f107";
                 }
 
+    .vdmTopBar .vdmTitle {
+        text-align: center;
+        font-size: 18px;
+        display: table-cell;
+        vertical-align: middle;
+    }
+
+.vdmled {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-flex;
+}
+
+    .vdmled.red {
+        background-color: #F00;
+        box-shadow: #000 0 -1px 7px 1px, inset #600 0 -1px 9px, #F00 0 2px 12px;
+    }
+
+    .vdmled.yellow {
+        background-color: #A90;
+        box-shadow: #000 0 -1px 7px 1px, inset #660 0 -1px 9px, #DD0 0 2px 12px;
+    }
+
+    .vdmled.green {
+        background-color: #00FF00;
+        box-shadow: #000 0 -1px 7px 1px, inset #252 0 -1px 9px, #7D0 0 2px 12px;
+    }
+
+    .vdmled.blue {
+        background-color: #4AB;
+        box-shadow: #000 0 -1px 7px 1px, inset #006 0 -1px 9px, #06F 0 2px 14px;
+    }
+
 .vdmWindows {
     display: block;
     position: relative;
@@ -288,9 +321,9 @@ textarea {
             color: #FF4444;
         }
 
-        .vdmWindow .vdmWindowHeader .ctrls span:hover {
-            cursor: pointer;
-        }
+            .vdmWindow .vdmWindowHeader .ctrls span:hover {
+                cursor: pointer;
+            }
 
     .vdmWindow .vdmWindowMenu {
         position: absolute;

@@ -29,7 +29,7 @@ window.onload = async function () {
     // Set applets path
     let vdmAppletsPath = "vdmapplets";
 
-    let thisVDMDesktop = new VDMDesktop(null, "Test VDM Desktop", vdmAppletsPath);
+    let thisVDMDesktop = new VDMDesktop(null, "Test VDM Desktop", "blue", vdmAppletsPath);
 
     let editorAppProfileText = await thisVDMDesktop.FetchURLResource('vdm-app-AppletEditor.js');
     let editorAppProfile = eval(editorAppProfileText);

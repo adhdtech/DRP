@@ -3,10 +3,11 @@
  * VDM Desktop manager
  * @param {HTMLDivElement} parentDiv Parent div for the VDM
  * @param {string} vdmTitle Title on top bar
+ * @param {string} statusLightColor Initial status light color
  * @param {Object.<string,VDMAppletProfile>} appletProfiles Dictionary of applet profiles
  */
 class VDMDesktop {
-    constructor(parentDiv, vdmTitle, appletPath) {
+    constructor(parentDiv, vdmTitle, statusLightColor, appletPath) {
         let thisVDMDesktop = this;
 
         // VDM Desktop DIV
@@ -61,15 +62,30 @@ class VDMDesktop {
             <li class="nav-last"/>
         </ul>
     </div>
+    <div class="vdmTitle">
+        <span class="vdmTitleText">VDM Desktop</span>
+        <span>&nbsp;</span>
+        <span class="vdmled"></span>
+    </div>
 </div>
-<div class="vdmWindows"/>
+<div class="vdmWindows">
 `;
 
         // Assign major elements
         this.vdmTopBarDiv = this.vdmDiv.querySelector(".vdmTopBar");
         this.vdmMenuDiv = this.vdmDiv.querySelector(".vdmMenu");
+        this.vdmTitleText = this.vdmDiv.querySelector(".vdmTitleText");
+        this.vdmStatusLed = this.vdmDiv.querySelector(".vdmled");
         this.vdmWindowsDiv = this.vdmDiv.querySelector(".vdmWindows");
         this.vdmTopBarMenuUL = this.vdmTopBarDiv.querySelector(".dropMenu");
+
+        // Set Title
+        this.SetTitle(vdmTitle);
+
+        // Set Status
+        if (statusLightColor) {
+            this.SetStatusLight(statusLightColor);
+        }
 
         // Resize Window logic
         window.onresize = () => {
@@ -84,6 +100,18 @@ class VDMDesktop {
 
         // Allow Applet JS files to be dropped and immediately instantiated
         //this.enableAppletDropOnElement(this.vdmWindowsDiv);
+    }
+
+    SetTitle(titleData) {
+        this.vdmTitleText.innerHTML = titleData;
+    }
+
+    /**
+     * Set VDM Status Light to red, yellow, green or blue
+     * @param {string} statusColor
+     */
+    SetStatusLight(statusColor) {
+        this.vdmStatusLed.className = `vdmled ${statusColor}`
     }
 
     EnableAppletDropOnElement(targetElement) {
