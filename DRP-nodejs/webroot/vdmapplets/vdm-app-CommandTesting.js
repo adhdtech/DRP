@@ -5,7 +5,8 @@
     "sizeY": 400,
     "appletIcon": "fa-book",
     "showInMenu": true,
-    "preReqs": [],
+    "preloadDeps": false,
+    "dependencies": [],
     "appletClass": class extends DRPApplet {
         constructor(appletProfile) {
             super(appletProfile);

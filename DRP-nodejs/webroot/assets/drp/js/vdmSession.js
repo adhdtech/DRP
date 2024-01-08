@@ -126,9 +126,7 @@ class VDMServerAgent extends DRP_Client_Browser {
             let thisAppletProfile = appletProfiles[appletProfileName];
             // Manually add the vdmSession to the appletProfile
             thisAppletProfile.vdmSession = thisDRPClient.vdmSession;
-
-            let preload = appletProfileName !== "AppletEditor";
-            thisDRPClient.vdmSession.AddAppletProfile(thisAppletProfile, preload, false);
+            thisDRPClient.vdmSession.AddAppletProfile(thisAppletProfile, false);
         }
 
         //thisDRPClient.vdmSession.LoadAppletProfiles();

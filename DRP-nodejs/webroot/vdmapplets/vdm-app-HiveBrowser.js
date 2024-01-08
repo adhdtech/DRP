@@ -5,7 +5,8 @@
     "sizeY": 400,
     "appletIcon": "fa-book",
     "showInMenu": true,
-    "preReqs": [
+    "preloadDeps": true,
+    "dependencies": [
         { "CSS": "vdmapplets/vdm-app-HiveBrowser.css" }
     ],
     "appletClass": class extends DRPApplet {

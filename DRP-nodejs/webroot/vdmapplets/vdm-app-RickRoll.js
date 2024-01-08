@@ -5,7 +5,8 @@
     "sizeY": 400,
     "appletIcon": "fa-list-alt",
     "showInMenu": true,
-    "preReqs": [],
+    "preloadDeps": true,
+    "dependencies": [],
     "appletClass": class extends VDMApplet {
         constructor(appletProfile) {
             super(appletProfile);

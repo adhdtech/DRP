@@ -5,7 +5,8 @@
     "sizeY": 442,
     "appletIcon": "fa-list-alt",
     "showInMenu": true,
-    "preReqs": [
+    "preloadDeps": true,
+    "dependencies": [
         { "JS": "assets/xterm/lib/xterm.js" },
         { "JS": "assets/xterm/lib/xterm-addon-fit.js" },
         { "CSS": "assets/xterm/css/xterm.css" }

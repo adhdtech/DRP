@@ -5,7 +5,8 @@
     "sizeY": 600,
     "appletIcon": "fa-list-alt",
     "showInMenu": true,
-    "preReqs": [
+    "preloadDeps": true,
+    "dependencies": [
         { "JS": "assets/cytoscape/js/cytoscape.min.js" },
         { "JS": "assets/cytoscape/js/cytoscape-context-menus.js" },
         { "CSS": "assets/cytoscape/css/cytoscape-context-menus.css" }

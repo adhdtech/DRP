@@ -5,7 +5,8 @@
     "sizeY": 500,
     "appletIcon": "fa-list-alt",
     "showInMenu": true,
-    "preReqs": [
+    "preloadDeps": false,
+    "dependencies": [
         { "CSS-Link": "<link rel='stylesheet' data-name='vs/editor/editor.main' href='assets/vs/editor/editor.main.css'>" },
         { "JS": "assets/vs/loader.js" },
         { "JS": "assets/vs/editor/editor.main.nls.js" },
@@ -98,7 +99,14 @@
 <span>Dependencies:</span>
 </div>
 <div style="padding: 0px 2px 0px 2px;">
-<span><textarea class="preReqs" style="font-size: 10px;"></textarea></span></div>
+<span><textarea class="dependencies" style="font-size: 10px;"></textarea></span></div>
+<div style="padding: 0px 2px 0px 2px;">
+<span>Pre-load deps:</span><span><input type="checkbox" class="preloadDeps"></span>
+</div>
+<div style="padding: 0px 2px 0px 2px;">
+<span>Show in menu:</span><span><input type="checkbox" class="showInMenu"></span>
+</div>
+<div>&nbsp;</div>
 <div style="padding: 0px 2px 0px 2px;">
 <span><button class="execute">Execute</button></span></div>`;
 
@@ -106,9 +114,9 @@
             thisApplet.titleField = leftPane.querySelector('.title');
             thisApplet.sizeXField = leftPane.querySelector('.sizeX');
             thisApplet.sizeYField = leftPane.querySelector('.sizeY');
-            thisApplet.preReqsField = leftPane.querySelector('.preReqs');
-
-
+            thisApplet.showInMenuField = leftPane.querySelector('.showInMenu');
+            thisApplet.dependenciesField = leftPane.querySelector('.dependencies');
+            thisApplet.preloadDepsField = leftPane.querySelector('.preloadDeps');
 
             let libSource = `
 /**
@@ -140,9 +148,13 @@ class VDMAppletProfile {
 	 */
     showInMenu: boolean
     /**
+	 * Preload dependencies
+	 */
+    preloadDeps: boolean
+    /**
 	 * Javascript and CSS pre-requisites
 	 */
-    preReqs: string[]
+    dependencies: string[]
 }
 
 /**
@@ -263,9 +275,8 @@ class VDMApplet extends VDMWindow {
   }
 }
 `
-            //libSource = await thisApplet.vdmDesktop.fetchURLResource('assets/drp/js/vdm.js');
 
-            // Wait up to 5 seconds for prereqs to load
+            // Wait up to 5 seconds for dependencies to load
             for (let i = 0; i < 50; i++) {
                 if (typeof monaco === 'undefined') {
                     await new Promise(res => setTimeout(res, 100));
@@ -350,7 +361,7 @@ class VDMApplet extends VDMWindow {
                     }
 
                     // See if it's a valid applet
-                    let appletPattern = /\({\r?\n((?:\s*"(?:appletName|title|sizeX|sizeY|appletIcon|showInMenu)": .*,\r?\n)+)(\s*"preReqs": \[(?:\r?\n(?:\s+(?:\/\/)?{.*},?\r?\n)*\s+)?],)\r?\n\s+"appletClass": (class(?: \w+)? extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*)}\);?\r?\n\/\/\# sourceURL=(.*\.js)/gm;
+                    let appletPattern = /\({\r?\n((?:\s*"(?:appletName|title|sizeX|sizeY|appletIcon|showInMenu|preloadDeps)": .*,\r?\n)+)(\s*"dependencies": \[(?:\r?\n(?:\s+(?:\/\/)?{.*},?\r?\n)*\s+)?],)\r?\n\s+"appletClass": (class(?: \w+)? extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*)}\);?\r?\n\/\/\# sourceURL=(.*\.js)/gm;
                     let appletParts = appletPattern.exec(fileObj.contents);
 
                     if (!appletParts) {
@@ -380,14 +391,20 @@ class VDMApplet extends VDMWindow {
                     // Set sizeY
                     thisApplet.sizeYField.value = metaData.sizeY;
 
-                    // Set preReqs
-                    let preReqStringArray = [];
-                    for (let thisEntry of metaData.preReqs) {
+                    // Set showInMenu
+                    thisApplet.showInMenuField.checked = (metaData.showInMenu) ? true : false;
+
+                    // Set dependencies
+                    let dependenciesStringArray = [];
+                    for (let thisEntry of metaData.dependencies) {
                         for (const [key, value] of Object.entries(thisEntry)) {
-                            preReqStringArray.push(`${key}: ${value}`);
+                            dependenciesStringArray.push(`${key}: ${value}`);
                         }
                     }
-                    thisApplet.preReqsField.value = preReqStringArray.join(",\n");
+                    thisApplet.dependenciesField.value = dependenciesStringArray.join(",\n");
+
+                    // Set preloadDeps
+                    thisApplet.preloadDepsField.checked = (metaData.preloadDeps) ? true: false;
 
                     // Apply code to editor
                     thisApplet.editor.setValue(scriptData);
@@ -397,15 +414,15 @@ class VDMApplet extends VDMWindow {
 
         GenerateAppletCode() {
             let thisApplet = this;
-            let preReqsArr = [];
+            let dependenciesArr = [];
 
-            if (thisApplet.preReqsField.value.length > 0) {
-                for (let thisLine of thisApplet.preReqsField.value.split(/,\n/)) {
+            if (thisApplet.dependenciesField.value.length > 0) {
+                for (let thisLine of thisApplet.dependenciesField.value.split(/,\n/)) {
                     let [type, value] = thisLine.split(/: /);
-                    preReqsArr.push(` { "${type}": "${value}" }`)
+                    dependenciesArr.push(` { "${type}": "${value}" }`)
                 }
             }
-            let preReqsString = `[${preReqsArr.join(",\r\n")}]`
+            let dependenciesString = `[${dependenciesArr.join(",\r\n")}]`
 
             // Create appletObj
             let appletCode = `({
@@ -414,8 +431,9 @@ class VDMApplet extends VDMWindow {
     "sizeX": ${thisApplet.sizeXField.value},
     "sizeY": ${thisApplet.sizeYField.value},
     "appletIcon": "fa-list-alt",
-    "showInMenu": false,
-    "preReqs": ${preReqsString},
+    "showInMenu": ${thisApplet.showInMenuField.checked},
+    "preloadDeps": ${thisApplet.preloadDepsField.checked},
+    "dependencies": ${dependenciesString},
     "appletClass": ${thisApplet.editor.getValue()}
 })
 //# sourceURL=vdm-app-${thisApplet.nameField.value}.js`

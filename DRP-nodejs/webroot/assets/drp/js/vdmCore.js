@@ -215,10 +215,9 @@ class VDMDesktop {
     /**
      * Add Client app profile
      * @param {VDMAppletProfile} appletProfile Profile describing new Window
-     * @param {boolean} preLoad Preload dependencies
-     * @param {boolean} forceReload Force VDM to reload appletProfile preReqs
+     * @param {boolean} forceReload Force VDM to reload appletProfile dependencies
      */
-    AddAppletProfile(appletProfile, preLoad, forceReload) {
+    AddAppletProfile(appletProfile, forceReload) {
         let thisVDMDesktop = this;
 
         // Check to see if we have a name and the necessary attributes
@@ -232,7 +231,8 @@ class VDMDesktop {
             thisVDMDesktop.appletProfiles[appletProfile.appletName] = appletProfile;
         }
 
-        if (preLoad) {
+        // Some apps need to pre-load dependencies to avoid issues after monaco is instantiated
+        if (appletProfile.preloadDeps) {
             thisVDMDesktop.LoadAppletResources(appletProfile, forceReload);
         }
 
@@ -271,82 +271,82 @@ class VDMDesktop {
      * Load applet prerequisites
      * @param {VDMAppletProfile} appletProfile
      */
-    async LoadAppletPreReqs(appletProfile) {
+    async LoadAppletDependencies(appletProfile) {
         let thisVDMDesktop = this;
 
-        if (!appletProfile.preReqs) {
-            appletProfile.preReqs = [];
+        if (!appletProfile.dependencies) {
+            appletProfile.dependencies = [];
         }
 
         // Load prerequisites
-        for (let i = 0; i < appletProfile.preReqs.length; i++) {
-            let preReqHash = appletProfile.preReqs[i];
-            let preReqKeys = Object.keys(preReqHash);
+        for (let i = 0; i < appletProfile.dependencies.length; i++) {
+            let dependenciesObj = appletProfile.dependencies[i];
+            let preReqKeys = Object.keys(dependenciesObj);
             for (let j = 0; j < preReqKeys.length; j++) {
-                let preReqType = preReqKeys[j];
-                let preReqValue = preReqHash[preReqType];
+                let dependencyType = preReqKeys[j];
+                let dependencyValue = dependenciesObj[dependencyType];
 
-                switch (preReqType) {
+                switch (dependencyType) {
                     case 'CSS':
-                        if (thisVDMDesktop.loadedResources.indexOf(preReqValue) === -1) {
-                            thisVDMDesktop.loadedResources.push(preReqValue);
+                        if (thisVDMDesktop.loadedResources.indexOf(dependencyValue) === -1) {
+                            thisVDMDesktop.loadedResources.push(dependencyValue);
 
                             // Append it to HEAD
-                            let resourceText = await thisVDMDesktop.FetchURLResource(preReqValue);
+                            let resourceText = await thisVDMDesktop.FetchURLResource(dependencyValue);
                             let styleNode = document.createElement("style");
                             styleNode.innerHTML = resourceText;
                             document.head.appendChild(styleNode);
                         }
                         break;
                     case 'CSS-Link':
-                        if (thisVDMDesktop.loadedResources.indexOf(preReqValue) === -1) {
-                            thisVDMDesktop.loadedResources.push(preReqValue);
+                        if (thisVDMDesktop.loadedResources.indexOf(dependencyValue) === -1) {
+                            thisVDMDesktop.loadedResources.push(dependencyValue);
 
                             const template = document.createElement('template');
-                            template.innerHTML = preReqValue;
+                            template.innerHTML = dependencyValue;
                             document.head.appendChild(template.content.children[0]);
                         }
                         break;
                     case 'JS':
-                        if (thisVDMDesktop.loadedResources.indexOf(preReqValue) === -1) {
-                            thisVDMDesktop.loadedResources.push(preReqValue);
+                        if (thisVDMDesktop.loadedResources.indexOf(dependencyValue) === -1) {
+                            thisVDMDesktop.loadedResources.push(dependencyValue);
 
                             // Run it globally now
-                            let resourceText = await thisVDMDesktop.FetchURLResource(preReqValue);
+                            let resourceText = await thisVDMDesktop.FetchURLResource(dependencyValue);
                             thisVDMDesktop.EvalWithinContext(window, resourceText);
                         }
                         break;
                     case 'JS-Runtime':
 
                         // Cache for execution at runtime (executes before runStartup)
-                        let resourceText = await thisVDMDesktop.FetchURLResource(preReqValue);
+                        let resourceText = await thisVDMDesktop.FetchURLResource(dependencyValue);
                         appletProfile.startupScript = resourceText;
 
                         break;
                     case 'JS-Head':
-                        if (thisVDMDesktop.loadedResources.indexOf(preReqValue) === -1) {
-                            thisVDMDesktop.loadedResources.push(preReqValue);
+                        if (thisVDMDesktop.loadedResources.indexOf(dependencyValue) === -1) {
+                            thisVDMDesktop.loadedResources.push(dependencyValue);
 
                             // Run it globally now
                             let script = document.createElement('script');
-                            script.src = preReqValue;
+                            script.src = dependencyValue;
                             script.defer = true;
 
                             document.head.appendChild(script);
                         }
                         break;
                     case 'JSON':
-                        if (thisVDMDesktop.loadedResources.indexOf(preReqValue) === -1) {
-                            thisVDMDesktop.loadedResources.push(preReqValue);
+                        if (thisVDMDesktop.loadedResources.indexOf(dependencyValue) === -1) {
+                            thisVDMDesktop.loadedResources.push(dependencyValue);
 
                             // Cache for use at runtime
-                            let resourceText = await thisVDMDesktop.FetchURLResource(preReqValue);
-                            thisVDMDesktop.sharedJSON[preReqValue] = resourceText;
+                            let resourceText = await thisVDMDesktop.FetchURLResource(dependencyValue);
+                            thisVDMDesktop.sharedJSON[dependencyValue] = resourceText;
 
                         }
                         break;
                     default:
-                        alert("Unknown prerequisite type: '" + preReqType + "'");
+                        alert("Unknown prerequisite type: '" + dependencyType + "'");
                         return false;
                 }
             }
@@ -377,7 +377,7 @@ class VDMDesktop {
         }
 
         // Fetch any prerequisites
-        await thisVDMDesktop.LoadAppletPreReqs(appletProfile);
+        await thisVDMDesktop.LoadAppletDependencies(appletProfile);
 
         // Set resourcesLoaded to true so we don't try to load them again
         appletProfile.resourcesLoaded = true;
@@ -457,7 +457,7 @@ class VDMDesktop {
         let thisVDMDesktop = this;
 
         // Load prerequisites
-        await this.LoadAppletPreReqs(newAppletProfile);
+        await this.LoadAppletDependencies(newAppletProfile);
 
         // Create new instance of applet
         let newApplet = new newAppletProfile.appletClass(newAppletProfile, parameters);
@@ -827,6 +827,8 @@ class VDMAppletProfile {
         this.appletClassText = "";
         this.appletClass = null;
         this.showInMenu = true;
+        this.preloadDeps = false;
+        this.dependencies = [];
         this.resourcesLoaded = false;
         this.startupScript = "";
         this.title = "";

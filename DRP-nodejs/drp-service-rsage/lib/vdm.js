@@ -7,15 +7,16 @@ const basicAuth = require('express-basic-auth');
 const fs = require('fs').promises;
 
 class VDMAppletProfile {
-    constructor(appletName, title, sizeX, sizeY, appletIcon, showInMenu, appletScript, preReqs) {
+    constructor(appletName, title, sizeX, sizeY, appletIcon, showInMenu, preloadDeps, appletScript, dependencies) {
         this.appletName = appletName;
         this.title = title;
         this.sizeX = sizeX;
         this.sizeY = sizeY;
         this.appletIcon = appletIcon;
         this.showInMenu = showInMenu;
+        this.preloadDeps = preloadDeps;
         this.appletScript = appletScript;
-        this.preReqs = preReqs || [];
+        this.dependencies = dependencies || [];
     }
 }
 
@@ -106,7 +107,7 @@ class VDMServer extends DRP_Service {
             "getXRAppletProfiles": async (...args) => { return await thisVDMServer.GetXRAppletProfiles(...args); },
             "uploadVDMApplet": async (params, wsConn) => {
                 // Create new Applet Profile
-                let newAppletProfile = thisVDMServer.AddVDMAppletProfile(params.appletName, params.title, params.sizeX, params.sizeY, params.appletIcon, params.showInMenu, params.appletScript, params.preReqs);
+                let newAppletProfile = thisVDMServer.AddVDMAppletProfile(params.appletName, params.title, params.sizeX, params.sizeY, params.appletIcon, params.showInMenu, params.preloadDeps, params.appletScript, params.dependencies);
                 if (!newAppletProfile || !newAppletProfile.appletName) return "ERROR";
 
                 // Save Applet Profile
@@ -153,7 +154,7 @@ class VDMServer extends DRP_Service {
                 try {
 
                     // See if it's a valid applet
-                    let appletPattern = /\({\r?\n((?:\s*"(?:appletName|title|sizeX|sizeY|appletIcon|showInMenu)": .*,\r?\n)+)(\s*"preReqs": \[(?:\r?\n(?:\s+(?:\/\/)?{.*},?\r?\n)*\s+)?],)\r?\n\s+"appletClass": (class(?: \w+)? extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*)}\);?\r?\n\/\/\# sourceURL=(.*\.js)/gm;
+                    let appletPattern = /\({\r?\n((?:\s*"(?:appletName|title|sizeX|sizeY|appletIcon|showInMenu|preloadDeps)": .*,\r?\n)+)(\s*"dependencies": \[(?:\r?\n(?:\s+(?:\/\/)?{.*},?\r?\n)*\s+)?],)\r?\n\s+"appletClass": (class(?: \w+)? extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*)}\);?\r?\n\/\/\# sourceURL=(.*\.js)/gm;
                     let appletParts = appletPattern.exec(fileData);
 
                     if (!appletParts) {
@@ -172,7 +173,7 @@ class VDMServer extends DRP_Service {
                     let sourceURL = appletParts[4];
 
                     //console.dir(appletProfile);
-                    thisVDMServer.AddVDMAppletProfile(appletProfile.appletName, appletProfile.title, appletProfile.sizeX, appletProfile.sizeY, appletProfile.appletIcon, appletProfile.showInMenu, fileName, appletProfile.preReqs);
+                    thisVDMServer.AddVDMAppletProfile(appletProfile.appletName, appletProfile.title, appletProfile.sizeX, appletProfile.sizeY, appletProfile.appletIcon, appletProfile.showInMenu, appletProfile.preloadDeps, fileName, appletProfile.dependencies);
                     appletsLoaded++;
                 } catch (ex) {
                     // Could not parse file
@@ -205,16 +206,17 @@ class VDMServer extends DRP_Service {
      * @param {string} appletName Applet name
      * @param {string} title Window title
      * @param {integer} sizeX Window width
-     * @param {interger} sizeY Window height
-     * @param {any} appletIcon Applet icon
-     * @param {any} showInMenu Should it show in menu
-     * @param {any} appletScript Script to execute
-     * @param {Object.<string,string>[]} preReqs Pre-requisites
+     * @param {integer} sizeY Window height
+     * @param {string} appletIcon Applet icon
+     * @param {boolean} showInMenu Should it show in menu
+     * @param {boolean} preloadDeps Should the dependencies be pre-loaded
+     * @param {string} appletScript Script to execute
+     * @param {Object.<string,string>[]} dependencies Dependencies
      * @returns {VDMAppletProfile} New applet profile
      */
-    AddVDMAppletProfile(appletName, title, sizeX, sizeY, appletIcon, showInMenu, appletScript, preReqs) {
+    AddVDMAppletProfile(appletName, title, sizeX, sizeY, appletIcon, showInMenu, preloadDeps, appletScript, dependencies) {
         if (appletName && title && sizeX && sizeY && appletScript) {
-            let newAppletProfile = new VDMAppletProfile(appletName, title, sizeX, sizeY, appletIcon, showInMenu, appletScript, preReqs);
+            let newAppletProfile = new VDMAppletProfile(appletName, title, sizeX, sizeY, appletIcon, showInMenu, preloadDeps, appletScript, dependencies);
             this.VDMAppletProfiles[newAppletProfile.appletName] = newAppletProfile;
             return newAppletProfile;
         }
