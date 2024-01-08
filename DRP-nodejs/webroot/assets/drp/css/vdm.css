@@ -765,3 +765,13 @@ ul.vdm-CollapseTree {
                 top: 12px;
                 width: 15px;
             }
+
+table {
+    border-collapse: collapse;
+}
+
+a {
+    color: #007bff;
+    text-decoration: none;
+    background-color: transparent;
+}
