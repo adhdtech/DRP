@@ -161,7 +161,7 @@ class VDMServer extends DRP_Service {
                         // Dropped file does not appear to be an applet
 
                         // TO DO - Add some sort of output, maybe add a status message section on the footer
-                        return;
+                        throw new DRP_CmdError(`Bad file format - ${fileName}`, DRP_ErrorCode.BADREQUEST, thisVDMServer.serviceName);
                     }
 
                     // Retrieve script parts
