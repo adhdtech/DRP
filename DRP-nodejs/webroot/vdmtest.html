@@ -21,20 +21,38 @@
     <script src="assets/jquery/jquery.min.js"></script>
     <script src="assets/jquery-ui/jquery-ui.min.js"></script>
 
+    <script src="assets/drp/js/drpClient.js"></script>
+    <script src="assets/drp/js/vdmCore.js"></script>
+    <script src="assets/drp/js/vdmSession.js"></script>
+
     <!-- VDM Client script -->
     <script type="module">
-import {VDMDesktop, VDMApplet, VDMAppletProfile} from "./assets/drp/js/vdm.js"
-window.onload = async function () {
+        //import { VDMDesktop, VDMApplet, VDMAppletProfile } from "./assets/drp/js/vdm.js"
+        window.onload = async function () {
 
-    // Set applets path
-    let vdmAppletsPath = "vdmapplets";
+            // Set applets path
+            let vdmAppletsPath = "vdmapplets";
 
-    let thisVDMDesktop = new VDMDesktop(null, "Test VDM Desktop", "blue", vdmAppletsPath);
+            let thisVDMDesktop = new VDMDesktop(null, "Test VDM Desktop", "blue", vdmAppletsPath);
 
-    let editorAppProfileText = await thisVDMDesktop.FetchURLResource('vdm-app-AppletEditor.js');
-    let editorAppProfile = eval(editorAppProfileText);
-    thisVDMDesktop.AddAppletProfile(editorAppProfile);
-};
+            let appletScriptFileList = [
+                'vdmapplets/vdm-app-AppletEditor.js',
+                'vdmapplets/vdm-app-CommandTesting.js',
+                'vdmapplets/vdm-app-DRPTopology.js',
+                'vdmapplets/vdm-app-HiveBrowser.js',
+                'vdmapplets/vdm-app-RickRoll.js',
+            ];
+
+            for (let thisScriptFileName of appletScriptFileList) {
+                let thisAppletProfileText = await thisVDMDesktop.FetchURLResource(thisScriptFileName);
+                let thisAppletProfile = eval(thisAppletProfileText);
+
+                // The following only appears to work under the top <script type="module"> section
+                //import { AppletProfile } from thisScriptFileName;
+
+                thisVDMDesktop.AddAppletProfile(thisAppletProfile);
+            }
+        };
     </script>
 
 </body>

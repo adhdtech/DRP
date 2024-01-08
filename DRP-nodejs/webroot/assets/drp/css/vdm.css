@@ -699,3 +699,69 @@ textarea {
     content: " ";
     display: table;
 }
+
+ul.vdm-CollapseTree {
+    list-style: none outside none;
+    padding-left: 5px;
+}
+
+    ul.vdm-CollapseTree li {
+        list-style: none;
+    }
+
+        ul.vdm-CollapseTree li > span {
+            line-height: 20px;
+            font-size: 11px;
+            padding-top: 1px;
+            font-weight: normal;
+            text-decoration: none;
+            color: #3B4C56;
+            cursor: pointer;
+        }
+
+    ul.vdm-CollapseTree > li > span {
+        display: block;
+        position: relative;
+    }
+
+    ul.vdm-CollapseTree li.parent > span {
+        padding: 0 0 0 18px;
+    }
+
+        ul.vdm-CollapseTree li.parent > span:before {
+            background-image: url("../img/expand-small-blue.png");
+            content: "";
+            display: block;
+            height: 12px;
+            left: 0;
+            position: absolute;
+            top: 4px;
+            vertical-align: middle;
+            width: 12px;
+        }
+
+    ul.vdm-CollapseTree li.active > span:before {
+        background-image: url("../img/collapse-small-blue.png");
+    }
+
+    ul.vdm-CollapseTree li ul {
+        border-left: 1px solid #D9DADB;
+        display: none;
+        margin: 0 0 0 6px;
+        overflow: hidden;
+        padding: 0 0 0 8px;
+    }
+
+        ul.vdm-CollapseTree li ul li {
+            position: relative;
+            line-height: 18px;
+        }
+
+            ul.vdm-CollapseTree li ul li:before {
+                border-bottom: 1px dashed #E2E2E3;
+                content: "";
+                left: -20px;
+                position: absolute;
+                top: 12px;
+                width: 15px;
+            }

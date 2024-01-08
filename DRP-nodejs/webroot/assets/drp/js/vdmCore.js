@@ -169,7 +169,7 @@ class VDMDesktop {
                 if (droppedApplet.appletName) {
                     //this.addAppletProfile(droppedJSONObj, true);
 
-                    this.OpenApp(droppedApplet);
+                    this.OpenApplet(droppedApplet);
                 }
             }
         };
@@ -215,9 +215,10 @@ class VDMDesktop {
     /**
      * Add Client app profile
      * @param {VDMAppletProfile} appletProfile Profile describing new Window
-     * @param {boolean} override Force VDM to override the existing appletProfile
+     * @param {boolean} preLoad Preload dependencies
+     * @param {boolean} forceReload Force VDM to reload appletProfile preReqs
      */
-    AddAppletProfile(appletProfile, override) {
+    AddAppletProfile(appletProfile, preLoad, forceReload) {
         let thisVDMDesktop = this;
 
         // Check to see if we have a name and the necessary attributes
@@ -225,17 +226,19 @@ class VDMDesktop {
             console.log("Cannot add app - No app definition");
         } else if (!appletProfile.appletName) {
             console.log("Cannot add app - App definition does not contain 'name' parameter");
-        } else if (!appletProfile.appletClass && !appletProfile.appletClassFile && !appletProfile.appletClassText) {
+        } else if (!appletProfile.appletClass && !appletProfile.appletScript && !appletProfile.appletClassText) {
             console.log("Cannot add app '" + appletProfile.appletName + "' - App definition does not contain 'appletClass', 'appletClassFile' or 'appletClassText' values");
         } else {
             thisVDMDesktop.appletProfiles[appletProfile.appletName] = appletProfile;
         }
 
-        //thisVDMDesktop.loadAppletResources(appletProfile, override);
+        if (preLoad) {
+            thisVDMDesktop.LoadAppletResources(appletProfile, forceReload);
+        }
 
         if (appletProfile.showInMenu) {
             thisVDMDesktop.AddDropDownMenuItem(function () {
-                thisVDMDesktop.OpenApp(appletProfile, null);
+                thisVDMDesktop.OpenApplet(appletProfile, null);
             }, appletProfile.appletIcon, appletProfile.title);
         }
     }
@@ -258,10 +261,10 @@ class VDMDesktop {
         if (appletProfile.appletClassText) {
             appletClassText = appletProfile.appletClassText;
         } else {
-            let classScriptURL = thisVDMDesktop.appletPath + '/' + appletProfile.appletClassFile;
+            let classScriptURL = thisVDMDesktop.appletPath + '/' + appletProfile.appletScript;
             appletClassText = await thisVDMDesktop.FetchURLResource(classScriptURL);
         }
-        appletProfile.appletClass = eval(appletClassText);
+        appletProfile.appletClass = eval(appletClassText).appletClass;
     }
 
     /**
@@ -270,6 +273,10 @@ class VDMDesktop {
      */
     async LoadAppletPreReqs(appletProfile) {
         let thisVDMDesktop = this;
+
+        if (!appletProfile.preReqs) {
+            appletProfile.preReqs = [];
+        }
 
         // Load prerequisites
         for (let i = 0; i < appletProfile.preReqs.length; i++) {
@@ -306,7 +313,7 @@ class VDMDesktop {
 
                             // Run it globally now
                             let resourceText = await thisVDMDesktop.FetchURLResource(preReqValue);
-                            jQuery.globalEval(resourceText);
+                            thisVDMDesktop.EvalWithinContext(window, resourceText);
                         }
                         break;
                     case 'JS-Runtime':
@@ -344,18 +351,23 @@ class VDMDesktop {
                 }
             }
         }
+
+        // Load class if not already loaded
+        if (!appletProfile.appletClass) {
+            await thisVDMDesktop.LoadAppletClassObject(appletProfile);
+        }
     }
 
     /**
      * Load class code and dependencies
      * @param {VDMAppletProfile} appletProfile
-     * @param {boolean} override
+     * @param {boolean} forceReload
      */
-    async LoadAppletResources(appletProfile, override) {
+    async LoadAppletResources(appletProfile, forceReload) {
         let thisVDMDesktop = this;
 
         // Skip if already loaded
-        if (!override && appletProfile.resourcesLoaded) {
+        if (!forceReload && appletProfile.resourcesLoaded) {
             return;
         }
 
@@ -370,7 +382,29 @@ class VDMDesktop {
         // Set resourcesLoaded to true so we don't try to load them again
         appletProfile.resourcesLoaded = true;
     }
+    /*
+    async LoadAppletProfiles() {
+        let thisVDMDesktop = this;
+        if (!thisVDMDesktop.loaded) {
+            await thisVDMDesktop.loadAppletScripts();
+            let profileKeys = Object.keys(thisVDMDesktop.appletProfiles);
+            for (let i = 0; i < profileKeys.length; i++) {
+                let appKeyName = profileKeys[i];
+                let appletProfile = thisVDMDesktop.appletProfiles[appKeyName];
+                if (appletProfile.showInMenu) {
+                    thisVDMDesktop.addDropDownMenuItem(function () {
+                        thisVDMDesktop.openApp(appKeyName, null);
+                    }, appletProfile.appletIcon, appletProfile.title);
+                }
 
+                if (typeof appletProfile.preReqs !== "undefined" && appletProfile.preReqs.length > 0) {
+                    await thisVDMDesktop.loadAppletResources(appletProfile);
+                }
+            }
+            thisVDMDesktop.loaded = true;
+        }
+    }
+    */
     FetchURLResource(url) {
         let thisVDMDesktop = this;
         return new Promise(function (resolve, reject) {
@@ -414,32 +448,25 @@ class VDMDesktop {
         thisVDMDesktop.vdmTopBarMenuUL.append(itemLI);
     }
 
-    // Instantiate an applet using a registered profile name and parameters
-    async OpenApp(appDefinition, parameters) {
+    /**
+     * Instantiate an applet using a registered profile name and parameters
+     * @param {VDMAppletProfile} newAppletProfile
+     * @param {any} parameters
+     */
+    async OpenApplet(newAppletProfile, parameters) {
         let thisVDMDesktop = this;
 
         // Load prerequisites
-        await this.LoadAppletPreReqs(appDefinition);
+        await this.LoadAppletPreReqs(newAppletProfile);
 
         // Create new instance of applet
-        let newApp = new appDefinition.appletClass(appDefinition, parameters);
-
-        // Attach window to applet
-        await thisVDMDesktop.NewWindow(newApp);
-
-        // Add to Applet list
-        thisVDMDesktop.appletInstances[newApp.appletIndex] = newApp;
-    }
-
-    // Create a new window using the provided profile (not necessarily registered)
-    async NewWindow(newAppletObj) {
-        let thisVDMDesktop = this;
+        let newApplet = new newAppletProfile.appletClass(newAppletProfile, parameters);
 
         // Link back to VDM Desktop
-        newAppletObj.vdmDesktop = thisVDMDesktop;
+        newApplet.vdmDesktop = thisVDMDesktop;
 
         // This is essentially a 'pid' within the VDMDesktop
-        newAppletObj.appletIndex = this.appletCreateIndex;
+        newApplet.appletIndex = this.appletCreateIndex;
 
         // Increment the window create index
         this.appletCreateIndex++;
@@ -448,24 +475,24 @@ class VDMDesktop {
         let thisWindowDiv = document.createElement("div");
         thisWindowDiv.id = `vdmWindow-${this.appletCreateIndex}`;
         thisWindowDiv.className = "vdmWindow";
-        newAppletObj.windowDiv = thisWindowDiv;
-        newAppletObj.windowID = thisWindowDiv.id;
+        newApplet.windowDiv = thisWindowDiv;
+        newApplet.windowID = thisWindowDiv.id;
         thisVDMDesktop.vdmWindowsDiv.appendChild(thisWindowDiv);
 
         // Set position, index, height and width
         thisWindowDiv.style.top = ((thisVDMDesktop.appletCreateIndex & 7) + 1) * 10 + 'px';
         thisWindowDiv.style.left = ((thisVDMDesktop.appletCreateIndex & 7) + 1) * 10 + 'px';
         thisWindowDiv.style.zIndex = 1;
-        thisWindowDiv.style.width = newAppletObj.sizeX + 'px';
-        thisWindowDiv.style.height = newAppletObj.sizeY + 'px';
+        thisWindowDiv.style.width = newApplet.sizeX + 'px';
+        thisWindowDiv.style.height = newApplet.sizeY + 'px';
 
         // See if we have menuItems
-        let haveMenuItems = newAppletObj.menu && Object.keys(newAppletObj.menu).length > 0;
+        let haveMenuItems = newApplet.menu && Object.keys(newApplet.menu).length > 0;
 
         // Add member elements to windowDiv
         thisWindowDiv.innerHTML = `
 <div class="vdmWindowHeader">
-    <span class="title">${newAppletObj.title}</span>
+    <span class="title">${newApplet.title}</span>
     <span class="ctrls">
         <span class="maximize"><i class="fa fa-square-o fa-lg" style="font-weight: bold; color: #c3af73; top: 2px; right: 5px; position: relative;"></i></span>
         <span class="close"><i class="fa fa-times fa-lg" style="top: 1px; right: 0px; position: relative;"></i></span>
@@ -477,24 +504,24 @@ class VDMDesktop {
 `;
 
         // Assign elements to windowObj
-        newAppletObj.windowParts = {
-            "header": newAppletObj.windowDiv.querySelector(".vdmWindowHeader"),
-            "menu": newAppletObj.windowDiv.querySelector(".vdmWindowMenu"),
-            "data": newAppletObj.windowDiv.querySelector(".vdmWindowData"),
-            "footer": newAppletObj.windowDiv.querySelector(".vdmWindowFooter"),
-            "popover": newAppletObj.windowDiv.querySelector(".vdmWindowPopover"),
-            "maximize": newAppletObj.windowDiv.querySelector(".maximize"),
-            "close": newAppletObj.windowDiv.querySelector(".close")
+        newApplet.windowParts = {
+            "header": newApplet.windowDiv.querySelector(".vdmWindowHeader"),
+            "menu": newApplet.windowDiv.querySelector(".vdmWindowMenu"),
+            "data": newApplet.windowDiv.querySelector(".vdmWindowData"),
+            "footer": newApplet.windowDiv.querySelector(".vdmWindowFooter"),
+            "popover": newApplet.windowDiv.querySelector(".vdmWindowPopover"),
+            "maximize": newApplet.windowDiv.querySelector(".maximize"),
+            "close": newApplet.windowDiv.querySelector(".close")
         };
 
         if (!haveMenuItems) {
-            newAppletObj.windowParts.data.style.top = "18px";
-            newAppletObj.windowParts.menu.style.display = "none";
+            newApplet.windowParts.data.style.top = "18px";
+            newApplet.windowParts.menu.style.display = "none";
         }
 
         // Assign action to Maximize button
-        newAppletObj.windowParts.maximize.onclick = async function () {
-            let elem = newAppletObj.windowParts.data;
+        newApplet.windowParts.maximize.onclick = async function () {
+            let elem = newApplet.windowParts.data;
 
             // Define fullscreen exit handler
             let exitHandler = () => {
@@ -507,8 +534,8 @@ class VDMDesktop {
                 }
 
                 // Call resizing hook if set
-                if (typeof newAppletObj.resizeMovingHook !== "undefined") {
-                    newAppletObj.resizeMovingHook();
+                if (typeof newApplet.resizeMovingHook !== "undefined") {
+                    newApplet.resizeMovingHook();
                 }
             }
 
@@ -537,30 +564,30 @@ class VDMDesktop {
             }
 
             // Call resizing hook if set
-            if (typeof newAppletObj.resizeMovingHook !== "undefined") {
-                newAppletObj.resizeMovingHook();
+            if (typeof newApplet.resizeMovingHook !== "undefined") {
+                newApplet.resizeMovingHook();
             }
         };
 
         // Assign action to Close button
-        newAppletObj.windowParts.close.onclick = async function () {
-            thisVDMDesktop.CloseWindow(newAppletObj);
+        newApplet.windowParts.close.onclick = async function () {
+            thisVDMDesktop.CloseApplet(newApplet);
         };
 
         // If we have an HTML template file, retrieve and copy to the data window
-        if (typeof newAppletObj.htmlFile !== "undefined") {
-            let resourceText = await thisVDMDesktop.FetchURLResource(newAppletObj.htmlFile);
-            newAppletObj.windowParts.data.innerHTML = resourceText;
+        if (typeof newApplet.htmlFile !== "undefined") {
+            let resourceText = await thisVDMDesktop.FetchURLResource(newApplet.htmlFile);
+            newApplet.windowParts.data.innerHTML = resourceText;
         }
 
         // If we have a Startup Script, run it
-        if (newAppletObj.appletName && thisVDMDesktop.appletProfiles[newAppletObj.appletName] && thisVDMDesktop.appletProfiles[newAppletObj.appletName].startupScript !== '') {
-            thisVDMDesktop.EvalWithinContext(newAppletObj, thisVDMDesktop.appletProfiles[newAppletObj.appletName].startupScript);
+        if (newApplet.appletName && thisVDMDesktop.appletProfiles[newApplet.appletName] && thisVDMDesktop.appletProfiles[newApplet.appletName].startupScript !== '') {
+            thisVDMDesktop.EvalWithinContext(newApplet, thisVDMDesktop.appletProfiles[newApplet.appletName].startupScript);
         }
 
         // Create and populate menu element
         let mainMenu = document.createElement("ul");
-        for (const [menuHeader, menuItems] of Object.entries(newAppletObj.menu)) {
+        for (const [menuHeader, menuItems] of Object.entries(newApplet.menu)) {
             // Create new top entry (File, Edit, etc.)
             let menuCol = document.createElement("li");
             let menuTop = document.createElement("span");
@@ -581,36 +608,36 @@ class VDMDesktop {
         }
 
         // If the applet has a menuSearch defined, display the box
-        if (newAppletObj.menuSearch) {
+        if (newApplet.menuSearch) {
             let menuCol = document.createElement("li");
             menuCol.className = "searchBox";
             let searchTag = document.createElement("div");
             searchTag.innerHTML = `&nbsp;&nbsp;&nbsp;&nbsp;Search&nbsp;`;
             let inputBox = document.createElement("input");
-            newAppletObj.menuSearch.searchField = inputBox;
+            newApplet.menuSearch.searchField = inputBox;
             menuCol.appendChild(searchTag);
             menuCol.appendChild(inputBox);
             mainMenu.appendChild(menuCol);
         }
 
         // If the applet has a menuQuery defined, display the box
-        if (newAppletObj.menuQuery) {
+        if (newApplet.menuQuery) {
             let menuCol = document.createElement("li");
             menuCol.className = "queryBox";
             let queryTag = document.createElement("div");
             queryTag.innerHTML = `&nbsp;&nbsp;&nbsp;&nbsp;Query&nbsp;`;
             let inputBox = document.createElement("textarea");
-            newAppletObj.menuQuery.queryField = inputBox;
+            newApplet.menuQuery.queryField = inputBox;
             menuCol.appendChild(queryTag);
             menuCol.appendChild(inputBox);
             mainMenu.appendChild(menuCol);
         }
 
         // Add the menu
-        newAppletObj.windowParts.menu.appendChild(mainMenu);
+        newApplet.windowParts.menu.appendChild(mainMenu);
 
         // Populate footer element with Size Report and Resize button
-        newAppletObj.windowParts.footer.innerHTML = `
+        newApplet.windowParts.footer.innerHTML = `
             <div class="sizeReport">${thisWindowDiv.clientWidth},${thisWindowDiv.clientHeight}</div>
             <div class="resize"><i class="fa fa-angle-double-right fa-lg"></i></div>
         `;
@@ -633,8 +660,8 @@ class VDMDesktop {
                 thisWindowDiv.style["cursor"] = "auto";
                 //$(this).css("z-index", $(this).css("z-index-cur"));
                 //$(this).css("cursor", "auto");
-                if (typeof newAppletObj.resizeMovingHook !== "undefined") {
-                    newAppletObj.resizeMovingHook();
+                if (typeof newApplet.resizeMovingHook !== "undefined") {
+                    newApplet.resizeMovingHook();
                 }
             }
         });
@@ -654,8 +681,8 @@ class VDMDesktop {
 
         // Make Window active on mouse down (if not already selected)
         $(thisWindowDiv).bind("mousedown", function (e) {
-            if (newAppletObj !== thisVDMDesktop.currentActiveWindow) {
-                thisVDMDesktop.SwitchActiveWindow(newAppletObj);
+            if (newApplet !== thisVDMDesktop.currentActiveWindow) {
+                thisVDMDesktop.SwitchActiveWindow(newApplet);
             }
         });
 
@@ -676,8 +703,8 @@ class VDMDesktop {
                 $(gParentDiv).width(gParentWidth);
                 $(gParentDiv).height(gParentHeight);
                 $(divSizeOut).html(gParentWidth + ',' + gParentHeight);
-                if (typeof newAppletObj.resizeMovingHook !== "undefined") {
-                    newAppletObj.resizeMovingHook();
+                if (typeof newApplet.resizeMovingHook !== "undefined") {
+                    newApplet.resizeMovingHook();
                 }
             });
             $(containerDiv).bind('mouseup', function (e) {
@@ -686,42 +713,52 @@ class VDMDesktop {
         });
 
         // Run post open handler
-        if (newAppletObj.PostOpenHandler) {
-            newAppletObj.PostOpenHandler();
+        if (newApplet.PostOpenHandler) {
+            newApplet.PostOpenHandler();
         }
 
         // Run startup script
-        if (newAppletObj.RunStartup) {
-            newAppletObj.RunStartup();
+        if (newApplet.RunStartup) {
+            newApplet.RunStartup();
         }
 
         // Add to vdmWindows array
-        this.vdmWindows.push(newAppletObj);
+        this.vdmWindows.push(newApplet);
+
+        // Add to Applet list
+        thisVDMDesktop.appletInstances[newApplet.appletIndex] = newApplet;
 
         // Make Window active now
-        thisVDMDesktop.SwitchActiveWindow(newAppletObj);
+        thisVDMDesktop.SwitchActiveWindow(newApplet);
     }
 
-    CloseWindow(closeWindow) {
+    /**
+     * Close an Applet
+     * @param {VDMApplet} appletObj
+     */
+    CloseApplet(appletObj) {
         let thisVDMDesktop = this;
 
         // Run Pre Close Handler if it exists
-        if (typeof closeWindow.preCloseHandler !== "undefined" && typeof closeWindow.preCloseHandler === 'function') {
-            closeWindow.preCloseHandler();
+        if (typeof appletObj.preCloseHandler !== "undefined" && typeof appletObj.preCloseHandler === 'function') {
+            appletObj.preCloseHandler();
         }
 
         // Delete Window Element
-        let element = document.getElementById(closeWindow.windowID);
+        let element = document.getElementById(appletObj.windowID);
         element.parentNode.removeChild(element);
 
         // Run Post Close
-        if (typeof closeWindow.postCloseHandler !== "undefined" && typeof closeWindow.postCloseHandler === 'function') {
-            closeWindow.postCloseHandler();
+        if (typeof appletObj.postCloseHandler !== "undefined" && typeof appletObj.postCloseHandler === 'function') {
+            appletObj.postCloseHandler();
         }
 
         // Remove from vdmWindows array
-        let windowIndex = thisVDMDesktop.vdmWindows.indexOf(closeWindow);
+        let windowIndex = thisVDMDesktop.vdmWindows.indexOf(appletObj);
         thisVDMDesktop.vdmWindows.splice(windowIndex, 1);
+
+        // Remove applet instance
+        delete thisVDMDesktop.appletInstances[appletObj.appletIndex];
     }
 
     /**
@@ -786,7 +823,7 @@ class VDMAppletProfile {
         this.appletName = "";
         this.appletIcon = "";
         this.appletPath = "";
-        this.appletClassFile = "";
+        this.appletScript = "";
         this.appletClassText = "";
         this.appletClass = null;
         this.showInMenu = true;
@@ -950,4 +987,49 @@ class VDMApplet extends VDMWindow {
     }
 }
 
-export { VDMDesktop, VDMWindow, VDMApplet, VDMAppletProfile };
+class VDMCollapseTree {
+    constructor(menuParentDiv) {
+        //let thisTreeMenu = this;
+        this.parentDiv = menuParentDiv;
+        this.parentDiv.innerHTML = '';
+        this.menuTopUL = document.createElement("ul");
+        this.menuTopUL.className = "vdm-CollapseTree";
+        this.parentDiv.appendChild(this.menuTopUL);
+    }
+
+    addItem(parentObjRef, newItemTag, newItemClass, newItemRef, isParent, clickFunction) {
+        // First use subMenuArr to find the target UL
+        let targetUL = null;
+        if (parentObjRef) {
+            targetUL = parentObjRef.leftMenuUL;
+        } else {
+            targetUL = this.menuTopUL;
+        }
+
+        let newLI = document.createElement("li");
+        let newSpan = document.createElement("span");
+        newSpan.className = newItemClass;
+        newSpan.innerHTML = newItemTag;
+        newItemRef.leftMenuSpan = newSpan;
+        newItemRef.leftMenuLI = newLI;
+        newLI.appendChild(newSpan);
+        if (isParent) {
+            newLI.className = "parent";
+            let newUL = document.createElement("ul");
+            newLI.appendChild(newUL);
+            newItemRef.leftMenuUL = newUL;
+            $(newSpan).on('click', function () {
+                $(this).parent().toggleClass('active');
+                $(this).parent().children('ul').toggle();
+                clickFunction(newItemRef);
+            });
+        } else {
+            $(newSpan).on('click', function () {
+                clickFunction(newItemRef);
+            });
+        }
+        targetUL.appendChild(newLI);
+    }
+}
+
+//export { VDMDesktop, VDMWindow, VDMApplet, VDMAppletProfile };

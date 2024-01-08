@@ -6,7 +6,7 @@
     "appletIcon": "fa-list-alt",
     "showInMenu": true,
     "preReqs": [
-        { "CSS-Link": '<link rel="stylesheet" data-name="vs/editor/editor.main" href="assets/vs/editor/editor.main.css">' },
+        { "CSS-Link": "<link rel='stylesheet' data-name='vs/editor/editor.main' href='assets/vs/editor/editor.main.css'>" },
         { "JS": "assets/vs/loader.js" },
         { "JS": "assets/vs/editor/editor.main.nls.js" },
         { "JS": "assets/vs/editor/editor.main.js" }
@@ -180,7 +180,7 @@ class VDMDesktop {
 	/**
 	 * Creates and returns window
 	 */
-	newWindow():VDMWindow
+	OpenApp(appletProfile: VDMAppletProfile):VDMApplet
 }
 
 /**
@@ -265,10 +265,14 @@ class VDMApplet extends VDMWindow {
 `
             //libSource = await thisApplet.vdmDesktop.fetchURLResource('assets/drp/js/vdm.js');
 
-            // Wait for CSS to finish loading
-            //if (typeof monaco === 'undefined') {
-            //await new Promise(res => setTimeout(res, 100));
-            //}
+            // Wait up to 5 seconds for prereqs to load
+            for (let i = 0; i < 50; i++) {
+                if (typeof monaco === 'undefined') {
+                    await new Promise(res => setTimeout(res, 100));
+                } else {
+                    break;
+                }
+            }
 
             if (monaco.editor.getModels().length) {
                 monaco.editor.getModels().forEach(model => model.dispose());
@@ -289,6 +293,9 @@ class VDMApplet extends VDMWindow {
                 theme: 'vs-dark',
                 automaticLayout: true,
                 fontSize: 12
+                //autoIndent: true,
+                //formatOnPaste: true,
+                //formatOnType: true
             });
 
             let targetElement = thisApplet.windowParts["data"];
@@ -299,7 +306,7 @@ class VDMApplet extends VDMWindow {
                 // TODO - Add sanity checks
                 let appletCode = thisApplet.GenerateAppletCode();
                 let appletObj = eval(appletCode);
-                thisApplet.vdmDesktop.OpenApp(appletObj);
+                thisApplet.vdmDesktop.OpenApplet(appletObj);
             };
 
             // Add Applet Drop logic
@@ -343,7 +350,7 @@ class VDMApplet extends VDMWindow {
                     }
 
                     // See if it's a valid applet
-                    let appletPattern = /\({\r?\n((?:\s*"(?:appletName|title|sizeX|sizeY|appletIcon|showInMenu)": .*,\r?\n)+)(\s*"preReqs": \[(?:\r?\n(?:\s+(?:\/\/)?{.*},?\r?\n)*\s+)?],)\r?\n\s+"appletClass": (class(?: \w+)? extends (?:VDMApplet|rSageApplet) {(?:.|\r?\n)*)}\)\r?\n\/\/\# sourceURL=(.*\.js)/gm;
+                    let appletPattern = /\({\r?\n((?:\s*"(?:appletName|title|sizeX|sizeY|appletIcon|showInMenu)": .*,\r?\n)+)(\s*"preReqs": \[(?:\r?\n(?:\s+(?:\/\/)?{.*},?\r?\n)*\s+)?],)\r?\n\s+"appletClass": (class(?: \w+)? extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*)}\);?\r?\n\/\/\# sourceURL=(.*\.js)/gm;
                     let appletParts = appletPattern.exec(fileObj.contents);
 
                     if (!appletParts) {
@@ -390,7 +397,15 @@ class VDMApplet extends VDMWindow {
 
         GenerateAppletCode() {
             let thisApplet = this;
-            let preReqsString = "[]";
+            let preReqsArr = [];
+
+            if (thisApplet.preReqsField.value.length > 0) {
+                for (let thisLine of thisApplet.preReqsField.value.split(/,\n/)) {
+                    let [type, value] = thisLine.split(/: /);
+                    preReqsArr.push(` { "${type}": "${value}" }`)
+                }
+            }
+            let preReqsString = `[${preReqsArr.join(",\r\n")}]`
 
             // Create appletObj
             let appletCode = `({

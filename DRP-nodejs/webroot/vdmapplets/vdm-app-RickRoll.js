@@ -1,27 +1,47 @@
-(class extends VDMApplet {
-    constructor(appletProfile) {
-        super(appletProfile);
-        let myApp = this;
+({
+    "appletName": "RickRoll",
+    "title": "RickRoll",
+    "sizeX": 620,
+    "sizeY": 400,
+    "appletIcon": "fa-list-alt",
+    "showInMenu": true,
+    "preReqs": [],
+    "appletClass": class extends VDMApplet {
+        constructor(appletProfile) {
+            super(appletProfile);
+            let thisApplet = this;
 
-        // Dropdown menu items
-        myApp.menu = {
-        };
+            // Dropdown menu items
+            thisApplet.menu = {
+                "Test Functions": {
+                    "Alert": () => {
+                        alert("Hello world")
+                    },
+                    "RickRoll": () => {
+                        thisApplet.appFuncs.rickRoll();
+                    }
+                }
+            };
 
-        myApp.appFuncs = {
-        };
+            thisApplet.rickRollURL = "https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&amp;autoplay=1&amp;controls=0&amp;showinfo=0"
+        }
 
-        myApp.appVars = {
-            "videoURL": "https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&amp;autoplay=1&amp;controls=0&amp;showinfo=0"
-        };
+        RunStartup() {
+            let thisApplet = this;
+            thisApplet.RickRoll();
+        }
 
-        myApp.recvCmd = {
-        };
-
+        RickRoll() {
+            let thisApplet = this;
+            let iFrame = document.createElement("iframe");
+            iFrame.style.width = "100%";
+            iFrame.style.height = "100%";
+            iFrame.allow = "autoplay";
+            iFrame.src = thisApplet.rickRollURL;
+            thisApplet.windowParts.data.appendChild(iFrame);
+        }
     }
 
-    runStartup() {
-        let myApp = this;
-        myApp.windowParts["data"].innerHTML = '<iframe width="100% " height="100% " src="' + myApp.appVars['videoURL'] + '" frameborder="0" allowfullscreen=""></iframe>';
-    }
+
 })
 //# sourceURL=vdm-app-RickRoll.js

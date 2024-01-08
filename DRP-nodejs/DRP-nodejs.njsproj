@@ -18,7 +18,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>ba4b474a-fa17-4e27-bcda-500a68bbbb3a</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>drpBroker.js</StartupFile>
+    <StartupFile>server.js</StartupFile>
     <StartWebBrowser>False</StartWebBrowser>
     <SearchPath>
     </SearchPath>
@@ -123,10 +123,12 @@
     <Content Include="webroot\assets\cytoscape\js\cytoscape-context-menus.js" />
     <Content Include="webroot\assets\cytoscape\js\cytoscape.min.js" />
     <Content Include="webroot\assets\drp\css\vdm.css" />
-    <Content Include="webroot\assets\drp\img\pattern12.png" />
-    <Content Include="webroot\assets\drp\js\vdm.js">
+    <Content Include="webroot\assets\drp\img\vdmbg.png" />
+    <Content Include="webroot\assets\drp\js\drpClient.js" />
+    <Content Include="webroot\assets\drp\js\vdmCore.js">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="webroot\assets\drp\js\vdmSession.js" />
     <Content Include="webroot\assets\rsage-vdm\css\vdm.css" />
     <Content Include="webroot\assets\rsage-vdm\img\collapse-small-blue.png" />
     <Content Include="webroot\assets\rsage-vdm\img\expand-small-blue.png" />
@@ -152,19 +154,16 @@
     <Content Include="webroot\monacotest.html">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="webroot\vdm-app-AppletEditor.js" />
-    <Content Include="webroot\vdm-app-TestApp.js" />
+    <Content Include="webroot\vdmapplets\vdm-app-AppletEditor.js" />
     <Content Include="webroot\vdmtest.html">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="webroot\vdmapplets\vdm-app-Blank.js" />
     <Content Include="webroot\vdmapplets\vdm-app-CommandTesting.js" />
     <Content Include="webroot\vdmapplets\vdm-app-CommandTesting.json" />
     <Content Include="webroot\vdmapplets\vdm-app-DRPShell.js" />
     <Content Include="webroot\vdmapplets\vdm-app-DRPShell.json" />
     <Content Include="webroot\vdmapplets\vdm-app-DRPTopology.js" />
     <Content Include="webroot\vdmapplets\vdm-app-DRPTopology.json" />
-    <Content Include="webroot\vdmapplets\vdm-app-FedEx.js" />
     <Content Include="webroot\vdmapplets\vdm-app-FedEx.json.dnl" />
     <Content Include="webroot\vdmapplets\vdm-app-HiveBrowser.css" />
     <Content Include="webroot\vdmapplets\vdm-app-HiveBrowser.js" />
