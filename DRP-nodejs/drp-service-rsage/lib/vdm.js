@@ -154,7 +154,7 @@ class VDMServer extends DRP_Service {
                 try {
 
                     // See if it's a valid applet
-                    let appletPattern = /\({\r?\n((?:\s*"(?:appletName|title|sizeX|sizeY|appletIcon|showInMenu|preloadDeps)": .*,\r?\n)+)(\s*"dependencies": \[(?:\r?\n(?:\s+(?:\/\/)?{.*},?\r?\n)*\s+)?],)\r?\n\s+"appletClass": (class(?: \w+)? extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*)}\);?\r?\n\/\/\# sourceURL=(.*\.js)/gm;
+                    let appletPattern = /\({\r?\n((?:\s*"(?:appletName|title|sizeX|sizeY|appletIcon|showInMenu|preloadDeps)": .*,\r?\n)+)(\s*"dependencies": \[(?:.|\r?\n)*],)\r?\n\s+"appletClass": (class(?: \w+)? extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*)}\);?\r?\n\/\/\# sourceURL=(.*\.js)/gm;
                     let appletParts = appletPattern.exec(fileData);
 
                     if (!appletParts) {

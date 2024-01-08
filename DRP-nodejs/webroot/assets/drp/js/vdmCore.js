@@ -865,7 +865,7 @@ class VDMWindow {
         };
 
         // Attributes which should be specified in each applet definition
-        this.preReqs = [];
+        this.dependencies = [];
 
         this.menu = {};
 

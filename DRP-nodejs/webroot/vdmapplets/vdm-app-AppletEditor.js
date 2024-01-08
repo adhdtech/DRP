@@ -213,7 +213,7 @@ class VDMApplet extends VDMWindow {
     /**
      * Applet instantiation process:
      *    1. Initial applet setup - thisApplet.constructor()
-     *    2. Window element creation - VDMDesktop.NewWindow(thisApplet)
+     *    2. Window element creation - VDMDesktop.OpenApplet(thisApplet)
      *    3. Applet data population - thisApplet.RunStartup()
      */
     
@@ -361,7 +361,7 @@ class VDMApplet extends VDMWindow {
                     }
 
                     // See if it's a valid applet
-                    let appletPattern = /\({\r?\n((?:\s*"(?:appletName|title|sizeX|sizeY|appletIcon|showInMenu|preloadDeps)": .*,\r?\n)+)(\s*"dependencies": \[(?:\r?\n(?:\s+(?:\/\/)?{.*},?\r?\n)*\s+)?],)\r?\n\s+"appletClass": (class(?: \w+)? extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*)}\);?\r?\n\/\/\# sourceURL=(.*\.js)/gm;
+                    let appletPattern = /\({\r?\n((?:\s*"(?:appletName|title|sizeX|sizeY|appletIcon|showInMenu|preloadDeps)": .*,\r?\n)+)(\s*"dependencies": \[(?:.|\r?\n)*],)\r?\n\s+"appletClass": (class(?: \w+)? extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*)}\);?\r?\n\/\/\# sourceURL=(.*\.js)/gm;
                     let appletParts = appletPattern.exec(fileObj.contents);
 
                     if (!appletParts) {

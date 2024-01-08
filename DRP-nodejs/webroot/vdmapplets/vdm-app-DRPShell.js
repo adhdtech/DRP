@@ -179,7 +179,7 @@
                         }
 
                         // Prerequisites
-                        watchApp.preReqs = [
+                        watchApp.dependencies = [
                         ];
 
                         // Dropdown menu items
