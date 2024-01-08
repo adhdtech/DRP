@@ -147,14 +147,37 @@ class VDMServer extends DRP_Service {
         for (let i = 0; i < vdmDirData.length; i++) {
             let fileName = vdmDirData[i];
 
-            if (fileName.match(/^vdm-app-.*\.json$/)) {
+            if (fileName.match(/^vdm-app-.*\.js$/)) {
                 // Load each profile
                 let fileData = await fs.readFile(thisVDMServer.clientStaticDir + '/' + thisVDMServer.vdmAppletsDir + '/' + fileName, 'utf8');
-                /** @type {VDMAppletProfile} */
-                let appletProfile = JSON.parse(fileData);
-                //console.dir(appletProfile);
-                thisVDMServer.AddVDMAppletProfile(appletProfile.appletName, appletProfile.title, appletProfile.sizeX, appletProfile.sizeY, appletProfile.appletIcon, appletProfile.showInMenu, appletProfile.appletScript, appletProfile.preReqs);
-                appletsLoaded++;
+                try {
+
+                    // See if it's a valid applet
+                    let appletPattern = /\({\r?\n((?:\s*"(?:appletName|title|sizeX|sizeY|appletIcon|showInMenu)": .*,\r?\n)+)(\s*"preReqs": \[(?:\r?\n(?:\s+(?:\/\/)?{.*},?\r?\n)*\s+)?],)\r?\n\s+"appletClass": (class(?: \w+)? extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*)}\);?\r?\n\/\/\# sourceURL=(.*\.js)/gm;
+                    let appletParts = appletPattern.exec(fileData);
+
+                    if (!appletParts) {
+                        // Dropped file does not appear to be an applet
+
+                        // TO DO - Add some sort of output, maybe add a status message section on the footer
+                        return;
+                    }
+
+                    // Retrieve script parts
+                    let appletProfileString = '{' + appletParts[1] + (appletParts[2].replace(/,\r?\n?$/, '')) + '}'
+
+                    /** @type {VDMAppletProfile} */
+                    let appletProfile = JSON.parse(appletProfileString);
+                    let scriptData = appletParts[3].replace(/(?:\r?\n)+$/, '\r\n');
+                    let sourceURL = appletParts[4];
+
+                    //console.dir(appletProfile);
+                    thisVDMServer.AddVDMAppletProfile(appletProfile.appletName, appletProfile.title, appletProfile.sizeX, appletProfile.sizeY, appletProfile.appletIcon, appletProfile.showInMenu, fileName, appletProfile.preReqs);
+                    appletsLoaded++;
+                } catch (ex) {
+                    // Could not parse file
+                    thisVDMServer.DRPNode.log(`Could not import applet ${fileName}`);
+                }
             }
         }
 
@@ -229,38 +252,31 @@ class VDMServer extends DRP_Service {
     <meta name="msapplication-TileColor" content="#5bc0de" />
 
     <!-- External CSS -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="assets/fontawesome/font-awesome.min.css">
 
     <!-- VDM -->
-    <link rel="stylesheet" href="assets/rsage-vdm/css/vdm.css">
+    <link rel="stylesheet" href="assets/drp/css/vdm.css">
 
 </head>
 <body>
 
-    <div id="vdmDesktop"></div>
-
     <!-- External Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <script src="assets/jquery/jquery.min.js"></script>
+    <script src="assets/jquery-ui/jquery-ui.min.js"></script>
 
     <!-- VDM -->
-    <script src="assets/rsage-vdm/js/drpClient.js"></script>
-    <script src="assets/rsage-vdm/js/vdmCore.js"></script>
-    <script src="assets/rsage-vdm/js/vdmSession.js"></script>
+    <script src="assets/drp/js/drpClient.js"></script>
+    <script src="assets/drp/js/vdmCore.js"></script>
+    <script src="assets/drp/js/vdmSession.js"></script>
 
     <!-- VDM Client script -->
     <script>
 window.onload = function () {
-    // Get target DIV
-    let mainPage = document.getElementById('vdmDesktop');
 
     // Set applets path
     let vdmAppletsPath = "${thisVDMServer.vdmAppletsDir}";
 
-    let vdmSession = new VDMSession(mainPage, "${thisVDMServer.desktopTitle}", vdmAppletsPath);
+    let vdmSession = new VDMSession(null, "${thisVDMServer.desktopTitle}", "red", vdmAppletsPath);
 
     vdmSession.startSession();
 };
