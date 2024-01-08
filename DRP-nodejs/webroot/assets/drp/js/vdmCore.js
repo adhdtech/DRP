@@ -215,9 +215,8 @@ class VDMDesktop {
     /**
      * Add Client app profile
      * @param {VDMAppletProfile} appletProfile Profile describing new Window
-     * @param {boolean} forceReload Force VDM to reload appletProfile dependencies
      */
-    AddAppletProfile(appletProfile, forceReload) {
+    AddAppletProfile(appletProfile) {
         let thisVDMDesktop = this;
 
         // Check to see if we have a name and the necessary attributes
@@ -229,11 +228,6 @@ class VDMDesktop {
             console.log("Cannot add app '" + appletProfile.appletName + "' - App definition does not contain 'appletClass', 'appletClassFile' or 'appletClassText' values");
         } else {
             thisVDMDesktop.appletProfiles[appletProfile.appletName] = appletProfile;
-        }
-
-        // Some apps need to pre-load dependencies to avoid issues after monaco is instantiated
-        if (appletProfile.preloadDeps) {
-            thisVDMDesktop.LoadAppletResources(appletProfile, forceReload);
         }
 
         if (appletProfile.showInMenu) {
@@ -351,60 +345,23 @@ class VDMDesktop {
                 }
             }
         }
-
-        // Load class if not already loaded
-        if (!appletProfile.appletClass) {
-            await thisVDMDesktop.LoadAppletClassObject(appletProfile);
-        }
     }
 
-    /**
-     * Load class code and dependencies
-     * @param {VDMAppletProfile} appletProfile
-     * @param {boolean} forceReload
-     */
-    async LoadAppletResources(appletProfile, forceReload) {
+    async PreloadAppletDependencies() {
         let thisVDMDesktop = this;
+        let profileKeys = Object.keys(thisVDMDesktop.appletProfiles);
+        for (let i = 0; i < profileKeys.length; i++) {
+            let appKeyName = profileKeys[i];
+            let appletProfile = thisVDMDesktop.appletProfiles[appKeyName];
 
-        // Skip if already loaded
-        if (!forceReload && appletProfile.resourcesLoaded) {
-            return;
-        }
-
-        // If class object isn't set, fetch class code and eval to assign to profile
-        if (!appletProfile.appletClass) {
-            await thisVDMDesktop.LoadAppletClassObject(appletProfile);
-        }
-
-        // Fetch any prerequisites
-        await thisVDMDesktop.LoadAppletDependencies(appletProfile);
-
-        // Set resourcesLoaded to true so we don't try to load them again
-        appletProfile.resourcesLoaded = true;
-    }
-    /*
-    async LoadAppletProfiles() {
-        let thisVDMDesktop = this;
-        if (!thisVDMDesktop.loaded) {
-            await thisVDMDesktop.loadAppletScripts();
-            let profileKeys = Object.keys(thisVDMDesktop.appletProfiles);
-            for (let i = 0; i < profileKeys.length; i++) {
-                let appKeyName = profileKeys[i];
-                let appletProfile = thisVDMDesktop.appletProfiles[appKeyName];
-                if (appletProfile.showInMenu) {
-                    thisVDMDesktop.addDropDownMenuItem(function () {
-                        thisVDMDesktop.openApp(appKeyName, null);
-                    }, appletProfile.appletIcon, appletProfile.title);
-                }
-
-                if (typeof appletProfile.preReqs !== "undefined" && appletProfile.preReqs.length > 0) {
-                    await thisVDMDesktop.loadAppletResources(appletProfile);
-                }
+            // If the preloadDeps flag is set, load dependencies
+            if (appletProfile.preloadDeps) {
+                await thisVDMDesktop.LoadAppletDependencies(appletProfile);
             }
-            thisVDMDesktop.loaded = true;
         }
+        thisVDMDesktop.loaded = true;
     }
-    */
+
     FetchURLResource(url) {
         let thisVDMDesktop = this;
         return new Promise(function (resolve, reject) {
@@ -455,6 +412,11 @@ class VDMDesktop {
      */
     async OpenApplet(newAppletProfile, parameters) {
         let thisVDMDesktop = this;
+
+        // If class object isn't set, fetch class code and eval to assign to profile
+        if (!newAppletProfile.appletClass) {
+            await thisVDMDesktop.LoadAppletClassObject(newAppletProfile);
+        }
 
         // Load prerequisites
         await this.LoadAppletDependencies(newAppletProfile);

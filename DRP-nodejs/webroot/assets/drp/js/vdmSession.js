@@ -124,17 +124,12 @@ class VDMServerAgent extends DRP_Client_Browser {
         let appletProfileNames = Object.keys(appletProfiles);
         for (let appletProfileName of appletProfileNames) {
             let thisAppletProfile = appletProfiles[appletProfileName];
-            // Manually add the vdmSession to the appletProfile
+            // Add the vdmSession to the appletProfile
             thisAppletProfile.vdmSession = thisDRPClient.vdmSession;
             thisDRPClient.vdmSession.AddAppletProfile(thisAppletProfile, false);
-
-            // Wait for this applet's resources to load 
-            if (thisAppletProfile.dependencies.length > 0) {
-                await new Promise(res => setTimeout(res, 100));
-            }
         }
 
-        //thisDRPClient.vdmSession.LoadAppletProfiles();
+        thisDRPClient.vdmSession.PreloadAppletDependencies();
     }
 
     async CloseHandler(closeCode) {
