@@ -26,34 +26,9 @@
     <script src="assets/drp/js/vdmSession.js"></script>
     <!-- VDM Client script -->
     <script>
-        //import { VDMDesktop, VDMApplet, VDMAppletProfile } from "./assets/drp/js/vdmCore.js";
-        //import { VDMSession, DRPApplet } from "./assets/drp/js/vdmSession.js";
-        //global.VDMApplet = VDMApplet;
-        //global.DRPApplet = DRPApplet;
         //import { VDMDesktop, VDMApplet, VDMAppletProfile } from "./assets/drp/js/vdm.js"
-        window.onload = async () => {
+        window.onload = async function () {
 
-            //let { VDMDesktop, VDMApplet } = await import("./assets/drp/js/vdmCore.js");
-            //let { VDMSession, DRPApplet, VDMServerAgent } = await import("./assets/drp/js/vdmSession.js");
-
-            //globalThis.VDMApplet = VDMApplet;
-            //globalThis.DRPApplet = DRPApplet;
-
-            //let { AppletProfile, AppletClass } = await import("./vdmapplets/vdm-app-AppletEditor.js");
-            /*
-            function doimport(str) {
-                if (globalThis.URL.createObjectURL) {
-                    const blob = new Blob([str], { type: 'text/javascript' })
-                    const url = URL.createObjectURL(blob)
-                    const module = import(url);
-                    URL.revokeObjectURL(url) // GC objectURLs
-                    return module
-                }
-                const url = "data:text/javascript;base64," + btoa(str)
-                let newModule = import(url);
-                return newModule;
-            }
-            */
             // Set applets path
             let vdmAppletsPath = "vdmapplets";
 
@@ -71,7 +46,9 @@
 
                 try {
                     // Import applet module objects
-                    let appletModule = await import(`./${thisScriptFileName}`);
+                    let moduleCode = await thisVDMDesktop.FetchURLResource(`./${thisScriptFileName}`)
+                    let appletModule = new VDMAppletModule();
+                    await appletModule.LoadFromString(moduleCode);
 
                     if (!appletModule.AppletProfile) {
                         continue;
@@ -85,7 +62,7 @@
                 }
             }
 
-            //thisVDMDesktop.PreloadAppletDependencies();
+            thisVDMDesktop.PreloadAppletDependencies();
         };
     </script>
 
