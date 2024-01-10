@@ -151,9 +151,6 @@
     <Content Include="webroot\assets\xterm\css\xterm.css" />
     <Content Include="webroot\assets\xterm\lib\xterm.js" />
     <Content Include="webroot\favicon.ico" />
-    <Content Include="webroot\monacotest.html">
-      <SubType>Code</SubType>
-    </Content>
     <Content Include="webroot\vdmapplets\vdm-app-AppletEditor.js" />
     <Content Include="webroot\vdmtest.html">
       <SubType>Code</SubType>

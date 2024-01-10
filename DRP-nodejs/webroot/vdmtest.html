@@ -7,7 +7,7 @@
 
     <!-- External CSS -->
     <!--<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">-->
-    <link rel="stylesheet" href="assets/fontawesome/font-awesome.min.css">  
+    <link rel="stylesheet" href="assets/fontawesome/font-awesome.min.css">
 
     <!-- VDM -->
     <link rel="stylesheet" href="assets/drp/css/vdm.css">
@@ -24,12 +24,36 @@
     <script src="assets/drp/js/drpClient.js"></script>
     <script src="assets/drp/js/vdmCore.js"></script>
     <script src="assets/drp/js/vdmSession.js"></script>
-
     <!-- VDM Client script -->
-    <script type="module">
+    <script>
+        //import { VDMDesktop, VDMApplet, VDMAppletProfile } from "./assets/drp/js/vdmCore.js";
+        //import { VDMSession, DRPApplet } from "./assets/drp/js/vdmSession.js";
+        //global.VDMApplet = VDMApplet;
+        //global.DRPApplet = DRPApplet;
         //import { VDMDesktop, VDMApplet, VDMAppletProfile } from "./assets/drp/js/vdm.js"
-        window.onload = async function () {
+        window.onload = async () => {
 
+            //let { VDMDesktop, VDMApplet } = await import("./assets/drp/js/vdmCore.js");
+            //let { VDMSession, DRPApplet, VDMServerAgent } = await import("./assets/drp/js/vdmSession.js");
+
+            //globalThis.VDMApplet = VDMApplet;
+            //globalThis.DRPApplet = DRPApplet;
+
+            //let { AppletProfile, AppletClass } = await import("./vdmapplets/vdm-app-AppletEditor.js");
+            /*
+            function doimport(str) {
+                if (globalThis.URL.createObjectURL) {
+                    const blob = new Blob([str], { type: 'text/javascript' })
+                    const url = URL.createObjectURL(blob)
+                    const module = import(url);
+                    URL.revokeObjectURL(url) // GC objectURLs
+                    return module
+                }
+                const url = "data:text/javascript;base64," + btoa(str)
+                let newModule = import(url);
+                return newModule;
+            }
+            */
             // Set applets path
             let vdmAppletsPath = "vdmapplets";
 
@@ -44,16 +68,24 @@
             ];
 
             for (let thisScriptFileName of appletScriptFileList) {
-                let thisAppletProfileText = await thisVDMDesktop.FetchURLResource(thisScriptFileName);
-                let thisAppletProfile = eval(thisAppletProfileText);
 
-                // The following only appears to work under the top <script type="module"> section
-                //import { AppletProfile } from thisScriptFileName;
+                try {
+                    // Import applet module objects
+                    let appletModule = await import(`./${thisScriptFileName}`);
 
-                thisVDMDesktop.AddAppletProfile(thisAppletProfile);
+                    if (!appletModule.AppletProfile) {
+                        continue;
+                    }
+
+                    thisVDMDesktop.AddAppletModule(appletModule);
+
+                } catch (ex) {
+                    //thisApplet.DisplayStatusMessage(`Could not run applet - ${ex.message}`, true);
+                    console.log(`Could not load applet - ${ex.message}`);
+                }
             }
 
-            thisVDMDesktop.PreloadAppletDependencies();
+            //thisVDMDesktop.PreloadAppletDependencies();
         };
     </script>
 

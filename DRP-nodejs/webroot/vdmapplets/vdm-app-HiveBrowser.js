@@ -1,15 +1,4 @@
-({
-    "appletName": "HiveBrowser",
-    "title": "Hive Browser",
-    "sizeX": 800,
-    "sizeY": 400,
-    "appletIcon": "fa-book",
-    "showInMenu": true,
-    "preloadDeps": true,
-    "dependencies": [
-        { "CSS": "vdmapplets/vdm-app-HiveBrowser.css" }
-    ],
-    "appletClass": class extends DRPApplet {
+class AppletClass extends DRPApplet {
         constructor(appletProfile) {
             super(appletProfile);
             let myApp = this;
@@ -548,6 +537,20 @@
                 });
             }
         }
-    }
-});
+}
+
+let AppletProfile = {
+    "appletName": "HiveBrowser",
+    "title": "Hive Browser",
+    "sizeX": 800,
+    "sizeY": 400,
+    "appletIcon": "fa-book",
+    "showInMenu": true,
+    "preloadDeps": true,
+    "dependencies": [
+        { "CSS": "vdmapplets/vdm-app-HiveBrowser.css" }
+    ]
+}
+
+export { AppletProfile, AppletClass }
 //# sourceURL=vdm-app-HiveBrowser.js

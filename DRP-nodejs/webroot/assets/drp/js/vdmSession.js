@@ -95,7 +95,7 @@ class VDMServerAgent extends DRP_Client_Browser {
 
         // This is a test function for RickRolling users remotely via DRP
         this.RickRoll = function () {
-            vdmSession.OpenApplet(vdmSession.appletProfiles["RickRoll"], null);
+            vdmSession.OpenApplet(vdmSession.appletModules["RickRoll"], null);
         };
     }
 
@@ -117,7 +117,7 @@ class VDMServerAgent extends DRP_Client_Browser {
         thisDRPClient.vdmSession.SetStatusLight('green');
 
         // If we don't have any appletProfiles, request them
-        if (Object.keys(thisDRPClient.vdmSession.appletProfiles).length) return;
+        if (Object.keys(thisDRPClient.vdmSession.appletModules).length) return;
         let appletProfiles = {};
         let getAppletProfilesResponse = await thisDRPClient.SendCmd("VDM", "getVDMAppletProfiles", null, true, null);
         if (getAppletProfilesResponse) appletProfiles = getAppletProfilesResponse;
@@ -126,7 +126,17 @@ class VDMServerAgent extends DRP_Client_Browser {
             let thisAppletProfile = appletProfiles[appletProfileName];
             // Add the vdmSession to the appletProfile
             thisAppletProfile.vdmSession = thisDRPClient.vdmSession;
-            thisDRPClient.vdmSession.AddAppletProfile(thisAppletProfile, false);
+
+            // Updated for new Applet Module format
+            let appletModuleCode = await thisDRPClient.vdmSession.FetchURLResource(thisDRPClient.vdmSession.appletPath + '/vdm-app-' + thisAppletProfile.appletName + '.js');
+            let appletModule = new VDMAppletModule();
+            await appletModule.LoadFromString(appletModuleCode);
+
+            if (!appletModule.AppletProfile) {
+                continue;
+            }
+
+            await thisDRPClient.vdmSession.AddAppletModule(appletModule, false);
         }
 
         thisDRPClient.vdmSession.PreloadAppletDependencies();

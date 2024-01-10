@@ -149,35 +149,28 @@ class VDMServer extends DRP_Service {
             let fileName = vdmDirData[i];
 
             if (fileName.match(/^vdm-app-.*\.js$/)) {
-                // Load each profile
+
+                // Read applets from local file store (TODO - add option to get from DocMgr)
                 let fileData = await fs.readFile(thisVDMServer.clientStaticDir + '/' + thisVDMServer.vdmAppletsDir + '/' + fileName, 'utf8');
                 try {
 
-                    // See if it's a valid applet
-                    let appletPattern = /\({\r?\n((?:\s*"(?:appletName|title|sizeX|sizeY|appletIcon|showInMenu|preloadDeps)": .*,\r?\n)+)(\s*"dependencies": \[(?:.|\r?\n)*],)\r?\n\s+"appletClass": (class(?: \w+)? extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*)}\);?\r?\n\/\/\# sourceURL=(.*\.js)/gm;
-                    let appletParts = appletPattern.exec(fileData);
+                    // See if this is a module package
+                    let appletPackagePattern = /^(class AppletClass extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*})\r?\n\r?\nlet AppletProfile = ({(?:\s+.*\r?\n)+})\r?\n\r?\n?export { AppletProfile, AppletClass };?\r?\n\/\/# sourceURL=vdm-app-\w+\.js$/gm;
+                    let appletPackageParts = appletPackagePattern.exec(fileData);
 
-                    if (!appletParts) {
-                        // Dropped file does not appear to be an applet
-
-                        // TO DO - Add some sort of output, maybe add a status message section on the footer
-                        throw new DRP_CmdError(`Bad file format - ${fileName}`, DRP_ErrorCode.BADREQUEST, thisVDMServer.serviceName);
+                    if (!appletPackageParts) {
+                        throw new Error("Could not load applet");
                     }
 
-                    // Retrieve script parts
-                    let appletProfileString = '{' + appletParts[1] + (appletParts[2].replace(/,\r?\n?$/, '')) + '}'
-
-                    /** @type {VDMAppletProfile} */
-                    let appletProfile = JSON.parse(appletProfileString);
-                    let scriptData = appletParts[3].replace(/(?:\r?\n)+$/, '\r\n');
-                    let sourceURL = appletParts[4];
-
-                    //console.dir(appletProfile);
+                    // Parse consolidated module format
+                    let moduleCode = appletPackageParts[1];
+                    let appletProfile = JSON.parse(appletPackageParts[2]);
                     thisVDMServer.AddVDMAppletProfile(appletProfile.appletName, appletProfile.title, appletProfile.sizeX, appletProfile.sizeY, appletProfile.appletIcon, appletProfile.showInMenu, appletProfile.preloadDeps, fileName, appletProfile.dependencies);
                     appletsLoaded++;
+                    thisVDMServer.DRPNode.log(`Applet ${fileName} - Imported`);
                 } catch (ex) {
                     // Could not parse file
-                    thisVDMServer.DRPNode.log(`Could not import applet ${fileName}`);
+                    thisVDMServer.DRPNode.log(`Applet ${fileName} - Could not import`);
                 }
             }
         }
