@@ -30,14 +30,11 @@ class AppletClass extends VDMApplet {
         let profileKeys = Object.keys(thisVDMDesktop.appletModules);
         for (let i = 0; i < profileKeys.length; i++) {
             let appKeyName = profileKeys[i];
-            // Do not load the Applet Editor itself; throws error
+            // Do not load the Applet Editor itself
             if (appKeyName === "AppletEditor") {
                 continue;
             }
             let appletModule = thisVDMDesktop.appletModules[appKeyName];
-
-            //let classScriptURL = thisVDMDesktop.appletPath + '/vdm-app-' + appletModule.AppletProfile.appletName + '.js';
-            //let appletClassText = await thisVDMDesktop.FetchURLResource(classScriptURL);
 
             dropdownEntries[appletModule.AppletProfile.title] = () => { thisApplet.LoadAppletModuleCode(appletModule.ModuleCode) }
         }
@@ -547,37 +544,6 @@ export { AppletProfile, AppletClass }
         }
     }
 
-    GenerateAppletCode() {
-        let thisApplet = this;
-        let dependenciesArr = [];
-
-        thisApplet.RunSanityCheck();
-
-        if (thisApplet.dependenciesField.value.length > 0) {
-            for (let thisLine of thisApplet.dependenciesField.value.split(/,\n/)) {
-                let [type, value] = thisLine.split(/: /);
-                dependenciesArr.push(` { "${type}": "${value}" }`)
-            }
-        }
-        let dependenciesString = `[${dependenciesArr.join(",\r\n")}]`;
-
-        // Create appletObj
-        let appletCode = `({
-    "appletName": "${thisApplet.nameField.value}",
-    "title": "${thisApplet.titleField.value}",
-    "sizeX": ${thisApplet.sizeXField.value},
-    "sizeY": ${thisApplet.sizeYField.value},
-    "appletIcon": "fa-list-alt",
-    "showInMenu": ${thisApplet.showInMenuField.checked},
-    "preloadDeps": ${thisApplet.preloadDepsField.checked},
-    "dependencies": ${dependenciesString},
-    "appletClass": ${thisApplet.editor.getValue()}
-})
-//# sourceURL=vdm-app-${thisApplet.nameField.value}.js`
-
-        return appletCode;
-    }
-
     GenerateAppletModuleCode() {
         let thisApplet = this;
         let dependenciesArr = [];
@@ -636,7 +602,6 @@ export { AppletProfile, AppletClass }
             reader.onerror = (error) => {
                 reject(error);
             };
-            //reader.readAsDataURL(file);
             reader.readAsBinaryString(file);
         });
     }
@@ -644,30 +609,10 @@ export { AppletProfile, AppletClass }
     async ExecuteScript() {
         let thisApplet = this;
 
-        function doimport(str) {
-            if (globalThis.URL.createObjectURL) {
-                const blob = new Blob([str], { type: 'text/javascript' })
-                const url = URL.createObjectURL(blob)
-                const module = import(url);
-                URL.revokeObjectURL(url) // GC objectURLs
-                return module
-            }
-            const url = "data:text/javascript;base64," + btoa(str)
-            let newModule = import(url);
-            return newModule;
-        }
-
         try {
-            // Successfully imports class object
-            //let classCode = thisApplet.editor.getValue();
             let appletModuleCode = thisApplet.GenerateAppletModuleCode();
             let appletModule = new VDMAppletModule();
             await appletModule.LoadFromString(appletModuleCode);
-            //let appletObj = (await doimport(appletModuleCode));
-
-            // TODO - Need to adjust this to use the dynamically generated class object
-            //let appletCode = thisApplet.GenerateAppletCode();
-            //let appletObj = eval(appletCode);
             thisApplet.vdmDesktop.OpenApplet(appletModule);
         } catch (ex) {
             thisApplet.DisplayStatusMessage(`Could not run applet - ${ex.message}`, true);
@@ -702,45 +647,20 @@ export { AppletProfile, AppletClass }
         }
     }
 
+    /**
+     * Take code for an applet module and apply it to the relevant editor fields
+     * @param {string} appletModuleCode
+     */
     async LoadAppletModuleCode(appletModuleCode) {
         let thisApplet = this;
 
-        // See if this is a module package
-        let appletPackagePattern = /^(class AppletClass extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*})\r?\n\r?\nlet AppletProfile = ({(?:\s+.*\r?\n)+})\r?\n\r?\n?export { AppletProfile, AppletClass };?\r?\n\/\/# sourceURL=vdm-app-\w+\.js$/gm;
-        let appletPackageParts = appletPackagePattern.exec(appletModuleCode);
-
-        if (!appletPackageParts) {
-            return;
-        }
-
-        // Get code to display in the code editor
-        let appletModuleClassCode = appletPackageParts[1];
-
         // Create module from code
         let appletModule = new VDMAppletModule();
+
+        // This step will throw an error if the module code is invalid
         await appletModule.LoadFromString(appletModuleCode);
 
-        // See if it's a valid applet
-        //let appletPattern = /\({\r?\n((?:\s*"(?:appletName|title|sizeX|sizeY|appletIcon|showInMenu|preloadDeps)": .*,\r?\n)+)(\s*"dependencies": \[(?:.|\r?\n)*],)\r?\n\s+"appletClass": (class(?: \w+)? extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*)}\);?\r?\n\/\/\# sourceURL=(.*\.js)/gm;
-        //let appletParts = appletPattern.exec(scriptPackageText);
-
-        if (!appletModule || !appletModule.AppletProfile || !appletModule.ModuleCode) {
-            // Dropped file does not appear to be an applet
-
-            // TO DO - Add some sort of output, maybe add a status message section on the footer
-            return;
-        }
-
-        // Retrieve script parts
-        /*
-        let metaDataJSON = '{' + appletParts[1] + (appletParts[2].replace(/,\r?\n?$/, '')) + '}'
-        let metaData = JSON.parse(metaDataJSON);
-        let scriptData = appletParts[3].replace(/(?:\r?\n)+$/, '\r\n');
-        let sourceURL = appletParts[4];
-        */
-
-
-        // Set the relevant fields
+        // Set the AppletEditor form fields
 
         // Set script name
         thisApplet.nameField.value = appletModule.AppletProfile.appletName;
@@ -770,7 +690,7 @@ export { AppletProfile, AppletClass }
         thisApplet.preloadDepsField.checked = (appletModule.AppletProfile.preloadDeps) ? true : false;
 
         // Apply code to editor
-        thisApplet.editor.setValue(appletModuleClassCode);
+        thisApplet.editor.setValue(appletModule.ClassCode);
     }
 }
 

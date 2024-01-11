@@ -249,24 +249,6 @@ class VDMDesktop {
     }
 
     /**
-     * Retrieve applet class code from URL, eval and assign the class object
-    * @param {VDMAppletProfile} appletProfile
-    */
-    /*
-    async LoadAppletClassObject(appletProfile) {
-        let thisVDMDesktop = this;
-        let appletClassText = null;
-        if (appletProfile.appletClassText) {
-            appletClassText = appletProfile.appletClassText;
-        } else {
-            let classScriptURL = thisVDMDesktop.appletPath + '/' + appletProfile.appletScript;
-            appletClassText = await thisVDMDesktop.FetchURLResource(classScriptURL);
-        }
-        appletProfile.appletClass = eval(appletClassText).appletClass;
-    }
-    */
-
-    /**
      * Load applet prerequisites
      * @param {VDMAppletProfile} appletProfile
      */
@@ -414,12 +396,15 @@ class VDMDesktop {
     async OpenApplet(appletModule, parameters) {
         let thisVDMDesktop = this;
 
-        // If class object isn't set, fetch class code and eval to assign to profile
-        /*
-        if (!newAppletProfile.AppletClass) {
-            await thisVDMDesktop.LoadAppletClassObject(newAppletProfile);
+        // Sender should be sending a module - was a string sent instead?
+        if (typeof appletModule === "string") {
+            // Yes - get a registered applet by name
+            let appletModuleName = appletModule;
+            appletModule = thisVDMDesktop.appletModules[appletModuleName];
+            if (!appletModule) {
+                throw new Error(`Applet name is not registered - '${appletModuleName}'`);
+            }
         }
-        */
 
         // Load prerequisites
         await this.LoadAppletDependencies(appletModule.AppletProfile);
@@ -774,7 +759,7 @@ class VDMAppletModule {
     async LoadFromString(appletModuleCode) {
         let blob = new Blob([appletModuleCode], { type: 'text/javascript' })
         let url = URL.createObjectURL(blob)
-        const module = await import(url);
+        let module = await import(url);
         URL.revokeObjectURL(url) // GC objectURLs
 
         // Validate module format

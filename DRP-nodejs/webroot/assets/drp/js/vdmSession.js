@@ -36,15 +36,6 @@ class DRPApplet extends VDMApplet {
     // Send applet close notification to VDM Server after open
     postOpenHandler() {
         let thisApplet = this;
-        /*
-        thisApplet.sendCmd("VDM", "openUserApp",
-            {
-                appletName: thisApplet.appletName,
-                appletIndex: thisApplet.appletIndex
-            },
-            false
-        );
-        */
     }
 
     // Send applet close notification to VDM Server after closure
