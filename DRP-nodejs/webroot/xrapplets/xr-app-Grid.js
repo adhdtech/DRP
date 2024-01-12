@@ -1,12 +1,12 @@
 ﻿(class extends XRApplet {
     constructor(appletProfile, xrSession) {
         super(appletProfile, xrSession);
-        let myApp = this;
+        let thisApplet = this;
     }
 
     async runStartup() {
-        let myApp = this;
-        let engine = myApp.xrSession.babylonEngine;
+        let thisApplet = this;
+        let engine = thisApplet.xrSession.babylonEngine;
 
         let multimediaRoot = ".";
 
@@ -195,8 +195,8 @@
             counter++;
         })
 
-        myApp.BabylonScene = scene;
-        myApp.xr = xr;
+        thisApplet.BabylonScene = scene;
+        thisApplet.xr = xr;
 
         engine.runRenderLoop(function () {
             scene.render();
@@ -279,8 +279,8 @@
                 //newCow.rotationQuaternion =
                 newCow.rotate(BABYLON.Axis.Y, BABYLON.Tools.ToRadians(180));
 
-                myApp.BabylonScene = newScene;
-                myApp.xr = xr;
+                thisApplet.BabylonScene = newScene;
+                thisApplet.xr = xr;
 
                 engine.runRenderLoop(function () {
                     newScene.render();

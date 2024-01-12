@@ -1,7 +1,7 @@
 class AppletClass extends DRPApplet {
     constructor(appletProfile) {
         super(appletProfile);
-        let myApp = this;
+        let thisApplet = this;
 
         class topologyNode {
             constructor() {
@@ -31,41 +31,41 @@ class AppletClass extends DRPApplet {
         }
 
         // Dropdown menu items
-        myApp.menu = {
+        thisApplet.menu = {
             "View": {
                 "Toggle Refresh": function () {
-                    myApp.appFuncs.toggleRefresh();
+                    thisApplet.appFuncs.toggleRefresh();
                 },
                 "Output JSON": async function () {
-                    let fileData = JSON.stringify(myApp.appVars.cy.json());
+                    let fileData = JSON.stringify(thisApplet.appVars.cy.json());
                     console.log(fileData);
-                    //myApp.appVars.msgBox.innerHTML = results;
+                    //thisApplet.appVars.msgBox.innerHTML = results;
                     //alert(results);
                 }
             }
         };
 
-        myApp.menuSearch = {
+        thisApplet.menuSearch = {
             "searchEmptyPlaceholder": "Search...",
             "searchField": null
         };
         /*
-        myApp.menuQuery = {
+        thisApplet.menuQuery = {
         "queryEmptyPlaceholder": "Query...",
         "queryField": null
         }
          */
 
-        myApp.appFuncs = {
+        thisApplet.appFuncs = {
             "toggleRefresh": function () {
-                if (!myApp.appVars.refreshActive) {
-                    myApp.appVars.refreshInterval = setInterval(async () => {
-                        myApp.appFuncs.loadNodeTopology();
+                if (!thisApplet.appVars.refreshActive) {
+                    thisApplet.appVars.refreshInterval = setInterval(async () => {
+                        thisApplet.appFuncs.loadNodeTopology();
                     }, 10000);
-                    myApp.appVars.refreshActive = true;
+                    thisApplet.appVars.refreshActive = true;
                 } else {
-                    clearInterval(myApp.appVars.refreshInterval);
-                    myApp.appVars.refreshActive = false;
+                    clearInterval(thisApplet.appVars.refreshInterval);
+                    thisApplet.appVars.refreshActive = false;
                 }
             },
             "placeNode": function (nodeClass, index, total) {
@@ -73,8 +73,8 @@ class AppletClass extends DRPApplet {
                 let colsPerRow = 6;
                 switch (nodeClass) {
                     case "Registry":
-                        returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Registry"]);
-                        //myApp.appVars.nodeCursors["Registry"].y += 75;
+                        returnPosition = Object.assign(returnPosition, thisApplet.appVars.nodeCursors["Registry"]);
+                        //thisApplet.appVars.nodeCursors["Registry"].y += 75;
                         let arrangeMultiple = total > 1 ? true : false;
                         if (arrangeMultiple) {
                             let isEven = index % 2 === 0;
@@ -89,29 +89,29 @@ class AppletClass extends DRPApplet {
                         returnPosition.y += (75 * (Math.floor(index / 2)));
                         break;
                     case "Broker":
-                        returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Broker"]);
-                        myApp.appVars.nodeCursors["Broker"].y += 150;
+                        returnPosition = Object.assign(returnPosition, thisApplet.appVars.nodeCursors["Broker"]);
+                        thisApplet.appVars.nodeCursors["Broker"].y += 150;
                         break;
                     case "Provider":
-                        returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Provider"]);
-                        myApp.appVars.nodeCursors["Provider"].y += 75;
+                        returnPosition = Object.assign(returnPosition, thisApplet.appVars.nodeCursors["Provider"]);
+                        thisApplet.appVars.nodeCursors["Provider"].y += 75;
                         break;
                     case "Logger":
-                        returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Logger"]);
-                        myApp.appVars.nodeCursors["Logger"].y += 75;
+                        returnPosition = Object.assign(returnPosition, thisApplet.appVars.nodeCursors["Logger"]);
+                        thisApplet.appVars.nodeCursors["Logger"].y += 75;
                         break;
                     case "Consumer":
-                        returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Consumer"]);
+                        returnPosition = Object.assign(returnPosition, thisApplet.appVars.nodeCursors["Consumer"]);
                         let column = returnPosition.index % colsPerRow;
                         returnPosition.x += column * 50;
                         let row = Math.floor(returnPosition.index / colsPerRow);
                         returnPosition.y += row * 50;
-                        myApp.appVars.nodeCursors["Consumer"].index++;
+                        thisApplet.appVars.nodeCursors["Consumer"].index++;
                         break;
                     case "Service":
-                        returnPosition = Object.assign(returnPosition, myApp.appVars.nodeCursors["Service"]);
-                        myApp.appVars.nodeCursors["Service"].y += 50;
-                        myApp.appVars.nodeCursors["Service"].index++;
+                        returnPosition = Object.assign(returnPosition, thisApplet.appVars.nodeCursors["Service"]);
+                        thisApplet.appVars.nodeCursors["Service"].y += 50;
+                        thisApplet.appVars.nodeCursors["Service"].index++;
                         break;
                     default:
                 }
@@ -173,21 +173,21 @@ class AppletClass extends DRPApplet {
                         zones[zoneName].Logger.length
                     );
 
-                    myApp.appVars.nodeCursors["Registry"].y = zoneVerticalOffset + ((maxZoneHeight - 1) * 75) / 2
-                    myApp.appVars.nodeCursors["Broker"].y = zoneVerticalOffset
-                    myApp.appVars.nodeCursors["Provider"].y = zoneVerticalOffset
-                    myApp.appVars.nodeCursors["Logger"].y = zoneVerticalOffset + 75
-                    myApp.appVars.nodeCursors["Consumer"].y = zoneVerticalOffset
+                    thisApplet.appVars.nodeCursors["Registry"].y = zoneVerticalOffset + ((maxZoneHeight - 1) * 75) / 2
+                    thisApplet.appVars.nodeCursors["Broker"].y = zoneVerticalOffset
+                    thisApplet.appVars.nodeCursors["Provider"].y = zoneVerticalOffset
+                    thisApplet.appVars.nodeCursors["Logger"].y = zoneVerticalOffset + 75
+                    thisApplet.appVars.nodeCursors["Consumer"].y = zoneVerticalOffset
 
-                    myApp.appVars.nodeCursors["Registry"].index = 0;
-                    myApp.appVars.nodeCursors["Broker"].index = 0;
-                    myApp.appVars.nodeCursors["Provider"].index = 0;
-                    myApp.appVars.nodeCursors["Logger"].index = 0;
-                    myApp.appVars.nodeCursors["Consumer"].index = 0;
+                    thisApplet.appVars.nodeCursors["Registry"].index = 0;
+                    thisApplet.appVars.nodeCursors["Broker"].index = 0;
+                    thisApplet.appVars.nodeCursors["Provider"].index = 0;
+                    thisApplet.appVars.nodeCursors["Logger"].index = 0;
+                    thisApplet.appVars.nodeCursors["Consumer"].index = 0;
 
                     let zoneWidth = 1000;
 
-                    myApp.appVars.cy.add({
+                    thisApplet.appVars.cy.add({
                         group: 'nodes',
                         data: {
                             id: zoneName
@@ -205,7 +205,7 @@ class AppletClass extends DRPApplet {
                         //grabbable: false
                     });
 
-                    myApp.appVars.cy.add({
+                    thisApplet.appVars.cy.add({
                         group: 'nodes',
                         data: {
                             id: `${zoneName}-label`,
@@ -236,10 +236,10 @@ class AppletClass extends DRPApplet {
                             return nodeObj.NodeID
                         });
                         let index = nodeIDs.indexOf(drpNode.NodeID);
-                        let nodePosition = myApp.appFuncs.placeNode(primaryRole, index, nodeIDs.length);
+                        let nodePosition = thisApplet.appFuncs.placeNode(primaryRole, index, nodeIDs.length);
 
                         // Add DRP Node as Cytoscape node
-                        myApp.appVars.cy.add({
+                        thisApplet.appVars.cy.add({
                             group: 'nodes',
                             data: {
                                 id: drpNode.NodeID,
@@ -261,7 +261,7 @@ class AppletClass extends DRPApplet {
                                     return returnVal;
                                 },
                                 Evacuate: async () => {
-                                    let response = await myApp.appFuncs.evacuate(drpNode.NodeID);
+                                    let response = await thisApplet.appFuncs.evacuate(drpNode.NodeID);
                                     return response;
                                 }
                             },
@@ -304,10 +304,10 @@ class AppletClass extends DRPApplet {
                             }
 
                             // See if service node exists
-                            let svcNodeObj = myApp.appVars.cy.getElementById(serviceNodeID);
+                            let svcNodeObj = thisApplet.appVars.cy.getElementById(serviceNodeID);
                             if (svcNodeObj.length === 0) {
                                 // No - create it
-                                myApp.appVars.cy.add({
+                                thisApplet.appVars.cy.add({
                                     group: 'nodes',
                                     data: {
                                         id: serviceNodeID,
@@ -329,7 +329,7 @@ class AppletClass extends DRPApplet {
                             }
 
                             // Create edge
-                            myApp.appVars.cy.add({
+                            thisApplet.appVars.cy.add({
                                 group: 'edges',
                                 data: {
                                     id: `${serviceNodeID}_${drpNode.NodeID}`,
@@ -348,16 +348,16 @@ class AppletClass extends DRPApplet {
                 for (let i = 0; i < nodeIDs.length; i++) {
                     let drpNodeID = nodeIDs[i];
                     let drpNode = topologyObj[drpNodeID];
-                    myApp.appVars.nodeCursors["Consumer"].index = 0;
-                    let nodeObj = myApp.appVars.cy.getElementById(drpNodeID);
-                    myApp.appVars.nodeCursors["Consumer"].y = nodeObj.position().y;
+                    thisApplet.appVars.nodeCursors["Consumer"].index = 0;
+                    let nodeObj = thisApplet.appVars.cy.getElementById(drpNodeID);
+                    thisApplet.appVars.nodeCursors["Consumer"].y = nodeObj.position().y;
 
                     // Loop over nodeClients
                     let nodeClientIDs = Object.keys(drpNode.NodeClients);
                     for (let j = 0; j < nodeClientIDs.length; j++) {
                         let targetNodeID = nodeClientIDs[j];
 
-                        myApp.appVars.cy.add({
+                        thisApplet.appVars.cy.add({
                             group: 'edges',
                             data: {
                                 id: `${drpNodeID}_${targetNodeID}`,
@@ -375,7 +375,7 @@ class AppletClass extends DRPApplet {
                         let consumerNodeID = `${drpNodeID}-c:${consumerID}`;
                         let consumerObj = drpNode.ConsumerClients[consumerID];
 
-                        myApp.appVars.cy.add({
+                        thisApplet.appVars.cy.add({
                             group: 'nodes',
                             data: {
                                 id: consumerNodeID,
@@ -389,10 +389,10 @@ class AppletClass extends DRPApplet {
                                 }
                             },
                             classes: "Consumer",
-                            position: myApp.appFuncs.placeNode("Consumer")
+                            position: thisApplet.appFuncs.placeNode("Consumer")
                         });
 
-                        myApp.appVars.cy.add({
+                        thisApplet.appVars.cy.add({
                             group: 'edges',
                             data: {
                                 id: `${consumerNodeID}_${drpNodeID}`,
@@ -405,9 +405,9 @@ class AppletClass extends DRPApplet {
                 }
             },
             "loadNodeTopology": async function () {
-                myApp.appVars.cy.elements().remove();
+                thisApplet.appVars.cy.elements().remove();
 
-                myApp.appVars.nodeCursors = {
+                thisApplet.appVars.nodeCursors = {
                     Registry: { x: 400, y: 50, index: 0 },
                     Broker: { x: 700, y: 100, index: 0 },
                     Provider: { x: 200, y: 100, index: 0 },
@@ -417,17 +417,17 @@ class AppletClass extends DRPApplet {
                 };
 
                 /** @type {Object.<string, topologyNode>}} */
-                let topologyObj = await myApp.sendCmd("DRP", "getTopology", null, true);
-                myApp.appFuncs.importMeshTopology(topologyObj);
+                let topologyObj = await thisApplet.sendCmd("DRP", "getTopology", null, true);
+                thisApplet.appFuncs.importMeshTopology(topologyObj);
             },
             "evacuate": async function (nodeID) {
                 let pathListArray = ['Mesh', 'Nodes', nodeID, 'DRPNode', 'Evacuate'];
-                let evacuateResponse = await myApp.sendCmd("DRP", "pathCmd", { method: "exec", pathList: pathListArray }, true);
+                let evacuateResponse = await thisApplet.sendCmd("DRP", "pathCmd", { method: "exec", pathList: pathListArray }, true);
                 return evacuateResponse;
             }
         };
 
-        myApp.appVars = {
+        thisApplet.appVars = {
             dataStructs: {},
             refreshActive: false,
             refreshInterval: null,
@@ -444,22 +444,22 @@ class AppletClass extends DRPApplet {
             displayedNodeID: null
         };
 
-        myApp.recvCmd = {
+        thisApplet.recvCmd = {
         };
     }
 
     async RunStartup() {
-        let myApp = this;
+        let thisApplet = this;
 
-        myApp.appVars.dataPane = myApp.windowParts["data"];
+        thisApplet.appVars.dataPane = thisApplet.windowParts["data"];
 
         let cyBox = document.createElement("div");
         cyBox.style = `position: absolute; z-index: 0; overflow: hidden; width: 100%; height: 100%; background: #aaa`;
-        myApp.appVars.dataPane.appendChild(cyBox);
-        myApp.appVars.cyBox = cyBox;
+        thisApplet.appVars.dataPane.appendChild(cyBox);
+        thisApplet.appVars.cyBox = cyBox;
 
         let cy = cytoscape({
-            container: myApp.appVars.cyBox,
+            container: thisApplet.appVars.cyBox,
             wheelSensitivity: .25,
             zoom: .75,
             pan: { "x": 100, "y": 25 },
@@ -554,7 +554,7 @@ class AppletClass extends DRPApplet {
             }
         });
 
-        myApp.appVars.cy = cy;
+        thisApplet.appVars.cy = cy;
 
         cy.on('mouseover', 'node', async function (e) {
             // Add highlight to connected edges
@@ -563,12 +563,12 @@ class AppletClass extends DRPApplet {
 
             // If the node has a "ShowDetails" function, execute and display in details box
             if (targetNodeData.ShowDetails) {
-                myApp.appVars.displayedNodeID = targetNodeData.id;
-                myApp.appVars.detailsDiv.style['display'] = 'grid';
+                thisApplet.appVars.displayedNodeID = targetNodeData.id;
+                thisApplet.appVars.detailsDiv.style['display'] = 'grid';
                 try {
-                    myApp.appVars.detailsDiv.innerHTML = await targetNodeData.ShowDetails();
+                    thisApplet.appVars.detailsDiv.innerHTML = await targetNodeData.ShowDetails();
                 } catch (ex) {
-                    myApp.appVars.detailsDiv.innerHTML = ex.message;
+                    thisApplet.appVars.detailsDiv.innerHTML = ex.message;
                 }
             }
         });
@@ -578,8 +578,8 @@ class AppletClass extends DRPApplet {
             let targetNodeData = e.cyTarget.data();
 
             // If the node has a "ShowDetails" function AND its details are currently in the detail box, remove and hide
-            if (myApp.appVars.displayedNodeID && myApp.appVars.displayedNodeID === targetNodeData.id) {
-                //myApp.appVars.detailsDiv.style['display'] = 'none';
+            if (thisApplet.appVars.displayedNodeID && thisApplet.appVars.displayedNodeID === targetNodeData.id) {
+                //thisApplet.appVars.detailsDiv.style['display'] = 'none';
             }
         });
 
@@ -592,7 +592,7 @@ class AppletClass extends DRPApplet {
 
         let removed = null;
 
-        var contextMenu = myApp.appVars.cy.contextMenus({
+        var contextMenu = thisApplet.appVars.cy.contextMenus({
             menuItems: [
                 {
                     id: 'evacuate',
@@ -604,11 +604,11 @@ class AppletClass extends DRPApplet {
                         // If the node has a "ShowDetails" function, execute and display in details box
                         if (targetNodeData.Evacuate) {
                             try {
-                                myApp.appVars.detailsDiv.innerHTML = await targetNodeData.Evacuate();
-                                myApp.appVars.detailsDiv.style['display'] = 'block';
-                                myApp.appFuncs.loadNodeTopology();
+                                thisApplet.appVars.detailsDiv.innerHTML = await targetNodeData.Evacuate();
+                                thisApplet.appVars.detailsDiv.style['display'] = 'block';
+                                thisApplet.appFuncs.loadNodeTopology();
                             } catch (ex) {
-                                myApp.appVars.detailsDiv.innerHTML = ex.message;
+                                thisApplet.appVars.detailsDiv.innerHTML = ex.message;
                             }
                         }
                     },
@@ -617,12 +617,12 @@ class AppletClass extends DRPApplet {
             ]
         });
 
-        myApp.resizeMovingHook = function () {
-            myApp.appVars.cy.resize();
+        thisApplet.resizeMovingHook = function () {
+            thisApplet.appVars.cy.resize();
             //cy.fit();
         };
 
-        myApp.appFuncs.loadNodeTopology();
+        thisApplet.appFuncs.loadNodeTopology();
 
         // Add details menu
         let detailsDiv = document.createElement('div');
@@ -635,9 +635,9 @@ class AppletClass extends DRPApplet {
     z-index: 1;`;
         detailsDiv.innerHTML = "&nbsp;";
 
-        myApp.appVars.detailsDiv = detailsDiv;
+        thisApplet.appVars.detailsDiv = detailsDiv;
 
-        myApp.appVars.dataPane.appendChild(detailsDiv);
+        thisApplet.appVars.dataPane.appendChild(detailsDiv);
     }
 }
 

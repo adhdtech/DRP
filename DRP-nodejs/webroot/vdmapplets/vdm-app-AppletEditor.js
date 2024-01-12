@@ -3,8 +3,6 @@ class AppletClass extends VDMApplet {
         super(appletProfile);
         let thisApplet = this;
 
-        require.config({ paths: { 'vs': 'assets/vs' } });
-
         // Dropdown menu items
         thisApplet.menu = {
             "Samples": {
@@ -233,7 +231,7 @@ class VDMApplet extends VDMWindow {
  */`;
 
         thisApplet.sampleScripts = {};
-        thisApplet.sampleScripts.intro = `class AppletClass extends VDMApplet {
+        thisApplet.sampleScripts.intro = `class AppletClass extends DRPApplet {
     constructor(appletProfile) {
         super(appletProfile);
         let thisApplet = this;
@@ -275,7 +273,7 @@ class VDMApplet extends VDMWindow {
     }
 
     /** Function executed after VDMWindow is created */
-    RunStartup() {
+    async RunStartup() {
         let thisApplet = this;
 
         // The data pane is empty by default; put something in it
@@ -318,14 +316,14 @@ let AppletProfile = {
 export { AppletProfile, AppletClass }
 //# sourceURL=vdm-app-Intro.js`;
 
-        thisApplet.sampleScripts.helloWorldSimple = `class AppletClass extends VDMApplet {
+        thisApplet.sampleScripts.helloWorldSimple = `class AppletClass extends DRPApplet {
   constructor(appletProfile) {
     super(appletProfile);
     let thisApplet = this;
   }
 
   /** Function executed after VDMWindow is created */
-  RunStartup() {
+  async RunStartup() {
     let thisApplet = this;
 
     // The data pane is empty by default; put something in it
@@ -356,7 +354,7 @@ let AppletProfile = {
 export { AppletProfile, AppletClass }
 //# sourceURL=vdm-app-HelloWorldSimple.js`;
 
-        thisApplet.sampleScripts.helloWorldMenu = `class AppletClass extends VDMApplet {
+        thisApplet.sampleScripts.helloWorldMenu = `class AppletClass extends DRPApplet {
   constructor(appletProfile) {
     super(appletProfile);
     let thisApplet = this;
@@ -374,7 +372,7 @@ export { AppletProfile, AppletClass }
   }
 
   /** Function executed after VDMWindow is created */
-  RunStartup() {
+  async RunStartup() {
     let thisApplet = this;
 
     // The data pane is empty by default; put something in it
@@ -405,14 +403,19 @@ let AppletProfile = {
 export { AppletProfile, AppletClass }
 //# sourceURL=vdm-app-HelloWorldMenu.js`
 
-        // Wait up to 5 seconds for dependencies to load
-        for (let i = 0; i < 50; i++) {
-            if (typeof monaco === 'undefined') {
-                await new Promise(res => setTimeout(res, 100));
-            } else {
-                break;
+        // Due to issues with monaco affecting other processes, load libraries here
+        let monacoScripts = ["assets/vs/loader.js", "assets/vs/editor/editor.main.nls.js", "assets/vs/editor/editor.main.js"];
+        for (let dependencyValue of monacoScripts) {
+            if (this.vdmDesktop.loadedResources.indexOf(dependencyValue) === -1) {
+                this.vdmDesktop.loadedResources.push(dependencyValue);
+
+                // Run it globally now
+                let resourceText = await this.vdmDesktop.FetchURLResource(dependencyValue);
+                await this.vdmDesktop.EvalWithinContext(window, resourceText);
             }
         }
+
+        require.config({ paths: { 'vs': 'assets/vs' } });
 
         if (monaco.editor.getModels().length) {
             monaco.editor.getModels().forEach(model => model.dispose());
@@ -703,10 +706,7 @@ let AppletProfile = {
     "showInMenu": true,
     "preloadDeps": false,
     "dependencies": [
-        { "CSS-Link": "<link rel='stylesheet' data-name='vs/editor/editor.main' href='assets/vs/editor/editor.main.css'>" },
-        { "JS": "assets/vs/loader.js" },
-        { "JS": "assets/vs/editor/editor.main.nls.js" },
-        { "JS": "assets/vs/editor/editor.main.js" }
+        { "CSS-Link": "<link rel='stylesheet' data-name='vs/editor/editor.main' href='assets/vs/editor/editor.main.css'>" }
     ]
 }
 

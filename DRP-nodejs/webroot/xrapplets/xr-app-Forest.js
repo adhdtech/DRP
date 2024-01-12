@@ -1,12 +1,12 @@
 ﻿(class extends XRApplet {
     constructor(appletProfile, xrSession) {
         super(appletProfile, xrSession);
-        let myApp = this;
+        let thisApplet = this;
     }
 
     async runStartup() {
-        let myApp = this;
-        let engine = myApp.xrSession.babylonEngine;
+        let thisApplet = this;
+        let engine = thisApplet.xrSession.babylonEngine;
 
         let multimediaRoot = ".";
 
@@ -30,7 +30,7 @@
                 let musicFile = `${multimediaRoot}/forest-loop.mp3`;
 
                 // Attach camera to canvas inputs
-                scene.activeCamera.attachControl(myApp.xrSession.renderCanvas);
+                scene.activeCamera.attachControl(thisApplet.xrSession.renderCanvas);
                 setupCameraForCollisions(scene.activeCamera);
                 let ground = scene.getMeshByID("Plane");
                 let tree1 = scene.getMeshByID("Tree1");
@@ -154,8 +154,8 @@
                 cow1.position.z -= 10;
                 cow1.rotate(BABYLON.Axis.Y, BABYLON.Tools.ToRadians(180));
 
-                myApp.BabylonScene = scene;
-                myApp.xr = xr;
+                thisApplet.BabylonScene = scene;
+                thisApplet.xr = xr;
 
                 let touchedA = false;
                 let pressedA = false;

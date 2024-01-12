@@ -1,39 +1,39 @@
 class AppletClass extends DRPApplet {
     constructor(appletProfile) {
         super(appletProfile);
-        let myApp = this;
+        let thisApplet = this;
 
         // Dropdown menu items
-        myApp.menu = {
+        thisApplet.menu = {
         };
 
-        myApp.menuSearch = {
+        thisApplet.menuSearch = {
             "searchEmptyPlaceholder": "Search...",
             "searchField": null
         };
         /*
-        myApp.menuQuery = {
+        thisApplet.menuQuery = {
         "queryEmptyPlaceholder": "Query...",
         "queryField": null
         }
          */
 
-        myApp.appFuncs = {
+        thisApplet.appFuncs = {
             ShowUploadDiv: () => {
-                myApp.appVars.dropWindowDiv.style["background-color"] = myApp.appVars.normalbgcolor;
-                myApp.appVars.dropWindowDiv.style["z-index"] = 3;
-                myApp.appVars.dropWindowDiv.style["opacity"] = 0.7;
-                myApp.appVars.dropWindowDiv.focus();
+                thisApplet.appVars.dropWindowDiv.style["background-color"] = thisApplet.appVars.normalbgcolor;
+                thisApplet.appVars.dropWindowDiv.style["z-index"] = 3;
+                thisApplet.appVars.dropWindowDiv.style["opacity"] = 0.7;
+                thisApplet.appVars.dropWindowDiv.focus();
             },
             HideUploadDiv: () => {
-                myApp.appVars.dropWindowDiv.style["background-color"] = myApp.appVars.normalbgcolor;
-                myApp.appVars.dropWindowDiv.style["z-index"] = -1;
-                myApp.appVars.dropWindowDiv.style["opacity"] = 0;
-                myApp.appVars.term.focus();
+                thisApplet.appVars.dropWindowDiv.style["background-color"] = thisApplet.appVars.normalbgcolor;
+                thisApplet.appVars.dropWindowDiv.style["z-index"] = -1;
+                thisApplet.appVars.dropWindowDiv.style["opacity"] = 0;
+                thisApplet.appVars.term.focus();
             }
         };
 
-        myApp.appVars = {
+        thisApplet.appVars = {
             aliases: {
                 '?': 'help',
                 'dir': 'ls',
@@ -50,12 +50,12 @@ class AppletClass extends DRPApplet {
             hoverbgcolor: '#F88'
         };
 
-        myApp.recvCmd = {
+        thisApplet.recvCmd = {
         };
     }
 
     async RunStartup() {
-        let myApp = this;
+        let thisApplet = this;
 
         /* JSONPath 0.8.0 - XPath for JSON
         *
@@ -200,8 +200,8 @@ class AppletClass extends DRPApplet {
                 if (singleVarMatch) {
                     let varName = singleVarMatch[1];
                     let replaceValue = "";
-                    if (myApp.appVars.shellVars[varName]) {
-                        replaceValue = myApp.appVars.shellVars[varName];
+                    if (thisApplet.appVars.shellVars[varName]) {
+                        replaceValue = thisApplet.appVars.shellVars[varName];
                     }
                     return replaceValue;
                 }
@@ -213,15 +213,15 @@ class AppletClass extends DRPApplet {
                     let varName = envVarMatch[1];
                     let replaceValue = "";
                     // Does the variable exist?
-                    if (myApp.appVars.shellVars[varName]) {
-                        let varValue = myApp.appVars.shellVars[varName];
+                    if (thisApplet.appVars.shellVars[varName]) {
+                        let varValue = thisApplet.appVars.shellVars[varName];
                         let varType = typeof varValue;
                         if (varType === "object" || ((varType === "string") && (varValue.match(/\n/)))) {
                             // Don't actually replace the variable
                             replaceValue = '$' + varName;
                         } else {
                             // Replace with contents of the variable
-                            replaceValue = myApp.appVars.shellVars[varName];
+                            replaceValue = thisApplet.appVars.shellVars[varName];
                         }
                     }
                     evalString = evalString.replace('$' + varName, replaceValue);
@@ -334,7 +334,7 @@ class AppletClass extends DRPApplet {
                     null,
                     async function (switchesAndDataString, doPipeOut, pipeDataIn) {
                         let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
-                        vdmApp.vdmDesktop.CloseApplet(myApp);
+                        vdmApp.vdmDesktop.CloseApplet(thisApplet);
                     }));
 
                 this.AddMethod(new drpMethod("ls",
@@ -367,7 +367,7 @@ class AppletClass extends DRPApplet {
                         let results = null;
 
                         try {
-                            results = await myApp.sendCmd("DRP", "pathCmd", { method: "ls", pathList: pathList }, true);
+                            results = await thisApplet.sendCmd("DRP", "pathCmd", { method: "ls", pathList: pathList }, true);
                         } catch (ex) {
                             let errMsg = ex.message;
                             if (doPipeOut) return errMsg + "\r\n";
@@ -483,7 +483,7 @@ class AppletClass extends DRPApplet {
                         let results = null;
 
                         try {
-                            results = await myApp.sendCmd("DRP", "pathCmd", { method: "cat", pathList: pathList }, true);
+                            results = await thisApplet.sendCmd("DRP", "pathCmd", { method: "cat", pathList: pathList }, true);
                         } catch (ex) {
                             term.write(`\x1B[91m${ex.message}\x1B[0m`);
                             return;
@@ -557,7 +557,7 @@ class AppletClass extends DRPApplet {
                                     params: params
                                 }
                                 //term.write(`\x1B[0m${JSON.stringify(debugOut, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
-                                results = await myApp.sendCmd(serviceName, cmdName, params, true);
+                                results = await thisApplet.sendCmd(serviceName, cmdName, params, true);
                             } catch (ex) {
                                 term.write(`\x1B[91m${ex.message}\x1B[0m`);
                                 return;
@@ -579,7 +579,7 @@ class AppletClass extends DRPApplet {
                             }
 
                             try {
-                                results = await myApp.sendCmd("DRP", "pathCmd", { method: "exec", pathList: pathList }, true);
+                                results = await thisApplet.sendCmd("DRP", "pathCmd", { method: "exec", pathList: pathList }, true);
                             } catch (ex) {
                                 term.write(`\x1B[91m${ex.message}\x1B[0m`);
                                 return;
@@ -633,7 +633,7 @@ class AppletClass extends DRPApplet {
                             // Execute RPC method
                             try {
                                 //term.write(`\x1B[0m${JSON.stringify(debugOut, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
-                                results = await myApp.sendCmd(serviceName, cmdName, params, true);
+                                results = await thisApplet.sendCmd(serviceName, cmdName, params, true);
                             } catch (ex) {
                                 term.write(`\x1B[91m${ex.message}\x1B[0m`);
                                 return;
@@ -655,7 +655,7 @@ class AppletClass extends DRPApplet {
                             }
 
                             try {
-                                results = await myApp.sendCmd("DRP", "pathCmd", { method: "man", pathList: pathList }, true);
+                                results = await thisApplet.sendCmd("DRP", "pathCmd", { method: "man", pathList: pathList }, true);
                             } catch (ex) {
                                 term.write(`\x1B[91m${ex.message}\x1B[0m`);
                                 return;
@@ -691,7 +691,7 @@ class AppletClass extends DRPApplet {
                             tmpResults = {};
                             let pathString = `Mesh/Nodes`;
                             let pathList = pathString.split(/[\/\\]/g);
-                            let nodeListDir = await myApp.sendCmd("DRP", "pathCmd", { method: "GetChildItems", pathList: pathList }, true);
+                            let nodeListDir = await thisApplet.sendCmd("DRP", "pathCmd", { method: "GetChildItems", pathList: pathList }, true);
                             if (nodeListDir && nodeListDir.length > 0) {
                                 for (let i = 0; i < nodeListDir.length; i++) {
                                     let entryObj = nodeListDir[i];
@@ -703,12 +703,12 @@ class AppletClass extends DRPApplet {
                                     let nodeID = entryObj.Name;
                                     pathString = `Mesh/Nodes/${nodeID}/DRPNode/TopicManager/Topics/TopologyTracker/History`;
                                     pathList = pathString.split(/[\/\\]/g);
-                                    let nodeListGet = await myApp.sendCmd("DRP", "pathCmd", { method: "GetItem", pathList: pathList }, true);
+                                    let nodeListGet = await thisApplet.sendCmd("DRP", "pathCmd", { method: "GetItem", pathList: pathList }, true);
                                     tmpResults[nodeID] = nodeListGet;
                                 }
                             }
                         } else {
-                            tmpResults = await myApp.sendCmd("DRP", "getTopology", null, true);
+                            tmpResults = await thisApplet.sendCmd("DRP", "getTopology", null, true);
                         }
                         if (doPipeOut) returnObj = tmpResults;
                         else term.write(`\x1B[96m${JSON.stringify(tmpResults, null, 4).replace(/\r?\n/g, "\r\n")}\x1B[0m\r\n`);
@@ -724,13 +724,13 @@ class AppletClass extends DRPApplet {
                         let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         let returnObj = null;
                         if (doPipeOut) {
-                            returnObj = `UserName: ${myApp.appVars.UserInfo.UserName}`;
-                            returnObj += `\r\nFullName: ${myApp.appVars.UserInfo.FullName}`
-                            returnObj += `\r\n  Groups: ${myApp.appVars.UserInfo.Groups.join('\r\n          ')}`
+                            returnObj = `UserName: ${thisApplet.appVars.UserInfo.UserName}`;
+                            returnObj += `\r\nFullName: ${thisApplet.appVars.UserInfo.FullName}`
+                            returnObj += `\r\n  Groups: ${thisApplet.appVars.UserInfo.Groups.join('\r\n          ')}`
                         } else {
-                            term.write(`\x1B[33mUserName: \x1B[0m${myApp.appVars.UserInfo.UserName}`);
-                            term.write(`\r\n\x1B[33mFullName: \x1B[0m${myApp.appVars.UserInfo.FullName}`);
-                            term.write(`\r\n\x1B[33m  Groups: \x1B[0m${myApp.appVars.UserInfo.Groups.join('\r\n          ')}`);
+                            term.write(`\x1B[33mUserName: \x1B[0m${thisApplet.appVars.UserInfo.UserName}`);
+                            term.write(`\r\n\x1B[33mFullName: \x1B[0m${thisApplet.appVars.UserInfo.FullName}`);
+                            term.write(`\r\n\x1B[33m  Groups: \x1B[0m${thisApplet.appVars.UserInfo.Groups.join('\r\n          ')}`);
                             term.write(`\r\n`);
                         }
                         return returnObj;
@@ -744,9 +744,9 @@ class AppletClass extends DRPApplet {
                         let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         let returnObj = null;
                         if (doPipeOut) {
-                            returnObj = `Token: ${myApp.appVars.UserInfo.Token}`;
+                            returnObj = `Token: ${thisApplet.appVars.UserInfo.Token}`;
                         } else {
-                            term.write(`\x1B[33mToken: \x1B[0m${myApp.appVars.UserInfo.Token}`);
+                            term.write(`\x1B[33mToken: \x1B[0m${thisApplet.appVars.UserInfo.Token}`);
                             term.write(`\r\n`);
                         }
                         return returnObj;
@@ -760,9 +760,9 @@ class AppletClass extends DRPApplet {
                         let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         let returnObj = null;
                         if (doPipeOut) {
-                            returnObj = `EndpointID: ${myApp.appVars.EndpointID}`;
+                            returnObj = `EndpointID: ${thisApplet.appVars.EndpointID}`;
                         } else {
-                            term.write(`\x1B[33mEndpointID: \x1B[0m${myApp.appVars.EndpointID}`);
+                            term.write(`\x1B[33mEndpointID: \x1B[0m${thisApplet.appVars.EndpointID}`);
                             term.write(`\r\n`);
                         }
                         return returnObj;
@@ -911,7 +911,7 @@ class AppletClass extends DRPApplet {
 
                             let headerLengths = Object.assign({}, ...headerLabels.map((x) => ({ [x]: x.length })));
 
-                            let topologyData = await myApp.sendCmd("DRP", "getTopology", null, true);
+                            let topologyData = await thisApplet.sendCmd("DRP", "getTopology", null, true);
                             let streamTable = {};
                             // Loop over nodes
                             let nodeList = Object.keys(topologyData);
@@ -1038,7 +1038,7 @@ class AppletClass extends DRPApplet {
                                     return;
                             }
 
-                            await myApp.vdmDesktop.OpenApplet("TopicWatch", {
+                            await thisApplet.vdmDesktop.OpenApplet("TopicWatch", {
                                 topicName: topicName,
                                 scope: scope,
                                 targetNodeID: targetNodeID,
@@ -1046,8 +1046,8 @@ class AppletClass extends DRPApplet {
                                 format: format,
                                 prettyPrint: prettyPrint
                             });
-                            //await myApp.vdmDesktop.newWindow(newApp);
-                            //myApp.vdmDesktop.appletInstances[newApp.appletIndex] = newApp;
+                            //await thisApplet.vdmDesktop.newWindow(newApp);
+                            //thisApplet.vdmDesktop.appletInstances[newApp.appletIndex] = newApp;
 
                             //term.write(`\x1B[33mSubscribed to stream ${topicName}\x1B[0m`);
                             term.write(`\x1B[33mOpened new window for streaming data\x1B[0m`);
@@ -1077,7 +1077,7 @@ class AppletClass extends DRPApplet {
 
                             let headerLengths = Object.assign({}, ...headerLabels.map((x) => ({ [x]: x.length })));
 
-                            let serviceData = await myApp.sendCmd("DRP", "getServiceDefinitions", null, true);
+                            let serviceData = await thisApplet.sendCmd("DRP", "getServiceDefinitions", null, true);
                             let serviceTable = {};
                             // Loop over nodes
                             let serviceList = Object.keys(serviceData);
@@ -1092,7 +1092,7 @@ class AppletClass extends DRPApplet {
                                     // Get Class object count
                                     let recCount = "";
                                     let classMeshPath = `Mesh/Services/${thisServiceName}/Classes/${thisClassName}`.split("/");
-                                    let classListDir = await myApp.sendCmd("DRP", "pathCmd", { "method": "GetChildItems", "pathList": classMeshPath }, true);
+                                    let classListDir = await thisApplet.sendCmd("DRP", "pathCmd", { "method": "GetChildItems", "pathList": classMeshPath }, true);
                                     if (classListDir && classListDir.length > 0) {
                                         for (let i = 0; i < classListDir.length; i++) {
                                             let entryObj = classListDir[i];
@@ -1183,7 +1183,7 @@ class AppletClass extends DRPApplet {
                                 serviceDataTable[switchesAndData.switches["s"]] = null;
                             } else {
                                 // Query all services with this class
-                                let serviceData = await myApp.sendCmd("DRP", "getServiceDefinitions", null, true);
+                                let serviceData = await thisApplet.sendCmd("DRP", "getServiceDefinitions", null, true);
                                 // Loop over nodes
                                 let serviceList = Object.keys(serviceData);
                                 for (let i = 0; i < serviceList.length; i++) {
@@ -1207,7 +1207,7 @@ class AppletClass extends DRPApplet {
                                 let thisServiceName = serviceList[i];
                                 // Get Class object data
                                 let classMeshPath = `Mesh/Services/${thisServiceName}/Classes/${className}/cache`.split("/");
-                                let classListDir = await myApp.sendCmd("DRP", "pathCmd", { "method": "GetItem", "pathList": classMeshPath }, true);
+                                let classListDir = await thisApplet.sendCmd("DRP", "pathCmd", { "method": "GetItem", "pathList": classMeshPath }, true);
                                 if (classListDir) {
                                     serviceDataTable[thisServiceName] = classListDir;
                                 }
@@ -1234,7 +1234,7 @@ class AppletClass extends DRPApplet {
                             let serviceClassTable = {};
 
                             // Query all services with this class
-                            let serviceData = await myApp.sendCmd("DRP", "getServiceDefinitions", null, true);
+                            let serviceData = await thisApplet.sendCmd("DRP", "getServiceDefinitions", null, true);
                             // Loop over nodes
                             let serviceList = Object.keys(serviceData);
                             for (let i = 0; i < serviceList.length; i++) {
@@ -1337,7 +1337,7 @@ class AppletClass extends DRPApplet {
                             let serviceClassTable = {};
 
                             // Query all services with this class
-                            let serviceData = await myApp.sendCmd("DRP", "getServiceDefinitions", null, true);
+                            let serviceData = await thisApplet.sendCmd("DRP", "getServiceDefinitions", null, true);
                             // Loop over nodes
                             let serviceList = Object.keys(serviceData);
                             for (let i = 0; i < serviceList.length; i++) {
@@ -1454,11 +1454,11 @@ class AppletClass extends DRPApplet {
                         let switchesAndData = this.ParseSwitchesAndData(switchesAndDataString);
                         let returnObj = null;
                         if (switchesAndData.data) {
-                            myApp.appVars.term.setOption('scrollback', switchesAndData.data);
+                            thisApplet.appVars.term.setOption('scrollback', switchesAndData.data);
                             term.write(`\x1B[33mScrollback set to \x1B[0m${switchesAndData.data}\x1B[33m lines.`);
                             term.write(`\r\n`);
                         } else {
-                            let scrollbackLinesCount = myApp.appVars.term.getOption('scrollback');
+                            let scrollbackLinesCount = thisApplet.appVars.term.getOption('scrollback');
                             term.write(`\x1B[33mScrollback currently \x1B[0m${scrollbackLinesCount}\x1B[33m lines.`);
                             term.write(`\r\n`);
                         }
@@ -1745,22 +1745,22 @@ class AppletClass extends DRPApplet {
                             if (switchesAndData.data.indexOf('=') > 0) {
                                 let varName = switchesAndData.data.substr(0, switchesAndData.data.indexOf('='));
                                 let varValue = switchesAndData.data.substr(switchesAndData.data.indexOf('=') + 1);
-                                myApp.appVars.shellVars[varName] = varValue;
+                                thisApplet.appVars.shellVars[varName] = varValue;
                             } else {
                                 let varName = switchesAndData.data;
                                 if (pipeDataIn) {
-                                    myApp.appVars.shellVars[varName] = pipeDataIn;
+                                    thisApplet.appVars.shellVars[varName] = pipeDataIn;
                                 } else {
-                                    delete myApp.appVars.shellVars[varName];
+                                    delete thisApplet.appVars.shellVars[varName];
                                 }
                             }
                         } else {
                             // No ENV variable name provided, list all variables and values
                             output += `\x1B[33mShell variables:\x1B[0m\r\n`;
-                            let shellVarNames = Object.keys(myApp.appVars.shellVars);
+                            let shellVarNames = Object.keys(thisApplet.appVars.shellVars);
                             for (let i = 0; i < shellVarNames.length; i++) {
                                 let printVal = "";
-                                let varValue = myApp.appVars.shellVars[shellVarNames[i]];
+                                let varValue = thisApplet.appVars.shellVars[shellVarNames[i]];
                                 let varType = Object.prototype.toString.call(varValue).match(/^\[object (.*)\]$/)[1];
 
                                 switch (varType) {
@@ -1832,7 +1832,7 @@ class AppletClass extends DRPApplet {
                             return
                         }
 
-                        let pingResults = await myApp.sendCmd("DRP", "ping", {
+                        let pingResults = await thisApplet.sendCmd("DRP", "ping", {
                             host: switchesAndData.data,
                             min_reply: switchesAndData.switches["c"] || 4
                         }, true);
@@ -1865,7 +1865,7 @@ class AppletClass extends DRPApplet {
                             return
                         }
 
-                        let resolveResults = await myApp.sendCmd("DRP", "resolve", {
+                        let resolveResults = await thisApplet.sendCmd("DRP", "resolve", {
                             hostname: switchesAndData.data,
                             type: switchesAndData.switches["t"] || "A",
                             server: switchesAndData.switches["s"] || ""
@@ -1958,11 +1958,11 @@ class AppletClass extends DRPApplet {
                         }
 
                         // WAIT FOR DATA TO BE UPLOADED
-                        myApp.appFuncs.ShowUploadDiv();
+                        thisApplet.appFuncs.ShowUploadDiv();
 
                         try {
                             let uploadData = await new Promise(function (resolve, reject) {
-                                myApp.appVars.uploadPendingPromise = function (message, cancelled) {
+                                thisApplet.appVars.uploadPendingPromise = function (message, cancelled) {
                                     if (cancelled) {
                                         reject();
                                     } else {
@@ -2002,8 +2002,8 @@ class AppletClass extends DRPApplet {
                         }
 
                         // Run logout
-                        myApp.vdmSession.drpClient.eraseCookie('x-api-token');
-                        myApp.vdmSession.drpClient.Disconnect();
+                        thisApplet.vdmSession.drpClient.eraseCookie('x-api-token');
+                        thisApplet.vdmSession.drpClient.Disconnect();
                     }));
             }
             /**
@@ -2025,8 +2025,8 @@ class AppletClass extends DRPApplet {
                         let methodName = cmdParts[1];
 
                         // Replace aliases
-                        if (myApp.appVars.aliases && myApp.appVars.aliases[methodName]) {
-                            methodName = myApp.appVars.aliases[methodName]
+                        if (thisApplet.appVars.aliases && thisApplet.appVars.aliases[methodName]) {
+                            methodName = thisApplet.appVars.aliases[methodName]
                         }
 
                         let switchesAndData = cmdParts[2] || "";
@@ -2063,22 +2063,13 @@ class AppletClass extends DRPApplet {
             }
         }
 
-        // Wait up to 5 seconds for prereqs to load
-        for (let i = 0; i < 50; i++) {
-            if (typeof Terminal === 'undefined') {
-                await new Promise(res => setTimeout(res, 100));
-            } else {
-                break;
-            }
-        }
-
-        myApp.appVars.termDiv = myApp.windowParts["data"];
-        myApp.appVars.termDiv.style.backgroundColor = "black";
+        thisApplet.appVars.termDiv = thisApplet.windowParts["data"];
+        thisApplet.appVars.termDiv.style.backgroundColor = "black";
         let term = new Terminal();
-        myApp.appVars.term = term;
-        myApp.appVars.fitaddon = new FitAddon.FitAddon();
-        term.loadAddon(myApp.appVars.fitaddon);
-        term.open(myApp.appVars.termDiv);
+        thisApplet.appVars.term = term;
+        thisApplet.appVars.fitaddon = new FitAddon.FitAddon();
+        term.loadAddon(thisApplet.appVars.fitaddon);
+        term.open(thisApplet.appVars.termDiv);
         term.setOption('cursorBlink', true);
         term.setOption('bellStyle', 'sound');
 
@@ -2130,7 +2121,7 @@ class AppletClass extends DRPApplet {
                 }
                 let execLine = lineBuffer;
                 lineBuffer = "";
-                await myApp.appVars.drpShell.ExecuteCLICommand(execLine);
+                await thisApplet.appVars.drpShell.ExecuteCLICommand(execLine);
             }
             lineCursorIndex = 0;
             scrollbackIndex = 0;
@@ -2151,12 +2142,12 @@ class AppletClass extends DRPApplet {
             }
         }
 
-        myApp.appVars.drpShell = new drpShell(this, term);
+        thisApplet.appVars.drpShell = new drpShell(this, term);
 
-        myApp.appVars.EndpointID = await myApp.sendCmd("DRP", "getEndpointID", null, true);
+        thisApplet.appVars.EndpointID = await thisApplet.sendCmd("DRP", "getEndpointID", null, true);
 
-        myApp.appVars.UserInfo = await myApp.sendCmd("DRP", "getUserInfo", null, true);
-        term.write(`\x1B[2K\r\x1B[97mWelcome to the DRP Shell, \x1B[33m${myApp.appVars.UserInfo.UserName}`);
+        thisApplet.appVars.UserInfo = await thisApplet.sendCmd("DRP", "getUserInfo", null, true);
+        term.write(`\x1B[2K\r\x1B[97mWelcome to the DRP Shell, \x1B[33m${thisApplet.appVars.UserInfo.UserName}`);
         term.write(`\r\n`);
         writeNewPrompt();
 
@@ -2176,7 +2167,7 @@ class AppletClass extends DRPApplet {
         });
         */
 
-        myApp.appVars.term.onKey(async (e) => {
+        thisApplet.appVars.term.onKey(async (e) => {
             //let termBuffer = term.buffer.normal;
             //console.log(`${termBuffer.cursorX},${termBuffer.cursorY}`);
             let charCode = e.key.charCodeAt(0);
@@ -2193,7 +2184,7 @@ class AppletClass extends DRPApplet {
             //console.log(`${termBuffer.cursorX},${termBuffer.cursorY}`);
         });
 
-        myApp.appVars.term.onData(async (e) => {
+        thisApplet.appVars.term.onData(async (e) => {
             //let termBuffer = term.buffer.normal;
             //console.log(`${termBuffer.cursorX},${termBuffer.cursorY}`);
             let charCode = e.charCodeAt(0);
@@ -2339,13 +2330,13 @@ class AppletClass extends DRPApplet {
             //console.log(`${termBuffer.cursorX},${termBuffer.cursorY}`);
         });
 
-        myApp.resizeMovingHook = function () {
-            myApp.appVars.fitaddon.fit();
+        thisApplet.resizeMovingHook = function () {
+            thisApplet.appVars.fitaddon.fit();
         };
 
-        myApp.appVars.fitaddon.fit();
+        thisApplet.appVars.fitaddon.fit();
 
-        myApp.appVars.term.focus();
+        thisApplet.appVars.term.focus();
 
         // Add the drop window
         let dropWindowDiv = document.createElement('div');
@@ -2360,22 +2351,22 @@ class AppletClass extends DRPApplet {
 
         dropWindowDiv.ondragover = function (event) {
             event.preventDefault();
-            dropWindowDiv.style["background-color"] = myApp.appVars.hoverbgcolor;
+            dropWindowDiv.style["background-color"] = thisApplet.appVars.hoverbgcolor;
         }
 
         dropWindowDiv.ondragleave = function (event) {
             event.preventDefault();
-            dropWindowDiv.style["background-color"] = myApp.appVars.normalbgcolor;
+            dropWindowDiv.style["background-color"] = thisApplet.appVars.normalbgcolor;
         }
 
         dropWindowDiv.ondrop = function (event) {
             event.preventDefault();
-            myApp.appFuncs.HideUploadDiv();
+            thisApplet.appFuncs.HideUploadDiv();
 
             let fileRecord = event.dataTransfer.files[0];
             let fileReader = new FileReader();
             fileReader.onload = function (event) {
-                myApp.appVars.uploadPendingPromise(event.target.result, false);
+                thisApplet.appVars.uploadPendingPromise(event.target.result, false);
             };
             fileReader.readAsBinaryString(fileRecord);
             //document.getElementById("demo").style.color = "";
@@ -2392,17 +2383,17 @@ class AppletClass extends DRPApplet {
             switch (e.key) {
                 case "Escape":
                     // Escape
-                    myApp.appFuncs.HideUploadDiv();
-                    myApp.appVars.uploadPendingPromise(null, true);
+                    thisApplet.appFuncs.HideUploadDiv();
+                    thisApplet.appVars.uploadPendingPromise(null, true);
                     break;
                 default:
             }
         };
 
-        myApp.appVars.dropWindowDiv = dropWindowDiv;
-        myApp.appFuncs.HideUploadDiv();
+        thisApplet.appVars.dropWindowDiv = dropWindowDiv;
+        thisApplet.appFuncs.HideUploadDiv();
 
-        myApp.appVars.termDiv.appendChild(dropWindowDiv);
+        thisApplet.appVars.termDiv.appendChild(dropWindowDiv);
     }
 }
 

@@ -1,27 +1,27 @@
 class AppletClass extends DRPApplet {
         constructor(appletProfile) {
             super(appletProfile);
-            let myApp = this;
+            let thisApplet = this;
 
             // Dropdown menu items
-            myApp.menu = {
+            thisApplet.menu = {
                 "General":
                 {
                     "Properties": function () { }
                 }
             };
 
-            myApp.menuSearch = {
+            thisApplet.menuSearch = {
                 "searchEmptyPlaceholder": "Search...",
                 "searchField": null
             };
 
-            myApp.menuQuery = {
+            thisApplet.menuQuery = {
                 "queryEmptyPlaceholder": "Query...",
                 "queryField": null
             };
 
-            myApp.appFuncs = {
+            thisApplet.appFuncs = {
                 "setCaretPosition": function (elem, caretPos) {
                     if (elem !== null) {
                         if (elem.createTextRange) {
@@ -40,53 +40,53 @@ class AppletClass extends DRPApplet {
                     }
                 },
                 "changeDataScreen": function (newSelectedScreen) {
-                    if (myApp.appVars.selectedScreen !== newSelectedScreen) {
-                        if (myApp.appVars.selectedScreen) {
-                            $(myApp.appVars.rightPaneScreens[myApp.appVars.selectedScreen].screenDiv).removeClass('selected');
+                    if (thisApplet.appVars.selectedScreen !== newSelectedScreen) {
+                        if (thisApplet.appVars.selectedScreen) {
+                            $(thisApplet.appVars.rightPaneScreens[thisApplet.appVars.selectedScreen].screenDiv).removeClass('selected');
                         }
-                        $(myApp.appVars.rightPaneScreens[newSelectedScreen].screenDiv).addClass('selected');
-                        myApp.appVars.selectedScreen = newSelectedScreen;
+                        $(thisApplet.appVars.rightPaneScreens[newSelectedScreen].screenDiv).addClass('selected');
+                        thisApplet.appVars.selectedScreen = newSelectedScreen;
                     }
                 },
                 "goBack": async function () {
-                    if (myApp.appVars.searchHistory.length) {
-                        let searchPacket = myApp.appVars.searchHistory.pop();
-                        while (searchPacket === myApp.appVars.lastSearch) {
-                            searchPacket = myApp.appVars.searchHistory.pop();
+                    if (thisApplet.appVars.searchHistory.length) {
+                        let searchPacket = thisApplet.appVars.searchHistory.pop();
+                        while (searchPacket === thisApplet.appVars.lastSearch) {
+                            searchPacket = thisApplet.appVars.searchHistory.pop();
                         }
-                        myApp.appVars.lastSearch = searchPacket;
+                        thisApplet.appVars.lastSearch = searchPacket;
                         if (searchPacket) {
-                            myApp.appVars.lastSearch = searchPacket;
-                            console.log("Search history entries: " + myApp.appVars.searchHistory.length);
-                            let recvData = await myApp.sendCmd("Hive", "searchStereotypeKeysNested", { "Key": searchPacket["Key"], "Stereotype": searchPacket["Stereotype"] }, true);
-                            myApp.appFuncs.changeDataScreen('ObjDisplay');
-                            myApp.appFuncs.displayObjectArrayNested(recvData.records, myApp.appVars.rightPaneScreens['ObjDisplay'].screenDiv);
+                            thisApplet.appVars.lastSearch = searchPacket;
+                            console.log("Search history entries: " + thisApplet.appVars.searchHistory.length);
+                            let recvData = await thisApplet.sendCmd("Hive", "searchStereotypeKeysNested", { "Key": searchPacket["Key"], "Stereotype": searchPacket["Stereotype"] }, true);
+                            thisApplet.appFuncs.changeDataScreen('ObjDisplay');
+                            thisApplet.appFuncs.displayObjectArrayNested(recvData.records, thisApplet.appVars.rightPaneScreens['ObjDisplay'].screenDiv);
                         }
                     }
                 },
                 "searchIndexes": async function (keyVal, sTypeName) {
                     let searchPacket = { "Key": keyVal, "Stereotype": sTypeName };
-                    myApp.appVars.lastSearch = searchPacket;
-                    myApp.appVars.searchHistory.push(searchPacket);
-                    console.log("Search history entries: " + myApp.appVars.searchHistory.length);
-                    let recvData = await myApp.sendCmd("Hive", "searchStereotypeKeysChildren", { "Key": keyVal, "Stereotype": sTypeName }, true);
-                    myApp.appFuncs.changeDataScreen('ObjDisplay');
-                    myApp.appFuncs.displayObjectArrayNested(recvData.records, myApp.appVars.rightPaneScreens['ObjDisplay'].screenDiv);
+                    thisApplet.appVars.lastSearch = searchPacket;
+                    thisApplet.appVars.searchHistory.push(searchPacket);
+                    console.log("Search history entries: " + thisApplet.appVars.searchHistory.length);
+                    let recvData = await thisApplet.sendCmd("Hive", "searchStereotypeKeysChildren", { "Key": keyVal, "Stereotype": sTypeName }, true);
+                    thisApplet.appFuncs.changeDataScreen('ObjDisplay');
+                    thisApplet.appFuncs.displayObjectArrayNested(recvData.records, thisApplet.appVars.rightPaneScreens['ObjDisplay'].screenDiv);
                 },
                 "getIndexKey": async function (keyVal, sTypeName) {
                     let searchPacket = { "Key": keyVal, "Stereotype": sTypeName };
-                    myApp.appVars.lastSearch = searchPacket;
-                    myApp.appVars.searchHistory.push(searchPacket);
-                    console.log("Search history entries: " + myApp.appVars.searchHistory.length);
-                    let recvData = await myApp.sendCmd("Hive", "searchStereotypeKeysNested", { "Key": keyVal, "Stereotype": sTypeName }, true);
-                    myApp.appFuncs.changeDataScreen('ObjDisplay');
-                    myApp.appFuncs.displayObjectArrayNested(recvData.records, myApp.appVars.rightPaneScreens['ObjDisplay'].screenDiv);
+                    thisApplet.appVars.lastSearch = searchPacket;
+                    thisApplet.appVars.searchHistory.push(searchPacket);
+                    console.log("Search history entries: " + thisApplet.appVars.searchHistory.length);
+                    let recvData = await thisApplet.sendCmd("Hive", "searchStereotypeKeysNested", { "Key": keyVal, "Stereotype": sTypeName }, true);
+                    thisApplet.appFuncs.changeDataScreen('ObjDisplay');
+                    thisApplet.appFuncs.displayObjectArrayNested(recvData.records, thisApplet.appVars.rightPaneScreens['ObjDisplay'].screenDiv);
                 },
                 "displayHiveQuery": function (recvObject, targetDiv) {
                     targetDiv.innerHTML = '';
 
                     if (recvObject.records.length && recvObject.icrQuery) {
-                        let resultTable = myApp.appFuncs.makeTableQueryResults(
+                        let resultTable = thisApplet.appFuncs.makeTableQueryResults(
                             recvObject.records,
                             recvObject.icrQuery.classType,
                             recvObject.icrQuery.classTypeSub,
@@ -102,9 +102,9 @@ class AppletClass extends DRPApplet {
                 },
                 "makeTableQueryResults": function (records, idxSType, recClassName, recColName) {
                     if (recClassName) {
-                        let pkFieldName = myApp.appVars.dataStructs['ClassTypes'][recClassName].PrimaryKey;
-                        let pkSType = myApp.appFuncs.fieldStereotype(recClassName, pkFieldName);
-                        let valueSType = myApp.appFuncs.fieldStereotype(recClassName, recColName);
+                        let pkFieldName = thisApplet.appVars.dataStructs['ClassTypes'][recClassName].PrimaryKey;
+                        let pkSType = thisApplet.appFuncs.fieldStereotype(recClassName, pkFieldName);
+                        let valueSType = thisApplet.appFuncs.fieldStereotype(recClassName, recColName);
 
                         let tableObj = document.createElement("table");
                         tableObj.className = 'QR';
@@ -144,7 +144,7 @@ class AppletClass extends DRPApplet {
                                             objValA.innerHTML = idxKey;
                                             $(objValA).on('click', function () {
                                                 // Send command to search for this index value
-                                                myApp.appFuncs.getIndexKey(idxKey, idxSType);
+                                                thisApplet.appFuncs.getIndexKey(idxKey, idxSType);
                                             });
                                             recNameTD.appendChild(objValA);
                                         } else {
@@ -160,7 +160,7 @@ class AppletClass extends DRPApplet {
                                             objValA.innerHTML = valKey;
                                             $(objValA).on('click', function () {
                                                 // Send command
-                                                myApp.appFuncs.getIndexKey(valKey, pkSType);
+                                                thisApplet.appFuncs.getIndexKey(valKey, pkSType);
                                             });
                                             recKeyTD.appendChild(objValA);
                                         } else {
@@ -184,7 +184,7 @@ class AppletClass extends DRPApplet {
                                             objValA.innerHTML = entryValue;
                                             $(objValA).on('click', function () {
                                                 // Send command
-                                                myApp.appFuncs.getIndexKey(entryValue, valueSType);
+                                                thisApplet.appFuncs.getIndexKey(entryValue, valueSType);
                                                 console.log("Sending index search for '" + entryValue + "'");
                                             });
                                             entryValSpan.appendChild(objValA);
@@ -239,7 +239,7 @@ class AppletClass extends DRPApplet {
                                         objValA.innerHTML = idxKey;
                                         $(objValA).on('click', function () {
                                             // Send command to search for this index value
-                                            myApp.appFuncs.getIndexKey(idxKey, idxSType);
+                                            thisApplet.appFuncs.getIndexKey(idxKey, idxSType);
                                         });
                                         recNameTD.appendChild(objValA);
                                     } else {
@@ -265,25 +265,25 @@ class AppletClass extends DRPApplet {
 
                         for (let h = 0; h < objUpstream.length; h++) {
                             let upstreamObj = objUpstream[h];
-                            let upstreamTable = myApp.appFuncs.makeTable('UK', upstreamObj);
+                            let upstreamTable = thisApplet.appFuncs.makeTable('UK', upstreamObj);
                             targetDiv.appendChild(upstreamTable);
                         }
 
                         if (objThis.data) {
                             let parentObj = objThis;
-                            let parentTable = myApp.appFuncs.makeTable('MK', parentObj);
+                            let parentTable = thisApplet.appFuncs.makeTable('MK', parentObj);
                             targetDiv.appendChild(parentTable);
                         }
 
                         for (let h = 0; h < objChildren.length; h++) {
                             let childObj = objChildren[h];
-                            let childTable = myApp.appFuncs.makeTable('FK', childObj);
+                            let childTable = thisApplet.appFuncs.makeTable('FK', childObj);
                             targetDiv.appendChild(childTable);
                             let objGrandChildren = objChildren[h].children;
 
                             for (let j = 0; j < objGrandChildren.length; j++) {
                                 let grandChildObj = objGrandChildren[j];
-                                let grandChildTable = myApp.appFuncs.makeTable('GC', grandChildObj);
+                                let grandChildTable = thisApplet.appFuncs.makeTable('GC', grandChildObj);
                                 targetDiv.appendChild(grandChildTable);
                             }
                         }
@@ -297,7 +297,7 @@ class AppletClass extends DRPApplet {
                     let sTypeName = null;
                     //let patt = /^_/;
                     //if (fieldName == "ObjectType" || patt.test(fieldName)) return sTypeName;
-                    let attributeDef = myApp.appVars.dataStructs['ClassTypes'][className].Attributes[fieldName];
+                    let attributeDef = thisApplet.appVars.dataStructs['ClassTypes'][className].Attributes[fieldName];
                     if (attributeDef && attributeDef.Restrictions) {
                         let attrConstr = attributeDef.Restrictions;
                         let keyArr = attrConstr.split(",");
@@ -330,7 +330,7 @@ class AppletClass extends DRPApplet {
 
                         // Add value - make link if item is indexed
                         let objVal = dataObj.data[fieldName];
-                        let fieldSType = myApp.appFuncs.fieldStereotype(dataObj['classType'], fieldName);
+                        let fieldSType = thisApplet.appFuncs.fieldStereotype(dataObj['classType'], fieldName);
                         if (fieldSType) {
                             if (Object.prototype.toString.call(objVal) === '[object Array]') {
                                 for (let q = 0; q < objVal.length; q++) {
@@ -340,7 +340,7 @@ class AppletClass extends DRPApplet {
                                     $(objValA).on('click', function () {
                                         // Send command
                                         let recVal = this.innerHTML;
-                                        myApp.appFuncs.getIndexKey(recVal, fieldSType);
+                                        thisApplet.appFuncs.getIndexKey(recVal, fieldSType);
                                         console.log("Sending index search for '" + recVal + "'");
                                     });
                                     recValTD.appendChild(objValA);
@@ -353,7 +353,7 @@ class AppletClass extends DRPApplet {
                                 objValA.innerHTML = objVal;
                                 $(objValA).on('click', function () {
                                     // Send command
-                                    myApp.appFuncs.getIndexKey(objVal, fieldSType);
+                                    thisApplet.appFuncs.getIndexKey(objVal, fieldSType);
                                 });
                                 recValTD.appendChild(objValA);
                             }
@@ -380,10 +380,10 @@ class AppletClass extends DRPApplet {
                     return tableObj;
                 },
                 "recvDone": function () {
-                    myApp.appVars.leftMenu = new VDMCollapseTree(myApp.appVars.leftPane);
-                    $.each(myApp.appVars.dataStructs['ClassTypes'], function (itemCheck, itemValue) {
+                    thisApplet.appVars.leftMenu = new VDMCollapseTree(thisApplet.appVars.leftPane);
+                    $.each(thisApplet.appVars.dataStructs['ClassTypes'], function (itemCheck, itemValue) {
                         let objClassName = itemCheck;
-                        let objClassRef = myApp.appVars.dataStructs['ClassTypes'][objClassName];
+                        let objClassRef = thisApplet.appVars.dataStructs['ClassTypes'][objClassName];
                         if (!objClassRef.recCount) {
                             objClassRef.recCount = 0;
                         }
@@ -393,8 +393,8 @@ class AppletClass extends DRPApplet {
                         //if (objClassRef.recCount) {
                         recCountText = " [" + objClassRef.recCount + "]";
                         //}
-                        myApp.appVars.leftMenu.addItem(null, objClassName + recCountText, '', objClassRef, true, function () {
-                            myApp.appVars.lastClickedLI = $(this).parent();
+                        thisApplet.appVars.leftMenu.addItem(null, objClassName + recCountText, '', objClassRef, true, function () {
+                            thisApplet.appVars.lastClickedLI = $(this).parent();
                         });
 
                         Object.keys(objClassRef.Attributes).forEach(function (fieldName) {
@@ -404,7 +404,7 @@ class AppletClass extends DRPApplet {
                                 if (objClassRef.Attributes[fieldName].Restrictions) {
                                     itemTag += "(" + objClassRef.Attributes[fieldName].Stereotype + ":" + objClassRef.Attributes[fieldName].Restrictions + ")";
                                 }
-                                myApp.appVars.leftMenu.addItem(objClassRef, itemTag, '', objClassRef.Attributes[fieldName], false, function () {
+                                thisApplet.appVars.leftMenu.addItem(objClassRef, itemTag, '', objClassRef.Attributes[fieldName], false, function () {
                                     let pkAttr = objClassRef.Attributes[objClassRef.PrimaryKey];
                                     let keyType = "FK";
                                     let mkPattern = new RegExp("MK");
@@ -412,8 +412,8 @@ class AppletClass extends DRPApplet {
                                         keyType = "MK";
                                     }
                                     let queryText = "LIST STEREOTYPE['" + pkAttr.Stereotype + "']." + keyType + "['" + objClassName + "']['ObjectType'] WHERE " + keyType + "['" + objClassName + "']['" + fieldName + "'] = \"\"";
-                                    $(myApp.menuQuery.queryField).val(queryText);
-                                    myApp.appFuncs.setCaretPosition(myApp.menuQuery.queryField, myApp.menuQuery.queryField.value.length - 1);
+                                    $(thisApplet.menuQuery.queryField).val(queryText);
+                                    thisApplet.appFuncs.setCaretPosition(thisApplet.menuQuery.queryField, thisApplet.menuQuery.queryField.value.length - 1);
                                 });
                             }
                         });
@@ -422,7 +422,7 @@ class AppletClass extends DRPApplet {
                 }
             };
 
-            myApp.appVars = {
+            thisApplet.appVars = {
                 selectedScreen: "",
                 rightPaneScreens: {
                     "ObjDisplay": {
@@ -445,16 +445,16 @@ class AppletClass extends DRPApplet {
         }
 
         async RunStartup() {
-            let myApp = this;
+            let thisApplet = this;
 
             // Split data pane horizontally
-            let newPanes = myApp.SplitPaneHorizontal(myApp.windowParts["data"], 175, true, true);
-            myApp.appVars.leftPane = newPanes[0];
-            myApp.appVars.vDiv = newPanes[1];
-            myApp.appVars.rightPane = newPanes[2];
-            $(myApp.windowParts["data"]).addClass("vdmApp-HiveBrowser");
+            let newPanes = thisApplet.SplitPaneHorizontal(thisApplet.windowParts["data"], 175, true, true);
+            thisApplet.appVars.leftPane = newPanes[0];
+            thisApplet.appVars.vDiv = newPanes[1];
+            thisApplet.appVars.rightPane = newPanes[2];
+            $(thisApplet.windowParts["data"]).addClass("vdmApp-HiveBrowser");
 
-            $.each(myApp.appVars.rightPaneScreens, function (itemName, itemValue) {
+            $.each(thisApplet.appVars.rightPaneScreens, function (itemName, itemValue) {
                 let ca = document.createElement("div");
                 ca.className = itemValue.itemClass;
                 for (let i = 0; i < itemValue.fields.length; i++) {
@@ -481,7 +481,7 @@ class AppletClass extends DRPApplet {
                             caa.appendChild(caab);
                             // Untested -> LEFT OFF HERE
                             //              caaa.tabIndex = 0;
-                            myApp.appVars.dataStructs[thisItem.structName].outputTable = caab;
+                            thisApplet.appVars.dataStructs[thisItem.structName].outputTable = caab;
                             break;
                         default:
                             break;
@@ -489,50 +489,50 @@ class AppletClass extends DRPApplet {
                     ca.appendChild(caa);
                     thisItem.fieldDiv = caa;
                 }
-                myApp.appVars.rightPane.appendChild(ca);
+                thisApplet.appVars.rightPane.appendChild(ca);
                 itemValue.screenDiv = ca;
             });
 
-            myApp.appVars.rightPane.tabIndex = 0;
-            $(myApp.appVars.rightPane).keydown(function (e) {
+            thisApplet.appVars.rightPane.tabIndex = 0;
+            $(thisApplet.appVars.rightPane).keydown(function (e) {
                 if (e.keyCode === 8) {
-                    myApp.appFuncs.goBack();
+                    thisApplet.appFuncs.goBack();
                 }
             });
 
-            myApp.appVars.dataStructs['StereoTypes'] = await myApp.sendCmd("Hive", "listStereoTypes", null, true);
-            myApp.appVars.dataStructs['ClassTypes'] = await myApp.sendCmd("Hive", "getClassDefinitions", null, true);
-            let classDataTypes = await myApp.sendCmd("Hive", "listClassDataTypes", null, true);
+            thisApplet.appVars.dataStructs['StereoTypes'] = await thisApplet.sendCmd("Hive", "listStereoTypes", null, true);
+            thisApplet.appVars.dataStructs['ClassTypes'] = await thisApplet.sendCmd("Hive", "getClassDefinitions", null, true);
+            let classDataTypes = await thisApplet.sendCmd("Hive", "listClassDataTypes", null, true);
             if (classDataTypes) {
                 let classDataTypeKeys = Object.keys(classDataTypes);
                 for (let i = 0; i < classDataTypeKeys.length; i++) {
                     let recKey = classDataTypeKeys[i];
-                    myApp.appVars.dataStructs['ClassTypes'][recKey].recCount = classDataTypes[recKey].recCount;
+                    thisApplet.appVars.dataStructs['ClassTypes'][recKey].recCount = classDataTypes[recKey].recCount;
                 }
             }
 
-            myApp.appFuncs.recvDone();
+            thisApplet.appFuncs.recvDone();
 
-            if (myApp.menuSearch) {
-                $(myApp.menuSearch.searchField).keyup(function (e) {
+            if (thisApplet.menuSearch) {
+                $(thisApplet.menuSearch.searchField).keyup(function (e) {
                     if (e.keyCode === 13) {
-                        let searchKey = $(myApp.menuSearch.searchField).val().replace(/(\r\n|\n|\r)/gm, "");
-                        //let searchKey = $(myApp.menuSearch.searchField).val().trim();
-                        $(myApp.menuSearch.searchField).val(searchKey);
-                        myApp.appFuncs.searchIndexes(searchKey, null);
+                        let searchKey = $(thisApplet.menuSearch.searchField).val().replace(/(\r\n|\n|\r)/gm, "");
+                        //let searchKey = $(thisApplet.menuSearch.searchField).val().trim();
+                        $(thisApplet.menuSearch.searchField).val(searchKey);
+                        thisApplet.appFuncs.searchIndexes(searchKey, null);
                     }
                 });
             }
 
-            if (myApp.menuQuery) {
-                $(myApp.menuQuery.queryField).keyup(async function (e) {
+            if (thisApplet.menuQuery) {
+                $(thisApplet.menuQuery.queryField).keyup(async function (e) {
                     if (e.keyCode === 13) {
-                        let queryText = $(myApp.menuQuery.queryField).val().replace(/(\r\n|\n|\r)/gm, "");
-                        //let queryText = $(myApp.menuQuery.queryField).val().trim();
-                        $(myApp.menuQuery.queryField).val(queryText);
-                        let recvData = await myApp.sendCmd("Hive", "runHiveQuery", { "query": queryText }, true);
-                        myApp.appFuncs.changeDataScreen('ObjDisplay');
-                        myApp.appFuncs.displayHiveQuery(recvData, myApp.appVars.rightPaneScreens['ObjDisplay'].screenDiv);
+                        let queryText = $(thisApplet.menuQuery.queryField).val().replace(/(\r\n|\n|\r)/gm, "");
+                        //let queryText = $(thisApplet.menuQuery.queryField).val().trim();
+                        $(thisApplet.menuQuery.queryField).val(queryText);
+                        let recvData = await thisApplet.sendCmd("Hive", "runHiveQuery", { "query": queryText }, true);
+                        thisApplet.appFuncs.changeDataScreen('ObjDisplay');
+                        thisApplet.appFuncs.displayHiveQuery(recvData, thisApplet.appVars.rightPaneScreens['ObjDisplay'].screenDiv);
                     }
                 });
             }
