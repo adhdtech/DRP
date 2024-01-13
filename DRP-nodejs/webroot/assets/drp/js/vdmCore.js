@@ -251,21 +251,66 @@ class VDMDesktop {
     /**
      * Load applet prerequisites
      * @param {VDMAppletProfile} appletProfile
+     * @param {VDMApplet} appletInstance
      */
-    async LoadAppletDependencies(appletProfile) {
+    async LoadAppletDependencies(appletProfile, appletInstance) {
         let thisVDMDesktop = this;
+
+        let popOverBox = null;
 
         if (!appletProfile.dependencies) {
             appletProfile.dependencies = [];
         }
 
+        if (appletProfile.dependencies.length === 0) {
+            appletProfile.dependenciesLoaded = true;
+        }
+
+        if (appletProfile.dependenciesLoaded) {
+            return true;
+        }
+
+        let dependenciesToLoad = [];
+
+        // First loop determine if any dependencies need to be loaded
+        for (let i = 0; i < appletProfile.dependencies.length; i++) {
+            let dependenciesObj = appletProfile.dependencies[i];
+            const [dependencyType, dependencyValue] = Object.entries(dependenciesObj)[0];
+
+            // Has the resource been loaded?
+            if (thisVDMDesktop.loadedResources.indexOf(dependencyValue) === -1) {
+                // No - add to list
+                let thisDepObj = {};
+                thisDepObj[dependencyType] = dependencyValue;
+                dependenciesToLoad.push(thisDepObj);
+            }
+            //}
+        }
+
+        // If there are no remaining dependencies, skip loading
+        if (dependenciesToLoad.length === 0) {
+            appletProfile.dependenciesLoaded = true;
+            return true;
+        }
+
+        if (appletInstance) {
+            // Enabled popover saying dependencies are being loaded
+            //popOverDiv.tabindex = 101;
+            popOverBox = appletInstance.windowParts.popover.firstChild;
+            $(appletInstance.windowParts.popover).fadeIn();
+        }
+
         // Load prerequisites
         for (let i = 0; i < appletProfile.dependencies.length; i++) {
             let dependenciesObj = appletProfile.dependencies[i];
-            let preReqKeys = Object.keys(dependenciesObj);
-            for (let j = 0; j < preReqKeys.length; j++) {
-                let dependencyType = preReqKeys[j];
-                let dependencyValue = dependenciesObj[dependencyType];
+            const [dependencyType, dependencyValue] = Object.entries(dependenciesObj)[0];
+
+            // Updated popover message to show current item being loaded
+            if (appletInstance) {
+                popOverBox.innerHTML = `Loading dependency [${i + 1}/${appletProfile.dependencies.length}]`;
+            }
+
+            try {
 
                 switch (dependencyType) {
                     case 'CSS':
@@ -327,13 +372,32 @@ class VDMDesktop {
                         }
                         break;
                     default:
-                        alert("Unknown prerequisite type: '" + dependencyType + "'");
+                        if (appletInstance) {
+                            popOverBox.innerHTML = `Unknown dependency type:<br>${dependencyType}`
+                        }
                         return false;
                 }
+            } catch (ex) {
+                // Ran into error loading dependency
+                if (appletInstance) {
+                    popOverBox.innerHTML = `Could not load dependency:<br>${dependencyValue}`
+                }
+                return false;
             }
+            //}
         }
+
+        appletProfile.dependenciesLoaded = true;
+
+        if (appletInstance) {
+            // Disable popover saying dependencies are being loaded
+            popOverBox.innerHTML = "";
+            $(appletInstance.windowParts.popover).fadeOut();
+        }
+
+        return true;
     }
-    
+
     async PreloadAppletDependencies() {
         let thisVDMDesktop = this;
         for (const [appletName, appletModule] of Object.entries(thisVDMDesktop.appletModules)) {
@@ -344,7 +408,7 @@ class VDMDesktop {
         }
         thisVDMDesktop.loaded = true;
     }
-    
+
     FetchURLResource(url) {
         let thisVDMDesktop = this;
         return new Promise(function (resolve, reject) {
@@ -405,9 +469,6 @@ class VDMDesktop {
                 throw new Error(`Applet name is not registered - '${appletModuleName}'`);
             }
         }
-
-        // Load prerequisites
-        await this.LoadAppletDependencies(appletModule.AppletProfile);
 
         // Create new instance of applet
         let newApplet = new appletModule.AppletClass(appletModule.AppletProfile, parameters);
@@ -614,16 +675,6 @@ class VDMDesktop {
             });
         });
 
-        // Run post open handler
-        if (newApplet.PostOpenHandler) {
-            newApplet.PostOpenHandler();
-        }
-
-        // Run startup script
-        if (newApplet.RunStartup) {
-            newApplet.RunStartup();
-        }
-
         // Add to vdmWindows array
         this.vdmWindows.push(newApplet);
 
@@ -632,6 +683,14 @@ class VDMDesktop {
 
         // Make Window active now
         thisVDMDesktop.SwitchActiveWindow(newApplet);
+
+        // Load prerequisites
+        let allLoaded = await this.LoadAppletDependencies(appletModule.AppletProfile, newApplet);
+
+        // Run startup script
+        if (allLoaded && newApplet.RunStartup) {
+            newApplet.RunStartup();
+        }
     }
 
     /**
@@ -730,7 +789,7 @@ class VDMAppletProfile {
         this.showInMenu = true;
         this.preloadDeps = false;
         this.dependencies = [];
-        this.resourcesLoaded = false;
+        this.dependenciesLoaded = false;
         this.startupScript = "";
         this.title = "";
         this.sizeX = 300;

@@ -22,6 +22,17 @@ class AppletClass extends VDMApplet {
     async RunStartup() {
         let thisApplet = this;
 
+        let popOverBox = thisApplet.windowParts.popover.firstChild;
+        $(thisApplet.windowParts.popover).fadeIn();
+
+        // See if another instance is running
+        for (let checkWindow of thisApplet.vdmDesktop.vdmWindows) {
+            if (checkWindow.appletName === thisApplet.appletName && checkWindow !== thisApplet) {
+                popOverBox.innerHTML = `Only one editor can be loaded`;
+                return;
+            }
+        }
+
         // Get applet profiles and populate "Loaded Applets"
         let dropdownEntries = {};
         let thisVDMDesktop = thisApplet.vdmDesktop;
@@ -33,9 +44,12 @@ class AppletClass extends VDMApplet {
                 continue;
             }
             let appletModule = thisVDMDesktop.appletModules[appKeyName];
-
+            popOverBox.innerHTML = `Loading dependencies for ${appletModule.AppletProfile.appletName}`;
+            await thisVDMDesktop.LoadAppletDependencies(appletModule.AppletProfile);
             dropdownEntries[appletModule.AppletProfile.title] = () => { thisApplet.LoadAppletModuleCode(appletModule.ModuleCode) }
         }
+
+        popOverBox.innerHTML = `Loading dependencies for AppletEditor`;
 
         thisApplet.AddTopMenuEntry("Loaded Applets", dropdownEntries);
 
@@ -159,6 +173,9 @@ class VDMAppletProfile {
  */
 class VDMWindowParts {
     header: HTMLElement
+    /**
+	 * Applet drop down menu
+	 */
     menu: HTMLElement
     /**
 	 * Applet data window
@@ -200,6 +217,34 @@ class VDMApplet extends VDMWindow {
 	 * Creates and returns window
 	 */
     constructor(appletProfile: VDMAppletProfile);
+
+    /**
+	 * Creates and returns window
+	 */
+    AddTopMenuEntry(entryText: string, entries: { key: string, value: object });
+}
+
+/**
+ * VDM Applet
+ */
+class DRPApplet extends VDMApplet {
+	/**
+	 * Creates and returns window
+	 */
+    constructor(appletProfile: VDMAppletProfile);
+
+    /**
+	 * Send a command to a mesh service
+	 */
+    sendCmd();
+}
+
+class DRPMeshServices {
+    static ISD: inter
+}
+
+class DRPService {
+    exec(method: string, params: { key: string, value: object })
 }
 `
         let initialEditorScriptValue = `/**
@@ -214,20 +259,20 @@ class VDMApplet extends VDMWindow {
  * Just getting started?  Click "Samples" and select an entry to
  * see how applets work.
  *
- * Loaded Applet Code
- * ------------------
+ * Registered Applet Code
+ * ----------------------
  * To view code for currently registered applets, click on
  * Loaded Applets and select an entry.
  *
  * Saving Applet Code
  * ------------------
- * Click the Download button to get an applet file containing your
- * class code and settings.
+ * Click the Download button to get an applet module file containing
+ * your class code and settings.
  *
- * Registering Applet Code
- * -----------------------
- * Ready to register your applet for others to use?  Contact your
- * friendly DRP administrators.
+ * Loading Applet Code
+ * -------------------
+ * To run your applet module, drag and drop the JS file from your
+ * desktop into this window.
  */`;
 
         thisApplet.sampleScripts = {};
@@ -414,6 +459,9 @@ export { AppletProfile, AppletClass }
                 await this.vdmDesktop.EvalWithinContext(window, resourceText);
             }
         }
+
+        popOverBox.innerHTML = "";
+        $(thisApplet.windowParts.popover).fadeOut();
 
         require.config({ paths: { 'vs': 'assets/vs' } });
 
