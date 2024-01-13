@@ -853,28 +853,28 @@ class VDMWindow {
 
         // Attributes which will be assigned upon window DIV creation
         this.windowID = null;
+
         /** @type HTMLElement */
         this.windowDiv = null;
-        this.windowParts = {
-            "header": null,
-            "menu": null,
-            "data": null,
-            "footer": null,
-            "popover": null
-        };
 
-        // Attributes which should be specified in each applet definition
-        this.dependencies = [];
+        this.windowParts = {
+            /** @type HTMLElement */
+            header: null,
+            /** @type HTMLElement */
+            menu: null,
+            /** @type HTMLElement */
+            data: null,
+            /** @type HTMLElement */
+            footer: null,
+            /** @type HTMLElement */
+            popover: null
+        };
 
         this.menu = {};
 
         this.menuSearch = null;
 
         this.menuQuery = null;
-
-        this.appFuncs = {};
-
-        this.appVars = {};
     }
 
     RunStartup() {

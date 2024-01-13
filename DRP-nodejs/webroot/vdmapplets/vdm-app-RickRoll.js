@@ -10,7 +10,7 @@ class AppletClass extends VDMApplet {
                     alert("Hello world")
                 },
                 "RickRoll": () => {
-                    thisApplet.appFuncs.rickRoll();
+                    thisApplet.RickRoll();
                 }
             }
         };
