@@ -8,7 +8,12 @@ class AppletClass extends DRPApplet {
         let thisApplet = this;
 
         // Create DRP Shell instance
-        thisApplet.drpShell = new DRPShell(this);
+        thisApplet.drpShell = new DRPShell(thisApplet.windowParts["data"], this);
+
+        // Terminal resize handler
+        thisApplet.resizeMovingHook = function () {
+            thisApplet.drpShell.fitaddon.fit();
+        };
     }
 }
 
@@ -56,14 +61,14 @@ class DRPShellMethod {
 }
 
 class DRPShell {
-    constructor(applet) {
+    constructor(targetDiv, applet) {
         let thisShell = this;
 
         /** @type DRPApplet */
         thisShell.applet = applet;
 
         // Set parent div style
-        thisShell.termDiv = applet.windowParts["data"];
+        thisShell.termDiv = targetDiv;
         thisShell.termDiv.style.backgroundColor = "black";
 
         /** @type Terminal */
@@ -94,11 +99,6 @@ class DRPShell {
 
         thisShell.fitaddon = new FitAddon.FitAddon();
         thisShell.term.loadAddon(this.fitaddon);
-
-        // Terminal resize handler
-        applet.resizeMovingHook = function () {
-            thisShell.fitaddon.fit();
-        };
 
         thisShell.term.open(this.termDiv);
         thisShell.term.setOption('cursorBlink', true);
@@ -403,64 +403,62 @@ class DRPShell {
                 return returnObj;
             }));
 
-        let testMethod =
+        this.AddMethod(new DRPShellMethod("cat",
+            "Get object from path",
+            "[PATH]",
+            { "h": new DRPShellMethodSwitch("h", null, "Help") },
+            async (thisMethod, switchesAndDataString, doPipeOut, pipeDataIn) => {
+                let switchesAndData = thisShell.ParseSwitchesAndData(thisMethod, switchesAndDataString);
 
-            this.AddMethod(new DRPShellMethod("cat",
-                "Get object from path",
-                "[PATH]",
-                { "h": new DRPShellMethodSwitch("h", null, "Help") },
-                async (thisMethod, switchesAndDataString, doPipeOut, pipeDataIn) => {
-                    let switchesAndData = thisShell.ParseSwitchesAndData(thisMethod, switchesAndDataString);
+                let returnObj = null;
 
-                    let returnObj = null;
-
-                    // If an object was passed in a variable, output and return
-                    if (typeof switchesAndData.data === "object") {
-                        if (doPipeOut) {
-                            return switchesAndData.data;
-                        } else {
-                            thisShell.term.write(`\x1B[0m${JSON.stringify(switchesAndData.data, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
-                            return returnObj;
-                        }
+                // If an object was passed in a variable, output and return
+                if (typeof switchesAndData.data === "object") {
+                    if (doPipeOut) {
+                        return switchesAndData.data;
+                    } else {
+                        thisShell.term.write(`\x1B[0m${JSON.stringify(switchesAndData.data, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                        return returnObj;
                     }
+                }
 
-                    let pathList = [];
-                    if (switchesAndData.data.length > 0) pathList = switchesAndData.data.split(/[\/\\]/g);
+                let pathList = [];
+                if (switchesAndData.data.length > 0) pathList = switchesAndData.data.split(/[\/\\]/g);
 
-                    // Remove leading empty entries
-                    while (pathList.length > 0 && pathList[0] === "") pathList.shift();
+                // Remove leading empty entries
+                while (pathList.length > 0 && pathList[0] === "") pathList.shift();
 
-                    // Remove trailing empty entries
-                    while (pathList.length > 0 && pathList[pathList.length - 1] === "") pathList.pop();
+                // Remove trailing empty entries
+                while (pathList.length > 0 && pathList[pathList.length - 1] === "") pathList.pop();
 
-                    if ("h" in switchesAndData.switches || pathList.length === 0) {
-                        thisShell.term.write(thisMethod.ShowHelp());
-                        return
+                if ("h" in switchesAndData.switches || pathList.length === 0) {
+                    thisShell.term.write(thisMethod.ShowHelp());
+                    return
+                }
+
+                let results = null;
+
+                try {
+                    results = await thisShell.applet.sendCmd("DRP", "pathCmd", { method: "cat", pathList: pathList }, true);
+                } catch (ex) {
+                    thisShell.term.write(`\x1B[91m${ex.message}\x1B[0m`);
+                    return;
+                }
+
+                // Item was returned
+                if (doPipeOut) returnObj = results;
+                else {
+                    if (typeof results === "object") {
+                        thisShell.term.write(`\x1B[0m${JSON.stringify(results, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                    } else if (typeof results === "string") {
+                        thisShell.term.write(`\x1B[0m${results.replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
+                    } else {
+                        thisShell.term.write(`\x1B[0m${results}\x1B[0m\r\n`);
                     }
+                }
 
-                    let results = null;
-
-                    try {
-                        results = await thisShell.applet.sendCmd("DRP", "pathCmd", { method: "cat", pathList: pathList }, true);
-                    } catch (ex) {
-                        thisShell.term.write(`\x1B[91m${ex.message}\x1B[0m`);
-                        return;
-                    }
-
-                    // Item was returned
-                    if (doPipeOut) returnObj = results;
-                    else {
-                        if (typeof results === "object") {
-                            thisShell.term.write(`\x1B[0m${JSON.stringify(results, null, 4).replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
-                        } else if (typeof results === "string") {
-                            thisShell.term.write(`\x1B[0m${results.replace(/([^\r])\n/g, "$1\r\n")}\x1B[0m\r\n`);
-                        } else {
-                            thisShell.term.write(`\x1B[0m${results}\x1B[0m\r\n`);
-                        }
-                    }
-
-                    return returnObj;
-                }));
+                return returnObj;
+            }));
 
         this.AddMethod(new DRPShellMethod("exec",
             "Execute RPC Method",
