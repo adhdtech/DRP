@@ -165,17 +165,12 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="webroot\vdmapplets\vdm-app-CommandTesting.js" />
-    <Content Include="webroot\vdmapplets\vdm-app-CommandTesting.json" />
     <Content Include="webroot\vdmapplets\vdm-app-DRPShell.js" />
-    <Content Include="webroot\vdmapplets\vdm-app-DRPShell.json" />
     <Content Include="webroot\vdmapplets\vdm-app-DRPTopology.js" />
-    <Content Include="webroot\vdmapplets\vdm-app-DRPTopology.json" />
     <Content Include="webroot\vdmapplets\vdm-app-FedEx.json.dnl" />
     <Content Include="webroot\vdmapplets\vdm-app-HiveBrowser.css" />
     <Content Include="webroot\vdmapplets\vdm-app-HiveBrowser.js" />
-    <Content Include="webroot\vdmapplets\vdm-app-HiveBrowser.json" />
     <Content Include="webroot\vdmapplets\vdm-app-RickRoll.js" />
-    <Content Include="webroot\vdmapplets\vdm-app-RickRoll.json" />
     <Content Include="webroot\xrapplets\xr-app-Forest.js" />
     <Content Include="webroot\xrapplets\xr-app-Forest.json" />
     <Content Include="webroot\xrapplets\xr-app-Grid.js" />
