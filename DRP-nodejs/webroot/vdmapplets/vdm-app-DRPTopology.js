@@ -3,43 +3,16 @@ class AppletClass extends DRPApplet {
         super(appletProfile);
         let thisApplet = this;
 
-        class topologyNode {
-            constructor() {
-                /** @type {string} */
-                this.NodeID = "";
-                /** @type {string} */
-                this.ProxyNodeID = "";
-                /** @type {string} */
-                this.Scope = "";
-                /** @type {string} */
-                this.Zone = "";
-                /** @type {string} */
-                this.LearnedFrom = "";
-                /** @type {string[]} */
-                this.Roles = [];
-                /** @type {string} */
-                this.NodeURL = "";
-                /** @type {string} */
-                this.HostID = "";
-                /** @type {string[]} */
-                this.ConsumerClients = [];
-                /** @type {string[]} */
-                this.NodeClients = [];
-                /** @type {Object.<string,Object>} */
-                this.Services = {};
-            }
-        }
-
         // Dropdown menu items
         thisApplet.menu = {
             "View": {
                 "Toggle Refresh": function () {
-                    thisApplet.appFuncs.toggleRefresh();
+                    thisApplet.ToggleRefresh();
                 },
                 "Output JSON": async function () {
-                    let fileData = JSON.stringify(thisApplet.appVars.cy.json());
+                    let fileData = JSON.stringify(thisApplet.cy.json());
                     console.log(fileData);
-                    //thisApplet.appVars.msgBox.innerHTML = results;
+                    //thisApplet.msgBox.innerHTML = results;
                     //alert(results);
                 }
             }
@@ -49,417 +22,35 @@ class AppletClass extends DRPApplet {
             "searchEmptyPlaceholder": "Search...",
             "searchField": null
         };
-        /*
-        thisApplet.menuQuery = {
-        "queryEmptyPlaceholder": "Query...",
-        "queryField": null
+
+        thisApplet.dataStructs = {};
+        thisApplet.refreshActive = false;
+        thisApplet.refreshInterval = null;
+        thisApplet.cy = null;
+        thisApplet.linkFromObj = null;
+        thisApplet.currentFile = "";
+        thisApplet.nodeCursors = {
+            Registry: { x: 400, y: 50, index: 0 },
+            Broker: { x: 700, y: 100, index: 0 },
+            Provider: { x: 200, y: 100, index: 0 },
+            Logger: { x: 450, y: 250, index: 0 },
+            Consumer: { x: 825, y: 100, index: 0 }
         }
-         */
-
-        thisApplet.appFuncs = {
-            "toggleRefresh": function () {
-                if (!thisApplet.appVars.refreshActive) {
-                    thisApplet.appVars.refreshInterval = setInterval(async () => {
-                        thisApplet.appFuncs.loadNodeTopology();
-                    }, 10000);
-                    thisApplet.appVars.refreshActive = true;
-                } else {
-                    clearInterval(thisApplet.appVars.refreshInterval);
-                    thisApplet.appVars.refreshActive = false;
-                }
-            },
-            "placeNode": function (nodeClass, index, total) {
-                let returnPosition = { x: 0, y: 0 };
-                let colsPerRow = 6;
-                switch (nodeClass) {
-                    case "Registry":
-                        returnPosition = Object.assign(returnPosition, thisApplet.appVars.nodeCursors["Registry"]);
-                        //thisApplet.appVars.nodeCursors["Registry"].y += 75;
-                        let arrangeMultiple = total > 1 ? true : false;
-                        if (arrangeMultiple) {
-                            let isEven = index % 2 === 0;
-                            if (!isEven) {
-                                // Put on left
-                                returnPosition.x -= 75;
-                            } else {
-                                // Put on right
-                                returnPosition.x += 75;
-                            }
-                        }
-                        returnPosition.y += (75 * (Math.floor(index / 2)));
-                        break;
-                    case "Broker":
-                        returnPosition = Object.assign(returnPosition, thisApplet.appVars.nodeCursors["Broker"]);
-                        thisApplet.appVars.nodeCursors["Broker"].y += 150;
-                        break;
-                    case "Provider":
-                        returnPosition = Object.assign(returnPosition, thisApplet.appVars.nodeCursors["Provider"]);
-                        thisApplet.appVars.nodeCursors["Provider"].y += 75;
-                        break;
-                    case "Logger":
-                        returnPosition = Object.assign(returnPosition, thisApplet.appVars.nodeCursors["Logger"]);
-                        thisApplet.appVars.nodeCursors["Logger"].y += 75;
-                        break;
-                    case "Consumer":
-                        returnPosition = Object.assign(returnPosition, thisApplet.appVars.nodeCursors["Consumer"]);
-                        let column = returnPosition.index % colsPerRow;
-                        returnPosition.x += column * 50;
-                        let row = Math.floor(returnPosition.index / colsPerRow);
-                        returnPosition.y += row * 50;
-                        thisApplet.appVars.nodeCursors["Consumer"].index++;
-                        break;
-                    case "Service":
-                        returnPosition = Object.assign(returnPosition, thisApplet.appVars.nodeCursors["Service"]);
-                        thisApplet.appVars.nodeCursors["Service"].y += 50;
-                        thisApplet.appVars.nodeCursors["Service"].index++;
-                        break;
-                    default:
-                }
-                return returnPosition;
-            },
-            /**
-             * 
-             * @param {Object.<string, topologyNode>} topologyObj DRP Topology
-             */
-            "importMeshTopology": async function (topologyObj) {
-
-                let typeStyle = "grid-column: 1/ span 2;text-align: center; font-size: large;";
-                let headerStyle = "text-align: right; padding-right: 10px;";
-                let dataStyle = "color: lightseagreen; font-weight: bold; user-select: text; overflow-wrap: break-word;";
-
-                let zones = {};
-                let nodeIDs = Object.keys(topologyObj);
-
-                // Loop over DRP Nodes, assign Nodes to Zones
-                for (let i = 0; i < nodeIDs.length; i++) {
-                    let drpNodeID = nodeIDs[i];
-                    let drpNode = topologyObj[drpNodeID];
-                    if (!zones[drpNode.Zone]) {
-                        zones[drpNode.Zone] = {
-                            Registry: [],
-                            Broker: [],
-                            Provider: [],
-                            Logger: [],
-                            allnodes: []
-                        }
-                    }
-                    if (drpNode.Roles.includes("Registry")) {
-                        zones[drpNode.Zone].Registry.push(drpNode);
-                    } else if (drpNode.Roles.includes("Broker")) {
-                        zones[drpNode.Zone].Broker.push(drpNode);
-                    } else if (drpNode.Roles.includes("Provider")) {
-                        zones[drpNode.Zone].Provider.push(drpNode);
-                    } else if (drpNode.Roles.includes("Logger")) {
-                        zones[drpNode.Zone].Logger.push(drpNode);
-                    }
-
-                    zones[drpNode.Zone].allnodes.push(drpNode);
-                }
-
-                // Get Zone names
-                let zoneNames = Object.keys(zones);
-
-                let zoneVerticalOffset = 75;
-                let zoneHorizontalOffset = 0;
-
-                // Loop over Zones
-                for (let i = 0; i < zoneNames.length; i++) {
-                    let zoneName = zoneNames[i];
-
-                    let maxZoneHeight = Math.max(
-                        zones[zoneName].Registry.length,
-                        zones[zoneName].Broker.length,
-                        zones[zoneName].Provider.length,
-                        zones[zoneName].Logger.length
-                    );
-
-                    thisApplet.appVars.nodeCursors["Registry"].y = zoneVerticalOffset + ((maxZoneHeight - 1) * 75) / 2
-                    thisApplet.appVars.nodeCursors["Broker"].y = zoneVerticalOffset
-                    thisApplet.appVars.nodeCursors["Provider"].y = zoneVerticalOffset
-                    thisApplet.appVars.nodeCursors["Logger"].y = zoneVerticalOffset + 75
-                    thisApplet.appVars.nodeCursors["Consumer"].y = zoneVerticalOffset
-
-                    thisApplet.appVars.nodeCursors["Registry"].index = 0;
-                    thisApplet.appVars.nodeCursors["Broker"].index = 0;
-                    thisApplet.appVars.nodeCursors["Provider"].index = 0;
-                    thisApplet.appVars.nodeCursors["Logger"].index = 0;
-                    thisApplet.appVars.nodeCursors["Consumer"].index = 0;
-
-                    let zoneWidth = 1000;
-
-                    thisApplet.appVars.cy.add({
-                        group: 'nodes',
-                        data: {
-                            id: zoneName
-                        },
-                        classes: "Zone",
-                        //position: { x: zoneWidth/2, y: zoneVerticalOffset + 150},
-                        style: {
-                            'shape': "square",
-                            'background-color': '#FFF',
-                            'font-size': '30px',
-                            'content': 'data(label)',
-                            'opacity': 1,
-                            'events': 'no'
-                        },
-                        //grabbable: false
-                    });
-
-                    thisApplet.appVars.cy.add({
-                        group: 'nodes',
-                        data: {
-                            id: `${zoneName}-label`,
-                            label: zoneName,
-                            parent: zoneName,
-                        },
-                        classes: "Zone",
-                        //position: { x: zoneWidth/2, y: zoneVerticalOffset + 150},
-                        style: {
-                            'shape': "square",
-                            'background-color': '#FFF',
-                            'font-size': '30px',
-                            'content': 'data(label)',
-                            'opacity': 1,
-                            'events': 'no'
-                        },
-                        position: { x: 400, y: zoneVerticalOffset - 25 }
-                        //grabbable: false
-                    });
-
-                    // Loop over DRP Nodes in Zone
-                    for (let drpNode of zones[zoneName].allnodes) {
-
-                        let labelData = `${drpNode.NodeID}\n[${drpNode.HostID}]`;
-                        if (drpNode.NodeURL) labelData = `${labelData}\n${drpNode.NodeURL}`;
-                        let primaryRole = drpNode.Roles[0];
-                        let nodeIDs = zones[zoneName][primaryRole].map((nodeObj) => {
-                            return nodeObj.NodeID
-                        });
-                        let index = nodeIDs.indexOf(drpNode.NodeID);
-                        let nodePosition = thisApplet.appFuncs.placeNode(primaryRole, index, nodeIDs.length);
-
-                        // Add DRP Node as Cytoscape node
-                        thisApplet.appVars.cy.add({
-                            group: 'nodes',
-                            data: {
-                                id: drpNode.NodeID,
-                                label: labelData,
-                                parent: zoneName,
-                                drpNode: drpNode,
-                                ShowDetails: async () => {
-                                    let returnVal = `<span style="${typeStyle}">Mesh Node</span>` +
-                                        `<span style="${headerStyle}">Node ID:</span><span style="${dataStyle}">${drpNode.NodeID}</span>` +
-                                        `<span style="${headerStyle}">Host ID:</span><span style="${dataStyle}">${drpNode.HostID}</span>`;
-                                    if (drpNode.NodeURL) {
-                                        returnVal += `<span style="${headerStyle}">URL:</span><span style="${dataStyle}">${drpNode.NodeURL}</span>`;
-                                    } else {
-                                        returnVal += `<span style="${headerStyle}">URL:</span><span style="${dataStyle}">(non-listening)</span>`;
-                                    }
-                                    returnVal += `<span style="${headerStyle}">Scope:</span><span style="${dataStyle}">${drpNode.Scope}</span>` +
-                                        `<span style="${headerStyle}">Zone:</span><span style="${dataStyle}">${drpNode.Zone}</span>` +
-                                        `<span style="${headerStyle}">Roles:</span><span style="${dataStyle}">${drpNode.Roles}</span>`;
-                                    return returnVal;
-                                },
-                                Evacuate: async () => {
-                                    let response = await thisApplet.appFuncs.evacuate(drpNode.NodeID);
-                                    return response;
-                                }
-                            },
-                            classes: drpNode.Roles.join(" "),
-                            position: nodePosition
-                        });
-
-                        // Get list of Node services
-                        let serviceNameList = Object.keys(drpNode.Services);
-
-                        // The service count will exclude DRP
-                        let serviceCount = serviceNameList.length - 1;
-                        let arrangeMultiple = serviceCount > 1 ? true : false;
-
-                        // Loop over Node Services
-                        for (let j = 0; j < serviceNameList.length; j++) {
-
-                            let serviceName = serviceNameList[j];
-                            if (serviceName === "DRP") {
-                                continue;
-                            }
-                            let serviceObj = drpNode.Services[serviceName];
-                            let serviceNodeID = serviceObj.InstanceID;
-
-                            let servicePosition = { x: 0, y: 0 };
-                            Object.assign(servicePosition, nodePosition);
-
-                            if (arrangeMultiple) {
-                                let isEven = j % 2 === 0;
-                                if (!isEven) {
-                                    // Put on top
-                                    servicePosition.y -= 20;
-                                } else {
-                                    // Put on bottom
-                                    servicePosition.y += 20;
-                                }
-                                servicePosition.x -= (125 + 100 * (Math.floor((j - 1) / 2)));
-                            } else {
-                                servicePosition.x -= 125;
-                            }
-
-                            // See if service node exists
-                            let svcNodeObj = thisApplet.appVars.cy.getElementById(serviceNodeID);
-                            if (svcNodeObj.length === 0) {
-                                // No - create it
-                                thisApplet.appVars.cy.add({
-                                    group: 'nodes',
-                                    data: {
-                                        id: serviceNodeID,
-                                        label: serviceName,
-                                        parent: zoneName,
-                                        ShowDetails: async () => {
-                                            let returnVal = `<span style="${typeStyle}">Mesh Service</span>` +
-                                                `<span style="${headerStyle}">Name:</span><span style="${dataStyle}">${serviceName}</span>` +
-                                                `<span style="${headerStyle}">Instance ID:</span><span style="${dataStyle}">${serviceObj.InstanceID}</span>` +
-                                                `<span style="${headerStyle}">Node ID:</span><span style="${dataStyle}">${drpNode.NodeID}</span>` +
-                                                `<span style="${headerStyle}">Scope:</span><span style="${dataStyle}">${serviceObj.Scope}</span>` +
-                                                `<span style="${headerStyle}">Zone:</span><span style="${dataStyle}">${serviceObj.Zone}</span>`;
-                                            return returnVal;
-                                        }
-                                    },
-                                    classes: "Service",
-                                    position: servicePosition
-                                });
-                            }
-
-                            // Create edge
-                            thisApplet.appVars.cy.add({
-                                group: 'edges',
-                                data: {
-                                    id: `${serviceNodeID}_${drpNode.NodeID}`,
-                                    source: serviceNodeID,
-                                    target: drpNode.NodeID
-                                },
-                                classes: "NodeService"
-                            });
-                        }
-                    }
-
-                    zoneVerticalOffset += maxZoneHeight * 75 + 150;
-                }
-
-                // Loop over DRP Nodes again; create Edges
-                for (let i = 0; i < nodeIDs.length; i++) {
-                    let drpNodeID = nodeIDs[i];
-                    let drpNode = topologyObj[drpNodeID];
-                    thisApplet.appVars.nodeCursors["Consumer"].index = 0;
-                    let nodeObj = thisApplet.appVars.cy.getElementById(drpNodeID);
-                    thisApplet.appVars.nodeCursors["Consumer"].y = nodeObj.position().y;
-
-                    // Loop over nodeClients
-                    let nodeClientIDs = Object.keys(drpNode.NodeClients);
-                    for (let j = 0; j < nodeClientIDs.length; j++) {
-                        let targetNodeID = nodeClientIDs[j];
-
-                        thisApplet.appVars.cy.add({
-                            group: 'edges',
-                            data: {
-                                id: `${drpNodeID}_${targetNodeID}`,
-                                source: targetNodeID,
-                                target: drpNodeID,
-                                label: drpNode.NodeClients[nodeClientIDs[j]]['pingTimeMs'] + " ms"
-                            }
-                        });
-                    }
-
-                    // Loop over consumerClients
-                    let consumerClientIDs = Object.keys(drpNode.ConsumerClients);
-                    for (let j = 0; j < consumerClientIDs.length; j++) {
-                        let consumerID = consumerClientIDs[j];
-                        let consumerNodeID = `${drpNodeID}-c:${consumerID}`;
-                        let consumerObj = drpNode.ConsumerClients[consumerID];
-
-                        thisApplet.appVars.cy.add({
-                            group: 'nodes',
-                            data: {
-                                id: consumerNodeID,
-                                label: `${consumerClientIDs[j]}`,
-                                parent: drpNode.Zone,
-                                ShowDetails: async () => {
-                                    // Get User Details
-                                    return `<span style="${typeStyle}">Consumer</span>` +
-                                        `<span style="${headerStyle}">User ID:</span><span style="${dataStyle}">${consumerObj.UserName}</span>` +
-                                        `<span style="${headerStyle}">Name:</span><span style="${dataStyle}">${consumerObj.FullName}</span>`;
-                                }
-                            },
-                            classes: "Consumer",
-                            position: thisApplet.appFuncs.placeNode("Consumer")
-                        });
-
-                        thisApplet.appVars.cy.add({
-                            group: 'edges',
-                            data: {
-                                id: `${consumerNodeID}_${drpNodeID}`,
-                                source: consumerNodeID,
-                                target: drpNodeID,
-                                label: consumerObj.pingTimeMs + " ms"
-                            }
-                        });
-                    }
-                }
-            },
-            "loadNodeTopology": async function () {
-                thisApplet.appVars.cy.elements().remove();
-
-                thisApplet.appVars.nodeCursors = {
-                    Registry: { x: 400, y: 50, index: 0 },
-                    Broker: { x: 700, y: 100, index: 0 },
-                    Provider: { x: 200, y: 100, index: 0 },
-                    Logger: { x: 450, y: 250, index: 0 },
-                    Consumer: { x: 825, y: 100, index: 0 },
-                    Service: { x: 50, y: 100, index: 0 }
-                };
-
-                /** @type {Object.<string, topologyNode>}} */
-                let topologyObj = await thisApplet.sendCmd("DRP", "getTopology", null, true);
-                thisApplet.appFuncs.importMeshTopology(topologyObj);
-            },
-            "evacuate": async function (nodeID) {
-                let pathListArray = ['Mesh', 'Nodes', nodeID, 'DRPNode', 'Evacuate'];
-                let evacuateResponse = await thisApplet.sendCmd("DRP", "pathCmd", { method: "exec", pathList: pathListArray }, true);
-                return evacuateResponse;
-            }
-        };
-
-        thisApplet.appVars = {
-            dataStructs: {},
-            refreshActive: false,
-            refreshInterval: null,
-            cy: null,
-            linkFromObj: null,
-            currentFile: "",
-            nodeCursors: {
-                Registry: { x: 400, y: 50, index: 0 },
-                Broker: { x: 700, y: 100, index: 0 },
-                Provider: { x: 200, y: 100, index: 0 },
-                Logger: { x: 450, y: 250, index: 0 },
-                Consumer: { x: 825, y: 100, index: 0 }
-            },
-            displayedNodeID: null
-        };
-
-        thisApplet.recvCmd = {
-        };
+        thisApplet.displayedNodeID = null
     }
 
     async RunStartup() {
         let thisApplet = this;
 
-        thisApplet.appVars.dataPane = thisApplet.windowParts["data"];
+        thisApplet.dataPane = thisApplet.windowParts["data"];
 
         let cyBox = document.createElement("div");
         cyBox.style = `position: absolute; z-index: 0; overflow: hidden; width: 100%; height: 100%; background: #aaa`;
-        thisApplet.appVars.dataPane.appendChild(cyBox);
-        thisApplet.appVars.cyBox = cyBox;
+        thisApplet.dataPane.appendChild(cyBox);
+        thisApplet.cyBox = cyBox;
 
         let cy = cytoscape({
-            container: thisApplet.appVars.cyBox,
+            container: thisApplet.cyBox,
             wheelSensitivity: .25,
             zoom: .75,
             pan: { "x": 100, "y": 25 },
@@ -554,7 +145,7 @@ class AppletClass extends DRPApplet {
             }
         });
 
-        thisApplet.appVars.cy = cy;
+        thisApplet.cy = cy;
 
         cy.on('mouseover', 'node', async function (e) {
             // Add highlight to connected edges
@@ -563,12 +154,12 @@ class AppletClass extends DRPApplet {
 
             // If the node has a "ShowDetails" function, execute and display in details box
             if (targetNodeData.ShowDetails) {
-                thisApplet.appVars.displayedNodeID = targetNodeData.id;
-                thisApplet.appVars.detailsDiv.style['display'] = 'grid';
+                thisApplet.displayedNodeID = targetNodeData.id;
+                thisApplet.detailsDiv.style['display'] = 'grid';
                 try {
-                    thisApplet.appVars.detailsDiv.innerHTML = await targetNodeData.ShowDetails();
+                    thisApplet.detailsDiv.innerHTML = await targetNodeData.ShowDetails();
                 } catch (ex) {
-                    thisApplet.appVars.detailsDiv.innerHTML = ex.message;
+                    thisApplet.detailsDiv.innerHTML = ex.message;
                 }
             }
         });
@@ -578,8 +169,8 @@ class AppletClass extends DRPApplet {
             let targetNodeData = e.cyTarget.data();
 
             // If the node has a "ShowDetails" function AND its details are currently in the detail box, remove and hide
-            if (thisApplet.appVars.displayedNodeID && thisApplet.appVars.displayedNodeID === targetNodeData.id) {
-                //thisApplet.appVars.detailsDiv.style['display'] = 'none';
+            if (thisApplet.displayedNodeID && thisApplet.displayedNodeID === targetNodeData.id) {
+                //thisApplet.detailsDiv.style['display'] = 'none';
             }
         });
 
@@ -592,7 +183,7 @@ class AppletClass extends DRPApplet {
 
         let removed = null;
 
-        var contextMenu = thisApplet.appVars.cy.contextMenus({
+        var contextMenu = thisApplet.cy.contextMenus({
             menuItems: [
                 {
                     id: 'evacuate',
@@ -604,11 +195,11 @@ class AppletClass extends DRPApplet {
                         // If the node has a "ShowDetails" function, execute and display in details box
                         if (targetNodeData.Evacuate) {
                             try {
-                                thisApplet.appVars.detailsDiv.innerHTML = await targetNodeData.Evacuate();
-                                thisApplet.appVars.detailsDiv.style['display'] = 'block';
-                                thisApplet.appFuncs.loadNodeTopology();
+                                thisApplet.detailsDiv.innerHTML = await targetNodeData.Evacuate();
+                                thisApplet.detailsDiv.style['display'] = 'block';
+                                thisApplet.LoadNodeTopology();
                             } catch (ex) {
-                                thisApplet.appVars.detailsDiv.innerHTML = ex.message;
+                                thisApplet.detailsDiv.innerHTML = ex.message;
                             }
                         }
                     },
@@ -618,11 +209,11 @@ class AppletClass extends DRPApplet {
         });
 
         thisApplet.resizeMovingHook = function () {
-            thisApplet.appVars.cy.resize();
+            thisApplet.cy.resize();
             //cy.fit();
         };
 
-        thisApplet.appFuncs.loadNodeTopology();
+        thisApplet.LoadNodeTopology();
 
         // Add details menu
         let detailsDiv = document.createElement('div');
@@ -635,9 +226,416 @@ class AppletClass extends DRPApplet {
     z-index: 1;`;
         detailsDiv.innerHTML = "&nbsp;";
 
-        thisApplet.appVars.detailsDiv = detailsDiv;
+        thisApplet.detailsDiv = detailsDiv;
 
-        thisApplet.appVars.dataPane.appendChild(detailsDiv);
+        thisApplet.dataPane.appendChild(detailsDiv);
+    }
+
+    ToggleRefresh() {
+        let thisApplet = this;
+        if (!thisApplet.refreshActive) {
+            thisApplet.refreshInterval = setInterval(async () => {
+                thisApplet.LoadNodeTopology();
+            }, 10000);
+            thisApplet.refreshActive = true;
+        } else {
+            clearInterval(thisApplet.refreshInterval);
+            thisApplet.refreshActive = false;
+        }
+    }
+
+    PlaceNode(nodeClass, index, total) {
+        let thisApplet = this;
+        let returnPosition = { x: 0, y: 0 };
+        let colsPerRow = 6;
+        switch (nodeClass) {
+            case "Registry":
+                returnPosition = Object.assign(returnPosition, thisApplet.nodeCursors["Registry"]);
+                //thisApplet.nodeCursors["Registry"].y += 75;
+                let arrangeMultiple = total > 1 ? true : false;
+                if (arrangeMultiple) {
+                    let isEven = index % 2 === 0;
+                    if (!isEven) {
+                        // Put on left
+                        returnPosition.x -= 75;
+                    } else {
+                        // Put on right
+                        returnPosition.x += 75;
+                    }
+                }
+                returnPosition.y += (75 * (Math.floor(index / 2)));
+                break;
+            case "Broker":
+                returnPosition = Object.assign(returnPosition, thisApplet.nodeCursors["Broker"]);
+                thisApplet.nodeCursors["Broker"].y += 150;
+                break;
+            case "Provider":
+                returnPosition = Object.assign(returnPosition, thisApplet.nodeCursors["Provider"]);
+                thisApplet.nodeCursors["Provider"].y += 75;
+                break;
+            case "Logger":
+                returnPosition = Object.assign(returnPosition, thisApplet.nodeCursors["Logger"]);
+                thisApplet.nodeCursors["Logger"].y += 75;
+                break;
+            case "Consumer":
+                returnPosition = Object.assign(returnPosition, thisApplet.nodeCursors["Consumer"]);
+                let column = returnPosition.index % colsPerRow;
+                returnPosition.x += column * 50;
+                let row = Math.floor(returnPosition.index / colsPerRow);
+                returnPosition.y += row * 50;
+                thisApplet.nodeCursors["Consumer"].index++;
+                break;
+            case "Service":
+                returnPosition = Object.assign(returnPosition, thisApplet.nodeCursors["Service"]);
+                thisApplet.nodeCursors["Service"].y += 50;
+                thisApplet.nodeCursors["Service"].index++;
+                break;
+            default:
+        }
+        return returnPosition;
+    }
+
+    /**
+     * 
+     * @param {Object.<string, TopologyNode>} topologyObj DRP Topology
+     */
+    async ImportMeshTopology(topologyObj) {
+        let thisApplet = this;
+
+        let typeStyle = "grid-column: 1/ span 2;text-align: center; font-size: large;";
+        let headerStyle = "text-align: right; padding-right: 10px;";
+        let dataStyle = "color: lightseagreen; font-weight: bold; user-select: text; overflow-wrap: break-word;";
+
+        let zones = {};
+        let nodeIDs = Object.keys(topologyObj);
+
+        // Loop over DRP Nodes, assign Nodes to Zones
+        for (let i = 0; i < nodeIDs.length; i++) {
+            let drpNodeID = nodeIDs[i];
+            let drpNode = topologyObj[drpNodeID];
+            if (!zones[drpNode.Zone]) {
+                zones[drpNode.Zone] = {
+                    Registry: [],
+                    Broker: [],
+                    Provider: [],
+                    Logger: [],
+                    allnodes: []
+                }
+            }
+            if (drpNode.Roles.includes("Registry")) {
+                zones[drpNode.Zone].Registry.push(drpNode);
+            } else if (drpNode.Roles.includes("Broker")) {
+                zones[drpNode.Zone].Broker.push(drpNode);
+            } else if (drpNode.Roles.includes("Provider")) {
+                zones[drpNode.Zone].Provider.push(drpNode);
+            } else if (drpNode.Roles.includes("Logger")) {
+                zones[drpNode.Zone].Logger.push(drpNode);
+            }
+
+            zones[drpNode.Zone].allnodes.push(drpNode);
+        }
+
+        // Get Zone names
+        let zoneNames = Object.keys(zones);
+
+        let zoneVerticalOffset = 75;
+        let zoneHorizontalOffset = 0;
+
+        // Loop over Zones
+        for (let i = 0; i < zoneNames.length; i++) {
+            let zoneName = zoneNames[i];
+
+            let maxZoneHeight = Math.max(
+                zones[zoneName].Registry.length,
+                zones[zoneName].Broker.length,
+                zones[zoneName].Provider.length,
+                zones[zoneName].Logger.length
+            );
+
+            thisApplet.nodeCursors["Registry"].y = zoneVerticalOffset + ((maxZoneHeight - 1) * 75) / 2
+            thisApplet.nodeCursors["Broker"].y = zoneVerticalOffset
+            thisApplet.nodeCursors["Provider"].y = zoneVerticalOffset
+            thisApplet.nodeCursors["Logger"].y = zoneVerticalOffset + 75
+            thisApplet.nodeCursors["Consumer"].y = zoneVerticalOffset
+
+            thisApplet.nodeCursors["Registry"].index = 0;
+            thisApplet.nodeCursors["Broker"].index = 0;
+            thisApplet.nodeCursors["Provider"].index = 0;
+            thisApplet.nodeCursors["Logger"].index = 0;
+            thisApplet.nodeCursors["Consumer"].index = 0;
+
+            let zoneWidth = 1000;
+
+            thisApplet.cy.add({
+                group: 'nodes',
+                data: {
+                    id: zoneName
+                },
+                classes: "Zone",
+                //position: { x: zoneWidth/2, y: zoneVerticalOffset + 150},
+                style: {
+                    'shape': "square",
+                    'background-color': '#FFF',
+                    'font-size': '30px',
+                    'content': 'data(label)',
+                    'opacity': 1,
+                    'events': 'no'
+                },
+                //grabbable: false
+            });
+
+            thisApplet.cy.add({
+                group: 'nodes',
+                data: {
+                    id: `${zoneName}-label`,
+                    label: zoneName,
+                    parent: zoneName,
+                },
+                classes: "Zone",
+                //position: { x: zoneWidth/2, y: zoneVerticalOffset + 150},
+                style: {
+                    'shape': "square",
+                    'background-color': '#FFF',
+                    'font-size': '30px',
+                    'content': 'data(label)',
+                    'opacity': 1,
+                    'events': 'no'
+                },
+                position: { x: 400, y: zoneVerticalOffset - 25 }
+                //grabbable: false
+            });
+
+            // Loop over DRP Nodes in Zone
+            for (let drpNode of zones[zoneName].allnodes) {
+
+                let labelData = `${drpNode.NodeID}\n[${drpNode.HostID}]`;
+                if (drpNode.NodeURL) labelData = `${labelData}\n${drpNode.NodeURL}`;
+                let primaryRole = drpNode.Roles[0];
+                let nodeIDs = zones[zoneName][primaryRole].map((nodeObj) => {
+                    return nodeObj.NodeID
+                });
+                let index = nodeIDs.indexOf(drpNode.NodeID);
+                let nodePosition = thisApplet.PlaceNode(primaryRole, index, nodeIDs.length);
+
+                // Add DRP Node as Cytoscape node
+                thisApplet.cy.add({
+                    group: 'nodes',
+                    data: {
+                        id: drpNode.NodeID,
+                        label: labelData,
+                        parent: zoneName,
+                        drpNode: drpNode,
+                        ShowDetails: async () => {
+                            let returnVal = `<span style="${typeStyle}">Mesh Node</span>` +
+                                `<span style="${headerStyle}">Node ID:</span><span style="${dataStyle}">${drpNode.NodeID}</span>` +
+                                `<span style="${headerStyle}">Host ID:</span><span style="${dataStyle}">${drpNode.HostID}</span>`;
+                            if (drpNode.NodeURL) {
+                                returnVal += `<span style="${headerStyle}">URL:</span><span style="${dataStyle}">${drpNode.NodeURL}</span>`;
+                            } else {
+                                returnVal += `<span style="${headerStyle}">URL:</span><span style="${dataStyle}">(non-listening)</span>`;
+                            }
+                            returnVal += `<span style="${headerStyle}">Scope:</span><span style="${dataStyle}">${drpNode.Scope}</span>` +
+                                `<span style="${headerStyle}">Zone:</span><span style="${dataStyle}">${drpNode.Zone}</span>` +
+                                `<span style="${headerStyle}">Roles:</span><span style="${dataStyle}">${drpNode.Roles}</span>`;
+                            return returnVal;
+                        },
+                        Evacuate: async () => {
+                            let response = await thisApplet.Evacuate(drpNode.NodeID);
+                            return response;
+                        }
+                    },
+                    classes: drpNode.Roles.join(" "),
+                    position: nodePosition
+                });
+
+                // Get list of Node services
+                let serviceNameList = Object.keys(drpNode.Services);
+
+                // The service count will exclude DRP
+                let serviceCount = serviceNameList.length - 1;
+                let arrangeMultiple = serviceCount > 1 ? true : false;
+
+                // Loop over Node Services
+                for (let j = 0; j < serviceNameList.length; j++) {
+
+                    let serviceName = serviceNameList[j];
+                    if (serviceName === "DRP") {
+                        continue;
+                    }
+                    let serviceObj = drpNode.Services[serviceName];
+                    let serviceNodeID = serviceObj.InstanceID;
+
+                    let servicePosition = { x: 0, y: 0 };
+                    Object.assign(servicePosition, nodePosition);
+
+                    if (arrangeMultiple) {
+                        let isEven = j % 2 === 0;
+                        if (!isEven) {
+                            // Put on top
+                            servicePosition.y -= 20;
+                        } else {
+                            // Put on bottom
+                            servicePosition.y += 20;
+                        }
+                        servicePosition.x -= (125 + 100 * (Math.floor((j - 1) / 2)));
+                    } else {
+                        servicePosition.x -= 125;
+                    }
+
+                    // See if service node exists
+                    let svcNodeObj = thisApplet.cy.getElementById(serviceNodeID);
+                    if (svcNodeObj.length === 0) {
+                        // No - create it
+                        thisApplet.cy.add({
+                            group: 'nodes',
+                            data: {
+                                id: serviceNodeID,
+                                label: serviceName,
+                                parent: zoneName,
+                                ShowDetails: async () => {
+                                    let returnVal = `<span style="${typeStyle}">Mesh Service</span>` +
+                                        `<span style="${headerStyle}">Name:</span><span style="${dataStyle}">${serviceName}</span>` +
+                                        `<span style="${headerStyle}">Instance ID:</span><span style="${dataStyle}">${serviceObj.InstanceID}</span>` +
+                                        `<span style="${headerStyle}">Node ID:</span><span style="${dataStyle}">${drpNode.NodeID}</span>` +
+                                        `<span style="${headerStyle}">Scope:</span><span style="${dataStyle}">${serviceObj.Scope}</span>` +
+                                        `<span style="${headerStyle}">Zone:</span><span style="${dataStyle}">${serviceObj.Zone}</span>`;
+                                    return returnVal;
+                                }
+                            },
+                            classes: "Service",
+                            position: servicePosition
+                        });
+                    }
+
+                    // Create edge
+                    thisApplet.cy.add({
+                        group: 'edges',
+                        data: {
+                            id: `${serviceNodeID}_${drpNode.NodeID}`,
+                            source: serviceNodeID,
+                            target: drpNode.NodeID
+                        },
+                        classes: "NodeService"
+                    });
+                }
+            }
+
+            zoneVerticalOffset += maxZoneHeight * 75 + 150;
+        }
+
+        // Loop over DRP Nodes again; create Edges
+        for (let i = 0; i < nodeIDs.length; i++) {
+            let drpNodeID = nodeIDs[i];
+            let drpNode = topologyObj[drpNodeID];
+            thisApplet.nodeCursors["Consumer"].index = 0;
+            let nodeObj = thisApplet.cy.getElementById(drpNodeID);
+            thisApplet.nodeCursors["Consumer"].y = nodeObj.position().y;
+
+            // Loop over nodeClients
+            let nodeClientIDs = Object.keys(drpNode.NodeClients);
+            for (let j = 0; j < nodeClientIDs.length; j++) {
+                let targetNodeID = nodeClientIDs[j];
+
+                thisApplet.cy.add({
+                    group: 'edges',
+                    data: {
+                        id: `${drpNodeID}_${targetNodeID}`,
+                        source: targetNodeID,
+                        target: drpNodeID,
+                        label: drpNode.NodeClients[nodeClientIDs[j]]['pingTimeMs'] + " ms"
+                    }
+                });
+            }
+
+            // Loop over consumerClients
+            let consumerClientIDs = Object.keys(drpNode.ConsumerClients);
+            for (let j = 0; j < consumerClientIDs.length; j++) {
+                let consumerID = consumerClientIDs[j];
+                let consumerNodeID = `${drpNodeID}-c:${consumerID}`;
+                let consumerObj = drpNode.ConsumerClients[consumerID];
+
+                thisApplet.cy.add({
+                    group: 'nodes',
+                    data: {
+                        id: consumerNodeID,
+                        label: `${consumerClientIDs[j]}`,
+                        parent: drpNode.Zone,
+                        ShowDetails: async () => {
+                            // Get User Details
+                            return `<span style="${typeStyle}">Consumer</span>` +
+                                `<span style="${headerStyle}">User ID:</span><span style="${dataStyle}">${consumerObj.UserName}</span>` +
+                                `<span style="${headerStyle}">Name:</span><span style="${dataStyle}">${consumerObj.FullName}</span>`;
+                        }
+                    },
+                    classes: "Consumer",
+                    position: thisApplet.PlaceNode("Consumer")
+                });
+
+                thisApplet.cy.add({
+                    group: 'edges',
+                    data: {
+                        id: `${consumerNodeID}_${drpNodeID}`,
+                        source: consumerNodeID,
+                        target: drpNodeID,
+                        label: consumerObj.pingTimeMs + " ms"
+                    }
+                });
+            }
+        }
+    }
+
+    async LoadNodeTopology() {
+        let thisApplet = this;
+
+        thisApplet.cy.elements().remove();
+
+        thisApplet.nodeCursors = {
+            Registry: { x: 400, y: 50, index: 0 },
+            Broker: { x: 700, y: 100, index: 0 },
+            Provider: { x: 200, y: 100, index: 0 },
+            Logger: { x: 450, y: 250, index: 0 },
+            Consumer: { x: 825, y: 100, index: 0 },
+            Service: { x: 50, y: 100, index: 0 }
+        };
+
+        /** @type {Object.<string, topologyNode>}} */
+        let topologyObj = await thisApplet.sendCmd("DRP", "getTopology", null, true);
+        thisApplet.ImportMeshTopology(topologyObj);
+    }
+
+    async Evacuate(nodeID) {
+        let thisApplet = this;
+
+        let pathListArray = ['Mesh', 'Nodes', nodeID, 'DRPNode', 'Evacuate'];
+        let evacuateResponse = await thisApplet.sendCmd("DRP", "pathCmd", { method: "exec", pathList: pathListArray }, true);
+        return evacuateResponse;
+    }
+}
+
+class TopologyNode {
+    constructor() {
+        /** @type {string} */
+        this.NodeID = "";
+        /** @type {string} */
+        this.ProxyNodeID = "";
+        /** @type {string} */
+        this.Scope = "";
+        /** @type {string} */
+        this.Zone = "";
+        /** @type {string} */
+        this.LearnedFrom = "";
+        /** @type {string[]} */
+        this.Roles = [];
+        /** @type {string} */
+        this.NodeURL = "";
+        /** @type {string} */
+        this.HostID = "";
+        /** @type {string[]} */
+        this.ConsumerClients = [];
+        /** @type {string[]} */
+        this.NodeClients = [];
+        /** @type {Object.<string,Object>} */
+        this.Services = {};
     }
 }
 
