@@ -157,6 +157,7 @@
     <Content Include="webroot\assets\xterm\css\xterm.css" />
     <Content Include="webroot\assets\xterm\lib\xterm.js" />
     <Content Include="webroot\favicon.ico" />
+    <Content Include="webroot\vdmapplets\vdm-app-FedEx.js.dnl" />
     <Content Include="webroot\vdmapplets\vdm-app-TopicWatch.js">
       <SubType>Code</SubType>
     </Content>
@@ -167,7 +168,6 @@
     <Content Include="webroot\vdmapplets\vdm-app-CommandTesting.js" />
     <Content Include="webroot\vdmapplets\vdm-app-DRPShell.js" />
     <Content Include="webroot\vdmapplets\vdm-app-DRPTopology.js" />
-    <Content Include="webroot\vdmapplets\vdm-app-FedEx.json.dnl" />
     <Content Include="webroot\vdmapplets\vdm-app-HiveBrowser.css" />
     <Content Include="webroot\vdmapplets\vdm-app-HiveBrowser.js" />
     <Content Include="webroot\vdmapplets\vdm-app-RickRoll.js" />
