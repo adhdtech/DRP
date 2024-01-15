@@ -42,8 +42,6 @@ class AppletClass extends DRPApplet {
     async RunStartup() {
         let thisApplet = this;
 
-        thisApplet.dataPane = thisApplet.windowParts["data"];
-
         let cyBox = document.createElement("div");
         cyBox.style = `position: absolute; z-index: 0; overflow: hidden; width: 100%; height: 100%; background: #aaa`;
         thisApplet.dataPane.appendChild(cyBox);
