@@ -525,6 +525,9 @@ class VDMDesktop {
             "close": newApplet.windowDiv.querySelector(".close")
         };
 
+        // Shortcut for applet devs to access data pane
+        newApplet.dataPane = newApplet.windowParts.data;
+
         if (!haveMenuItems) {
             newApplet.windowParts.data.style.top = "18px";
             newApplet.windowParts.menu.style.display = "none";
@@ -870,6 +873,9 @@ class VDMWindow {
             popover: null
         };
 
+        /** @type HTMLElement */
+        this.dataPane = null;
+
         this.menu = {};
 
         this.menuSearch = null;
@@ -947,7 +953,6 @@ class VDMWindow {
      */
     SplitPaneHorizontal(paneDiv, splitOffset, scrollLeft, scrollRight) {
         let thisVDMWindow = this;
-        paneDiv.classList.add("parent");
         let a = document.createElement("div");
         a.className = "dwData dwData-LeftPane";
         let b = document.createElement("div");
@@ -993,7 +998,6 @@ class VDMWindow {
      */
     SplitPaneVertical(paneDiv, splitOffset, scrollTop, scrollBottom) {
         let thisVDMWindow = this;
-        $(paneDiv).addClass("parent");
         let a = document.createElement("div");
         a.className = "dwData dwData-TopPane";
         let b = document.createElement("div");
