@@ -62,6 +62,96 @@ class DRPApplet extends VDMApplet {
         if (response) returnData = response;
         return returnData;
     }
+
+    /**
+     * Split paneDiv into left and right panes
+     * @param {HTMLDivElement} paneDiv DIV to split
+     * @param {number} splitOffset Offset from left
+     * @param {boolean} scrollLeft Offer scroll on returned left pane
+     * @param {boolean} scrollRight Offer scroll on returned right pane
+     * @return {HTMLDivElement[]} Array of return elements [leftPane, divider, rightPane]
+     */
+    SplitPaneHorizontal(paneDiv, splitOffset, scrollLeft, scrollRight) {
+        let thisVDMWindow = this;
+        let a = document.createElement("div");
+        a.className = "dwData dwData-LeftPane";
+        let b = document.createElement("div");
+        b.className = "dwData dwData-VDiv";
+        let c = document.createElement("div");
+        c.className = "dwData dwData-RightPane";
+        paneDiv.appendChild(a);
+        paneDiv.appendChild(b);
+        paneDiv.appendChild(c);
+        b.style.left = splitOffset + 'px';
+        a.style.width = splitOffset - 1 + 'px';
+        c.style.left = splitOffset + 4 + 'px';
+
+        if (scrollLeft) { a.style.overflowY = "auto" } else { a.style.overflowY = "hidden" };
+        if (scrollRight) { c.style.overflowY = "auto" } else { c.style.overflowY = "hidden" };
+
+        $(b).mousedown(function (e) {
+            let mouseStartX = e.pageX;
+            let pageStartX = parseInt(b.style.left);
+            $(paneDiv).bind('mousemove', function (e) {
+                let newOffset = pageStartX + (e.pageX - mouseStartX);
+                b.style.left = newOffset + 'px';
+                a.style.width = newOffset - 1 + 'px';
+                c.style.left = newOffset + 4 + 'px';
+            });
+            $(paneDiv).bind('mouseup', function (e) {
+                $(this).unbind('mousemove');
+                if (typeof thisVDMWindow.resizeMovingHook !== "undefined") {
+                    thisVDMWindow.resizeMovingHook();
+                }
+            });
+        });
+        return [a, b, c];
+    }
+
+    /**
+     * Split paneDiv into top and bottom panes
+     * @param {HTMLDivElement} paneDiv DIV to split
+     * @param {number} splitOffset Offset from top
+     * @param {boolean} scrollTop Offer scroll on returned top pane
+     * @param {boolean} scrollBottom Offer scroll on returned bottom pane
+     * @return {HTMLDivElement[]} Array of return elements [topPane, divider, bottomPane]
+     */
+    SplitPaneVertical(paneDiv, splitOffset, scrollTop, scrollBottom) {
+        let thisVDMWindow = this;
+        let a = document.createElement("div");
+        a.className = "dwData dwData-TopPane";
+        let b = document.createElement("div");
+        b.className = "dwData dwData-HDiv";
+        let c = document.createElement("div");
+        c.className = "dwData dwData-BottomPane";
+        paneDiv.appendChild(a);
+        paneDiv.appendChild(b);
+        paneDiv.appendChild(c);
+        b.style.top = splitOffset + 'px';
+        a.style.height = splitOffset - 1 + 'px';
+        c.style.top = splitOffset + 4 + 'px';
+
+        if (scrollTop) { a.style.overflowY = "auto" } else { a.style.overflowY = "hidden" };
+        if (scrollBottom) { c.style.overflowY = "auto" } else { c.style.overflowY = "hidden" };
+
+        $(b).mousedown(function (e) {
+            let mouseStartY = e.pageY;
+            let pageStartY = parseInt($(b).css('top'));
+            $(paneDiv).bind('mousemove', function (e) {
+                let newOffset = pageStartY + (e.pageY - mouseStartY);
+                b.style.top = newOffset + 'px';
+                a.style.height = newOffset - 1 + 'px';
+                c.style.top = newOffset + 4 + 'px';
+            });
+            $(paneDiv).bind('mouseup', function (e) {
+                $(this).unbind('mousemove');
+                if (typeof thisVDMWindow.resizeMovingHook !== "undefined") {
+                    thisVDMWindow.resizeMovingHook();
+                }
+            });
+        });
+        return [a, b, c];
+    }
 }
 
 class SPASession {
@@ -124,14 +214,17 @@ class SPASession {
         let thisSPASession = this;
 
         // Create new instance of applet
-        let newApp = new appletModule.AppletClass(appletModule.AppletProfile, thisSPASession);
-        newApp.vdmSession = thisSPASession;
-        newApp.windowParts = {
+        let newApplet = new appletModule.AppletClass(appletModule.AppletProfile, thisSPASession);
+        newApplet.vdmSession = thisSPASession;
+        newApplet.windowParts = {
             data: thisSPASession.appletDiv
         }
-        thisSPASession.activeApplet = newApp;
-        if (newApp.RunStartup) {
-            newApp.RunStartup();
+        // Shortcut for applet devs to access data pane
+        newApplet.dataPane = newApplet.windowParts.data;
+
+        thisSPASession.activeApplet = newApplet;
+        if (newApplet.RunStartup) {
+            newApplet.RunStartup();
         }
     }
 
