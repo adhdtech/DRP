@@ -53,7 +53,7 @@ class AppletClass extends VDMApplet {
 
         thisApplet.AddTopMenuEntry("Loaded Applets", dropdownEntries);
 
-        thisApplet.windowParts["data"].style.display = "flex";
+        thisApplet.dataPane.style.display = "flex";
         let leftPane = document.createElement("div");
         //leftPane.className = "leftPane";
         leftPane.style = "width: 140px; background-color: rgb(85, 85, 85);/* display:  inline-flex; */font-size:  10px;color: darkgrey;/* margin: 1px; */";
@@ -61,8 +61,8 @@ class AppletClass extends VDMApplet {
         //rightPane.className = "rightPane";
         rightPane.style = "width: 100%;";
 
-        thisApplet.windowParts["data"].appendChild(leftPane);
-        thisApplet.windowParts["data"].appendChild(rightPane);
+        thisApplet.dataPane.appendChild(leftPane);
+        thisApplet.dataPane.appendChild(rightPane);
 
         leftPane.innerHTML = `
 <div>&nbsp;</div>
@@ -295,7 +295,7 @@ class DRPService {
         *   - Overriding appletProfile values prior to window creation
         * 
         * The RunStartup() method is used to populate the applet's data pane
-        * which is referenced using 'thisApplet.windowParts.data' (DIV element).
+        * which is referenced using 'thisApplet.dataPane' (DIV element).
        */
 
         // Dropdown menu (OPTIONAL)
@@ -322,7 +322,7 @@ class DRPService {
         let thisApplet = this;
 
         // The data pane is empty by default; put something in it
-        thisApplet.windowParts.data.innerHTML = "Hello, world!";
+        thisApplet.dataPane.innerHTML = "Hello, world!";
     }
 
     // APPLET SPECIFIC METHODS
@@ -330,7 +330,7 @@ class DRPService {
     /** Function to clear data pane */
     ClearDataPane() {
         let thisApplet = this;
-        thisApplet.windowParts.data.innerHTML = "";
+        thisApplet.dataPane.innerHTML = "";
     }
 
     /** Play the greatest video known to mankind */
@@ -342,7 +342,7 @@ class DRPService {
         iFrame.style.height = "100%";
         iFrame.allow = "autoplay";
         iFrame.src = thisApplet.rickRollURL;
-        thisApplet.windowParts.data.appendChild(iFrame);
+        thisApplet.dataPane.appendChild(iFrame);
     }
 }
 
@@ -380,7 +380,7 @@ export { AppletProfile, AppletClass }
   /** Function to write to data pane */
   WriteHelloWorld() {
     let thisApplet = this;
-    thisApplet.windowParts.data.innerHTML = "Hello world!";
+    thisApplet.dataPane.innerHTML = "Hello world!";
   }
 }
 
@@ -421,7 +421,7 @@ export { AppletProfile, AppletClass }
     let thisApplet = this;
 
     // The data pane is empty by default; put something in it
-    thisApplet.windowParts.data.innerHTML = "Click 'Test Functions' -> 'Write Hello World' to replace this message.";
+    thisApplet.dataPane.innerHTML = "Click 'Test Functions' -> 'Write Hello World' to replace this message.";
   }
 
   // APPLET SPECIFIC METHODS
@@ -429,7 +429,7 @@ export { AppletProfile, AppletClass }
   /** Function to write to data pane */
   WriteHelloWorld() {
     let thisApplet = this;
-    thisApplet.windowParts.data.innerHTML = "Hello world!";
+    thisApplet.dataPane.innerHTML = "Hello world!";
   }
 }
 
@@ -523,7 +523,7 @@ export { AppletProfile, AppletClass }
             },
         });
 
-        let targetElement = thisApplet.windowParts["data"];
+        let targetElement = thisApplet.dataPane;
         //let targetElement = leftPane;
 
         let executeButton = leftPane.querySelector('.execute');

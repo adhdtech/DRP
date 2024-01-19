@@ -36,7 +36,7 @@ class AppletClass extends DRPApplet {
         let myApp = this;
 
         // Split data pane vertically
-        var newPanes = myApp.SplitPaneVertical(myApp.windowParts["data"], 130, false, false);
+        var newPanes = myApp.SplitPaneVertical(myApp.dataPane, 130, false, false);
         myApp.topPane = newPanes[0];
         myApp.hDiv = newPanes[1];
         myApp.bottomPane = newPanes[2];
@@ -453,7 +453,7 @@ Weight (lbs): <input class="weight" type="text"><br>
                             let newWindowObj = new VDMWindow({ title: `FedEx Shipping Label - ${pieceResponses[j].trackingNumber}`, sizeX: 700, sizeY: 500 });
                             myApp.vdmDesktop.newWindow(newWindowObj);
                             let imageBase64 = documents[k].encodedLabel;
-                            newWindowObj.windowParts["data"].innerHTML = "<iframe width='100%' height='100%' src='data:application/pdf;base64, " + imageBase64 + "'></iframe>";
+                            newWindowObj.dataPane.innerHTML = "<iframe width='100%' height='100%' src='data:application/pdf;base64, " + imageBase64 + "'></iframe>";
                         }
                     }
                 }

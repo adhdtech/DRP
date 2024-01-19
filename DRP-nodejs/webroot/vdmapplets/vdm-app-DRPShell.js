@@ -8,7 +8,7 @@ class AppletClass extends DRPApplet {
         let thisApplet = this;
 
         // Create DRP Shell instance
-        thisApplet.drpShell = new DRPShell(thisApplet.windowParts["data"], this);
+        thisApplet.drpShell = new DRPShell(thisApplet.dataPane, this);
 
         // Terminal resize handler
         thisApplet.resizeMovingHook = function () {

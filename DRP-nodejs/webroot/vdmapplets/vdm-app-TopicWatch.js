@@ -52,7 +52,7 @@ class AppletClass extends DRPApplet {
     RunStartup() {
         let thisApplet = this;
 
-        thisApplet.termDiv = thisApplet.windowParts["data"];
+        thisApplet.termDiv = thisApplet.dataPane;
         thisApplet.termDiv.style.backgroundColor = "black";
         let term = new Terminal();
         thisApplet.term = term;

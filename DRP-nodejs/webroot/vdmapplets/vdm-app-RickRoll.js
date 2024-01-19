@@ -30,7 +30,7 @@ class AppletClass extends VDMApplet {
         iFrame.style.height = "100%";
         iFrame.allow = "autoplay";
         iFrame.src = thisApplet.rickRollURL;
-        thisApplet.windowParts.data.appendChild(iFrame);
+        thisApplet.dataPane.appendChild(iFrame);
     }
 }
 

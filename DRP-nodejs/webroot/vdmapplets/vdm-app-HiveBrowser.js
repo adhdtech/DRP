@@ -45,11 +45,11 @@ class AppletClass extends DRPApplet {
         let thisApplet = this;
 
         // Split data pane horizontally
-        let newPanes = thisApplet.SplitPaneHorizontal(thisApplet.windowParts["data"], 175, true, true);
+        let newPanes = thisApplet.SplitPaneHorizontal(thisApplet.dataPane, 175, true, true);
         thisApplet.leftPane = newPanes[0];
         thisApplet.vDiv = newPanes[1];
         thisApplet.rightPane = newPanes[2];
-        $(thisApplet.windowParts["data"]).addClass("vdmApp-HiveBrowser");
+        $(thisApplet.dataPane).addClass("vdmApp-HiveBrowser");
 
         $.each(thisApplet.rightPaneScreens, function (itemName, itemValue) {
             let ca = document.createElement("div");

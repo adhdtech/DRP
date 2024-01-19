@@ -16,7 +16,7 @@ class AppletClass extends DRPApplet {
         let thisApplet = this;
 
         // Split data pane vertically
-        let newPanes = thisApplet.SplitPaneVertical(thisApplet.windowParts["data"], 100, false, false);
+        let newPanes = thisApplet.SplitPaneVertical(thisApplet.dataPane, 100, false, false);
         thisApplet.topPane = newPanes[0];
         thisApplet.hDiv = newPanes[1];
         thisApplet.bottomPane = newPanes[2];
