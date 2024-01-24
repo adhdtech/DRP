@@ -24,6 +24,11 @@ class AppletClass extends DRPApplet {
         thisApplet.bottomPane.style['user-select'] = "text";
         thisApplet.bottomPane.style['background'] = "#444";
 
+        let preElement = document.createElement("pre");
+        preElement.style = `font-size: 12px;line-height: 12px;height: 100%;`;
+        thisApplet.bottomPane.appendChild(preElement);
+        thisApplet.outputBox = preElement;
+
         // Add form to top
         thisApplet.topPane.innerHTML = `
 Service: <select class="drpService"></select><br>
@@ -40,56 +45,10 @@ Params: <input class="cmdParams" type="text"/><br>
 
         thisApplet.cmdParamsInput.onkeydown = ((keyEvent) => {
             if (keyEvent.which == 13) {
-                submitDRPCmd();
+                thisApplet.SubmitDRPCmd();
                 keyEvent.preventDefault();
             }
         });
-
-        let submitDRPCmd = async () => {
-            // Get service name
-            let drpService = thisApplet.drpServiceSelect.value;
-
-            // Get method name
-            let drpMethod = thisApplet.drpMethodSelect.value;
-
-            // Try to parse command data to JSON object
-            let paramsString = thisApplet.cmdParamsInput.value;
-            let params = {};
-            try {
-                let parsedValue = JSON.parse(paramsString);
-                let constructorType = parsedValue.constructor.name;
-                if (constructorType !== "Object") {
-                    throw { message: `Expected an object, received a ${constructorType}` };
-                }
-                params = parsedValue;
-            }
-            catch (ex) {
-                if (paramsString.length > 0) {
-                    params.pathList = paramsString.split(",");
-                }
-            }
-
-
-            // Send DRP command
-            try {
-                //let cmdResponse = await thisApplet.sendCmd(drpService, drpMethod, params, true);
-                //thisApplet.DisplayResponse(cmdResponse);
-
-                let response = await thisApplet.sendCmd_StreamHandler(drpService, drpMethod, params, (streamData) => {
-                    // Stream handler - persistent
-                    thisApplet.DisplayResponse(streamData);
-                });
-
-                if (response) {
-                    // Response to immediate command
-                    thisApplet.DisplayResponse(response);
-                }
-
-            } catch (ex) {
-                // Caught an error, display it
-                thisApplet.DisplayResponse(ex, true);
-            }
-        }
 
         // Action when selected service changes
         $(thisApplet.drpServiceSelect).on('change', function () {
@@ -108,8 +67,7 @@ Params: <input class="cmdParams" type="text"/><br>
         });
 
         $(thisApplet.cmdSend).on('click', () => {
-            thisApplet.DisplayResponse("");
-            submitDRPCmd();
+            thisApplet.SubmitDRPCmd();
         });
 
         thisApplet.RefreshServices();
@@ -185,7 +143,59 @@ Params: <input class="cmdParams" type="text"/><br>
                 displayText = displayData;
             }
         }
-        thisApplet.bottomPane.innerHTML = `<pre style='font-size: 12px;line-height: 12px;color: ${textColor};height: 100%;'>${displayText}</pre>`;
+        thisApplet.outputBox.style.color = textColor;
+        thisApplet.outputBox.innerText = displayText;
+    }
+
+    async SubmitDRPCmd() {
+        let thisApplet = this;
+
+        // Clear output window
+        thisApplet.DisplayResponse("");
+
+        // Get service name
+        let drpService = thisApplet.drpServiceSelect.value;
+
+        // Get method name
+        let drpMethod = thisApplet.drpMethodSelect.value;
+
+        // Try to parse command data to JSON object
+        let paramsString = thisApplet.cmdParamsInput.value;
+        let params = {};
+        try {
+            let parsedValue = JSON.parse(paramsString);
+            let constructorType = parsedValue.constructor.name;
+            if (constructorType !== "Object") {
+                throw { message: `Expected an object, received a ${constructorType}` };
+            }
+            params = parsedValue;
+        }
+        catch (ex) {
+            if (paramsString.length > 0) {
+                params.pathList = paramsString.split(",");
+            }
+        }
+
+
+        // Send DRP command
+        try {
+            //let cmdResponse = await thisApplet.sendCmd(drpService, drpMethod, params, true);
+            //thisApplet.DisplayResponse(cmdResponse);
+
+            let response = await thisApplet.sendCmd_StreamHandler(drpService, drpMethod, params, (streamData) => {
+                // Stream handler - persistent
+                thisApplet.DisplayResponse(streamData);
+            });
+
+            if (response) {
+                // Response to immediate command
+                thisApplet.DisplayResponse(response);
+            }
+
+        } catch (ex) {
+            // Caught an error, display it
+            thisApplet.DisplayResponse(ex, true);
+        }
     }
 }
 
