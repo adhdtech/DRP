@@ -25,7 +25,7 @@ class AppletClass extends DRPApplet {
         thisApplet.bottomPane.style['background'] = "#444";
 
         let preElement = document.createElement("pre");
-        preElement.style = `font-size: 12px;line-height: 12px;height: 100%;`;
+        preElement.style = `font-size: 12px;line-height: 12px;height: 100%;overflow-y: auto;margin: 0;`;
         thisApplet.bottomPane.appendChild(preElement);
         thisApplet.outputBox = preElement;
 
@@ -38,20 +38,20 @@ Params: <input class="cmdParams" type="text"/><br>
 `;
 
         // Assign part elements
-        thisApplet.drpServiceSelect = $(thisApplet.topPane).find('.drpService')[0];
-        thisApplet.drpMethodSelect = $(thisApplet.topPane).find('.drpServiceMethod')[0];
-        thisApplet.cmdParamsInput = $(thisApplet.topPane).find('.cmdParams')[0];
-        thisApplet.cmdSend = $(thisApplet.topPane).find('.cmdSend')[0];
+        thisApplet.drpServiceSelect = thisApplet.topPane.querySelector('.drpService');
+        thisApplet.drpMethodSelect = thisApplet.topPane.querySelector('.drpServiceMethod');
+        thisApplet.cmdParamsInput = thisApplet.topPane.querySelector('.cmdParams');
+        thisApplet.cmdSend = thisApplet.topPane.querySelector('.cmdSend');
 
-        thisApplet.cmdParamsInput.onkeydown = ((keyEvent) => {
-            if (keyEvent.which == 13) {
+        thisApplet.cmdParamsInput.onkeydown = ((ev) => {
+            if (ev.which == 13) {
                 thisApplet.SubmitDRPCmd();
-                keyEvent.preventDefault();
+                ev.preventDefault();
             }
         });
 
         // Action when selected service changes
-        $(thisApplet.drpServiceSelect).on('change', function () {
+        thisApplet.drpServiceSelect.onchange = ((ev) => {
 
             // Populate method list
             thisApplet.drpMethodSelect.innerHTML = "";
@@ -66,7 +66,7 @@ Params: <input class="cmdParams" type="text"/><br>
             }
         });
 
-        $(thisApplet.cmdSend).on('click', () => {
+        thisApplet.cmdSend.onclick  = ((ev) => {
             thisApplet.SubmitDRPCmd();
         });
 
