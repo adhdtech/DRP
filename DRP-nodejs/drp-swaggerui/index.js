@@ -78,10 +78,10 @@ class SwaggerRouter {
             if (params && params.serviceName) {
                 serviceName = params.serviceName;
 
-            } else if (params && params.pathList && params.pathList.length > 0) {
-                serviceName = params.pathList.shift();
+            } else if (params && params.__pathList && params.__pathList.length > 0) {
+                serviceName = params.__pathList.shift();
             } else {
-                if (params && params.pathList) return `Format \\refreshSwaggerRouter\\{serviceName}`;
+                if (params && params.__pathList) return `Format \\refreshSwaggerRouter\\{serviceName}`;
                 else return `FAIL - serviceName not defined`;
             }
 

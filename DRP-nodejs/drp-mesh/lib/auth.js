@@ -7,7 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 
 class DRP_AuthInfo {
     /**
-     * Auth info container in DRP_MethodParams
+     * Auth info contained in DRP_MethodParams
      * @param {string} type
      * @param {string} value
      * @param {any} userInfo

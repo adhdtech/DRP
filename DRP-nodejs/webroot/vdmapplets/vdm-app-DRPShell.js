@@ -323,7 +323,7 @@ class DRPShell {
                 let results = null;
 
                 try {
-                    results = await thisShell.applet.sendCmd("DRP", "pathCmd", { method: "ls", pathList: pathList }, true);
+                    results = await thisShell.applet.sendCmd("DRP", "pathCmd", { __verb: "ls", __pathList: pathList }, true);
                 } catch (ex) {
                     let errMsg = ex.message;
                     if (doPipeOut) return errMsg + "\r\n";
@@ -439,7 +439,7 @@ class DRPShell {
                 let results = null;
 
                 try {
-                    results = await thisShell.applet.sendCmd("DRP", "pathCmd", { method: "cat", pathList: pathList }, true);
+                    results = await thisShell.applet.sendCmd("DRP", "pathCmd", { __verb: "cat", __pathList: pathList }, true);
                 } catch (ex) {
                     thisShell.term.write(`\x1B[91m${ex.message}\x1B[0m`);
                     return;
@@ -495,12 +495,12 @@ class DRPShell {
                             let paramRegex = /[^,"']+|"([^"]*)"|'([^']*)'/g;
                             let matches = paramsString.match(paramRegex);
                             if (matches) {
-                                params.pathList = [];
+                                params.__pathList = [];
                                 for (let thisMatch of matches) {
-                                    params.pathList.push(thisMatch);
+                                    params.__pathList.push(thisMatch);
                                 }
                             }
-                            //params.pathList = paramsString.split(",");
+                            //params.__pathList = paramsString.split(",");
                         }
                     }
 
@@ -535,7 +535,7 @@ class DRPShell {
                     }
 
                     try {
-                        results = await thisShell.applet.sendCmd("DRP", "pathCmd", { method: "exec", pathList: pathList }, true);
+                        results = await thisShell.applet.sendCmd("DRP", "pathCmd", { __verb: "exec", __pathList: pathList }, true);
                     } catch (ex) {
                         thisShell.term.write(`\x1B[91m${ex.message}\x1B[0m`);
                         return;
@@ -583,7 +583,7 @@ class DRPShell {
                     let serviceName = rpcRegexMatch[1];
                     let cmdName = rpcRegexMatch[2];
                     let params = {
-                        method: "man"
+                        __verb: "man"
                     };
 
                     // Execute RPC method
@@ -611,7 +611,7 @@ class DRPShell {
                     }
 
                     try {
-                        results = await thisShell.applet.sendCmd("DRP", "pathCmd", { method: "man", pathList: pathList }, true);
+                        results = await thisShell.applet.sendCmd("DRP", "pathCmd", { __verb: "man", __pathList: pathList }, true);
                     } catch (ex) {
                         thisShell.term.write(`\x1B[91m${ex.message}\x1B[0m`);
                         return;
@@ -647,7 +647,7 @@ class DRPShell {
                     tmpResults = {};
                     let pathString = `Mesh/Nodes`;
                     let pathList = pathString.split(/[\/\\]/g);
-                    let nodeListDir = await thisShell.applet.sendCmd("DRP", "pathCmd", { method: "GetChildItems", pathList: pathList }, true);
+                    let nodeListDir = await thisShell.applet.sendCmd("DRP", "pathCmd", { __verb: "GetChildItems", __pathList: pathList }, true);
                     if (nodeListDir && nodeListDir.length > 0) {
                         for (let i = 0; i < nodeListDir.length; i++) {
                             let entryObj = nodeListDir[i];
@@ -659,7 +659,7 @@ class DRPShell {
                             let nodeID = entryObj.Name;
                             pathString = `Mesh/Nodes/${nodeID}/DRPNode/TopicManager/Topics/TopologyTracker/History`;
                             pathList = pathString.split(/[\/\\]/g);
-                            let nodeListGet = await thisShell.applet.sendCmd("DRP", "pathCmd", { method: "GetItem", pathList: pathList }, true);
+                            let nodeListGet = await thisShell.applet.sendCmd("DRP", "pathCmd", { __verb: "GetItem", __pathList: pathList }, true);
                             tmpResults[nodeID] = nodeListGet;
                         }
                     }

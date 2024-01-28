@@ -13,7 +13,7 @@ class Hive extends DRP_Service {
      */
     constructor(serviceName, drpNode, priority, weight, scope) {
         super(serviceName, drpNode, "Hive", null, false, priority, weight, drpNode.Zone, scope, null, null, 1);
-        let thisHive = this;
+        let thisService = this;
         this.cfgOpts = {};
         this.HiveClasses = {};
         this.HiveData = {};
@@ -27,12 +27,12 @@ class Hive extends DRP_Service {
             // Old Hive client commands
             listStereoTypes: function (params) {
                 //let thisHive = this;
-                return Object.keys(thisHive.HiveIndexes);
+                return Object.keys(thisService.HiveIndexes);
                 //console.log("Sent stereotype list");
             },
             listStereoTypeKeys: function (params) {
                 //let thisHive = this;
-                return Object.keys(thisHive.HiveIndexes[params['StereoType']].IndexRecords);
+                return Object.keys(thisService.HiveIndexes[params['StereoType']].IndexRecords);
                 //console.log("Sent keys for stereotype '" + appData['StereoType'] + "'");
             },
             getStereoTypeAssocObj: function (params) {
@@ -44,11 +44,11 @@ class Hive extends DRP_Service {
                     checkKey = tmpString;
                 }
                 //console.log("Getting stereotype " + params['StereoType'] + "[" + checkKey + "]");
-                if (typeof thisHive.HiveIndexes[params['StereoType']] === "undefined" || typeof thisHive.HiveIndexes[params['StereoType']].IndexRecords[checkKey] === "undefined") {
+                if (typeof thisService.HiveIndexes[params['StereoType']] === "undefined" || typeof thisService.HiveIndexes[params['StereoType']].IndexRecords[checkKey] === "undefined") {
                     //console.log("    ...no index for item");
                 } else {
                     // console.log("    ...found index");
-                    let assocRoot = thisHive.HiveIndexes[params['StereoType']].IndexRecords[checkKey];
+                    let assocRoot = thisService.HiveIndexes[params['StereoType']].IndexRecords[checkKey];
                     returnObj = {
                         MK: "",
                         FK: []
@@ -74,11 +74,11 @@ class Hive extends DRP_Service {
                     checkKey = tmpString;
                 }
                 //console.log("Getting parents of " + appData['StereoType'] + "[" + checkKey + "]");
-                if (typeof thisHive.HiveIndexes[params['StereoType']] === "undefined" || typeof thisHive.HiveIndexes[params['StereoType']].IndexRecords[checkKey] === "undefined") {
+                if (typeof thisService.HiveIndexes[params['StereoType']] === "undefined" || typeof thisService.HiveIndexes[params['StereoType']].IndexRecords[checkKey] === "undefined") {
                     //console.log("    ...no index for item");
                 } else {
                     //console.log("    ...found index");
-                    let assocRoot = thisHive.HiveIndexes[params['StereoType']].IndexRecords[checkKey];
+                    let assocRoot = thisService.HiveIndexes[params['StereoType']].IndexRecords[checkKey];
                     returnObj = {
                         UK: []
                     };
@@ -96,24 +96,16 @@ class Hive extends DRP_Service {
                     return returnObj;
                 }
             },
-            getUKMKFKObj: function (params) {
+            getUKMKFKObj: function (cmdObj) {
                 //let thisHive = this;
                 let returnObj = {
                     records: {},
                     err: null
                 };
-                let checkKey = null;
-                let stereoType = null;
 
-                if (params['Key'] && params['StereoType']) {
-                    checkKey = params['Key'];
-                    stereoType = params['StereoType'];
-                }
-
-                if (params['pathList'] && params['pathList'].length > 1) {
-                    stereoType = params['pathList'][0];
-                    checkKey = params['pathList'][1];
-                }
+                let params = thisService.GetParams(cmdObj, ['StereoType', 'Key']);
+                let checkKey = params.Key;
+                let stereoType = params.StereoType;
 
                 if (typeof checkKey === "string") {
                     let tmpString = checkKey.toLowerCase();
@@ -122,12 +114,12 @@ class Hive extends DRP_Service {
 
                 //console.log("Getting UKMKFK " + appData['StereoType'] + "[" + checkKey + "]");
 
-                if (!checkKey || !stereoType || typeof thisHive.HiveIndexes[stereoType] === "undefined" || typeof thisHive.HiveIndexes[stereoType].IndexRecords[checkKey] === "undefined") {
+                if (!checkKey || !stereoType || typeof thisService.HiveIndexes[stereoType] === "undefined" || typeof thisService.HiveIndexes[stereoType].IndexRecords[checkKey] === "undefined") {
                     //console.log("    ...no index for item");
                     throw new DRP_CmdError(`No index for (${stereoType})[${checkKey}]`, DRP_ErrorCode.NOTFOUND, "Hive");
                 } else {
                     //console.log("    ...found index");
-                    let assocRoot = thisHive.HiveIndexes[stereoType].IndexRecords[checkKey];
+                    let assocRoot = thisService.HiveIndexes[stereoType].IndexRecords[checkKey];
                     returnObj.records = {
                         UK: [],
                         MK: "",
@@ -153,37 +145,28 @@ class Hive extends DRP_Service {
                 }
                 return returnObj;
             },
-            getUKMKFKGCObj: function (params) {
+            getUKMKFKGCObj: function (cmdObj) {
                 //let thisHive = this;
                 let returnObj = {
                     records: {},
                     err: null
                 };
 
-                let checkKey = null;
-                let stereoType = null;
-
-                if (params['Key'] && params['StereoType']) {
-                    checkKey = params['Key'];
-                    stereoType = params['StereoType'];
-                }
-
-                if (params['pathList'] && params['pathList'].length > 1) {
-                    stereoType = params['pathList'][0];
-                    checkKey = params['pathList'][1];
-                }
+                let params = thisService.GetParams(cmdObj, ['StereoType', 'Key']);
+                let checkKey = params.Key;
+                let stereoType = params.StereoType;
 
                 if (typeof checkKey === "string") {
                     let tmpString = checkKey.toLowerCase();
                     checkKey = tmpString;
                 }
                 //console.log("Getting UKMKFKGC " + appData['StereoType'] + "[" + checkKey + "]");
-                if (!checkKey || !stereoType || typeof thisHive.HiveIndexes[stereoType] === "undefined" || typeof thisHive.HiveIndexes[stereoType].IndexRecords[checkKey] === "undefined") {
+                if (!checkKey || !stereoType || typeof thisService.HiveIndexes[stereoType] === "undefined" || typeof thisService.HiveIndexes[stereoType].IndexRecords[checkKey] === "undefined") {
                     //console.log("    ...no index for item");
                     throw new DRP_CmdError(`No index for (${stereoType})[${checkKey}]`, DRP_ErrorCode.NOTFOUND, "Hive");
                 } else {
                     //console.log("    ...found index");
-                    let assocRoot = thisHive.HiveIndexes[stereoType].IndexRecords[checkKey];
+                    let assocRoot = thisService.HiveIndexes[stereoType].IndexRecords[checkKey];
                     returnObj.records = {
                         UK: [],
                         MK: "",
@@ -234,18 +217,18 @@ class Hive extends DRP_Service {
                 }
 
                 let checkIndexList = [];
-                if (sTypeKey && thisHive.HiveIndexes[sTypeKey]) {
+                if (sTypeKey && thisService.HiveIndexes[sTypeKey]) {
                     checkIndexList.push(sTypeKey);
                 } else {
-                    Object.keys(thisHive.HiveIndexes).forEach(function (idxKey) {
+                    Object.keys(thisService.HiveIndexes).forEach(function (idxKey) {
                         checkIndexList.push(idxKey);
                     });
                 }
 
                 for (let i = 0; i < checkIndexList.length; i++) {
                     let checkIdxKey = checkIndexList[i];
-                    if (thisHive.HiveIndexes[checkIdxKey].IndexRecords[checkKey]) {
-                        let assocRoot = thisHive.HiveIndexes[checkIdxKey].IndexRecords[checkKey];
+                    if (thisService.HiveIndexes[checkIdxKey].IndexRecords[checkKey]) {
+                        let assocRoot = thisService.HiveIndexes[checkIdxKey].IndexRecords[checkKey];
                         let matchObj = {
                             UK: [],
                             MK: "",
@@ -300,18 +283,18 @@ class Hive extends DRP_Service {
                 }
 
                 let checkIndexList = [];
-                if (sTypeKey && thisHive.HiveIndexes[sTypeKey]) {
+                if (sTypeKey && thisService.HiveIndexes[sTypeKey]) {
                     checkIndexList.push(sTypeKey);
                 } else {
-                    Object.keys(thisHive.HiveIndexes).forEach(function (idxKey) {
+                    Object.keys(thisService.HiveIndexes).forEach(function (idxKey) {
                         checkIndexList.push(idxKey);
                     });
                 }
 
                 for (let i = 0; i < checkIndexList.length; i++) {
                     let checkIdxKey = checkIndexList[i];
-                    if (thisHive.HiveIndexes[checkIdxKey].IndexRecords[checkKey]) {
-                        let assocRoot = thisHive.HiveIndexes[checkIdxKey].IndexRecords[checkKey];
+                    if (thisService.HiveIndexes[checkIdxKey].IndexRecords[checkKey]) {
+                        let assocRoot = thisService.HiveIndexes[checkIdxKey].IndexRecords[checkKey];
                         let rootObj = {
                             'classType': null,
                             'data': null,
@@ -392,18 +375,18 @@ class Hive extends DRP_Service {
                 }
 
                 let checkIndexList = [];
-                if (sTypeKey && thisHive.HiveIndexes[sTypeKey]) {
+                if (sTypeKey && thisService.HiveIndexes[sTypeKey]) {
                     checkIndexList.push(sTypeKey);
                 } else {
-                    Object.keys(thisHive.HiveIndexes).forEach(function (idxKey) {
+                    Object.keys(thisService.HiveIndexes).forEach(function (idxKey) {
                         checkIndexList.push(idxKey);
                     });
                 }
 
                 for (let i = 0; i < checkIndexList.length; i++) {
                     let checkIdxKey = checkIndexList[i];
-                    if (thisHive.HiveIndexes[checkIdxKey].IndexRecords[checkKey]) {
-                        let assocRoot = thisHive.HiveIndexes[checkIdxKey].IndexRecords[checkKey];
+                    if (thisService.HiveIndexes[checkIdxKey].IndexRecords[checkKey]) {
+                        let assocRoot = thisService.HiveIndexes[checkIdxKey].IndexRecords[checkKey];
                         let rootObj = {
                             'classType': null,
                             'data': null,
@@ -448,12 +431,12 @@ class Hive extends DRP_Service {
             listClassDataTypes: function (params) {
                 //let thisHive = this;
                 let returnObj = {};
-                Object.keys(thisHive.HiveData).forEach(function (dataClass) {
+                Object.keys(thisService.HiveData).forEach(function (dataClass) {
                     returnObj[dataClass] = {
                         recCount: 0
                     };
-                    Object.keys(thisHive.HiveData[dataClass]).forEach(function (collectorName) {
-                        returnObj[dataClass].recCount = returnObj[dataClass].recCount + Object.keys(thisHive.HiveData[dataClass][collectorName].records).length;
+                    Object.keys(thisService.HiveData[dataClass]).forEach(function (collectorName) {
+                        returnObj[dataClass].recCount = returnObj[dataClass].recCount + Object.keys(thisService.HiveData[dataClass][collectorName].records).length;
                     });
                 });
                 return returnObj;
@@ -464,8 +447,8 @@ class Hive extends DRP_Service {
                     ClassType: params['ClassType'],
                     records: []
                 };
-                if (thisHive.HiveData[params['ClassType']]) {
-                    returnObj.records = Object.keys(thisHive.HiveData[params['ClassType']]);
+                if (thisService.HiveData[params['ClassType']]) {
+                    returnObj.records = Object.keys(thisService.HiveData[params['ClassType']]);
                 }
 
                 //console.log("Sent keys for class '" + appData['ClassType'] + "'");
@@ -477,12 +460,12 @@ class Hive extends DRP_Service {
                     ClassType: params['ClassType'],
                     records: {}
                 };
-                if (typeof thisHive.HiveData[params['ClassType']] === "undefined") {
+                if (typeof thisService.HiveData[params['ClassType']] === "undefined") {
                     //console.log("No data list for class '" + appData['ClassType'] + "'");
                 } else {
-                    Object.keys(thisHive.HiveData[params['ClassType']]).forEach(function (collectorKey) {
-                        Object.keys(thisHive.HiveData[params['ClassType']][collectorKey].records).forEach(function (recordKey) {
-                            returnObj.records[recordKey] = thisHive.HiveData[params['ClassType']][collectorKey].records[recordKey].data;
+                    Object.keys(thisService.HiveData[params['ClassType']]).forEach(function (collectorKey) {
+                        Object.keys(thisService.HiveData[params['ClassType']][collectorKey].records).forEach(function (recordKey) {
+                            returnObj.records[recordKey] = thisService.HiveData[params['ClassType']][collectorKey].records[recordKey].data;
                         });
                     });
                 }
@@ -497,12 +480,12 @@ class Hive extends DRP_Service {
                     records: []
                 };
                 // Is this a valid ClassType?
-                if (thisHive.HiveData[params['ClassType']]) {
+                if (thisService.HiveData[params['ClassType']]) {
                     // Loop over instances
-                    Object.keys(thisHive.HiveData[params['ClassType']]).forEach(function (collectorKey) {
+                    Object.keys(thisService.HiveData[params['ClassType']]).forEach(function (collectorKey) {
                         // Does this record exist?
-                        if (thisHive.HiveData[params['ClassType']][collectorKey].records[params['Key']]) {
-                            returnObj.records.push(thisHive.HiveData[params['ClassType']][collectorKey].records[params['Key']].data);
+                        if (thisService.HiveData[params['ClassType']][collectorKey].records[params['Key']]) {
+                            returnObj.records.push(thisService.HiveData[params['ClassType']][collectorKey].records[params['Key']].data);
                         }
                     });
                 }
@@ -515,12 +498,12 @@ class Hive extends DRP_Service {
                     instance: params['ClassInst'],
                     records: {}
                 };
-                returnObj.records = thisHive.HiveData[params['ClassType']][params['ClassInst']].records[params['Key']];
+                returnObj.records = thisService.HiveData[params['ClassType']][params['ClassInst']].records[params['Key']];
                 return returnObj;
             },
             getClassDefinitions: function (params) {
                 //let thisHive = this;
-                return thisHive.HiveClasses;
+                return thisService.HiveClasses;
             },
             runHiveQuery: function (params) {
                 //let thisHive = this;
@@ -529,11 +512,11 @@ class Hive extends DRP_Service {
                     records: []
                 };
                 //let icrQuery = new thisSvr.ICRQuery("LIST STEREOTYPE['ipAddress'] WHERE FK['SW.Nodes']['DeviceName'] = 'MEM0BIZDC04'");
-                let icrQuery = new ICRQuery(params.query, thisHive);
+                let icrQuery = new ICRQuery(params.query, thisService);
                 icrQuery.Run();
                 if (icrQuery.errorStatus) {
                     //console.log("ICRQuery Error: [" + icrQuery.errorStatus + "]");
-                    thisHive.DRPNode.log("ICRQuery Error: [" + icrQuery.errorStatus + "] --> " + params.query);
+                    thisService.DRPNode.log("ICRQuery Error: [" + icrQuery.errorStatus + "] --> " + params.query);
                 } else {
                     returnObj.icrQuery = icrQuery.returnObj.icrQuery;
                     returnObj.records = icrQuery.returnObj.results;
@@ -541,7 +524,7 @@ class Hive extends DRP_Service {
                 return returnObj;
             },
             runMapQuery: function (params) {
-                let mapQuery = new HiveMapQuery(thisHive, params.query, params.multiplicity);
+                let mapQuery = new HiveMapQuery(thisService, params.query, params.multiplicity);
                 let mapQueryRunOutput = mapQuery.Run(params.keyStereotype, params.keyValue);
                 let returnObj = {};
                 if (mapQueryRunOutput.length > 0) {

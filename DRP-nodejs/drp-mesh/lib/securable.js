@@ -1,5 +1,6 @@
 'use strict';
 
+const DRP_MethodParams = require("./methodparams");
 const { DRP_CmdError, DRP_ErrorCode } = require("./packet");
 
 let IsTrue = function (value) {
@@ -141,15 +142,23 @@ class DRP_VirtualDirectory extends DRP_Securable {
         this.#getItemFunc = getItemFunc;
     }
 
+    /**
+     * List contents of virtual directory
+     * @param {DRP_MethodParams} params
+     */
     async List(params) {
-        if (!this.CheckPermission(params.authInfo, "read")) {
+        if (!this.CheckPermission(params.__authInfo, "read")) {
             throw new DRP_CmdError("Unauthorized", DRP_ErrorCode.UNAUTHORIZED, "VirtualDirectory");
         }
 
         return await this.#listFunc(params);
     }
+    /**
+     * Get item of virtual directory
+     * @param {DRP_MethodParams} params
+     */
     async GetItem(params) {
-        if (!this.CheckPermission(params.authInfo, "read")) {
+        if (!this.CheckPermission(params.__authInfo, "read")) {
             throw new DRP_CmdError("Unauthorized", DRP_ErrorCode.UNAUTHORIZED, "VirtualDirectory");
         }
 
@@ -200,18 +209,18 @@ class DRP_VirtualFunction extends DRP_Securable {
         let results = null;
 
         // Check permissions
-        if (!this.CheckPermission(params.authInfo, "execute")) {
+        if (!this.CheckPermission(params.__authInfo, "execute")) {
             throw new DRP_CmdError("Unauthorized", DRP_ErrorCode.UNAUTHORIZED, "VirtualFunction");
         }
 
         // If the user wants info on the function, return ShowHelp
-        if (params.method === "man") {
+        if (params.__verb === "man") {
             return this.ShowHelp();
         }
 
         // Verify that the user is making a call to execute
-        if (params.method !== "exec" && params.method !== "SetItem") {
-            throw new DRP_CmdError(`Invalid operation (${params.method})`, DRP_ErrorCode.BADREQUEST, "VirtualFunction");
+        if (params.__verb !== "exec" && params.__verb !== "SetItem") {
+            throw new DRP_CmdError(`Invalid operation (${params.__verb})`, DRP_ErrorCode.BADREQUEST, "VirtualFunction");
         }
 
         // Parse parameters and pass to function

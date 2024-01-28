@@ -171,8 +171,9 @@ Params: <input class="cmdParams" type="text"/><br>
             params = parsedValue;
         }
         catch (ex) {
+            // The command data is not a JSON string, split values and send as a pathList
             if (paramsString.length > 0) {
-                params.pathList = paramsString.split(",");
+                params.__pathList = paramsString.split(",");
             }
         }
 

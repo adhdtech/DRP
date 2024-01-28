@@ -45,7 +45,7 @@ class FedExAPIMgr extends DRP_Service {
             TrackByTrackingNumbers: async (params) => { return await thisAPIMgr.TrackByTrackingNumbers(params.apiPayload); },
             FindLocation: async (params) => { return await thisAPIMgr.FindLocation(params.apiPayload); },
             QuoteRates: async (params) => { return await thisAPIMgr.QuoteRates(params.apiPayload); },
-            CreateShipment: async (params) => { return await thisAPIMgr.CreateShipment(params.apiPayload, params.authInfo); },
+            CreateShipment: async (params) => { return await thisAPIMgr.CreateShipment(params.apiPayload, params.__authInfo); },
 
             testAddressValidation: async (params) => { return await thisAPIMgr.ValidateAddress("7372 PARKRIDGE BLVD", "APT 286", "IRVING", "TX", "75063-8659", "US"); },
             testTrackByTrackingNumbers: async (params) => {
@@ -180,7 +180,7 @@ class FedExAPIMgr extends DRP_Service {
                     "accountNumber": {
                         "value": `${thisAPIMgr.shippingAccount}`
                     }
-                }, params.authInfo);
+                }, params.__authInfo);
             }
         };
     }

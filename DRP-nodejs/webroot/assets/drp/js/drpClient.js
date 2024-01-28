@@ -307,7 +307,7 @@ class DRP_Endpoint_Browser {
 
     async PathCmd(params, baseObj) {
 
-        let aChildPathArray = params.pathList;
+        let aChildPathArray = params.__pathList;
 
         // Initial object
         let oCurrentObject = baseObj;
@@ -317,7 +317,7 @@ class DRP_Endpoint_Browser {
 
         let listOnly = false;
 
-        switch (params.method) {
+        switch (params.__verb) {
             case "GetItem":
                 break;
             case "GetChildItems":
@@ -365,7 +365,7 @@ class DRP_Endpoint_Browser {
                         case 'function':
                             // Send the rest of the path to a function
                             let remainingPath = aChildPathArray.splice(i + 1);
-                            params.pathList = remainingPath;
+                            params.__pathList = remainingPath;
                             oReturnObject = await oCurrentObject(params);
                             break PathLoop;
                         default:

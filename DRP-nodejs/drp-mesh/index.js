@@ -2,6 +2,7 @@
 
 const DRPMesh = {};
 
+DRPMesh.MethodParams = require('./lib/methodparams');
 DRPMesh.Securable = require('./lib/securable');
 DRPMesh.Auth = require('./lib/auth');
 DRPMesh.Client = require('./lib/client');

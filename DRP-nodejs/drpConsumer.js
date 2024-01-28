@@ -12,7 +12,7 @@ let myConsumer = new DRP_Consumer(brokerURL, user, pass, null, async function ()
     let response = null;
 
     // Execute a pathCmd
-    response = await myClient.SendCmd("DRP", "pathCmd", { "method": "GetChildItems", "pathList": ["Mesh", "Services"] }, true);
+    response = await myClient.SendCmd("DRP", "pathCmd", { __verb: "GetChildItems", __pathList: ["Mesh", "Services"] }, true);
     let serviceList = Object.keys(response);
     console.log(`Found [${serviceList.length}] DRP services`)
 

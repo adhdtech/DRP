@@ -1,6 +1,7 @@
 'use strict';
 
 const DRP_Service = require('drp-mesh').Service;
+const DRP_MethodParams = require('drp-mesh').MethodParams;
 const { DRP_CmdError, DRP_ErrorCode } = require('drp-mesh/lib/packet');
 const MongoClient = require('mongodb').MongoClient;
 const MongoDB = require('mongodb').Db;
@@ -19,7 +20,7 @@ class Logger extends DRP_Service {
      */
     constructor(serviceName, drpNode, priority, weight, scope, mongoHost, mongoUser, mongoPw) {
         super(serviceName, drpNode, "Logger", null, false, priority, weight, drpNode.Zone, scope, null, ["LoggingErrors"], 1);
-        let thisLogger = this;
+        let thisService = this;
 
         /** @type {string} Mongo URL */
         this.__MongoHost = mongoHost;
@@ -32,48 +33,26 @@ class Logger extends DRP_Service {
         /** @type {MongoDB} */
         this.__LoggerDB = null;
 
-        if (thisLogger.__MongoHost) {
-            thisLogger.ConnectToMongo();
+        if (thisService.__MongoHost) {
+            thisService.ConnectToMongo();
         }
 
         this.ClientCmds = {
             writeLog: async (cmdObj) => {
                 let methodParams = ['serviceName', 'logData'];
-                let params = thisLogger.GetParams(cmdObj, methodParams);
+                let params = thisService.GetParams(cmdObj, methodParams);
                 let writeResult;
 
                 try {
                     if (!params.serviceName || !params.logData) {
                         throw new DRP_CmdError("Must provide serviceName, logData");
                     }
-                    writeResult = await thisLogger.InsertDoc(params.serviceName, params.logData);
+                    writeResult = await thisService.InsertDoc(params.serviceName, params.logData);
                 } catch (ex) {
-                    thisLogger.DRPNode.TopicManager.SendToTopic("LoggingErrors", { err: ex.message, serviceName: params.serviceName, logData: params.logData });
+                    thisService.DRPNode.TopicManager.SendToTopic("LoggingErrors", { err: ex.message, serviceName: params.serviceName, logData: params.logData });
                     throw (ex);
                 }
                 return writeResult;
-            }
-        };
-
-        this.DocServices = async (params) => {
-            let serviceName = null;
-            let docName = null;
-            if (params.pathList) {
-                serviceName = params.pathList.shift();
-                docName = params.pathList.shift();
-            }
-            if (params.serviceName) serviceName = params.serviceName;
-            if (params.docName) docName = params.docName;
-
-            if (!serviceName) {
-                // return list of service
-                return await thisLogger.ListDocServices();
-            } else if (!docName) {
-                // return list of docs
-                return await thisLogger.ListDocs(serviceName);
-            } else {
-                // return doc
-                return await thisLogger.LoadDoc(serviceName, docName);
             }
         };
 

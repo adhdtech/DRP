@@ -1,5 +1,6 @@
 'use strict';
 
+const DRP_MethodParams = require("./methodparams");
 const UMLClass = require('./uml').Class;
 //const DRP_Node = require('./node');
 
@@ -105,7 +106,7 @@ class DRP_Service {
     GetParams(params, paramNames) {
         /*
          * Parameters can be passed three ways:
-         *   - Ordered list of remaining path elements (params.pathList[paramNames[x]])
+         *   - Ordered list of remaining path elements (params.__pathList[paramNames[x]])
          *   - POST or PUT body (params.payload.myVar)
          *   - Directly in params (params.myVar)
         */
@@ -114,15 +115,15 @@ class DRP_Service {
         for (let i = 0; i < paramNames.length; i++) {
             returnObj[paramNames[i]] = null;
             // First, see if the parameters were part of the remaining path (CLI or REST)
-            if (params.pathList && Array.isArray(params.pathList)) {
-                if (typeof params.pathList[i] !== 'undefined') {
-                    returnObj[paramNames[i]] = params.pathList[i];
+            if (params.__pathList && Array.isArray(params.__pathList)) {
+                if (typeof params.__pathList[i] !== 'undefined') {
+                    returnObj[paramNames[i]] = params.__pathList[i];
                 }
             }
 
             // Second, see if the parameters were passed in the payload (REST body)
-            if (params.payload && typeof params.payload[paramNames[i]] !== 'undefined') {
-                returnObj[paramNames[i]] = params.payload[paramNames[i]];
+            if (params.__payload && typeof params.__payload[paramNames[i]] !== 'undefined') {
+                returnObj[paramNames[i]] = params.__payload[paramNames[i]];
             }
 
             // Third, see if the parameters were passed directly in the params (DRP Exec)

@@ -1,5 +1,6 @@
 'use strict';
 
+const DRP_MethodParams = require('./methodparams');
 const { DRP_SubscribableSource, DRP_Subscriber } = require('./subscription');
 
 class DRP_TopicManager {
@@ -123,12 +124,16 @@ class DRP_TopicManager_Topic extends DRP_SubscribableSource {
 
     }
 
+    /**
+     * Get topic history
+     * @param {DRP_MethodParams} cmdObj
+     */
     GetHistory(cmdObj) {
         let thisTopic = this;
         let returnObj = null;
         let outputMsgOnly = false;
 
-        if (cmdObj && (cmdObj.outputMsgOnly && thisTopic.TopicManager.DRPNode.IsTrue(cmdObj.outputMsgOnly) || cmdObj.pathList && cmdObj.pathList.length > 0 && thisTopic.TopicManager.DRPNode.IsTrue(cmdObj.pathList && cmdObj.pathList[0]))) {
+        if (cmdObj && (cmdObj.outputMsgOnly && thisTopic.TopicManager.DRPNode.IsTrue(cmdObj.outputMsgOnly) || cmdObj.__pathList && cmdObj.__pathList.length > 0 && thisTopic.TopicManager.DRPNode.IsTrue(cmdObj.__pathList && cmdObj.__pathList[0]))) {
             outputMsgOnly = true;
         }
 

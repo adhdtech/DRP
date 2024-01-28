@@ -12,6 +12,7 @@ const DRP_Client = require("./client");
 const DRP_Service = require("./service");
 const DRP_TopicManager = require("./topicmanager");
 const DRP_RouteHandler = require("./routehandler");
+const DRP_MethodParams = require("./methodparams");
 const { DRP_WebServer, DRP_WebServerConfig } = require("./webserver");
 const { DRP_SubscribableSource, DRP_Subscriber } = require('./subscription');
 const { DRP_AuthRequest, DRP_AuthResponse, DRP_AuthFunction, DRP_AuthInfo } = require('./auth');
@@ -21,42 +22,23 @@ const Express_Request = express.request;
 const Express_Response = express.response;
 const { v4: uuidv4 } = require('uuid');
 
-class DRP_MethodParams {
-    /**
-     * DRP Method Parameters
-     * @param {string} method
-     * @param {string[]} pathList
-     * @param {any} payload
-     * @param {string} callerType
-     * @param {DRP_AuthInfo} authInfo
-     */
-    constructor(method, pathList, payload, callerType, authInfo) {
-        /** @type {string} */
-        this.method = method;
-        /** @type {string[]} */
-        this.pathList = pathList;
-        /** @type {object} */
-        this.payload = payload;
-        /** @type {string} */
-        this.callerType = callerType;
-        /** @type {DRP_AuthInfo} */
-        this.authInfo = authInfo;
-    }
-}
-
 class DRP_RemotePath {
-    constructor(localNode, targetNodeID, params) {
+    /**
+     * Create a reference to a remote path
+     * @param {DRP_Node} localNode
+     * @param {string} targetNodeID
+     * @param {DRP_MethodParams} params
+     */
+    constructor(localNode, targetNodeID) {
         this.localNode = localNode;
         this.targetNodeID = targetNodeID;
-        if (params) {
-            this.params = Object.assign({}, params);
-            if (params.pathList) {
-                this.params.pathList = params.pathList.slice(0);
-            }
-        }
     }
-    async CallPath() {
-        let returnObj = await this.localNode.SendPathCmdToNode(this.targetNodeID, this.params);
+    /**
+     * Send pathCmd to remote node
+     * @param {DRP_MethodParams} params
+     */
+    async CallPath(params) {
+        let returnObj = await this.localNode.SendPathCmdToNode(this.targetNodeID, params);
         return returnObj;
     }
 }
@@ -272,7 +254,7 @@ class DRP_Node extends DRP_Securable {
     GetParams(params, paramNames) {
         /*
          * Parameters can be passed three ways:
-         *   - Ordered list of remaining path elements (params.pathList[paramNames[x]])
+         *   - Ordered list of remaining path elements (params.__pathList[paramNames[x]])
          *   - POST or PUT body (params.payload.myVar)
          *   - Directly in params (params.myVar)
         */
@@ -281,15 +263,15 @@ class DRP_Node extends DRP_Securable {
         for (let i = 0; i < paramNames.length; i++) {
             returnObj[paramNames[i]] = null;
             // First, see if the parameters were part of the remaining path (CLI or REST)
-            if (params.pathList && Array.isArray(params.pathList)) {
-                if (typeof params.pathList[i] !== 'undefined') {
-                    returnObj[paramNames[i]] = params.pathList[i];
+            if (params.__pathList && Array.isArray(params.__pathList)) {
+                if (typeof params.__pathList[i] !== 'undefined') {
+                    returnObj[paramNames[i]] = params.__pathList[i];
                 }
             }
 
             // Second, see if the parameters were passed in the payload (REST body)
-            if (params.payload && typeof params.payload[paramNames[i]] !== 'undefined') {
-                returnObj[paramNames[i]] = params.payload[paramNames[i]];
+            if (params.__payload && typeof params.__payload[paramNames[i]] !== 'undefined') {
+                returnObj[paramNames[i]] = params.__payload[paramNames[i]];
             }
 
             // Third, see if the parameters were passed directly in the params (DRP Exec)
@@ -486,21 +468,21 @@ class DRP_Node extends DRP_Securable {
                 try {
                     // Determine the PathCmd method; default to "GetItem"
 
-                    let pathCmdMethod = null;
+                    let verb = null;
                     if (showHelp) {
-                        pathCmdMethod = "man"
+                        verb = "man"
                     } else {
                         switch (req.method) {
                             case "GET":
                                 if (listOnly) {
-                                    pathCmdMethod = "GetChildItems"
+                                    verb = "GetChildItems"
                                 } else {
-                                    pathCmdMethod = "GetItem"
+                                    verb = "GetItem"
                                 }
                                 break;
                             case "POST":
                             case "PUT":
-                                pathCmdMethod = "SetItem"
+                                verb = "SetItem"
                                 break;
                             default:
                                 resultString = `Invalid method: ${req.method}`;
@@ -508,7 +490,7 @@ class DRP_Node extends DRP_Securable {
                                 break RUNTRY;
                         }
                     }
-                    let params = new DRP_MethodParams(pathCmdMethod, basePathArray.concat(remainingPath), req.body, "REST", authInfo);
+                    let params = new DRP_MethodParams(verb, basePathArray.concat(remainingPath), req.body, "REST", authInfo);
                     let resultObj = await thisNode.PathCmd(params, thisNode.GetBaseObj());
 
                     try {
@@ -603,7 +585,7 @@ class DRP_Node extends DRP_Securable {
 
     /**
      * Return a dictionary of class names, services and providers
-     * @param {{className: string}} params Parameters
+     * @param {DRP_MethodParams} params Parameters
      * @param {object} callingEndpoint Calling Endpoint
      * @param {token} token Command token
      * @returns {Object.<string,Object.<string,{providers:string[]}>>} Class instances
@@ -614,7 +596,7 @@ class DRP_Node extends DRP_Securable {
         let results = {};
         let findClassName = null;
         if (params && params.className) findClassName = params.className;
-        else if (params && params.pathList && params.pathList.length > 0) findClassName = params.pathList.shift();
+        else if (params && params.__pathList && params.__pathList.length > 0) findClassName = params.__pathList.shift();
 
         // Get best instance for each service
         let serviceDefinitions = await thisNode.GetServiceDefinitions(params, callingEndpoint);
@@ -682,6 +664,11 @@ class DRP_Node extends DRP_Securable {
         return serviceDefinitions;
     }
 
+    /**
+     * Get service definitions for this DRP_Node
+     * @param {DRP_MethodParams} params
+     * @param {any} callingEndpoint
+     */
     GetLocalServiceDefinitions(params, callingEndpoint) {
         /*
          * We need to return:
@@ -694,7 +681,7 @@ class DRP_Node extends DRP_Securable {
         let checkServiceName = null;
         if (params) {
             if (params.serviceName) checkServiceName = params.serviceName;
-            else if (params.pathList && params.pathList.length > 0) checkServiceName = params.pathList.shift();
+            else if (params.__pathList && params.__pathList.length > 0) checkServiceName = params.__pathList.shift();
         }
         let serviceNameList = Object.keys(thisNode.Services);
         for (let i = 0; i < serviceNameList.length; i++) {
@@ -708,7 +695,7 @@ class DRP_Node extends DRP_Securable {
 
     /**
      * Return class records
-     * @param {{className: string}} params Parameters
+     * @param {DRP_MethodParams} params Parameters
      * @returns {Object} Class records
      */
     async GetClassRecords(params) {
@@ -738,7 +725,7 @@ class DRP_Node extends DRP_Securable {
             let recordPath = ["Mesh", "Services", serviceName, "Classes", thisClassName, "cache"];
 
             // Get data
-            let pathParams = { method: "GetItem", pathList: recordPath };
+            let pathParams = new DRP_MethodParams("GetItem", recordPath);
             let pathData = await thisNode.PathCmd(pathParams, thisNode.GetBaseObj());
 
             results[serviceName] = pathData;
@@ -772,8 +759,12 @@ class DRP_Node extends DRP_Securable {
         let thisNode = this;
         let pathFuncs = {
             Nodes: {
+                /**
+                 * Get dictionary of available nodes in Mesh, override type as DRP_RemotePath
+                 * @param {DRP_MethodParams} params
+                 * @param {string} zoneName
+                 */
                 List: async (params, zoneName) => {
-                    // Get dictionary of available nodes in Mesh, override type as DRP_RemotePath
                     let nodeList = thisNode.TopologyTracker.ListNodes(zoneName);
                     let returnObj = nodeList.reduce((map, nodeID) => {
                         map[nodeID] = new DRP_RemotePath();
@@ -781,9 +772,13 @@ class DRP_Node extends DRP_Securable {
                     }, {});
                     return returnObj;
                 },
+                /**
+                 * Find node and return a DRP_RemotePath command object
+                 * @param {DRP_MethodParams} params
+                 * @param {string} zoneName
+                 */
                 Get: async (params, zoneName) => {
-                    // Find node and return a DRP_RemotePath command object
-                    let targetNodeID = params.pathList.shift();
+                    let targetNodeID = params.__pathList.shift();
                     let checkEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
                     if (!checkEntry) {
                         throw new DRP_CmdError(`Node [${targetNodeID}] does not exist`, DRP_ErrorCode.NOTFOUND, "PathCmd");
@@ -798,8 +793,12 @@ class DRP_Node extends DRP_Securable {
                 },
             },
             Services: {
+                /**
+                 * Get dictionary of available services in Mesh, override type as DRP_RemotePath
+                 * @param {DRP_MethodParams} params
+                 * @param {string} zoneName
+                 */
                 List: async (params, zoneName) => {
-                    // Get dictionary of available services in Mesh, override type as DRP_RemotePath
                     let serviceList = Object.keys(thisNode.TopologyTracker.GetServicesWithProviders(zoneName));
                     let returnObj = serviceList.reduce((map, serviceName) => {
                         map[serviceName] = new DRP_RemotePath();
@@ -807,11 +806,15 @@ class DRP_Node extends DRP_Securable {
                     }, {});
                     return returnObj;
                 },
+                /**
+                 * Find an instance of the service and send a command to that path
+                 * @param {DRP_MethodParams} params
+                 * @param {string} zoneName
+                 */
                 Get: async (params, zoneName) => {
-                    // Find an instance of the service and send a command to that path
-                    let serviceName = params.pathList.shift();
+                    let serviceName = params.__pathList.shift();
 
-                    params.pathList = ['Services', serviceName].concat(params.pathList);
+                    params.__pathList = ['Services', serviceName].concat(params.__pathList);
 
                     let limitScope = zoneName ? "zone" : null;
                     let targetServiceEntry = thisNode.TopologyTracker.FindInstanceOfService(serviceName, null, zoneName, null, limitScope);
@@ -827,6 +830,11 @@ class DRP_Node extends DRP_Securable {
                 }
             },
             Streams: {
+                /**
+                 * List available streams in Mesh
+                 * @param {DRP_MethodParams} params
+                 * @param {string} zoneName
+                 */
                 List: async (params, zoneName) => {
                     let returnObj = {};
                     let streamProviders = thisNode.TopologyTracker.GetStreamsWithProviders(zoneName);
@@ -834,16 +842,20 @@ class DRP_Node extends DRP_Securable {
                         returnObj[streamName] = {}
                         streamProviders[streamName].reduce((map, streamName) => {
                             let newParams = Object.assign({}, params);
-                            newParams.pathList = ['DRPNode', 'TopicManager', 'Topics', streamName].concat(params.pathList.slice(1));
+                            newParams.__pathList = ['DRPNode', 'TopicManager', 'Topics', streamName].concat(params.__pathList.slice(1));
                             map[streamName] = new DRP_RemotePath(thisNode, streamName, newParams);
                             return map;
                         }, returnObj[streamName]);
                     }
                     return returnObj;
                 },
+                /**
+                 * Get dictionary of available services in Mesh, override type as DRP_RemotePath
+                 * @param {DRP_MethodParams} params
+                 * @param {string} zoneName
+                 */
                 Get: async (params, zoneName) => {
-                    // Get dictionary of available services in Mesh, override type as DRP_RemotePath
-                    let streamName = params.pathList.shift();
+                    let streamName = params.__pathList.shift();
 
                     let returnObj = {};
                     let streamProviders = thisNode.TopologyTracker.GetStreamsWithProviders(zoneName);
@@ -852,7 +864,7 @@ class DRP_Node extends DRP_Securable {
                     }
                     returnObj = streamProviders[streamName].reduce((map, providerNodeID) => {
                         let newParams = Object.assign({}, params);
-                        newParams.pathList = ['DRPNode', 'TopicManager', 'Topics', streamName].concat(params.pathList.slice(1));
+                        newParams.__pathList = ['DRPNode', 'TopicManager', 'Topics', streamName].concat(params.__pathList.slice(1));
                         map[providerNodeID] = new DRP_RemotePath(thisNode, providerNodeID, newParams);
                         return map;
                     }, returnObj);
@@ -869,15 +881,19 @@ class DRP_Node extends DRP_Securable {
             Services: thisNode.Services,
             Streams: thisNode.TopicManager.Topics,
             Endpoints: {
+                /**
+                 * Return Node endpoints
+                 * @param {DRP_MethodParams} params
+                 */
                 Nodes: async function (params) {
-                    let remainingChildPath = params.pathList;
+                    let remainingChildPath = params.__pathList;
                     let oReturnObject = null;
                     if (remainingChildPath && remainingChildPath.length > 0) {
 
                         let targetNodeID = remainingChildPath.shift();
 
                         // Need to send command to remote Node with remaining tree data
-                        params.pathList = remainingChildPath;
+                        params.__pathList = remainingChildPath;
 
                         oReturnObject = await thisNode.SendPathCmdToNode(targetNodeID, params);
 
@@ -894,15 +910,19 @@ class DRP_Node extends DRP_Securable {
                     }
                     return oReturnObject;
                 },
+                /**
+                 * Return Consumer endpoints
+                 * @param {DRP_MethodParams} params
+                 */
                 Consumers: async function (params) {
-                    let remainingChildPath = params.pathList;
+                    let remainingChildPath = params.__pathList;
                     let oReturnObject = null;
                     if (remainingChildPath && remainingChildPath.length > 0) {
 
                         let agentID = remainingChildPath.shift();
 
                         // Need to send command to consumer with remaining tree data
-                        params.pathList = remainingChildPath;
+                        params.__pathList = remainingChildPath;
                         let targetEndpoint = await thisNode.VerifyConsumerConnection(agentID);
 
                         if (targetEndpoint) {
@@ -932,11 +952,17 @@ class DRP_Node extends DRP_Securable {
             Mesh: {
                 Topology: thisNode.TopologyTracker,
                 Nodes: new DRP_VirtualDirectory(
-                    // List Function
+                    /**
+                     * List Nodes
+                     * @param {DRP_MethodParams} params
+                     */
                     async (params) => {
                         return await pathFuncs.Nodes.List(params);
                     },
-                    // Get Item Function
+                    /**
+                     * Get Node
+                     * @param {DRP_MethodParams} params
+                     */
                     async (params) => {
                         return await pathFuncs.Nodes.Get(params);
                     },
@@ -944,11 +970,17 @@ class DRP_Node extends DRP_Securable {
                     null
                 ),
                 Services: new DRP_VirtualDirectory(
-                    // List Function
+                    /**
+                     * List Services
+                     * @param {DRP_MethodParams} params
+                     */
                     async (params) => {
                         return await pathFuncs.Services.List(params);
                     },
-                    // Get Item Function
+                    /**
+                     * Get Service
+                     * @param {DRP_MethodParams} params
+                     */
                     async (params) => {
                         return await pathFuncs.Services.Get(params);
                     },
@@ -956,11 +988,17 @@ class DRP_Node extends DRP_Securable {
                     null
                 ),
                 Streams: new DRP_VirtualDirectory(
-                    // List Function
+                    /**
+                     * List Streams
+                     * @param {DRP_MethodParams} params
+                     */
                     async (params) => {
                         return await pathFuncs.Streams.List(params);
                     },
-                    // Get Item Function
+                    /**
+                     * Get Stream
+                     * @param {DRP_MethodParams} params
+                     */
                     async (params) => {
                         return await pathFuncs.Streams.Get(params);
                     },
@@ -968,7 +1006,10 @@ class DRP_Node extends DRP_Securable {
                     null
                 ),
                 Zones: new DRP_VirtualDirectory(
-                    // List Function
+                    /**
+                     * List Zones
+                     * @param {DRP_MethodParams} params
+                     */
                     async (params) => {
                         // Return list of Zones
                         let returnObj = thisNode.TopologyTracker.ListZones().reduce((map, zoneName) => {
@@ -977,12 +1018,15 @@ class DRP_Node extends DRP_Securable {
                         }, {});
                         return returnObj;
                     },
-                    // Get Item Function
+                    /**
+                     * Get Zone
+                     * @param {DRP_MethodParams} params
+                     */
                     async (params) => {
                         let returnObj = {};
 
                         // Get Zone
-                        let zoneName = params.pathList.shift();
+                        let zoneName = params.__pathList.shift();
                         // Make sure zone exists
                         if (!(thisNode.TopologyTracker.ListZones().includes(zoneName))) {
                             throw new DRP_CmdError(`Zone [${zoneName}] not found`, DRP_ErrorCode.NOTFOUND, "PathCmd");
@@ -995,7 +1039,7 @@ class DRP_Node extends DRP_Securable {
                                 throw new DRP_CmdError('No registries for zone', DRP_ErrorCode.UNAVAILABLE, "PathCmd");
                             }
                             let targetNodeID = targetZoneRegistries[0].NodeID;
-                            params.pathList = ['Mesh', 'Zones', zoneName].concat(params.pathList);
+                            params.__pathList = ['Mesh', 'Zones', zoneName].concat(params.__pathList);
                             returnObj = new DRP_RemotePath(thisNode, targetNodeID, params);
                             return returnObj;
                         }
@@ -1003,11 +1047,17 @@ class DRP_Node extends DRP_Securable {
                         // The local DRPNode is in the specified zone, proceed
                         let levelDefinitions = {
                             Nodes: new DRP_VirtualDirectory(
-                                // List Function
+                                /**
+                                 * List Nodes
+                                 * @param {DRP_MethodParams} params
+                                 */
                                 async (params) => {
                                     return await pathFuncs.Nodes.List(params, zoneName);
                                 },
-                                // Get Item Function
+                                /**
+                                 * Get Node
+                                 * @param {DRP_MethodParams} params
+                                 */
                                 async (params) => {
                                     return await pathFuncs.Nodes.Get(params, zoneName);
                                 },
@@ -1015,11 +1065,17 @@ class DRP_Node extends DRP_Securable {
                                 null
                             ),
                             Services: new DRP_VirtualDirectory(
-                                // List Function
+                                /**
+                                 * List Services
+                                 * @param {DRP_MethodParams} params
+                                 */
                                 async (params) => {
                                     return await pathFuncs.Services.List(params, zoneName);
                                 },
-                                // Get Item Function
+                                /**
+                                 * Get Service
+                                 * @param {DRP_MethodParams} params
+                                 */
                                 async (params) => {
                                     return await pathFuncs.Services.Get(params, zoneName);
                                 },
@@ -1027,11 +1083,17 @@ class DRP_Node extends DRP_Securable {
                                 null
                             ),
                             Streams: new DRP_VirtualDirectory(
-                                // List Function
+                                /**
+                                 * List Streams
+                                 * @param {DRP_MethodParams} params
+                                 */
                                 async (params) => {
                                     return await pathFuncs.Streams.List(params, zoneName);
                                 },
-                                // Get Item Function
+                                /**
+                                 * Get Stream
+                                 * @param {DRP_MethodParams} params
+                                 */
                                 async (params) => {
                                     return await pathFuncs.Streams.Get(params, zoneName);
                                 },
@@ -1040,7 +1102,10 @@ class DRP_Node extends DRP_Securable {
                             )
                         }
                         returnObj = new DRP_VirtualDirectory(
-                            // List Function
+                            /**
+                             * List items
+                             * @param {DRP_MethodParams} params
+                             */
                             async (params) => {
                                 // Return list of target types in Zone
                                 let returnObj = Object.keys(levelDefinitions).reduce((map, targetType) => {
@@ -1049,10 +1114,13 @@ class DRP_Node extends DRP_Securable {
                                 }, {});
                                 return returnObj;
                             },
-                            // Get Item Function
+                            /**
+                             * Get item
+                             * @param {DRP_MethodParams} params
+                             */
                             async (params) => {
                                 let returnObj = {};
-                                let targetType = params.pathList.shift();
+                                let targetType = params.__pathList.shift();
                                 if (!levelDefinitions[targetType]) {
                                     throw new DRP_CmdError(`Invalid path`, DRP_ErrorCode.NOTFOUND, "PathCmd");
                                 }
@@ -1082,10 +1150,10 @@ class DRP_Node extends DRP_Securable {
 
         /* 
          * REST Calls
-         * params.method = ('GetItem'|'GetChildItems'|'SetItem')
+         * params.__method = ('GetItem'|'GetChildItems'|'SetItem')
          * 
          * RPC Calls
-         * params.method = ('cat'|'ls'|'exec')
+         * params.__method = ('cat'|'ls'|'exec')
          * 
          * DRP_VirtualFunction accepts methods 'execute' and 'SetItem'
          * 
@@ -1108,7 +1176,7 @@ class DRP_Node extends DRP_Securable {
         let functionExecuted = false;
         let manPageOnly = false;
 
-        switch (params.method) {
+        switch (params.__verb) {
             case "man":
                 manPageOnly = true;
             case "exec":
@@ -1142,7 +1210,7 @@ class DRP_Node extends DRP_Securable {
                 throw new DRP_CmdError("Invalid method", DRP_ErrorCode.BADREQUEST, "PathCmd");
         }
 
-        let aChildPathArray = params.pathList;
+        let aChildPathArray = params.__pathList;
         let pathItemName
 
         // Do we have a path array?
@@ -1198,7 +1266,7 @@ class DRP_Node extends DRP_Securable {
                     // If this is a DRP_Securable object, check permissions
                     if (oCurrentObject[pathItemName].CheckPermission) {
                         // This is a securable object - verify the caller has permissions to see it
-                        let isAllowed = oCurrentObject[pathItemName].CheckPermission(params.authInfo, "read");
+                        let isAllowed = oCurrentObject[pathItemName].CheckPermission(params.__authInfo, "read");
                         if (!isAllowed) {
                             throw new DRP_CmdError("Unauthorized", DRP_ErrorCode.UNAUTHORIZED, "PathCmd");
                         }
@@ -1242,7 +1310,7 @@ class DRP_Node extends DRP_Securable {
                                     break;
                                 case "DRP_VirtualFunction":
                                     // Send the rest of the path to a function
-                                    params.pathList = remainingPath;
+                                    params.__pathList = remainingPath;
 
                                     // Set current object
                                     /** @type {DRP_VirtualFunction} */
@@ -1272,7 +1340,7 @@ class DRP_Node extends DRP_Securable {
                                     } else {
                                         // Return item in hash
                                         pathItemName = aChildPathArray[i + 1];
-                                        params.pathList = remainingPath;
+                                        params.__pathList = remainingPath;
                                         oCurrentObject = {}
                                         oCurrentObject[pathItemName] = await thisVirtualDirectory.GetItem(params);
                                     }
@@ -1287,14 +1355,14 @@ class DRP_Node extends DRP_Securable {
                                     break;
                                 case "DRP_RemotePath":
                                     // DRP_RemotePath objects are functions which execute PathCmd again; return results directly 
-                                    params.pathList = remainingPath;
+                                    //params.__pathList = remainingPath;
 
                                     // Set current object
                                     /** @type {DRP_RemotePath} */
                                     let thisRemotePath = oCurrentObject[pathItemName];
 
                                     // Execute
-                                    outputObject = await thisRemotePath.CallPath();
+                                    outputObject = await thisRemotePath.CallPath(params);
 
                                     // Do not continue evaluation; return directly to caller
                                     return outputObject;
@@ -1309,7 +1377,7 @@ class DRP_Node extends DRP_Securable {
                             break;
                         case 'function':
                             // Send the rest of the path to a function
-                            params.pathList = remainingPath;
+                            params.__pathList = remainingPath;
                             // Must be called this way so the method is aware of the parent
                             if (manPageOnly && isFinalItem()) {
                                 throw new DRP_CmdError("Simple function does not have man page", DRP_ErrorCode.BADREQUEST, "PathCmd");
@@ -1555,7 +1623,7 @@ class DRP_Node extends DRP_Securable {
      * Execute a service command with the option of routing via the control plane
      * @param {string} serviceName Target service name
      * @param {string} methodName Target method name
-     * @param {Object} methodParams Method parameters
+     * @param {DRP_MethodParams} methodParams Method parameters
      * @param {Object} execParams DRP execution parameters
      * @param {string} execParams.targetNodeID Send command to a specific Node
      * @param {string} execParams.targetServiceInstanceID Send command to a specific service instance
@@ -1668,7 +1736,7 @@ class DRP_Node extends DRP_Securable {
                 if (constructorName === "DRP_VirtualFunction") {
                     results = await localServiceProvider[methodName].Execute(methodParams, callingEndpoint);
                 } else {
-                    if (methodName !== "pathCmd" && methodParams && methodParams.method && methodParams.method === "man") {
+                    if (methodName !== "pathCmd" && methodParams && methodParams.__verb && methodParams.__verb === "man") {
                         throw new DRP_CmdError("Simple function does not have man page", DRP_ErrorCode.BADREQUEST, "PathCmd");
                     }
                     results = await localServiceProvider[methodName](methodParams, callingEndpoint);
@@ -2898,8 +2966,13 @@ class DRP_Node extends DRP_Securable {
         });
     }
 
+    /**
+     * See if call is restricted for object
+     * @param {any} securityObj
+     * @param {DRP_MethodParams} params
+     */
     IsRestricted(securityObj, params) {
-        let authInfo = params.authInfo;
+        let authInfo = params.__authInfo;
         try {
             if (authInfo && authInfo.type) {
                 // Is it a token or a key?
@@ -3373,18 +3446,6 @@ class DRP_TopologyTracker {
         let thisTopologyTracker = this;
         let thisNode = thisTopologyTracker.DRPNode;
 
-        if (serviceName && typeof serviceName === "object" && serviceName.pathList) {
-            // This was called from the CLI
-            let remainingChildPath = serviceName.pathList;
-            if (remainingChildPath && remainingChildPath.length > 0) {
-                serviceName = remainingChildPath.shift();
-                serviceType = remainingChildPath.shift();
-                zone = remainingChildPath.shift();
-            } else {
-                serviceName = null;
-            }
-        }
-
         let checkZone = zone || thisNode.Zone;
 
         // If neither a name nor a type is specified, return null
@@ -3537,17 +3598,6 @@ class DRP_TopologyTracker {
      */
     FindInstancesOfService(serviceName) {
         let thisTopologyTracker = this;
-
-        if (serviceName && typeof serviceName === "object" && serviceName.pathList) {
-            // This was called from the CLI
-            let remainingChildPath = serviceName.pathList;
-            if (remainingChildPath && remainingChildPath.length > 0) {
-                serviceName = remainingChildPath.shift();
-                zone = remainingChildPath.shift();
-            } else {
-                serviceName = null;
-            }
-        }
 
         // If neither a name nor a type is specified, return null
         if (!serviceName) return null;
@@ -3868,15 +3918,6 @@ class DRP_TopologyTracker {
      */
     GetNextHop(targetNodeID) {
         let thisTopologyTracker = this;
-        if (targetNodeID && typeof targetNodeID === "object" && targetNodeID.pathList) {
-            // This was called from the CLI
-            let remainingChildPath = targetNodeID.pathList;
-            if (remainingChildPath && remainingChildPath.length > 0) {
-                targetNodeID = remainingChildPath.shift();
-            } else {
-                targetNodeID = null;
-            }
-        }
         let nextHopNodeID = null;
         let targetNodeEntry = thisTopologyTracker.NodeTable[targetNodeID];
         if (targetNodeEntry) nextHopNodeID = targetNodeEntry.LearnedFrom;
@@ -3890,15 +3931,6 @@ class DRP_TopologyTracker {
      */
     ValidateNodeID(checkNodeID) {
         let thisTopologyTracker = this;
-        if (checkNodeID && typeof checkNodeID === "object" && checkNodeID.pathList) {
-            // This was called from the CLI
-            let remainingChildPath = checkNodeID.pathList;
-            if (remainingChildPath && remainingChildPath.length > 0) {
-                checkNodeID = remainingChildPath.shift();
-            } else {
-                checkNodeID = null;
-            }
-        }
         if (thisTopologyTracker.NodeTable[checkNodeID])
             return true;
         else
@@ -3969,15 +4001,6 @@ class DRP_TopologyTracker {
      */
     FindRegistriesInZone(zoneName) {
         let thisTopologyTracker = this;
-        if (zoneName && typeof zoneName === "object" && zoneName.pathList) {
-            // This was called from the CLI
-            let remainingChildPath = zoneName.pathList;
-            if (remainingChildPath && remainingChildPath.length > 0) {
-                zoneName = remainingChildPath.shift();
-            } else {
-                zoneName = null;
-            }
-        }
         let registryList = [];
         let nodeIDList = Object.keys(thisTopologyTracker.NodeTable);
         for (let i = 0; i < nodeIDList.length; i++) {
@@ -3996,15 +4019,6 @@ class DRP_TopologyTracker {
      */
     FindRelaysInZone(zoneName) {
         let thisTopologyTracker = this;
-        if (zoneName && typeof zoneName === "object" && zoneName.pathList) {
-            // This was called from the CLI
-            let remainingChildPath = zoneName.pathList;
-            if (remainingChildPath && remainingChildPath.length > 0) {
-                zoneName = remainingChildPath.shift();
-            } else {
-                zoneName = null;
-            }
-        }
         let relayList = [];
         let nodeIDList = Object.keys(thisTopologyTracker.NodeTable);
         for (let i = 0; i < nodeIDList.length; i++) {
