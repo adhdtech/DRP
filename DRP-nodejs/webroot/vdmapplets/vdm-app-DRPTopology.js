@@ -605,7 +605,7 @@ class AppletClass extends DRPApplet {
         let thisApplet = this;
 
         let pathListArray = ['Mesh', 'Nodes', nodeID, 'DRPNode', 'Evacuate'];
-        let evacuateResponse = await thisApplet.sendCmd("DRP", "pathCmd", { method: "exec", pathList: pathListArray }, true);
+        let evacuateResponse = await thisApplet.sendCmd("DRP", "pathCmd", { __verb: "exec", __pathList: pathListArray }, true);
         return evacuateResponse;
     }
 }
