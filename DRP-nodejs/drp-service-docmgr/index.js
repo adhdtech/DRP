@@ -162,9 +162,9 @@ class DocManager extends DRP_Service {
                 // return list of service
                 return await thisDocMgr.ListDocServices();
             },
-            listDocs: async function (cmdObj) {
+            listDocs: async function (paramsObj) {
                 let methodParams = ['serviceName'];
-                let params = thisDocMgr.GetParams(cmdObj, methodParams);
+                let params = thisDocMgr.GetParams(paramsObj, methodParams);
 
                 if (!params.serviceName) {
                     throw new DRP_CmdError("Must provide serviceName");
@@ -173,9 +173,9 @@ class DocManager extends DRP_Service {
                 let docList = await thisDocMgr.ListDocs(params.serviceName);
                 return docList;
             },
-            loadDoc: async function (cmdObj) {
+            loadDoc: async function (paramsObj) {
                 let methodParams = ['serviceName', 'docName'];
-                let params = thisDocMgr.GetParams(cmdObj, methodParams);
+                let params = thisDocMgr.GetParams(paramsObj, methodParams);
 
                 if (!params.serviceName || !params.docName) {
                     throw new DRP_CmdError("Must provide serviceName, docName");
@@ -184,9 +184,9 @@ class DocManager extends DRP_Service {
                 let docData = await thisDocMgr.LoadDoc(params.serviceName, params.docName);
                 return docData;
             },
-            loadDocList: async (cmdObj) => {
+            loadDocList: async (paramsObj) => {
                 let methodParams = ['serviceName', 'docNameList'];
-                let params = thisDocMgr.GetParams(cmdObj, methodParams);
+                let params = thisDocMgr.GetParams(paramsObj, methodParams);
 
                 if (!params.serviceName || !params.docNameList) {
                     throw new DRP_CmdError("Must provide serviceName, docNameList");
@@ -202,9 +202,9 @@ class DocManager extends DRP_Service {
                 let docDataList = await thisDocMgr.LoadDocList(params.serviceName, docNameList);
                 return docDataList;
             },
-            loadAllDocs: async (cmdObj) => {
+            loadAllDocs: async (paramsObj) => {
                 let methodParams = ['serviceName'];
-                let params = thisDocMgr.GetParams(cmdObj, methodParams);
+                let params = thisDocMgr.GetParams(paramsObj, methodParams);
 
                 if (!params.serviceName) {
                     throw new DRP_CmdError("Must provide serviceName");
@@ -213,9 +213,9 @@ class DocManager extends DRP_Service {
                 let docDataObj = await thisDocMgr.LoadAllDocs(params.serviceName);
                 return docDataObj;
             },
-            saveDoc: async function (cmdObj) {
+            saveDoc: async function (paramsObj) {
                 let methodParams = ['serviceName', 'docName', 'docData', 'parseDates'];
-                let params = thisDocMgr.GetParams(cmdObj, methodParams);
+                let params = thisDocMgr.GetParams(paramsObj, methodParams);
 
                 if (!params.serviceName || !params.docName || !params.docData) {
                     throw new DRP_CmdError("Must provide serviceName, docName, docData");
@@ -224,9 +224,9 @@ class DocManager extends DRP_Service {
                 let saveResults = await thisDocMgr.SaveDoc(params.serviceName, params.docName, params.docData, params.parseDates);
                 return saveResults;
             },
-            deleteDoc: async function (cmdObj) {
+            deleteDoc: async function (paramsObj) {
                 let methodParams = ['serviceName', 'docName'];
-                let params = thisDocMgr.GetParams(cmdObj, methodParams);
+                let params = thisDocMgr.GetParams(paramsObj, methodParams);
 
                 if (!params.serviceName || !params.docName) {
                     throw new DRP_CmdError("Must provide serviceName, docName");
@@ -237,10 +237,10 @@ class DocManager extends DRP_Service {
             }
         };
 
-        this.DocServices = async (cmdObj) => {
+        this.DocServices = async (paramsObj) => {
 
             let methodParams = ['serviceName', 'docName'];
-            let params = thisDocMgr.GetParams(cmdObj, methodParams);
+            let params = thisDocMgr.GetParams(paramsObj, methodParams);
 
             let serviceName = params.serviceName;
             let docName = params.docName;

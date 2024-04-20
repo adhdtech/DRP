@@ -12,7 +12,7 @@ const DRP_Client = require("./client");
 const DRP_Service = require("./service");
 const DRP_TopicManager = require("./topicmanager");
 const DRP_RouteHandler = require("./routehandler");
-const DRP_MethodParams = require("./methodparams");
+const { DRP_MethodParams, DRP_GetParams } = require("./params");
 const { DRP_WebServer, DRP_WebServerConfig } = require("./webserver");
 const { DRP_SubscribableSource, DRP_Subscriber } = require('./subscription');
 const { DRP_AuthRequest, DRP_AuthResponse, DRP_AuthFunction, DRP_AuthInfo } = require('./auth');
@@ -245,43 +245,6 @@ class DRP_Node extends DRP_Securable {
         return this.Debug;
     }
 
-    /**
-    * Get parameters for Service Method
-    * @param {DRP_MethodParams} params Parameters object
-    * @param {string[]} paramNames Ordered list of parameters to extract
-    * @returns {object}
-    */
-    GetParams(params, paramNames) {
-        /*
-         * Parameters can be passed three ways:
-         *   - Ordered list of remaining path elements (params.__pathList[paramNames[x]])
-         *   - POST or PUT body (params.payload.myVar)
-         *   - Directly in params (params.myVar)
-        */
-        let returnObj = {};
-        if (!paramNames || !Array.isArray(paramNames)) return returnObj;
-        for (let i = 0; i < paramNames.length; i++) {
-            returnObj[paramNames[i]] = null;
-            // First, see if the parameters were part of the remaining path (CLI or REST)
-            if (params.__pathList && Array.isArray(params.__pathList)) {
-                if (typeof params.__pathList[i] !== 'undefined') {
-                    returnObj[paramNames[i]] = params.__pathList[i];
-                }
-            }
-
-            // Second, see if the parameters were passed in the payload (REST body)
-            if (params.__payload && typeof params.__payload[paramNames[i]] !== 'undefined') {
-                returnObj[paramNames[i]] = params.__payload[paramNames[i]];
-            }
-
-            // Third, see if the parameters were passed directly in the params (DRP Exec)
-            if (typeof params[paramNames[i]] !== 'undefined') {
-                returnObj[paramNames[i]] = params[paramNames[i]];
-            }
-        }
-        return returnObj;
-    }
-
     __GetNodeDeclaration() {
         let thisNode = this;
         return new DRP_NodeDeclaration(thisNode.NodeID, thisNode.NodeRoles, thisNode.HostID, thisNode.ListeningURL, thisNode.DomainName, thisNode.#MeshKey, thisNode.Zone);
@@ -452,45 +415,41 @@ class DRP_Node extends DRP_Securable {
                 let remainingPath = decodedPath.replace(/^\/|\/$/g, '').split('/');
                 remainingPath.shift();
 
-                let listOnly = false;
-                let showHelp = false;
+                // Init vars
                 let format = null;
+                let verb = null;
+                let resultString = "";
                 let resCode = 200;
 
-                if (req.query.listOnly) listOnly = thisNode.IsTrue(req.query.listOnly);
-                if (req.query.showHelp) showHelp = thisNode.IsTrue(req.query.showHelp);
-                if (req.query.format) format = thisNode.IsTrue(req.query.format);
+                // Reserved - format JSON output
+                if (req.query.__format) format = thisNode.IsTrue(req.query.__format);
 
-                // Treat as "getPath"
-                let resultString = "";
+                // Reserved - override verb
+                if (req.query.__verb) verb = req.query.__verb;
+
+                // HTTP Verb Map
+                let httpMethodToVerbMap = {
+                    GET: "GetItem",
+                    POST: "SetItem",
+                    PUT: "SetItem",
+                    DELETE: "RemoveItem"
+                };
 
                 RUNTRY:
                 try {
-                    // Determine the PathCmd method; default to "GetItem"
+                    // Client did not specify verb
+                    if (!verb) {
 
-                    let verb = null;
-                    if (showHelp) {
-                        verb = "man"
-                    } else {
-                        switch (req.method) {
-                            case "GET":
-                                if (listOnly) {
-                                    verb = "GetChildItems"
-                                } else {
-                                    verb = "GetItem"
-                                }
-                                break;
-                            case "POST":
-                            case "PUT":
-                                verb = "SetItem"
-                                break;
-                            default:
-                                resultString = `Invalid method: ${req.method}`;
-                                resCode = DRP_ErrorCode.BADREQUEST;
-                                break RUNTRY;
+                        // Get verb from HTTP method
+                        verb = httpMethodToVerbMap[req.method];
+
+                        if (!verb) {
+                            resultString = `Invalid method: ${req.method}`;
+                            resCode = DRP_ErrorCode.BADREQUEST;
+                            break RUNTRY;
                         }
                     }
-                    let params = new DRP_MethodParams(verb, basePathArray.concat(remainingPath), req.body, "REST", authInfo);
+                    let params = new DRP_MethodParams(verb, basePathArray.concat(remainingPath), req.body, req.query, "REST", authInfo);
                     let resultObj = await thisNode.PathCmd(params, thisNode.GetBaseObj());
 
                     try {
@@ -521,7 +480,11 @@ class DRP_Node extends DRP_Securable {
                     }
                     resultString = ex.message;
                 }
+
+                // Send response to client
                 res.status(resCode).send(resultString);
+
+                // Create message for logging
                 let logMessage = {
                     req: {
                         hostname: req.hostname,
@@ -539,8 +502,14 @@ class DRP_Node extends DRP_Securable {
                         length: resultString.length
                     }
                 };
+
+                // Remove authorization header for security purposes
                 delete logMessage.req.headers["authorization"];
+
+                // Send log to RESTLogs topic
                 thisNode.TopicManager.SendToTopic("RESTLogs", logMessage);
+
+                // Write to Logger service if flag is set
                 if (writeToLogger) {
                     thisNode.ServiceCmd("Logger", "writeLog", { serviceName: "REST", logData: logMessage }, {
                         sendOnly: true
@@ -1165,6 +1134,7 @@ class DRP_Node extends DRP_Securable {
          *   IsItemContainer
          *   GetItem
          *   SetItem
+         *   RemoveItem
          *   GetChildItems
          *   CopyItem
          */
@@ -2715,8 +2685,8 @@ class DRP_Node extends DRP_Securable {
             return thisNode.TCPPing(...args);
         });
 
-        targetEndpoint.RegisterMethod("ping", async (cmdObj) => {
-            let params = DRP_Service.prototype.GetParams(cmdObj, ['host', 'timeout', 'min_reply']);
+        targetEndpoint.RegisterMethod("ping", async (paramsObj) => {
+            let params = DRP_GetParams(paramsObj, ['host', 'timeout', 'min_reply']);
             let host = params['host'];
             let timeout = params['timeout'] || 1;
             let min_reply = params['min_reply'] || 1;
@@ -2735,8 +2705,8 @@ class DRP_Node extends DRP_Securable {
             return pingResults;
         });
 
-        targetEndpoint.RegisterMethod("resolve", async (cmdObj) => {
-            let params = DRP_Service.prototype.GetParams(cmdObj, ['hostname', 'type', 'server']);
+        targetEndpoint.RegisterMethod("resolve", async (paramsObj) => {
+            let params = DRP_GetParams(paramsObj, ['hostname', 'type', 'server']);
             let hostname = params['hostname'];
             let type = params['type'];
             let dnsServer = params['server'];
@@ -2759,16 +2729,16 @@ class DRP_Node extends DRP_Securable {
             return thisNode.TopologyTracker.FindInstanceOfService(params.serviceName, params.serviceType, params.zone);
         });
 
-        targetEndpoint.RegisterMethod("listNodes", async (cmdObj, srcEndpoint, token) => {
+        targetEndpoint.RegisterMethod("listNodes", async (paramsObj, srcEndpoint, token) => {
             let methodParams = ['zoneName'];
-            let params = thisNode.GetParams(cmdObj, methodParams);
+            let params = DRP_GetParams(paramsObj, methodParams);
 
             return thisNode.TopologyTracker.ListNodes(params.zoneName);
         });
 
-        targetEndpoint.RegisterMethod("listServices", async (cmdObj, srcEndpoint, token) => {
+        targetEndpoint.RegisterMethod("listServices", async (paramsObj, srcEndpoint, token) => {
             let methodParams = ['zoneName'];
-            let params = thisNode.GetParams(cmdObj, methodParams);
+            let params = DRP_GetParams(paramsObj, methodParams);
 
             return thisNode.TopologyTracker.ListServices(params.zoneName);
         });
@@ -2785,12 +2755,7 @@ class DRP_Node extends DRP_Securable {
                 // Failed to send; may have already disconnected, take no further action
             };
 
-            // If a specific NodeID is set, override the scope to local
-            if (params.targetNodeID) {
-                params.scope = "local";
-            }
-
-            let thisSubscription = new DRP_Subscriber(params.topicName, params.scope, params.filter || null, params.targetNodeID || null, thisNode.IsTrue(params.singleInstance), sendFunction, sendFailCallback);
+            let thisSubscription = new DRP_Subscriber(params.topicName, params.scope, params.filter, params.targetNodeID, thisNode.IsTrue(params.singleInstance), sendFunction, sendFailCallback);
             srcEndpoint.Subscriptions[params.streamToken] = thisSubscription;
             let results = await thisNode.SubscriptionManager.RegisterSubscription(thisSubscription);
             return results;
@@ -2853,6 +2818,24 @@ class DRP_Node extends DRP_Securable {
         targetEndpoint.RegisterMethod("getUserInfo", async function (params, srcEndpoint, token) {
             return targetEndpoint.AuthInfo.userInfo;
         });
+    }
+
+    /**
+     * Register new subscription
+     * @param {string} topicName Topic name to subscribe to
+     * @param {string} scope Subscription scope [local,zone,global]
+     * @param {Object<string,string>} filter Subscription filter
+     * @param {string} targetNodeID Specify target Node ID
+     * @param {boolean} singleInstance Limit subscription to single instance
+     * @param {function} msgCb Function to execute on message receipt
+     * @param {function} failCb Function to execute on message fail
+     */
+    async Subscribe(topicName, scope, filter, targetNodeID, singleInstance, msgCb, failCb) {
+        let thisNode = this;
+
+        let thisSubscription = new DRP_Subscriber(topicName, scope, filter, targetNodeID, thisNode.IsTrue(singleInstance), msgCb, failCb);
+        let subscriptionSuccessful = await thisNode.SubscriptionManager.RegisterSubscription(thisSubscription);
+        return subscriptionSuccessful ? thisSubscription : null;
     }
 
     /**
@@ -2931,10 +2914,10 @@ class DRP_Node extends DRP_Securable {
         return authResponse;
     }
 
-    async TCPPing(cmdObj, srcEndpoint, token) {
+    async TCPPing(paramsObj, srcEndpoint, token) {
         let thisNode = this;
         let methodParams = ['address', 'port', 'timeout', 'attempts'];
-        let params = thisNode.GetParams(cmdObj, methodParams);
+        let params = DRP_GetParams(paramsObj, methodParams);
 
         let pingInfo = null;
 

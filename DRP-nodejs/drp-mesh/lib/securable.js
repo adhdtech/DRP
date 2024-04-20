@@ -1,6 +1,6 @@
 'use strict';
 
-const DRP_MethodParams = require("./methodparams");
+const { DRP_MethodParams, DRP_GetParams } = require("./params");
 const { DRP_CmdError, DRP_ErrorCode } = require("./packet");
 
 let IsTrue = function (value) {

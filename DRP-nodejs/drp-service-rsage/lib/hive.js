@@ -96,14 +96,14 @@ class Hive extends DRP_Service {
                     return returnObj;
                 }
             },
-            getUKMKFKObj: function (cmdObj) {
+            getUKMKFKObj: function (paramsObj) {
                 //let thisHive = this;
                 let returnObj = {
                     records: {},
                     err: null
                 };
 
-                let params = thisService.GetParams(cmdObj, ['StereoType', 'Key']);
+                let params = thisService.GetParams(paramsObj, ['StereoType', 'Key']);
                 let checkKey = params.Key;
                 let stereoType = params.StereoType;
 
@@ -145,14 +145,14 @@ class Hive extends DRP_Service {
                 }
                 return returnObj;
             },
-            getUKMKFKGCObj: function (cmdObj) {
+            getUKMKFKGCObj: function (paramsObj) {
                 //let thisHive = this;
                 let returnObj = {
                     records: {},
                     err: null
                 };
 
-                let params = thisService.GetParams(cmdObj, ['StereoType', 'Key']);
+                let params = thisService.GetParams(paramsObj, ['StereoType', 'Key']);
                 let checkKey = params.Key;
                 let stereoType = params.StereoType;
 

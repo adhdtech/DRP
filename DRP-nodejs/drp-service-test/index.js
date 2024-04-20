@@ -125,7 +125,7 @@ class TestService extends DRP_Service {
 
         // Define global methods
         this.ClientCmds = {
-            getOpenAPIDoc: async function (cmdObj) { return openAPIDoc; },
+            getOpenAPIDoc: async function (paramsObj) { return openAPIDoc; },
             sayHi: async function () {
                 thisService.DRPNode.log("Remote node wants to say hi");
                 return `Hello from ${thisService.DRPNode.NodeID}`;
@@ -134,6 +134,12 @@ class TestService extends DRP_Service {
                 thisService.DRPNode.log("Remote node wants to say bye");
                 return `Goodbye from ${thisService.DRPNode.NodeID}`;
             },
+            /**
+             * @param {Object} params DRP execution parameters
+             * @param {number} params.val1 Does something
+             * @param {string} params.val2 Does something else
+             * @param {boolean} params.val3 Another one?
+             */
             showParams: async function (params) {
                 return params;
             },

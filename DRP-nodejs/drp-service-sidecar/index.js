@@ -45,10 +45,10 @@ class SidecarService extends DRP_Service {
 
         // Define global methods
         this.ClientCmds = {
-            //getOpenAPIDoc: async function (cmdObj) { return openAPIDoc; },
-            call: async (cmdObj) => {
+            //getOpenAPIDoc: async function (paramsObj) { return openAPIDoc; },
+            call: async (paramsObj) => {
                 // Remote services use this to make a call to the local legacy web service
-                let params = thisService.GetParams(cmdObj, ['urlmethod', 'path', 'params']);
+                let params = thisService.GetParams(paramsObj, ['urlmethod', 'path', 'params']);
                 let returnObj = null;
                 returnObj = await thisService.__restAgent({
                     method: params.method,
@@ -57,9 +57,9 @@ class SidecarService extends DRP_Service {
                 });
                 return returnObj.data;
             },
-            subscribeWebhook: async (cmdObj) => {
+            subscribeWebhook: async (paramsObj) => {
                 // Local service uses this to push streams to webhooks
-                let params = thisService.GetParams(cmdObj, ['topicName', 'scope', 'webhook', 'maxErrors']);
+                let params = thisService.GetParams(paramsObj, ['topicName', 'scope', 'webhook', 'maxErrors']);
                 if (!params.topicName || !params.scope || !params.webhook) {
                     throw new DRP_CmdError(`Must specify topicName,scope,webhook`, DRP_ErrorCode.BADREQUEST, "subscribeWebhook");
                 }
@@ -156,9 +156,9 @@ class SidecarService extends DRP_Service {
 
                 return streamToken;
             },
-            unsubscribeWebhook: async (cmdObj) => {
+            unsubscribeWebhook: async (paramsObj) => {
                 // Local service uses this to push streams to webhooks
-                let params = thisService.GetParams(cmdObj, ['streamToken']);
+                let params = thisService.GetParams(paramsObj, ['streamToken']);
                 if (!params.streamToken) {
                     throw new DRP_CmdError(`Must specify streamToken`, DRP_ErrorCode.BADREQUEST, "unsubscribeWebhook");
                 }
@@ -173,8 +173,8 @@ class SidecarService extends DRP_Service {
             }
         };
 
-        thisService.REST = async (cmdObj) => {
-            // Need to translate path, cmdObj verbs and params to callParams
+        thisService.REST = async (paramsObj) => {
+            // Need to translate path, paramsObj verbs and params to callParams
             let callParams = {};
             return await thisService.ClientCmds.call(callParams);
         }

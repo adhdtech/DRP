@@ -1,7 +1,7 @@
 'use strict';
 
 const DRP_Service = require('drp-mesh').Service;
-const DRP_MethodParams = require('drp-mesh').MethodParams;
+const DRP_MethodParams = require('drp-mesh').Params;
 const { DRP_CmdError, DRP_ErrorCode } = require('drp-mesh/lib/packet');
 const MongoClient = require('mongodb').MongoClient;
 const MongoDB = require('mongodb').Db;
@@ -38,9 +38,9 @@ class Logger extends DRP_Service {
         }
 
         this.ClientCmds = {
-            writeLog: async (cmdObj) => {
+            writeLog: async (paramsObj) => {
                 let methodParams = ['serviceName', 'logData'];
-                let params = thisService.GetParams(cmdObj, methodParams);
+                let params = thisService.GetParams(paramsObj, methodParams);
                 let writeResult;
 
                 try {

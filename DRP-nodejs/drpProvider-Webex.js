@@ -93,7 +93,7 @@ class WebexService extends DRP_Service {
         this.webex = require('webex/env');
 
         this.ClientCmds = {
-            getOpenAPIDoc: async function (cmdObj) { return openAPIDoc; },
+            getOpenAPIDoc: async function (paramsObj) { return openAPIDoc; },
             listRooms: async () => {
                 let response = await this.webex.rooms.list();
                 return response.items;

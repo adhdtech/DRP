@@ -50,6 +50,9 @@
     <Content Include="drp-mesh\lib\auth.js">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="drp-mesh\lib\params.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="drp-mesh\lib\securable.js">
       <SubType>Code</SubType>
     </Content>
@@ -121,6 +124,7 @@
     <Content Include="startTestEnvironmentMunicipal.bat" />
     <Content Include="startTestEnvironment.bat" />
     <Content Include="test.js" />
+    <Content Include="test.md" />
     <Content Include="uploadApplet.js" />
     <Content Include="webroot\assets\cytoscape\css\cytoscape-context-menus.css" />
     <Content Include="webroot\assets\cytoscape\js\cytoscape-context-menus.js" />
@@ -128,6 +132,9 @@
     <Content Include="webroot\assets\drp\css\vdm.css" />
     <Content Include="webroot\assets\drp\img\vdmbg.png" />
     <Content Include="webroot\assets\drp\js\drpClient.js" />
+    <Content Include="webroot\assets\drp\js\xrSession.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="webroot\assets\drp\js\spaSession.js">
       <SubType>Code</SubType>
     </Content>
@@ -135,16 +142,6 @@
       <SubType>Code</SubType>
     </Content>
     <Content Include="webroot\assets\drp\js\vdmSession.js" />
-    <Content Include="webroot\assets\rsage-vdm\css\vdm.css" />
-    <Content Include="webroot\assets\rsage-vdm\img\collapse-small-blue.png" />
-    <Content Include="webroot\assets\rsage-vdm\img\expand-small-blue.png" />
-    <Content Include="webroot\assets\rsage-vdm\img\pattern12.png" />
-    <Content Include="webroot\assets\rsage-vdm\js\drpClient.js">
-      <SubType>Code</SubType>
-    </Content>
-    <Content Include="webroot\assets\rsage-vdm\js\vdmSession.js" />
-    <Content Include="webroot\assets\rsage-vdm\js\vdmCore.js" />
-    <Content Include="webroot\assets\rsage-vdm\js\xrSession.js" />
     <Content Include="webroot\assets\webxr\sounds\jg-032316-sfx-sub-pulse.mp3" />
     <Content Include="webroot\assets\webxr\textures\earth2-normal.jpg" />
     <Content Include="webroot\assets\webxr\textures\earthbump.jpg" />
@@ -203,10 +200,6 @@
     <Folder Include="webroot\assets\drp\js\" />
     <Folder Include="webroot\assets\drp\css\" />
     <Folder Include="webroot\assets\drp\img\" />
-    <Folder Include="webroot\assets\rsage-vdm\" />
-    <Folder Include="webroot\assets\rsage-vdm\css\" />
-    <Folder Include="webroot\assets\rsage-vdm\img\" />
-    <Folder Include="webroot\assets\rsage-vdm\js\" />
     <Folder Include="webroot\assets\webxr\" />
     <Folder Include="webroot\assets\webxr\sounds\" />
     <Folder Include="webroot\assets\webxr\textures\" />

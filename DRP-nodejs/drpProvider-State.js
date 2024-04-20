@@ -27,7 +27,7 @@ class StateService extends DRP_Service {
 
         // Define global methods
         this.ClientCmds = {
-            getMunicipalities: async (cmdObj) => {
+            getMunicipalities: async (paramsObj) => {
                 return thisService.Classes.Municipality.cache;
             }
         };

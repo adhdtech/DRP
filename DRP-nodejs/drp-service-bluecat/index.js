@@ -603,27 +603,34 @@ class BlueCatManager extends DRP_Service {
             "refreshConfigs": async function () {
                 return thisBcMgr.RefreshConfigs();
             },
-            "getEntityByName": async (cmdObj) => {
+            /**
+             * Get Entity by name
+             * @param {Object} paramsObj getEntityByName parameters
+             * @param {number} paramsObj.parentId Parent object ID
+             * @param {string} paramsObj.name Name to search
+             * @param {string} paramsObj.type Type of object
+             */
+            "getEntityByName": async (paramsObj) => {
                 let methodParams = ['parentId', 'name', 'type'];
-                let params = thisBcMgr.GetParams(cmdObj, methodParams);
+                let params = thisBcMgr.GetParams(paramsObj, methodParams);
                 let returnObj = null;
 
                 if (params.parentId && params.name && params.type) returnObj = await thisBcMgr.activeMember.GetEntityByName(params.parentId, params.name, params.type)
                 else returnObj = { err: `Required params: ${methodParams}`}
                 return returnObj;
             },
-            "getEntities": async (cmdObj) => {
+            "getEntities": async (paramsObj) => {
                 let methodParams = ['parentId', 'type', 'start', 'count'];
-                let params = thisBcMgr.GetParams(cmdObj, methodParams);
+                let params = thisBcMgr.GetParams(paramsObj, methodParams);
                 let returnObj = null;
 
                 if (params.parentId && params.type && params.count) returnObj = await thisBcMgr.activeMember.GetEntities(params.parentId, params.type, params.start, params.count)
                 else returnObj = { err: `Required params: ${methodParams}` }
                 return returnObj;
             },
-            "resizeRange": async (cmdObj) => {
+            "resizeRange": async (paramsObj) => {
                 let methodParams = ['objectId', 'range', 'convertOrphanedIPAddressesTo'];
-                let params = thisBcMgr.GetParams(cmdObj, methodParams);
+                let params = thisBcMgr.GetParams(paramsObj, methodParams);
                 let returnObj = {
                     err: null,
                     msg: null
@@ -635,101 +642,82 @@ class BlueCatManager extends DRP_Service {
                 else returnObj.err = `Required params: ${methodParams}`;
                 return returnObj;
             },
-            "splitIP4Network": async (cmdObj) => {
+            "splitIP4Network": async (paramsObj) => {
                 let methodParams = ['networkId', 'numberOfParts', 'options'];
-                let params = thisBcMgr.GetParams(cmdObj, methodParams);
+                let params = thisBcMgr.GetParams(paramsObj, methodParams);
                 let returnObj = null;
 
                 if (params.networkId && params.numberOfParts && params.options) returnObj = await thisBcMgr.activeMember.SplitIP4Network(params.networkId, params.numberOfParts, params.options)
                 else returnObj = { err: `Required params: ${methodParams}` }
                 return returnObj;
             },
-            "getIP4Address": async (cmdObj) => {
-                let ipAddress = null;
+            "getIP4Address": async (paramsObj) => {
                 let returnObj = null;
-                if (cmdObj.pathList && cmdObj.pathList.length >= 1) {
-                    ipAddress = cmdObj.pathList[0];
-                }
-                if (cmdObj.ipAddress) {
-                    ipAddress = cmdObj.ipAddress;
-                }
-                if (ipAddress) returnObj = await thisBcMgr.activeMember.GetIP4Address(thisBcMgr.activeMember.config.ConfigurationID, ipAddress);
+                let methodParams = ['ipAddress'];
+                let params = thisBcMgr.GetParams(paramsObj, methodParams);
+
+                if (params.ipAddress) returnObj = await thisBcMgr.activeMember.GetIP4Address(thisBcMgr.activeMember.config.ConfigurationID, params.ipAddress);
                 return returnObj;
             },
-            "getIPRangedByIP": async function (cmdObj) {
+            "getIPRangedByIP": async function (paramsObj) {
                 let methodParams = ['ipAddress'];
-                let params = thisBcMgr.GetParams(cmdObj, methodParams);
+                let params = thisBcMgr.GetParams(paramsObj, methodParams);
                 let returnObj = null;
 
                 if (params.ipAddress) returnObj = thisBcMgr.activeMember.GetIPRangedByIP(thisBcMgr.activeMember.config.ConfigurationID, params.ipAddress)
                 else returnObj = { err: `Required params: ${methodParams}` };
                 return returnObj;
             },
-            "getNextAvailableIP": async function (cmdObj) {
-                let ipAddress = null;
+            "getNextAvailableIP": async function (paramsObj) {
                 let returnObj = null;
-                if (cmdObj.pathList && cmdObj.pathList.length >= 1) {
-                    ipAddress = cmdObj.pathList[0];
-                }
-                if (cmdObj.ipAddress) {
-                    ipAddress = cmdObj.ipAddress;
-                }
-                let networkObj = await thisBcMgr.activeMember.GetIPRangedByIP(thisBcMgr.activeMember.config.ConfigurationID, ipAddress);
+                let methodParams = ['ipAddress'];
+                let params = thisBcMgr.GetParams(paramsObj, methodParams);
+                let networkObj = await thisBcMgr.activeMember.GetIPRangedByIP(thisBcMgr.activeMember.config.ConfigurationID, params.ipAddress);
                 if (networkObj && networkObj.id) {
                     returnObj = await thisBcMgr.activeMember.GetNextAvailableIP4Address(networkObj.id);
                 }
                 return returnObj;
             },
-            "assignIP4Address": async function (cmdObj) {
-                let ipAddress = null;
-                let hostName = "";
-                let createARecord = false;
+            "assignIP4Address": (paramsObj) => {
                 let returnObj = null;
-                if (cmdObj.pathList && cmdObj.pathList.length >= 1) {
-                    ipAddress = cmdObj.pathList[0];
-                    hostName = cmdObj.pathList[1];
-                    if (cmdObj.pathList[2]) createARecord = true;
-                }
-                if (cmdObj.ipAddress) {
-                    ipAddress = cmdObj.ipAddress;
-                    if (cmdObj.hostName) hostName = cmdObj.hostName;
-                    if (cmdObj.createARecord) createARecord = true;
-                }
-                if (ipAddress) returnObj = await thisBcMgr.activeMember.AssignIP4Address(thisBcMgr.activeMember.config.ConfigurationID, ipAddress, hostName, createARecord);
+                let methodParams = ['ipAddress', 'hostName','createARecord'];
+                let params = thisBcMgr.GetParams(paramsObj, methodParams);
+
+                if (params.ipAddress) returnObj = await thisBcMgr.activeMember.AssignIP4Address(thisBcMgr.activeMember.config.ConfigurationID, params.ipAddress, params.hostName, thisBcMgr.DRPNode.IsTrue(params.createARecord));
                 return returnObj;
             },
-            "unassignIP4Address": async function (cmdObj) {
+            "unassignIP4Address": async function (paramsObj) {
                 let ipAddress = null;
                 let hostName = "";
                 let returnObj = null;
-                if (cmdObj.pathList && cmdObj.pathList.length >= 1) {
-                    ipAddress = cmdObj.pathList[0];
-                    hostName = cmdObj.pathList[1];
+                if (paramsObj.pathList && paramsObj.pathList.length >= 1) {
+                    ipAddress = paramsObj.pathList[0];
+                    hostName = paramsObj.pathList[1];
                 }
-                if (cmdObj.ipAddress) {
-                    ipAddress = cmdObj.ipAddress;
-                    if (cmdObj.hostName) hostName = cmdObj.hostName;
+                if (paramsObj.ipAddress) {
+                    ipAddress = paramsObj.ipAddress;
+                    if (paramsObj.hostName) hostName = paramsObj.hostName;
                 }
                 if (ipAddress) returnObj = await thisBcMgr.activeMember.UnassignIP4Address(thisBcMgr.activeMember.config.ConfigurationID, ipAddress, hostName);
                 return returnObj;
             },
-            "addAliasRecord": async function (cmdObj) {
+            "addAliasRecord": async function (paramsObj) {
                 let viewName = null;
                 let aliasFQDN = null;
                 let targetFQDN = null;
                 let ttl = null;
 
                 let returnObj = null;
-                if (cmdObj.pathList && cmdObj.pathList.length >= 1) {
-                    viewName = cmdObj.pathList[0];
-                    aliasFQDN = cmdObj.pathList[1];
-                    targetFQDN = cmdObj.pathList[2];
-                    ttl = cmdObj.pathList[3];
+                if (paramsObj.pathList && paramsObj.pathList.length >= 1) {
+                    viewName = paramsObj.pathList[0];
+                    aliasFQDN = paramsObj.pathList[1];
+                    targetFQDN = paramsObj.pathList[2];
+                    ttl = paramsObj.pathList[3];
                 }
-                if (cmdObj.viewName) viewName = cmdObj.viewName;
-                if (cmdObj.aliasFQDN) aliasFQDN = cmdObj.aliasFQDN;
-                if (cmdObj.targetFQDN) targetFQDN = cmdObj.targetFQDN;
-                if (cmdObj.ttl) ttl = cmdObj.ttl;
+                if (paramsObj.viewName) viewName = paramsObj.viewName;
+                if (paramsObj.aliasFQDN) aliasFQDN = paramsObj.aliasFQDN;
+                if (paramsObj.targetFQDN) targetFQDN = paramsObj.targetFQDN;
+                if (paramsObj.ttl) ttl = paramsObj.ttl;
 
                 if (viewName && aliasFQDN && targetFQDN) {
                     returnObj = await thisBcMgr.activeMember.AddAliasRecord(viewName, aliasFQDN, targetFQDN, ttl);
@@ -765,45 +753,45 @@ class BlueCatManager extends DRP_Service {
                 thisBcMgr.DRPNode.log(`Found ${totalIPAddresses} ip records`);
                 return returnNetworkArray;
             },
-            "getFQDNRecord": async function (cmdObj) {
+            "getFQDNRecord": async function (paramsObj) {
                 let viewName = null;
                 let fqdn = null;
                 let returnObj = null;
-                if (cmdObj.pathList && cmdObj.pathList.length >= 2) {
-                    viewName = cmdObj.pathList[0];
-                    fqdn = cmdObj.pathList[1];
+                if (paramsObj.pathList && paramsObj.pathList.length >= 2) {
+                    viewName = paramsObj.pathList[0];
+                    fqdn = paramsObj.pathList[1];
                 }
-                if (cmdObj.viewName && cmdObj.fqdn) {
-                    viewName = cmdObj.viewName;
-                    fqdn = cmdObj.fqdn;
+                if (paramsObj.viewName && paramsObj.fqdn) {
+                    viewName = paramsObj.viewName;
+                    fqdn = paramsObj.fqdn;
                 }
                 if (viewName && fqdn) returnObj = await thisBcMgr.activeMember.GetFQDNRecord(viewName, fqdn);
                 else returnObj = "Must provide viewName and fqdn";
                 return returnObj;
             },
-            "getLinkedEntities": async function (cmdObj) {
+            "getLinkedEntities": async function (paramsObj) {
                 let entityId = null;
                 let type = null;
                 let returnObj = null;
-                if (cmdObj.pathList && cmdObj.pathList.length >= 2) {
-                    entityId = cmdObj.pathList[0];
-                    type = cmdObj.pathList[1];
+                if (paramsObj.pathList && paramsObj.pathList.length >= 2) {
+                    entityId = paramsObj.pathList[0];
+                    type = paramsObj.pathList[1];
                 }
-                if (cmdObj.entityId && cmdObj.type) {
-                    entityId = cmdObj.entityId;
-                    type = cmdObj.type;
+                if (paramsObj.entityId && paramsObj.type) {
+                    entityId = paramsObj.entityId;
+                    type = paramsObj.type;
                 }
                 if (entityId && type) returnObj = await thisBcMgr.activeMember.GetLinkedEntities(entityId, type);
                 return returnObj;
             },
-            "updateObject": async function (cmdObj) {
+            "updateObject": async function (paramsObj) {
                 let returnObj = {
                     err: null,
                     msg: null
                 };
 
                 let methodParams = ['updateObj'];
-                let params = thisBcMgr.GetParams(cmdObj, methodParams);
+                let params = thisBcMgr.GetParams(paramsObj, methodParams);
 
                 if (!params.updateObj) {
                     returnObj.err = "param updateObj not provided";
@@ -825,26 +813,26 @@ class BlueCatManager extends DRP_Service {
                 }
                 return returnObj;
             },
-            "getEntityByID": async (cmdObj) => {
+            "getEntityByID": async (paramsObj) => {
                 let entityId = null;
                 let returnObj = null;
-                if (cmdObj.pathList && cmdObj.pathList.length >= 1) {
-                    entityId = cmdObj.pathList[0];
+                if (paramsObj.pathList && paramsObj.pathList.length >= 1) {
+                    entityId = paramsObj.pathList[0];
                 }
-                if (cmdObj.entityId) {
-                    entityId = cmdObj.entityId;
+                if (paramsObj.entityId) {
+                    entityId = paramsObj.entityId;
                 }
                 if (entityId) returnObj = await thisBcMgr.activeMember.GetEntityByID(entityId);
                 return returnObj;
             },
-            "deployEntityId": async (cmdObj) => {
+            "deployEntityId": async (paramsObj) => {
                 let entityId = null;
                 let returnObj = null;
-                if (cmdObj.pathList && cmdObj.pathList.length >= 1) {
-                    entityId = cmdObj.pathList[0];
+                if (paramsObj.pathList && paramsObj.pathList.length >= 1) {
+                    entityId = paramsObj.pathList[0];
                 }
-                if (cmdObj.entityId) {
-                    entityId = cmdObj.entityId;
+                if (paramsObj.entityId) {
+                    entityId = paramsObj.entityId;
                 }
                 if (entityId) {
                     thisBcMgr.DeployObjectId(entityId); //await thisBcMgr.activeMember.SelectiveDeploy([entityId]);

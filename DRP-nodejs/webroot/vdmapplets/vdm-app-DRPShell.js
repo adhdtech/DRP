@@ -479,7 +479,7 @@ class DRPShell {
                     let cmdName = rpcRegexMatch[2];
                     let paramsString = rpcRegexMatch[3] || "";
                     let params = {
-                        __method: "exec"
+                        __verb: "exec"
                     };
                     try {
                         let parsedValue = JSON.parse(paramsString);
@@ -488,7 +488,7 @@ class DRPShell {
                             throw { message: `Expected an object, received a ${constructorType}` };
                         }
                         params = parsedValue;
-                        params.__method = "exec";
+                        params.__verb = "exec";
                     }
                     catch (ex) {
                         if (paramsString.length > 0) {

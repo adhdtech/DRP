@@ -27,8 +27,8 @@ class MunicipalityService extends DRP_Service {
 
         // Define global methods
         this.ClientCmds = {
-            payPropertyTaxes: async (cmdObj) => {
-                let params = DRP_Service.prototype.GetParams(cmdObj, ['accountId', 'amountToPay']);
+            payPropertyTaxes: async (paramsObj) => {
+                let params = thisService.GetParams(paramsObj, ['accountId', 'amountToPay']);
                 if (!params.acctID || !params.amountToPay) {
                     throw new DRP_CmdError(`Must provide [accountId, amountToPay]`, DRP_ErrorCode.BADREQUEST, "resolve");
                 }

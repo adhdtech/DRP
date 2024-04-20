@@ -1,6 +1,6 @@
 'use strict';
 
-const DRP_MethodParams = require("./methodparams");
+const { DRP_MethodParams, DRP_GetParams } = require("./params");
 const UMLClass = require('./uml').Class;
 //const DRP_Node = require('./node');
 
@@ -27,6 +27,7 @@ class DRP_Service {
     constructor(serviceName, drpNode, type, instanceID, sticky, priority, weight, zone, scope, dependencies, streams, status) {
         this.serviceName = serviceName;
         this.DRPNode = drpNode;
+        this.GetParams = DRP_GetParams;
         this.ClientCmds = {};
         /** @type Object.<string,UMLClass> */
         this.Classes = {};
@@ -95,43 +96,6 @@ class DRP_Service {
                 targetServiceInstanceID: peerServiceID
             });
         }
-    }
-
-    /**
-     * Get parameters for Service Method
-     * @param {DRP_MethodParams} params Parameters object
-     * @param {string[]} paramNames Ordered list of parameters to extract
-     * @returns {object}
-     */
-    GetParams(params, paramNames) {
-        /*
-         * Parameters can be passed three ways:
-         *   - Ordered list of remaining path elements (params.__pathList[paramNames[x]])
-         *   - POST or PUT body (params.payload.myVar)
-         *   - Directly in params (params.myVar)
-        */
-        let returnObj = {};
-        if (!paramNames || !Array.isArray(paramNames)) return returnObj;
-        for (let i = 0; i < paramNames.length; i++) {
-            returnObj[paramNames[i]] = null;
-            // First, see if the parameters were part of the remaining path (CLI or REST)
-            if (params.__pathList && Array.isArray(params.__pathList)) {
-                if (typeof params.__pathList[i] !== 'undefined') {
-                    returnObj[paramNames[i]] = params.__pathList[i];
-                }
-            }
-
-            // Second, see if the parameters were passed in the payload (REST body)
-            if (params.__payload && typeof params.__payload[paramNames[i]] !== 'undefined') {
-                returnObj[paramNames[i]] = params.__payload[paramNames[i]];
-            }
-
-            // Third, see if the parameters were passed directly in the params (DRP Exec)
-            if (typeof params[paramNames[i]] !== 'undefined') {
-                returnObj[paramNames[i]] = params[paramNames[i]];
-            }
-        }
-        return returnObj;
     }
 }
 

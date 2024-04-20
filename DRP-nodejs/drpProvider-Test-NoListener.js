@@ -28,7 +28,11 @@ myNode.RegistryUrl = registryUrl;
 myNode.ConnectToMesh(async () => {
 
     // Add a test service
-    myNode.AddService(new TestService(serviceName, myNode, priority, weight, scope));
+    //myNode.AddService(new TestService(serviceName, myNode, priority, weight, scope));
+    let onMsg = async (msg) => {
+        console.log(msg);
+    }
+    myNode.Subscribe("TestStream", "global", null, null, null, onMsg, null);
 
 });
 

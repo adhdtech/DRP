@@ -64,13 +64,18 @@ class DRP_Subscriber {
         this.topicName = topicName;
         this.scope = scope || "local";
         this.filter = filter || null;
-        this.targetNodeID = targetNodeID;
+        this.targetNodeID = targetNodeID || null;
         this.singleInstance = singleInstance;
         this.sendFunction = sendFunction;
-        this.sendFailCallback = sendFailCallback;
+        this.sendFailCallback = sendFailCallback || null;
         /** @type {Set<DRP_SubscribableSource>} */
         this.subscribedTo = new Set();
         this.connectingToTarget = false;
+
+        // If a specific NodeID is set, override the scope to local
+        if (targetNodeID) {
+            this.scope = "local";
+        }
 
         // If a sendFailCallback is not specified, execute Terminate by default
         if (!sendFailCallback || typeof this.sendFailCallback !== 'function') {
