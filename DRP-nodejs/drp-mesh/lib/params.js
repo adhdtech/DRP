@@ -42,7 +42,8 @@ function DRP_GetParams(paramsObj, paramNames) {
     */
     let returnObj = {};
     if (!paramNames || !Array.isArray(paramNames)) return returnObj;
-    for (let thisParamName of paramNames) {
+    for (let i = 0; i < paramNames.length; i++) {
+        let thisParamName = paramNames[i];
         returnObj[thisParamName] = null;
         // First, see if the parameters were part of the remaining path (CLI or REST)
         if (paramsObj.__pathList && Array.isArray(paramsObj.__pathList)) {

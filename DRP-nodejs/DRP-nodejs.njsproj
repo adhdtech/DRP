@@ -106,6 +106,7 @@
     <Content Include="drpProvider-NetScaler.js" />
     <Content Include="drpProvider-Test-Authenticator.js" />
     <Content Include="drpProvider-Municipality.js" />
+    <Content Include="drpProvider-Sample.js" />
     <Content Include="drpProvider-Webex.js" />
     <Content Include="drpProvider-Test-PublicDirectory.js" />
     <Content Include="drpSidecar.js" />
