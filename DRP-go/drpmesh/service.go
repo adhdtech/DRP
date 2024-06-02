@@ -3,7 +3,7 @@ package drpmesh
 // Service is used to define a DRP service
 type Service struct {
 	ServiceName  string
-	drpNode      *Node
+	DRPNode      *Node
 	Type         string
 	InstanceID   string
 	Sticky       bool
@@ -41,9 +41,13 @@ func (ds Service) GetDefinition() ServiceDefinition {
 // PeerBroadcast sends a message to service peers
 func (ds Service) PeerBroadcast(method string, params interface{}) {
 	// Get list of peer service IDs
-	var peerServiceIDList = ds.drpNode.TopologyTracker.FindServicePeers(ds.InstanceID)
+	var peerServiceIDList = ds.DRPNode.TopologyTracker.FindServicePeers(ds.InstanceID)
 	for _, peerServiceID := range peerServiceIDList {
-		ds.drpNode.ServiceCmd(ds.ServiceName, method, params, nil, &peerServiceID, false, false, nil)
+
+		execParams := &ServiceCmd_ExecParams{}
+		execParams.targetServiceInstanceID = &peerServiceID
+
+		ds.DRPNode.ServiceCmd(ds.ServiceName, method, params, *execParams)
 	}
 }
 

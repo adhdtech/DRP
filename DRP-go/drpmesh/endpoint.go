@@ -155,18 +155,19 @@ func (e *Endpoint) SendReply(replyToken *int, returnStatus int, returnPayload in
 
 // ProcessCmd processes an inbound packet as a Cmd
 func (e *Endpoint) ProcessCmd(msgIn *Cmd) {
-	cmdResults := make(map[string]interface{})
-	cmdResults["status"] = 0
-	cmdResults["output"] = nil
-	if _, ok := e.EndpointCmds[*msgIn.Method]; ok {
-		// Execute command
-		e.drpNode.Log(fmt.Sprintf("Executing method '%s'...", *msgIn.Method), true)
-		cmdResults["output"] = e.EndpointCmds[*msgIn.Method](msgIn.Params, e, msgIn.Token)
-		cmdResults["status"] = 1
-	} else {
-		cmdResults["output"] = "Endpoint does not have this method"
-		e.drpNode.Log(fmt.Sprintf("Remote Endpoint tried to execute unrecognized method '%s'", *msgIn.Method), true)
+	execParams := &ServiceCmd_ExecParams{}
+	if msgIn.RouteOptions != nil && msgIn.RouteOptions.TgtNodeID != nil {
+		execParams.targetNodeID = msgIn.RouteOptions.TgtNodeID
 	}
+	if msgIn.ServiceInstanceID != nil {
+		execParams.targetServiceInstanceID = msgIn.ServiceInstanceID
+	}
+	execParams.targetServiceInstanceID = msgIn.ServiceInstanceID
+	execParams.callingEndpoint = e
+
+	cmdResults := make(map[string]interface{})
+	cmdResults["status"] = 1
+	cmdResults["output"] = e.drpNode.ServiceCmd(*msgIn.ServiceName, *msgIn.Method, msgIn.Params, *execParams)
 	e.SendReply(msgIn.Token, cmdResults["status"].(int), cmdResults["output"])
 }
 

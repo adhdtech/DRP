@@ -119,8 +119,16 @@ GetObjFromPath
 VerifyConsumerConnection
 */
 
+type ServiceCmd_ExecParams struct {
+	targetNodeID            *string
+	targetServiceInstanceID *string
+	useControlPlane         bool
+	sendOnly                bool
+	callingEndpoint         EndpointInterface
+}
+
 // ServiceCmd is used to execute a command against a local or remote Service
-func (dn *Node) ServiceCmd(serviceName string, method string, params interface{}, targetNodeID *string, targetServiceInstanceID *string, useControlPlane bool, awaitResponse bool, callingEndpoint EndpointInterface) interface{} {
+func (dn *Node) ServiceCmd(serviceName string, method string, params interface{}, execParams ServiceCmd_ExecParams) interface{} {
 	thisNode := dn
 	baseErrMsg := "ERROR - "
 
@@ -130,13 +138,13 @@ func (dn *Node) ServiceCmd(serviceName string, method string, params interface{}
 	}
 
 	// If no targetNodeID was provided, we need to find a record in the ServiceTable
-	if targetNodeID == nil {
+	if execParams.targetNodeID == nil {
 
 		// If no targetServiceInstanceID was provided, we should attempt to locate a service instance
 
 		var targetServiceRecord *ServiceTableEntry = nil
 
-		if targetServiceInstanceID == nil {
+		if execParams.targetServiceInstanceID == nil {
 			// Update to use the DRP_TopologyTracker object
 			targetServiceRecord = thisNode.TopologyTracker.FindInstanceOfService(&serviceName, nil, nil, nil)
 
@@ -146,12 +154,12 @@ func (dn *Node) ServiceCmd(serviceName string, method string, params interface{}
 			}
 
 			// Assign target Node & Instance IDs
-			targetServiceInstanceID = targetServiceRecord.InstanceID
-			targetNodeID = targetServiceRecord.NodeID
+			execParams.targetServiceInstanceID = targetServiceRecord.InstanceID
+			execParams.targetNodeID = targetServiceRecord.NodeID
 
 			thisNode.Log(fmt.Sprintf("Best instance of service [%s] is [%s] on node [%s]", serviceName, *targetServiceRecord.InstanceID, *targetServiceRecord.NodeID), true)
 		} else {
-			targetServiceRecord = thisNode.TopologyTracker.ServiceTable.GetEntry(*targetServiceInstanceID).(*ServiceTableEntry)
+			targetServiceRecord = thisNode.TopologyTracker.ServiceTable.GetEntry(*execParams.targetServiceInstanceID).(*ServiceTableEntry)
 
 			// If no match is found then return null
 			if targetServiceRecord == nil {
@@ -159,22 +167,22 @@ func (dn *Node) ServiceCmd(serviceName string, method string, params interface{}
 			}
 
 			// Assign target Node
-			targetNodeID = targetServiceRecord.NodeID
+			execParams.targetNodeID = targetServiceRecord.NodeID
 		}
 	}
 
 	// We don't have a target NodeID
-	if targetNodeID == nil || !thisNode.TopologyTracker.NodeTable.HasEntry(*targetNodeID) {
+	if execParams.targetNodeID == nil || !thisNode.TopologyTracker.NodeTable.HasEntry(*execParams.targetNodeID) {
 		return nil
 	}
 
 	// Where is the service?
-	if *targetNodeID == thisNode.NodeID {
+	if *execParams.targetNodeID == thisNode.NodeID {
 		// Execute locally
 		var localServiceProvider map[string]EndpointMethod = nil
-		if serviceName == "DRP" && callingEndpoint != nil {
+		if serviceName == "DRP" && execParams.callingEndpoint != nil {
 			// If the service is DRP and the caller is a remote endpoint, execute from that caller's EndpointCmds
-			localServiceProvider = callingEndpoint.GetEndpointCmds()
+			localServiceProvider = execParams.callingEndpoint.GetEndpointCmds()
 		} else {
 			if _, ok := thisNode.Services[serviceName]; ok {
 				localServiceProvider = thisNode.Services[serviceName].ClientCmds
@@ -191,42 +199,42 @@ func (dn *Node) ServiceCmd(serviceName string, method string, params interface{}
 			return nil
 		}
 
-		if awaitResponse {
-			results := localServiceProvider[method](params.(*CmdParams), callingEndpoint, nil)
-			return results
+		if execParams.sendOnly {
+			localServiceProvider[method](params.(*CmdParams), execParams.callingEndpoint, nil)
+			return nil
 		}
 
-		localServiceProvider[method](params.(*CmdParams), callingEndpoint, nil)
-		return nil
+		results := localServiceProvider[method](params.(*CmdParams), execParams.callingEndpoint, nil)
+		return results
 	}
 
 	// Execute on another Node
-	routeNodeID := targetNodeID
+	routeNodeID := execParams.targetNodeID
 	routeOptions := RouteOptions{}
 
-	if !useControlPlane {
+	if !execParams.useControlPlane {
 		// Make sure either the local Node or remote Node are listening; if not, route via control plane
 		localNodeEntry := thisNode.TopologyTracker.NodeTable.GetEntry(thisNode.NodeID).(*NodeTableEntry)
-		remoteNodeEntry := thisNode.TopologyTracker.NodeTable.GetEntry(*targetNodeID).(*NodeTableEntry)
+		remoteNodeEntry := thisNode.TopologyTracker.NodeTable.GetEntry(*execParams.targetNodeID).(*NodeTableEntry)
 
 		if remoteNodeEntry == nil {
-			return fmt.Sprintf("Tried to contact Node[%s], not in NodeTable", *targetNodeID)
+			return fmt.Sprintf("Tried to contact Node[%s], not in NodeTable", *execParams.targetNodeID)
 		}
 
 		if localNodeEntry.NodeURL == nil && remoteNodeEntry.NodeURL == nil {
 			// Neither the local node nor the remote node are listening, use control plane
-			useControlPlane = true
+			execParams.useControlPlane = true
 		}
 	}
 
-	if useControlPlane {
+	if execParams.useControlPlane {
 		// We want to use to use the control plane instead of connecting directly to the target
 		if thisNode.ConnectedToControlPlane {
-			routeNodeID = thisNode.TopologyTracker.GetNextHop(*targetNodeID)
-			routeOptions = RouteOptions{&thisNode.NodeID, targetNodeID, []string{}}
+			routeNodeID = thisNode.TopologyTracker.GetNextHop(*execParams.targetNodeID)
+			routeOptions = RouteOptions{&thisNode.NodeID, execParams.targetNodeID, []string{}}
 		} else {
 			// We're not connected to a Registry; fallback to VerifyNodeConnection
-			routeNodeID = targetNodeID
+			routeNodeID = execParams.targetNodeID
 		}
 	}
 
@@ -238,12 +246,13 @@ func (dn *Node) ServiceCmd(serviceName string, method string, params interface{}
 		return errMsg
 	}
 
-	if awaitResponse {
-		cmdResponse := routeNodeConnection.SendCmdAwait(serviceName, method, params, &routeOptions, targetServiceInstanceID)
-		return cmdResponse.Payload
+	if execParams.sendOnly {
+		routeNodeConnection.SendCmd(serviceName, method, params, nil, &routeOptions, execParams.targetServiceInstanceID)
+		return nil
 	}
-	routeNodeConnection.SendCmd(serviceName, method, params, nil, &routeOptions, targetServiceInstanceID)
-	return nil
+
+	cmdResponse := routeNodeConnection.SendCmdAwait(serviceName, method, params, &routeOptions, execParams.targetServiceInstanceID)
+	return cmdResponse.Payload
 }
 
 // TCPPingResults contains the TCP ping results to a given host and port
@@ -425,20 +434,28 @@ func (dn *Node) ApplyGenericEndpointMethods(targetEndpoint EndpointInterface) {
 		});
 	*/
 	targetEndpoint.RegisterMethod("getRegistry", func(params *CmdParams, callingEndpoint EndpointInterface, token *int) interface{} {
-		var reqNodeID *string = nil
+		var reqNodeID string = ""
 		if params != nil {
 			valueJSON := (*params)["reqNodeID"]
 			if valueJSON != nil {
-				json.Unmarshal(*valueJSON, reqNodeID)
+				json.Unmarshal(*valueJSON, &reqNodeID)
 			}
 		}
-		return thisNode.TopologyTracker.GetRegistry(reqNodeID)
+		return thisNode.TopologyTracker.GetRegistry(&reqNodeID)
+	})
+
+	targetEndpoint.RegisterMethod("getServiceDefinition", func(params *CmdParams, callingEndpoint EndpointInterface, token *int) interface{} {
+		var serviceName string = ""
+		if params != nil {
+			valueJSON := (*params)["serviceName"]
+			if valueJSON != nil {
+				json.Unmarshal(*valueJSON, &serviceName)
+			}
+		}
+		//realServiceName := serviceName
+		return thisNode.Services[serviceName].GetDefinition()
 	})
 	/*
-		targetEndpoint.RegisterMethod("getServiceDefinition", (...args) => {
-			return thisNode.GetServiceDefinition(...args);
-		});
-
 		targetEndpoint.RegisterMethod("getServiceDefinitions", async function (...args) {
 			return await thisNode.GetServiceDefinitions(...args);
 		});
