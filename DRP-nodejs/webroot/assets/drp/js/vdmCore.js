@@ -69,7 +69,31 @@ class VDMDesktop {
         <span class="vdmled"></span>
     </div>
 </div>
-<div class="vdmWindows">
+<div class="vdmWindows"></div>
+<div class="loginPopover">
+    <div class="loginForm">
+    <form>
+        <div class="row">
+            <div class="cell">Username</div>
+        </div>
+        <div class="row">
+            <div class="cell"><input name="username"></div>
+        </div>
+        <div class="row">
+            <div class="cell">Password</div>
+        </div>
+        <div class="row">
+            <div class="cell"><input name="password" type="password"></div>
+        </div>
+        <div class="row">
+            <div class="cell response"></div>
+        </div>
+        <div class="row">
+            <div class="cell"><button name="submit" type="button" class="login">Login</button></div>
+        </div>
+    </form>
+    </div>
+</div>
 `;
 
         // Assign major elements
@@ -79,6 +103,12 @@ class VDMDesktop {
         this.vdmStatusLed = this.vdmDiv.querySelector(".vdmled");
         this.vdmWindowsDiv = this.vdmDiv.querySelector(".vdmWindows");
         this.vdmTopBarMenuUL = this.vdmTopBarDiv.querySelector(".dropMenu");
+        this.loginPopoverDiv = this.vdmDiv.querySelector(".loginPopover");
+        this.loginFormDiv = this.vdmDiv.querySelector(".loginForm");
+        this.loginUserInput = this.loginFormDiv.querySelector("input[name = 'username']");
+        this.loginPassInput = this.loginFormDiv.querySelector("input[name = 'password']");
+        this.loginButton = this.loginFormDiv.querySelector("button[name = 'submit']");
+        this.loginResponseDiv = this.loginFormDiv.querySelector(".response");
 
         // Set Title
         this.SetTitle(vdmTitle);
