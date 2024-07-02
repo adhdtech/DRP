@@ -3,7 +3,6 @@ const DRP_Service = require('drp-mesh').Service;
 const express = require('express');
 const Express_Application = express.application;
 const { DRP_CmdError, DRP_ErrorCode } = require('drp-mesh').Packet;
-const basicAuth = require('express-basic-auth');
 const fs = require('fs').promises;
 
 class VDMAppletProfile {
@@ -58,32 +57,11 @@ class VDMServer extends DRP_Service {
         this.desktopTitle = desktopTitle || "VDM Desktop";
         this.expressApp.use(express.static(clientDirectory));
 
-        // Define Authorizer
-        let asyncAuthorizer = async function (username, password, cb) {
-            let authSucceeded = false;
-            let newToken = await thisVDMServer.DRPNode.GetConsumerToken(username, password);
-            if (newToken) authSucceeded = true;
-            return cb(null, authSucceeded);
-        };
-
         // Get default
-        this.expressApp.get('/', basicAuth({
-            challenge: true,
-            authorizer: asyncAuthorizer,
-            authorizeAsync: true,
-            unauthorizedResponse: (req) => {
-                return req.auth
-                    ? 'Credentials rejected'
-                    : 'No credentials provided';
-            }
-        }), (req, res) => {
-            // The authorizer only returns success/fail, so we need to do a dirty workaround - look for last token issued for this user
-            let userToken = thisVDMServer.DRPNode.GetLastTokenForUser(req.auth.user);
+        this.expressApp.get('/', (req, res) => {
+            // Set Stric Transport Security header
+            res.setHeader('Strict-Transport-Security', 'max-age=31536000');
 
-            // Pass the x-api-token in a cookie for the WebSockets connection
-            res.cookie('x-api-token', userToken, {
-                expires: new Date(Date.now() + thisVDMServer.CookieTimeoutMinutes * 60000) // cookie will be removed after 5 minutes
-            });
             let userAgentString = req.headers['user-agent'];
             if (userAgentString.includes(" Quest") || req.query.forceVR) {
                 //res.sendFile("oculus.html", { "root": clientDirectory });

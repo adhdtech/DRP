@@ -85,20 +85,69 @@ class VDMServerAgent extends DRP_Client_Browser {
         };
     }
 
-    async OpenHandler(wsConn, req) {
+    ShowLogin() {
         let thisDRPClient = this;
-        console.log("VDM Client to server [" + thisDRPClient.wsTarget + "] opened");
+        thisDRPClient.vdmSession.loginPopoverDiv.style.display = 'block';
+        thisDRPClient.vdmSession.loginButton.onclick = (e) => {
+            thisDRPClient.SendLoginRequest();
+        }
 
-        this.wsConn = wsConn;
+        thisDRPClient.vdmSession.loginUserInput.onkeyup = (e) => {
+            if (e.keyCode === 13) {
+                thisDRPClient.SendLoginRequest();
+            }
+        }
+
+        thisDRPClient.vdmSession.loginPassInput.onkeyup = (e) => {
+            if (e.keyCode === 13) {
+                thisDRPClient.SendLoginRequest();
+            }
+        }
+
+        thisDRPClient.vdmSession.loginUserInput.focus()
+    }
+
+    HideLogin() {
+        this.vdmSession.loginPopoverDiv.style.display = 'none';
+    }
+
+    async SendLoginRequest() {
+        let thisDRPClient = this;
+
+        if (thisDRPClient.vdmSession.loginUserInput.value.length === 0) {
+            thisDRPClient.vdmSession.loginResponseDiv.innerHTML = `Must provide username`
+            thisDRPClient.vdmSession.loginUserInput.focus()
+            return
+        }
+
+        if (thisDRPClient.vdmSession.loginPassInput.value.length === 0) {
+            thisDRPClient.vdmSession.loginResponseDiv.innerHTML = `Must provide password`
+            thisDRPClient.vdmSession.loginPassInput.focus()
+            return
+        }
 
         let response = await thisDRPClient.SendCmd("DRP", "hello", {
-            "token": thisDRPClient.userToken,
+            "user": thisDRPClient.vdmSession.loginUserInput.value,
+            "pass": thisDRPClient.vdmSession.loginPassInput.value,
             "platform": thisDRPClient.platform,
             "userAgent": thisDRPClient.userAgent,
             "URL": thisDRPClient.URL
         }, true, null);
 
-        if (!response) window.location.reload();
+        if (!response) {
+            // Login failed, show error
+            thisDRPClient.vdmSession.loginResponseDiv.innerHTML = `Login failed`
+            return
+        }
+
+        // Login succeeded, proceed
+        thisDRPClient.HideLogin();
+
+        thisDRPClient.PopulateDesktop();
+    }
+
+    async PopulateDesktop() {
+        let thisDRPClient = this;
 
         thisDRPClient.vdmSession.SetStatusLight('green');
 
@@ -126,6 +175,17 @@ class VDMServerAgent extends DRP_Client_Browser {
         }
 
         thisDRPClient.vdmSession.PreloadAppletDependencies();
+    }
+
+    async OpenHandler(wsConn, req) {
+        let thisDRPClient = this;
+        //console.log("VDM Client to server [" + thisDRPClient.wsTarget + "] opened");
+
+        this.wsConn = wsConn;
+
+        thisDRPClient.vdmSession.SetStatusLight('yellow');
+
+        thisDRPClient.ShowLogin();
     }
 
     async CloseHandler(closeCode) {

@@ -1652,7 +1652,7 @@ class DRP_Node extends DRP_Securable {
                 targetServiceInstanceID = targetServiceRecord.InstanceID;
                 targetNodeID = targetServiceRecord.NodeID;
 
-                //if (thisNode.Debug) thisNode.log(`Best instance of service [${serviceName}] is [${targetServiceRecord.InstanceID}] on node [${targetServiceRecord.NodeID}]`, true);
+                //thisNode.log(`Best instance of service [${serviceName}] is [${targetServiceRecord.InstanceID}] on node [${targetServiceRecord.NodeID}]`, true);
             } else {
                 targetServiceRecord = thisNode.TopologyTracker.ServiceTable[targetServiceInstanceID];
 
@@ -1901,19 +1901,15 @@ class DRP_Node extends DRP_Securable {
 
             // Authentication function did not return successfully
             if (!authResponse) {
-                if (thisNode.Debug) {
-                    thisNode.log(`Failed to authenticate Consumer`);
-                    console.dir(declaration);
-                }
-                sourceEndpoint.Close();
-                return;
+                thisNode.log(`Failed to authenticate Consumer`, true);
+                //console.dir(declaration);
+                //sourceEndpoint.Close();
+                return null;
             }
 
             // Authentication 
-            if (thisNode.Debug) {
-                thisNode.log(`Authenticated Consumer`);
-                console.dir(authResponse);
-            }
+            thisNode.log(`Authenticated Consumer`, true);
+            //console.dir(authResponse);
 
             results = { status: "OK" };
 
@@ -3314,7 +3310,7 @@ class DRP_TopologyTracker {
 
             if (relayPacket) {
                 thisTopologyTracker.DRPNode.NodeEndpoints[targetNodeID].SendCmd("DRP", "topologyUpdate", topologyPacket, false, null);
-                if (thisNode.Debug) thisNode.log(`Relayed topology packet to node: [${targetNodeID}]`, true);
+                thisNode.log(`Relayed topology packet to node: [${targetNodeID}]`, true);
             } else {
                 if (targetNodeID !== thisNode.NodeID) {
                     //thisNode.log(`Not relaying packet to node[${targetNodeID}], roles ${thisTopologyTracker.NodeTable[targetNodeID].Roles}`);
@@ -3560,15 +3556,14 @@ class DRP_TopologyTracker {
             };
 
             bestServiceEntry = pick(candidateList);
-            if (thisNode.Debug) {
-                let qualifierText = "";
-                if (serviceName) qualifierText = `name[${serviceName}]`;
-                if (serviceType) {
-                    if (qualifierText.length !== 0) qualifierText = `${qualifierText}/`;
-                    qualifierText = `${qualifierText}type[${serviceType}]`;
-                }
-                thisNode.log(`Need service ${qualifierText}, randomly selected [${bestServiceEntry.InstanceID}]`, true);
+
+            let qualifierText = "";
+            if (serviceName) qualifierText = `name[${serviceName}]`;
+            if (serviceType) {
+                if (qualifierText.length !== 0) qualifierText = `${qualifierText}/`;
+                qualifierText = `${qualifierText}type[${serviceType}]`;
             }
+            thisNode.log(`Need service ${qualifierText}, randomly selected [${bestServiceEntry.InstanceID}]`, true);
         }
 
         return bestServiceEntry;
