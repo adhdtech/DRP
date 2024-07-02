@@ -618,6 +618,51 @@ textarea {
         border-top: 1px solid #BBB;
     }
 
+    .vdmWindow .vdmWindowData .stripeTable {
+        overflow-y: auto;
+    }
+
+        .vdmWindow .vdmWindowData .stripeTable table {
+            width: 100%;
+        }
+
+            .vdmWindow .vdmWindowData .stripeTable table thead {
+                display: table-header-group;
+            }
+
+                .vdmWindow .vdmWindowData .stripeTable table thead th {
+                    position: sticky;
+                    top: 0;
+                    background-color: #999999;
+                    line-height: 1;
+                    font-size: 11px;
+                    display: table-cell;
+                }
+
+                .vdmWindow .vdmWindowData .stripeTable table thead tr {
+                    display: table-row;
+                }
+
+            .vdmWindow .vdmWindowData .stripeTable table tr td {
+                line-height: 1;
+                font-size: 10px;
+                vertical-align: top;
+                display: table-cell;
+                user-select: text;
+            }
+
+                .vdmWindow .vdmWindowData .stripeTable table tr td span {
+                    padding: 3px;
+                }
+
+            .vdmWindow .vdmWindowData .stripeTable table tr:nth-child(odd) td {
+                background-color: #FFF;
+            }
+
+            .vdmWindow .vdmWindowData .stripeTable table tr:nth-child(even) td {
+                background-color: #EEE;
+            }
+
     .vdmWindow .vdmWindowFooter {
         position: absolute;
         bottom: 0;
@@ -692,6 +737,49 @@ textarea {
             .vdmWindow .vdmWindowPopover .popoverbox:focus {
                 outline-width: 0;
             }
+
+.loginPopover {
+    display: none;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    top: 0;
+    left: 0;
+    color: #444;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+    .loginPopover .loginForm {
+        position: absolute;
+        left: 50%;
+        top: 40%;
+        transform: translate(-50%, -50%);
+        -webkit-transform: translate(-50%, -50%);
+        background: #EEE;
+        display: table;
+        table-layout: fixed;
+        -webkit-border-radius: 10px;
+        -moz-border-radius: 10px;
+        border-radius: 10px;
+        padding: 10px;
+        font-size: 12px;
+    }
+
+        .loginPopover .loginForm .row {
+            display: table-row;
+        }
+
+        .loginPopover .loginForm .cell {
+            display: table-cell;
+            text-align: left;
+            padding: 2px;
+            vertical-align: middle;
+        }
+
+        .loginPopover .loginForm .response {
+            color: #D00;
+        }
 
 .btn-group > span > i:after {
     content: " ";
