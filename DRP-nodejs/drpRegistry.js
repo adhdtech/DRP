@@ -19,6 +19,7 @@ let meshKey = process.env.MESHKEY || "supersecretkey";
 let zoneName = process.env.ZONENAME || "MyZone";
 let debug = process.env.DEBUG || false;
 let testMode = process.env.TESTMODE || false;
+let rejectUnreachable = process.env.REJECTUNREACHABLE || false;
 
 // Set config
 /** @type {DRP_WebServerConfig} */
@@ -36,6 +37,7 @@ console.log(`Starting DRP Node`);
 let myNode = new DRP_Node(["Registry","Relay"], hostID, domainName, meshKey, zoneName, myServerConfig, drpWSRoute);
 myNode.Debug = debug;
 myNode.TestMode = testMode;
+myNode.RejectUnreachable = rejectUnreachable;
 myNode.ConnectToMesh();
 
 myNode.log(`Listening at: ${myNode.ListeningURL}`);

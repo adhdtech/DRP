@@ -6,6 +6,8 @@ set DEBUG=true
 set TESTMODE=true
 set USESWAGGER=true
 set AUTHENTICATORSERVICE=
+set REGISTRYURL=
+set REJECTUNREACHABLE=
 set STARTPARAMS=--trace-warnings
 start "Registry1" node %STARTPARAMS% drpRegistry.js
 timeout /T 1

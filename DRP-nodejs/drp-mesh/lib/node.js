@@ -72,6 +72,7 @@ class DRP_Node extends DRP_Securable {
     #debug
     #testMode
     #useSwagger
+    #rejectUnreachable
     /**
      * 
      * @param {string[]} nodeRoles Functional Roles ['Registry','Broker','Provider','Producer','Logger']
@@ -197,6 +198,10 @@ class DRP_Node extends DRP_Securable {
     /** @type boolean */
     get UseSwagger() { return this.#useSwagger }
     set UseSwagger(val) { this.#useSwagger = this.IsTrue(val) }
+
+    /** @type boolean */
+    get RejectUnreachable() { return this.#rejectUnreachable }
+    set RejectUnreachable(val) { this.#rejectUnreachable = this.IsTrue(val) }
 
     /**
      * Print message to stdout
@@ -1789,22 +1794,85 @@ class DRP_Node extends DRP_Securable {
      * @param {DRP_NodeDeclaration} declaration Node declaration to check
      * @returns {boolean} Successful [true/false]
      */
-    ValidateNodeDeclaration(declaration) {
+    async ValidateNodeDeclaration(declaration) {
         let thisNode = this;
-        let returnVal = false;
 
-        if (!declaration.NodeID) return false;
+        // Is the NodeID specified?
+        if (!declaration.NodeID) {
+            thisNode.log(`Rejecting declaration - no NodeID specified`, true);
+            return false;
+        }
 
         // Do the domains match?
-        if (!thisNode.DomainName && !declaration.DomainName || thisNode.DomainName === declaration.DomainName) {
-            // Do the domain keys match?
-            if (!thisNode.#MeshKey && !declaration.MeshKey || thisNode.#MeshKey === declaration.MeshKey) {
-                // Yes - allow the remote node to connect
-                returnVal = true;
+        let domainsMatch = (!thisNode.DomainName && !declaration.DomainName || thisNode.DomainName === declaration.DomainName);
+        if (!domainsMatch) {
+            thisNode.log(`Rejecting declaration from [${declaration.NodeID}] - DomainName doesn't match, local[${thisNode.DomainName}] remote[${declaration.DomainName}]`, true);
+            return false;
+        }
+
+        // Do the domainKeys match?
+        let meshKeysMatch = (!thisNode.#MeshKey && !declaration.MeshKey || thisNode.#MeshKey === declaration.MeshKey);
+        if (!meshKeysMatch) {
+            thisNode.log(`Rejecting declaration from [${declaration.NodeID}] - DomainName doesn't match, local[${thisNode.#MeshKey}] remote[${declaration.MeshKey}]`, true);
+            return false;
+        }
+
+        // If the peer has a NodeURL and RejectUnreachable is set, make sure it's reachable
+        if (declaration.NodeURL && thisNode.RejectUnreachable) {
+            try {
+                // Split NodeURL string into parts
+                let nodeURLRegex = /^(.*):\/\/([A-Za-z0-9\-\.]+)(?::([0-9]+))?([^?]+)?(?:\?(.*))?/;
+                let splitNodeURL = nodeURLRegex.exec(declaration.NodeURL);
+                let checkProtocol = splitNodeURL[1];
+                let checkHost = splitNodeURL[2];
+                let checkPort = splitNodeURL[3];
+
+                // Fail if no protocol or host found
+                if (!checkProtocol || !checkHost) {
+                    thisNode.log(`Rejecting declaration from [${declaration.NodeID}] - invalid NodeURL [${declaration.NodeURL}]`, true);
+                    return false;
+                }
+
+                // Assign port if not specified
+                if (!checkPort) {
+                    switch (checkProtocol) {
+                        case 'http':
+                        case 'ws':
+                            checkPort = 80;
+                            break;
+                        case 'https':
+                        case 'wss':
+                            checkPort = 443;
+                            break;
+                        default:
+                            // Unknown protocol
+                            thisNode.log(`Rejecting declaration from [${declaration.NodeID}] - invalid protocol [${checkProtocol}]`, true);
+                            return false;
+                    }
+                }
+
+                // Run TCP Ping check
+                let pingInfo = await tcpPing({
+                    address: checkHost,
+                    port: checkPort,
+                    timeout: 500,
+                    attempts: 2
+                });
+
+                if (!pingInfo.avg) {
+                    // No TCP Ping response (target unreachable)
+                    thisNode.log(`Rejecting declaration from [${declaration.NodeID}] - TCPPing shows closed to [${checkHost}:${checkPort}]`, true);
+                    return false;
+                }
+            }
+            catch (ex) {
+                // Cannot do TCP Ping against host:port (local system error)
+                thisNode.log(`Rejecting declaration from [${declaration.NodeID}] - could not execute TCPPing to [${checkHost}:${checkPort}]`, true);
+                return false;
             }
         }
 
-        return returnVal;
+        return true;
     }
 
     /**
@@ -1827,9 +1895,13 @@ class DRP_Node extends DRP_Securable {
             thisNode.log(`Remote node client sent Hello [${declaration.NodeID}]`, true);
 
             // Validate the remote node's domain and key (if applicable)
-            if (!thisNode.ValidateNodeDeclaration(declaration)) {
+            let isDeclarationValid = await thisNode.ValidateNodeDeclaration(declaration);
+            if (!isDeclarationValid) {
                 // The remote node did not offer a MeshKey or the key does not match
                 thisNode.log(`Node [${declaration.NodeID}] declaration could not be validated`);
+                if (thisNode.Debug) {
+                    console.dir(declaration);
+                }
                 sourceEndpoint.Close();
                 return null;
             }
