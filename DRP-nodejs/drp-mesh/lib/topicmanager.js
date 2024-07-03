@@ -1,6 +1,6 @@
 'use strict';
 
-const DRP_MethodParams = require('./params');
+const { DRP_MethodParams, DRP_GetParams } = require("./params");
 const { DRP_SubscribableSource, DRP_Subscriber } = require('./subscription');
 
 class DRP_TopicManager {
