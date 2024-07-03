@@ -133,8 +133,10 @@ class DRP_TopicManager_Topic extends DRP_SubscribableSource {
         let returnObj = null;
         let outputMsgOnly = false;
 
-        if (paramsObj && (paramsObj.outputMsgOnly && thisTopic.TopicManager.DRPNode.IsTrue(paramsObj.outputMsgOnly) || paramsObj.__pathList && paramsObj.__pathList.length > 0 && thisTopic.TopicManager.DRPNode.IsTrue(paramsObj.__pathList && paramsObj.__pathList[0]))) {
-            outputMsgOnly = true;
+        let params = DRP_GetParams(paramsObj, ['outputMsgOnly']);
+
+        if (params.outputMsgOnly) {
+            outputMsgOnly = thisTopic.TopicManager.DRPNode.IsTrue(params.outputMsgOnly)
         }
 
         if (outputMsgOnly) {
