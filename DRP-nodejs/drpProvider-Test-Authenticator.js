@@ -5,6 +5,8 @@ const DRP_AuthResponse = require('drp-mesh').Auth.DRP_AuthResponse;
 const DRP_Authenticator = require('drp-mesh').Auth.DRP_Authenticator;
 const os = require("os");
 
+require('dotenv').config()
+
 let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || "";
 let meshKey = process.env.MESHKEY || "supersecretkey";
