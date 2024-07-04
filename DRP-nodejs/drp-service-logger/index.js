@@ -1,8 +1,8 @@
 'use strict';
 
 const DRP_Service = require('drp-mesh').Service;
-const { DRP_MethodParams, DRP_GetParams } = require("./params");
-const { DRP_CmdError, DRP_ErrorCode } = require('drp-mesh/lib/packet');
+const { DRP_MethodParams, DRP_GetParams } = require('drp-mesh').Params;
+const { DRP_CmdError, DRP_ErrorCode } = require('drp-mesh').Packet;
 const MongoClient = require('mongodb').MongoClient;
 const MongoDB = require('mongodb').Db;
 
