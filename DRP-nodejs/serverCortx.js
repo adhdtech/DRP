@@ -34,7 +34,7 @@ let domainName = process.env.DOMAINNAME || "";
 let meshKey = process.env.MESHKEY || "supersecretkey";
 let zoneName = process.env.ZONENAME || "MyZone";
 let debug = process.env.DEBUG || false;
-let testMode = process.env.TESTMODE || false;
+let registrySet = process.env.REGISTRYSET || null;
 
 let s3Endpoint = process.env.S3ENDPOINT || null;
 let s3AccessKeyID = process.env.S3ACCESSKEYID || null;
@@ -480,7 +480,7 @@ let roleList = ["Broker", "Registry"];
 console.log(`Starting DRP Node`);
 let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myWebServerConfig, drpWSRoute);
 myNode.Debug = debug;
-myNode.TestMode = testMode;
+myNode.RegistrySet = registrySet;
 myNode.ConnectToMesh(async () => {
     // Test Authentication Service
     let myAuthenticator = new DRP_Authenticator("TestAuthenticator", myNode, 10, 10, "global", 1);

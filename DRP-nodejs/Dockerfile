@@ -33,6 +33,8 @@ COPY drpBroker.js .
 COPY drpConsumer.js .
 COPY drpLogger.js .
 COPY drpSidecar.js .
+COPY drpLinc.js .
+COPY lincTest.cfg .
 COPY drpProvider-Cache.js .
 COPY drpProvider-DocMgr.js .
 COPY drpProvider-Hive.js .

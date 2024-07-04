@@ -20,7 +20,7 @@ let meshKey = process.env.MESHKEY || "supersecretkey";
 let zoneName = process.env.ZONENAME || "MyZone";
 let registryUrl = process.env.REGISTRYURL || null;
 let debug = process.env.DEBUG || false;
-let testMode = process.env.TESTMODE || false;
+let registrySet = process.env.REGISTRYSET || null;
 let useSwagger = process.env.USESWAGGER || false;
 let authenticatorService = process.env.AUTHENTICATORSERVICE || null;
 
@@ -53,7 +53,7 @@ let roleList = ["Broker"];
 console.log(`Starting DRP Node`);
 let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName, myServerConfig, drpWSRoute);
 myNode.Debug = debug;
-myNode.TestMode = testMode;
+myNode.RegistrySet = registrySet;
 myNode.UseSwagger = useSwagger;
 myNode.AuthenticationServiceName = authenticatorService;
 myNode.RegistryUrl = registryUrl;

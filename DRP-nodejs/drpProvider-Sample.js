@@ -81,7 +81,7 @@ let registryUrl = process.env.REGISTRYURL || null;
 let debug = process.env.DEBUG || false;
 
 // (optional) Test Mode 
-let testMode = process.env.TESTMODE || false;
+let registrySet = process.env.REGISTRYSET || null;
 
 /**
  * Set config options for the service to be advertised to the mesh.
@@ -97,7 +97,7 @@ let scope = process.env.SCOPE || null; // (local, zone or global)
 console.log(`Starting DRP Node`);
 let myNode = new DRP_Node(roleList, hostID, domainName, meshKey, zoneName);
 myNode.Debug = debug;
-myNode.TestMode = testMode;
+myNode.RegistrySet = registrySet;
 myNode.RegistryUrl = registryUrl;
 myNode.ConnectToMesh(async () => {
 

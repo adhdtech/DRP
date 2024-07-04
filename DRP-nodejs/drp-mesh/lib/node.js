@@ -70,7 +70,7 @@ class DRP_NodeDeclaration {
 class DRP_Node extends DRP_Securable {
     #MeshKey
     #debug
-    #testMode
+    #registrySet
     #useSwagger
     #rejectUnreachable
     /**
@@ -101,7 +101,7 @@ class DRP_Node extends DRP_Securable {
         /** @type{string} */
         this.RegistryUrl = null;
         this.Debug = false;
-        this.TestMode = false;
+        this.RegistrySet = null;
         this.UseSwagger = false;
         /** @type{string} */
         this.AuthenticationServiceName = null;
@@ -191,9 +191,27 @@ class DRP_Node extends DRP_Securable {
     get Debug() { return this.#debug }
     set Debug(val) { this.#debug = this.IsTrue(val) }
 
-    /** @type boolean */
-    get TestMode() { return this.#testMode }
-    set TestMode(val) { this.#testMode = this.IsTrue(val) }
+    /** @type Object.<string,Object> */
+    get RegistrySet() { return this.#registrySet }
+    set RegistrySet(val) {
+        if (!val) {
+            this.#registrySet = null;
+            return;
+        }
+        this.#registrySet = val.split(/,/).reduce((map, registryEntry) => {
+            let [host, port] = registryEntry.split(/:/);
+            if (!host || !port) {
+                throw new Error(`Invalid registry entry [${registryEntry}], expecting "{host}:{port}"`);
+            }
+            let key = `${host}-${port}`;
+            map[key] = {
+                name: host,
+                port: port,
+                pingInfo: null
+            };
+            return map;
+        }, {});
+    }
 
     /** @type boolean */
     get UseSwagger() { return this.#useSwagger }
@@ -2028,14 +2046,14 @@ class DRP_Node extends DRP_Securable {
 
         let srvHash = null;
 
-        if (thisNode.TestMode) {
-            thisNode.log("TESTMODE is set - overriding domain, using localhost:8082-8085");
-            srvHash = {
-                "localhost-8082": { "name": os.hostname(), "port": 8082 },
-                "localhost-8083": { "name": os.hostname(), "port": 8083 },
-                "localhost-8084": { "name": os.hostname(), "port": 8084 },
-                "localhost-8085": { "name": os.hostname(), "port": 8085 }
-            };
+        // Do we use a provided registry set or look up DNS SRV records for the domain?
+        if (thisNode.RegistrySet) {
+            // Registry set specified
+            thisNode.log("RegistrySet specified, ignoring domain SRV records", true);
+            if (thisNode.Debug) {
+                console.dir(thisNode.RegistrySet);
+            }
+            srvHash = thisNode.RegistrySet;
         } else {
             // Get SRV Records for domain
             let recordList = await dns.resolveSrv(`_drp._tcp.${domainName}`);
@@ -2253,7 +2271,7 @@ class DRP_Node extends DRP_Securable {
 
                 // Skip the local registry
                 let checkNamePort = `^wss?://${checkRegistry.name}:${checkRegistry.port}$`;
-                let regExp = new RegExp(checkNamePort);
+                let regExp = new RegExp(checkNamePort, 'i');
                 if (thisNode.ListeningURL.match(regExp)) {
                     continue;
                 }

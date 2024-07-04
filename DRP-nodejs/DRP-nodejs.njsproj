@@ -109,9 +109,11 @@
     <Content Include="drpProvider-Sample.js" />
     <Content Include="drpProvider-Webex.js" />
     <Content Include="drpProvider-Test-PublicDirectory.js" />
+    <Content Include="drpProvider-XPlatCGP.js" />
     <Content Include="drpSidecar.js" />
     <Content Include="jsondocs\SomeSvc1\test.json" />
     <Content Include="drpBroker.js" />
+    <Content Include="lincTest.cfg" />
     <Content Include="package.yaml" />
     <Content Include="server.js" />
     <Content Include="package.json" />
@@ -124,6 +126,7 @@
     <Content Include="serverHackathon.js" />
     <Content Include="startTestEnvironmentMunicipal.bat" />
     <Content Include="startTestEnvironment.bat" />
+    <Content Include="drpLinc.js" />
     <Content Include="test.js" />
     <Content Include="test.md" />
     <Content Include="uploadApplet.js" />
@@ -156,6 +159,8 @@
     <Content Include="webroot\assets\xterm\lib\xterm.js" />
     <Content Include="webroot\favicon.ico" />
     <Content Include="webroot\vdmapplets\vdm-app-FedEx.js.dnl" />
+    <Content Include="webroot\vdmapplets\vdm-app-MapEditor.css" />
+    <Content Include="webroot\vdmapplets\vdm-app-MapEditor.js" />
     <Content Include="webroot\vdmapplets\vdm-app-TopicWatch.js">
       <SubType>Code</SubType>
     </Content>
