@@ -3,11 +3,9 @@ const DRP_Node = require('drp-mesh').Node;
 const TestService = require('drp-service-test');
 const DRP_WebServerConfig = require('drp-mesh').WebServer.DRP_WebServerConfig;
 const vdmServer = require('drp-service-rsage').VDM;
-const DocMgr = require('drp-service-docmgr');
 const DRP_AuthRequest = require('drp-mesh').Auth.DRP_AuthResponse;
 const DRP_AuthResponse = require('drp-mesh').Auth.DRP_AuthResponse;
 const DRP_Authenticator = require('drp-mesh').Auth.DRP_Authenticator;
-const DRP_Logger = require('drp-service-logger');
 const os = require("os");
 const { DRP_PermissionSet, DRP_Permission, DRP_VirtualFunction, DRP_VirtualFunction_Switch } = require('drp-mesh/lib/securable');
 
@@ -98,10 +96,6 @@ myNode.ConnectToMesh(async () => {
 
     let DRP_SwaggerUI = require('drp-swaggerui')
     new DRP_SwaggerUI(myNode, '/api-doc');
-
-    // Add DocMgr service
-    let myDocMgr = new DocMgr("DocMgr", myNode, 10, 10, "global", "jsondocs", null, null, null);
-    myNode.AddService(myDocMgr);
 
     // Add TestService
     let myTestService = new TestService("TestService", myNode, 10, 10, "global");
