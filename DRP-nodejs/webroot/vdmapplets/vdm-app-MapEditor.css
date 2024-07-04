@@ -1,0 +1,32 @@
+div.vdmApp-MapEditor div.toolPane {
+    height: 100%;
+    width: 120px;
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    font-size: 14px;
+    font-weight: bold;
+    background-color: #AAA;
+}
+
+div.vdmApp-MapEditor div.toolList img {
+    border: none;
+    padding: 2px
+}
+
+div.vdmApp-MapEditor div.mapPane {
+    background-color: #BBB;
+    position: absolute;
+    border-style: solid;
+    border-top-width: 0px;
+    border-left-width: 1px;
+    border-right-width: 0px;
+    border-bottom-width: 0px;
+    border-color: #000;
+    overflow: auto;
+    top: 0px;
+    bottom: 0px;
+    left: 120px;
+    right: 0px;
+    cursor: pointer;
+}
