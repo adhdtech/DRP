@@ -34,6 +34,7 @@ COPY webroot/vdmapplets/vdm-app-DRPShell.js webroot/vdmapplets
 COPY webroot/vdmapplets/vdm-app-DRPTopology.js webroot/vdmapplets
 COPY webroot/vdmapplets/vdm-app-RickRoll.js webroot/vdmapplets
 COPY webroot/vdmapplets/vdm-app-TopicWatch.js webroot/vdmapplets
+RUN mkdir webroot/xrapplets
 COPY jsondocs jsondocs
 COPY package.json .
 COPY server.js .
