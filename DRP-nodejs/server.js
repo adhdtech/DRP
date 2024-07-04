@@ -3,7 +3,6 @@ const DRP_Node = require('drp-mesh').Node;
 const TestService = require('drp-service-test');
 const DRP_WebServerConfig = require('drp-mesh').WebServer.DRP_WebServerConfig;
 const vdmServer = require('drp-service-rsage').VDM;
-const Hive = require('drp-service-rsage').Hive;
 const DocMgr = require('drp-service-docmgr');
 const DRP_AuthRequest = require('drp-mesh').Auth.DRP_AuthResponse;
 const DRP_AuthResponse = require('drp-mesh').Auth.DRP_AuthResponse;
@@ -107,11 +106,6 @@ myNode.ConnectToMesh(async () => {
     // Add TestService
     let myTestService = new TestService("TestService", myNode, 10, 10, "global");
     myNode.AddService(myTestService);
-
-    // Add Hive
-    let myHiveService = new Hive("Hive", myNode, 10, 10, "global");
-    myHiveService.Start();
-    myNode.AddService(myHiveService);
 
     if (myNode.ListeningURL) {
         myNode.log(`Listening at: ${myNode.ListeningURL}`);
