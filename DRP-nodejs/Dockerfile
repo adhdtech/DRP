@@ -24,7 +24,16 @@ COPY drp-service-bluecat drp-service-bluecat
 COPY drp-service-netscaler drp-service-netscaler
 COPY drp-service-ldap drp-service-ldap
 COPY drp-service-test drp-service-test
-COPY webroot webroot
+RUN mkdir webroot
+COPY webroot/assets webroot/assets
+COPY webroot/favicon.ico webroot
+RUN mkdir webroot/vdmapplets
+COPY webroot/vdm-app-AppletEditor.js webroot/vdmapplets
+COPY webroot/vdm-app-CommandTesting.js webroot/vdmapplets
+COPY webroot/vdm-app-DRPShell.js webroot/vdmapplets
+COPY webroot/vdm-app-DRPTopology.js webroot/vdmapplets
+COPY webroot/vdm-app-RickRoll.js webroot/vdmapplets
+COPY webroot/vdm-app-TopicWatch.js webroot/vdmapplets
 COPY jsondocs jsondocs
 COPY package.json .
 COPY server.js .
