@@ -42,6 +42,7 @@
     <Content Include="cucm-sql-async\package.json" />
     <Content Include="cucm-sql-async\README.md" />
     <Content Include="Dockerfile" />
+    <Content Include="Dockerfile-base" />
     <Content Include="Dockerfile-full" />
     <Content Include="drp-mesh\index.js" />
     <Content Include="drp-mesh\lib\consumer.js" />
@@ -80,7 +81,6 @@
     <Content Include="drp-service-netscaler\index.js" />
     <Content Include="drp-service-netscaler\package.json" />
     <Content Include="drp-service-rsage\index.js" />
-    <Content Include="drp-service-rsage\lib\cortex.js" />
     <Content Include="drp-service-rsage\lib\hive.js" />
     <Content Include="drp-service-rsage\lib\spa.js">
       <SubType>Code</SubType>
@@ -114,6 +114,8 @@
     <Content Include="jsondocs\SomeSvc1\test.json" />
     <Content Include="drpBroker.js" />
     <Content Include="lincTest.cfg" />
+    <Content Include="package-base.json" />
+    <Content Include="package-full.json" />
     <Content Include="package.yaml" />
     <Content Include="server.js" />
     <Content Include="package.json" />
