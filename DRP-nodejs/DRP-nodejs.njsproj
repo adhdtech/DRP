@@ -37,10 +37,6 @@
   <ItemGroup>
     <Content Include=".env" />
     <Content Include="activation.json" />
-    <Content Include="cucm-sql-async\index.js" />
-    <Content Include="cucm-sql-async\LICENSE" />
-    <Content Include="cucm-sql-async\package.json" />
-    <Content Include="cucm-sql-async\README.md" />
     <Content Include="Dockerfile" />
     <Content Include="Dockerfile-base" />
     <Content Include="Dockerfile-full" />
@@ -66,8 +62,6 @@
     <Content Include="drp-mesh\lib\uml.js" />
     <Content Include="drp-mesh\lib\webserver.js" />
     <Content Include="drp-mesh\package.json" />
-    <Content Include="drp-service-bluecat\index.js" />
-    <Content Include="drp-service-bluecat\package.json" />
     <Content Include="drp-service-cache\index.js" />
     <Content Include="drp-service-cache\package.json" />
     <Content Include="drp-service-docmgr\index.js" />
@@ -78,8 +72,6 @@
     <Content Include="drp-service-ldap\package.json" />
     <Content Include="drp-service-logger\index.js" />
     <Content Include="drp-service-logger\package.json" />
-    <Content Include="drp-service-netscaler\index.js" />
-    <Content Include="drp-service-netscaler\package.json" />
     <Content Include="drp-service-rsage\index.js" />
     <Content Include="drp-service-rsage\lib\hive.js" />
     <Content Include="drp-service-rsage\lib\spa.js">
@@ -182,16 +174,13 @@
     <Content Include="webroot\xrapplets\xr-app-Grid.json" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="cucm-sql-async\" />
     <Folder Include="drp-mesh\" />
     <Folder Include="drp-mesh\lib\" />
-    <Folder Include="drp-service-bluecat\" />
     <Folder Include="drp-service-cache\" />
     <Folder Include="drp-service-docmgr\" />
     <Folder Include="drp-service-fedex\" />
     <Folder Include="drp-service-ldap\" />
     <Folder Include="drp-service-logger\" />
-    <Folder Include="drp-service-netscaler\" />
     <Folder Include="drp-service-rsage\" />
     <Folder Include="drp-service-rsage\lib\" />
     <Folder Include="drp-service-sidecar\" />
