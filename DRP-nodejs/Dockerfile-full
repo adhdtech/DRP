@@ -15,23 +15,18 @@ WORKDIR /app
 # Install app dependencies
 # A wildcard is used to ensure both package.json AND package-lock.json are copied
 # where available (npm@5+)
-COPY cucm-sql-async cucm-sql-async
 COPY drp-service-cache drp-service-cache
-COPY drp-service-logger drp-service-logger
 COPY drp-service-docmgr drp-service-docmgr
-COPY drp-service-bluecat drp-service-bluecat
-COPY drp-service-netscaler drp-service-netscaler
+COPY drp-service-logger drp-service-logger
 COPY drp-service-ldap drp-service-ldap
 COPY jsondocs jsondocs
 COPY package-full.json .
 COPY drpProvider-Cache.js .
 COPY drpProvider-DocMgr.js .
 COPY drpProvider-Hive.js .
-COPY drpProvider-BlueCat.js .
-COPY drpProvider-NetScaler.js .
 COPY drpProvider-LDAP-Authenticator.js .
 
-RUN npm install --production axios node-rest-client mssql oracledb stomp-client cucm-sql-async ldapjs csv-string neo4j-driver pg simple-git node-ssh ssh2shell mongodb @influxdata/influxdb-client
+RUN npm install --production drp-service-cache drp-service-docmgr drp-service-logger drp-service-ldap axios node-rest-client mssql oracledb stomp-client ldapjs csv-string neo4j-driver pg simple-git node-ssh ssh2shell mongodb @influxdata/influxdb-client
 # If you are building your code for production
 # RUN npm ci --only=production
 
