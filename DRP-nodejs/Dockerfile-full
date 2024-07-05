@@ -20,7 +20,7 @@ COPY drp-service-docmgr drp-service-docmgr
 COPY drp-service-logger drp-service-logger
 COPY drp-service-ldap drp-service-ldap
 COPY jsondocs jsondocs
-COPY package-full.json .
+COPY package-full.json package.json
 COPY drpProvider-Cache.js .
 COPY drpProvider-DocMgr.js .
 COPY drpProvider-Hive.js .
