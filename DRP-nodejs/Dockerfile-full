@@ -26,7 +26,7 @@ COPY drpProvider-DocMgr.js .
 COPY drpProvider-Hive.js .
 COPY drpProvider-LDAP-Authenticator.js .
 
-RUN npm install --production drp-service-cache drp-service-docmgr drp-service-logger drp-service-ldap axios node-rest-client mssql oracledb stomp-client ldapjs csv-string neo4j-driver pg simple-git node-ssh ssh2shell mongodb @influxdata/influxdb-client
+RUN npm install --production drp-service-cache drp-service-docmgr drp-service-logger drp-service-ldap axios node-rest-client mssql oracledb stomp-client ldapjs csv-string neo4j-driver pg simple-git node-ssh ssh2shell mongodb @influxdata/influxdb-client nodemailer
 # If you are building your code for production
 # RUN npm ci --only=production
 
