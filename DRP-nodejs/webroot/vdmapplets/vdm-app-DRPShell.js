@@ -148,7 +148,7 @@ class DRPShell {
                             thisShell.lineBuffer = "";
                             thisShell.lineCursorIndex = 0;
                             thisShell.scrollbackIndex = 0;
-                            writeNewPrompt(true);
+                            thisShell.WriteNewPrompt(true);
                         } else {
                             thisShell.term.write('\x07');
                         }
@@ -1046,7 +1046,7 @@ class DRPShell {
                             // Get Class object count
                             let recCount = "";
                             let classMeshPath = `Mesh/Services/${thisServiceName}/Classes/${thisClassName}`.split("/");
-                            let classListDir = await thisShell.applet.sendCmd("DRP", "pathCmd", { "method": "GetChildItems", "pathList": classMeshPath }, true);
+                            let classListDir = await thisShell.applet.sendCmd("DRP", "pathCmd", { __verb: "GetChildItems", __pathList: classMeshPath }, true);
                             if (classListDir && classListDir.length > 0) {
                                 for (let i = 0; i < classListDir.length; i++) {
                                     let entryObj = classListDir[i];
@@ -1161,7 +1161,7 @@ class DRPShell {
                         let thisServiceName = serviceList[i];
                         // Get Class object data
                         let classMeshPath = `Mesh/Services/${thisServiceName}/Classes/${className}/cache`.split("/");
-                        let classListDir = await thisShell.applet.sendCmd("DRP", "pathCmd", { "method": "GetItem", "pathList": classMeshPath }, true);
+                        let classListDir = await thisShell.applet.sendCmd("DRP", "pathCmd", { __verb: "GetItem", __pathList: classMeshPath }, true);
                         if (classListDir) {
                             serviceDataTable[thisServiceName] = classListDir;
                         }
