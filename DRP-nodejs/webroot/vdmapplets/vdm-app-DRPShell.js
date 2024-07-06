@@ -134,7 +134,6 @@ class DRPShell {
                     break;
                 case 9:
                     // Tab
-                    console.log(thisShell.getSelection());
                     break;
                 case 13:
                     // Execute what's in the line buffer
