@@ -32,8 +32,6 @@ let mongoHost = process.env.MONGOHOST || "localhost";
 let mongoUser = process.env.MONGOUSER || null;
 let mongoPw = process.env.MONGOPW || null;
 
-let drpWSRoute = "";
-
 /** @type DRP_WebServerConfig */
 let myWebServerConfig = null;
 
