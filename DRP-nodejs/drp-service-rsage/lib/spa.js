@@ -48,7 +48,7 @@ class SPAServer extends DRP_Service {
                 expires: new Date(Date.now() + thisVDMServer.CookieTimeoutMinutes * 60000) // cookie will be removed after 5 minutes
             });
             let userAgentString = req.headers['user-agent'];
-            if (userAgentString.includes(" Quest") || req.query.forceVR) {
+            if ((userAgentString && userAgentString.includes(" Quest")) || req.query.forceVR) {
                 //res.sendFile("oculus.html", { "root": clientDirectory });
                 res.send(thisVDMServer.GetXRClientHtml());
             } else {
