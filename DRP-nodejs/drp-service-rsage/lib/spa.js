@@ -40,7 +40,7 @@ class SPAServer extends DRP_Service {
 
         // Get default
         this.expressApp.get('/', async (req, res) => {
-            // The authorizer only returns success/fail, so we need to do a dirty workaround - look for last token issued for this user
+            // Return an anonymous for all clients
             let userToken = await thisVDMServer.DRPNode.GetConsumerTokenAnon();
 
             // Pass the x-api-token in a cookie for the WebSockets connection

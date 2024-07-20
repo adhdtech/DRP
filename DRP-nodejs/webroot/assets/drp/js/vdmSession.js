@@ -72,7 +72,6 @@ class VDMServerAgent extends DRP_Client_Browser {
     /**
      * Agent which connects to DRP_Node (Broker)
      * @param {VDMSession} vdmSession VDM Session object
-     * @param {string} userToken User token
      */
     constructor(vdmSession) {
         super();

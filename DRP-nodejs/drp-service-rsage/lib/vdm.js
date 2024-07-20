@@ -64,6 +64,13 @@ class VDMServer extends DRP_Service {
 
             let userAgentString = req.headers['user-agent'];
             if (userAgentString.includes(" Quest") || req.query.forceVR) {
+                // Return anonymous token for VR clients
+                let userToken = await thisVDMServer.DRPNode.GetConsumerTokenAnon();
+
+                // Pass the x-api-token in a cookie for the WebSockets connection
+                res.cookie('x-api-token', userToken, {
+                    expires: new Date(Date.now() + thisVDMServer.CookieTimeoutMinutes * 60000) // cookie will be removed after 5 minutes
+                });
                 res.send(thisVDMServer.GetXRClientHtml());
             } else {
                 res.send(thisVDMServer.GetVDMClientHtml());
