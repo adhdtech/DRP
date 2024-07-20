@@ -20,13 +20,13 @@ class VDMAppletProfile {
 }
 
 class XRAppletProfile {
-    constructor(appletName, title, appletIcon, showInMenu, appletScript, preReqs) {
+    constructor(appletName, title, appletIcon, showInMenu, appletScript, dependencies) {
         this.appletName = appletName;
         this.title = title;
         this.appletIcon = appletIcon;
         this.showInMenu = showInMenu;
         this.appletScript = appletScript;
-        this.preReqs = preReqs || [];
+        this.dependencies = dependencies || [];
     }
 }
 
@@ -131,16 +131,16 @@ class VDMServer extends DRP_Service {
 
             if (fileName.match(/^vdm-app-.*\.js$/)) {
 
-                // Read applets from local file store (TODO - add option to get from DocMgr)
-                let fileData = await fs.readFile(thisVDMServer.clientStaticDir + '/' + thisVDMServer.vdmAppletsDir + '/' + fileName, 'utf8');
                 try {
+                    // Read applets from local file store (TODO - add option to get from DocMgr)
+                    let fileData = await fs.readFile(thisVDMServer.clientStaticDir + '/' + thisVDMServer.vdmAppletsDir + '/' + fileName, 'utf8');
 
                     // See if this is a module package
-                    let appletPackagePattern = /^(class AppletClass extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*})\r?\n\r?\nlet AppletProfile = ({(?:\s+.*\r?\n)+})\r?\n\r?\n?export { AppletProfile, AppletClass };?\r?\n\/\/# sourceURL=vdm-app-\w+\.js$/gm;
+                    let appletPackagePattern = /^(class AppletClass extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*})\r?\n\r?\nlet AppletProfile = ({(?:\s+.*\r?\n)+})\r?\n\r?\n?export { AppletProfile, AppletClass };?\r?\n\/\/# sourceURL=vdm-app-\w+\.js\s*$/gm;
                     let appletPackageParts = appletPackagePattern.exec(fileData);
 
                     if (!appletPackageParts) {
-                        throw new Error("Could not load applet");
+                        throw new Error("Applet file does not conform to pattern");
                     }
 
                     // Parse consolidated module format
@@ -151,7 +151,7 @@ class VDMServer extends DRP_Service {
                     thisVDMServer.DRPNode.log(`Applet ${fileName} - Imported`);
                 } catch (ex) {
                     // Could not parse file
-                    thisVDMServer.DRPNode.log(`Applet ${fileName} - Could not import`);
+                    thisVDMServer.DRPNode.log(`Applet ${fileName} - Could not import -> ${ex.message}`);
                 }
             }
         }
@@ -161,14 +161,30 @@ class VDMServer extends DRP_Service {
         for (let i = 0; i < xrDirData.length; i++) {
             let fileName = xrDirData[i];
 
-            if (fileName.match(/^xr-app-.*\.json$/)) {
-                // Load each profile
-                let fileData = await fs.readFile(thisVDMServer.clientStaticDir + '/' + thisVDMServer.xrAppletsDir + '/' + fileName, 'utf8');
-                /** @type {VDMAppletProfile} */
-                let appletProfile = JSON.parse(fileData);
-                //console.dir(appletProfile);
-                thisVDMServer.AddXRAppletProfile(appletProfile.appletName, appletProfile.title, appletProfile.appletIcon, appletProfile.showInMenu, appletProfile.appletScript, appletProfile.preReqs);
-                appletsLoaded++;
+            if (fileName.match(/^xr-app-.*\.js$/)) {
+
+                try {
+                    // Read applets from local file store (TODO - add option to get from DocMgr)
+                    let fileData = await fs.readFile(thisVDMServer.clientStaticDir + '/' + thisVDMServer.xrAppletsDir + '/' + fileName, 'utf8');
+
+                    // See if this is a module package
+                    let appletPackagePattern = /^(class AppletClass extends XRApplet {(?:.|\r?\n)*})\r?\n\r?\nlet AppletProfile = ({(?:\s+.*\r?\n)+})\r?\n\r?\n?export { AppletProfile, AppletClass };?\r?\n\/\/# sourceURL=xr-app-\w+\.js\s*$/gm;
+                    let appletPackageParts = appletPackagePattern.exec(fileData);
+                    
+                    if (!appletPackageParts) {
+                        throw new Error("Applet file does not conform to pattern");
+                    }
+
+                    // Parse consolidated module format
+                    let moduleCode = appletPackageParts[1];
+                    let appletProfile = JSON.parse(appletPackageParts[2]);
+                    thisVDMServer.AddXRAppletProfile(appletProfile.appletName, appletProfile.title, appletProfile.appletIcon, appletProfile.showInMenu, fileName, appletProfile.dependencies);
+                    appletsLoaded++;
+                    thisVDMServer.DRPNode.log(`Applet ${fileName} - Imported`);
+                } catch (ex) {
+                    // Could not parse file
+                    thisVDMServer.DRPNode.log(`Applet ${fileName} - Could not import -> ${ex.message}`);
+                }
             }
         }
 
@@ -206,9 +222,9 @@ class VDMServer extends DRP_Service {
      * @param {Object.<string,string>[]} preReqs Pre-requisites
      * @returns {XRAppletProfile} New applet profile
      */
-    AddXRAppletProfile(appletName, title, appletIcon, showInMenu, appletScript, preReqs) {
+    AddXRAppletProfile(appletName, title, appletIcon, showInMenu, preloadDeps, appletScript, dependencies) {
         if (appletName && title && appletScript) {
-            let newAppletProfile = new XRAppletProfile(appletName, title, appletIcon, showInMenu, appletScript, preReqs);
+            let newAppletProfile = new XRAppletProfile(appletName, title, appletIcon, showInMenu, preloadDeps, appletScript, dependencies);
             this.XRAppletProfiles[newAppletProfile.appletName] = newAppletProfile;
             return newAppletProfile;
         }
