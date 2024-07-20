@@ -49,14 +49,10 @@ class SPAServer extends DRP_Service {
             });
             let userAgentString = req.headers['user-agent'];
             if ((userAgentString && userAgentString.includes(" Quest")) || req.query.forceVR) {
-                //res.sendFile("oculus.html", { "root": clientDirectory });
                 res.send(thisVDMServer.GetXRClientHtml());
             } else {
-                //res.sendFile("client.html", { "root": clientDirectory });
                 res.send(thisVDMServer.GetVDMClientHtml());
             }
-            //res.redirect('client.html');
-            return;
         });
 
         // Register Endpoint commands

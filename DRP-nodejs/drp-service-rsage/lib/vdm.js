@@ -64,14 +64,10 @@ class VDMServer extends DRP_Service {
 
             let userAgentString = req.headers['user-agent'];
             if (userAgentString.includes(" Quest") || req.query.forceVR) {
-                //res.sendFile("oculus.html", { "root": clientDirectory });
                 res.send(thisVDMServer.GetXRClientHtml());
             } else {
-                //res.sendFile("client.html", { "root": clientDirectory });
                 res.send(thisVDMServer.GetVDMClientHtml());
             }
-            //res.redirect('client.html');
-            return;
         });
 
         // Register Endpoint commands
@@ -272,8 +268,8 @@ window.onload = function () {
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
 
-    <script src="assets/rsage-vdm/js/drpClient.js"></script>
-    <script src="assets/rsage-vdm/js/xrSession.js"></script>
+    <script src="assets/drp/js/drpClient.js"></script>
+    <script src="assets/drp/js/xrSession.js"></script>
 
     <!-- XR Client script -->
     <script>
