@@ -170,7 +170,7 @@ class VDMServerAgent extends DRP_Client_Browser {
                 continue;
             }
 
-            await thisDRPClient.vdmSession.AddAppletModule(appletModule, false);
+            await thisDRPClient.vdmSession.AddAppletModule(appletModule);
         }
 
         thisDRPClient.vdmSession.PreloadAppletDependencies();
