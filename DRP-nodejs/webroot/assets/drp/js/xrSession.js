@@ -16,6 +16,45 @@ class XRAppletProfile {
     }
 }
 
+class XRAppletModule {
+    /**
+     * Create a new VDM Applet module
+     */
+    constructor() {
+        /** @type VDMAppletProfile */
+        this.AppletProfile = null;
+
+        /** @type VDMApplet */
+        this.AppletClass = null;
+
+        /** @type string */
+        this.ModuleCode = null;
+
+        /** @type string */
+        this.ClassCode = null;
+    }
+
+    async LoadFromString(appletModuleCode) {
+        let blob = new Blob([appletModuleCode], { type: 'text/javascript' })
+        let url = URL.createObjectURL(blob)
+        let module = await import(url);
+        URL.revokeObjectURL(url) // GC objectURLs
+
+        // Validate module format
+        let appletPackagePattern = /^(class AppletClass extends XRApplet {(?:.|\r?\n)*})\r?\n\r?\nlet AppletProfile = ({(?:\s+.*\r?\n)+})\r?\n\r?\n?export { AppletProfile, AppletClass };?\r?\n\/\/# sourceURL=xr-app-\w+\.js\s*$/gm;
+        let appletPackageParts = appletPackagePattern.exec(appletModuleCode);
+
+        if (!appletPackageParts) {
+            throw new Error(`Module code does not pass regex check`);
+        }
+
+        this.AppletProfile = module.AppletProfile;
+        this.AppletClass = module.AppletClass;
+        this.ModuleCode = appletModuleCode;
+        this.ClassCode = appletPackageParts[1];
+    }
+}
+
 class XRApplet {
     constructor(appletProfile, xrSession) {
         // Attributes from profile
@@ -36,7 +75,7 @@ class XRSession {
 
         this.activeApplet = null;
 
-        this.appletProfiles = {};
+        this.appletModules = {};
 
         this.appletPath = appletPath;
 
@@ -110,55 +149,41 @@ class XRSession {
     /**
      * @param {XRAppletProfile} appletProfile Profile describing new Window
      */
-    addAppletProfile(appletProfile) {
+    AddAppletModule(appletModule) {
         let thisVDMDesktop = this;
+
+        let appletProfile = appletModule.AppletProfile;
 
         // Check to see if we have a name and the necessary attributes
         if (!appletProfile) {
             console.log("Cannot add app - No app definition");
         } else if (!appletProfile.appletName) {
             console.log("Cannot add app - App definition does not contain 'name' parameter");
-        } else if (!appletProfile.appletScript) {
-            console.log("Cannot add app '" + appletProfile.appletName + "' - App definition does not contain 'appletScript' parameter");
+        } else if (!appletModule.AppletClass) {
+            console.log("Cannot add app '" + appletProfile.appletName + "' - Applet module does not have .AppletClass");
         } else {
-            thisVDMDesktop.appletProfiles[appletProfile.appletName] = appletProfile;
+            thisVDMDesktop.appletModules[appletProfile.appletName] = appletModule;
         }
     }
 
-    async loadAppletProfiles() {
+    async PopulateMenu() {
         let thisXRSession = this;
-        await thisXRSession.loadAppletScripts();
-        let appletProfileNames = Object.keys(thisXRSession.appletProfiles);
+        let appletProfileNames = Object.keys(thisXRSession.appletModules);
         for (let i = 0; i < appletProfileNames.length; i++) {
-            let thisAppletProfile = thisXRSession.appletProfiles[appletProfileNames[i]];
+            let thisAppletModule = thisXRSession.appletModules[appletProfileNames[i]];
+            let thisAppletProfile = thisAppletModule.AppletProfile;
             if (thisAppletProfile.showInMenu) {
                 let appletNameDiv = document.createElement("div");
                 let appletNameSpan = document.createElement("span");
                 appletNameDiv.appendChild(appletNameSpan);
                 appletNameSpan.innerHTML = thisAppletProfile.appletName;
-                appletNameSpan.onclick = function () { thisXRSession.runApplet(thisAppletProfile.appletName); };
+                appletNameSpan.onclick = function () { thisXRSession.RunApplet(thisAppletProfile.appletName); };
                 thisXRSession.menuDiv.appendChild(appletNameDiv);
             }
         }
     }
 
-    async loadAppletScripts() {
-        let thisXRSession = this;
-        let appletProfileList = Object.keys(thisXRSession.appletProfiles);
-        for (let i = 0; i < appletProfileList.length; i++) {
-            var tmpAppletName = appletProfileList[i];
-            var appletDefinition = thisXRSession.appletProfiles[tmpAppletName];
-            var tmpScriptPath = appletDefinition.appletScript;
-            if (!appletDefinition.appletPath) appletDefinition.appletPath = thisXRSession.appletPath;
-            if (!appletDefinition.appletScript.match(/https?:\/\//)) {
-                tmpScriptPath = thisXRSession.appletPath + '/' + appletDefinition.appletScript;
-                let thisAppletScript = await thisXRSession.fetchURLResource(tmpScriptPath);
-                appletDefinition.appletClass = thisXRSession.evalWithinContext(appletDefinition, thisAppletScript);
-            }
-        }
-    }
-
-    resetSession() {
+    ResetSession() {
         // If there is an active applet, destroy it
         if (this.activeApplet) {
             this.activeApplet.terminate();
@@ -168,16 +193,16 @@ class XRSession {
         this.renderCanvas.style.zIndex = 1;
     }
 
-    runApplet(appletName) {
+    RunApplet(appletName) {
         let thisXRSession = this;
         thisXRSession.menuDiv.style.zIndex = 1;
         thisXRSession.renderCanvas.style.zIndex = 2;
-        let appletDefinition = thisXRSession.appletProfiles[appletName];
+        let thisAppletModule = thisXRSession.appletModules[appletName];
         // Create new instance of applet
-        let newApp = new appletDefinition.appletClass(appletDefinition, thisXRSession);
+        let newApp = new thisAppletModule.AppletClass(thisAppletModule, thisXRSession);
         thisXRSession.activeApplet = newApp;
-        if (newApp.runStartup) {
-            newApp.runStartup();
+        if (newApp.RunStartup) {
+            newApp.RunStartup();
         }
     }
 
@@ -189,7 +214,7 @@ class XRSession {
         return outerResults;
     }
 
-    fetchURLResource(url) {
+    FetchURLResource(url) {
         return new Promise(function (resolve, reject) {
             var xhr = new XMLHttpRequest();
             xhr.open("GET", url);
@@ -242,7 +267,7 @@ class XRServerAgent extends DRP_Client_Browser {
         if (!response) window.location.reload();
 
         // If we don't have any appletProfiles, request them
-        if (Object.keys(thisDRPClient.xrSession.appletProfiles).length) return;
+        if (Object.keys(thisDRPClient.xrSession.appletModules).length) return;
         let appletProfiles = {};
         let getAppletProfilesResponse = await thisDRPClient.SendCmd("VDM", "getXRAppletProfiles", null, true, null);
         if (getAppletProfilesResponse) appletProfiles = getAppletProfilesResponse;
@@ -251,10 +276,20 @@ class XRServerAgent extends DRP_Client_Browser {
             let thisAppletProfile = appletProfiles[appletProfileNames[i]];
             // Manually add the xrSession to the appletProfile
             thisAppletProfile.xrSession = thisDRPClient.xrSession;
-            thisDRPClient.xrSession.addAppletProfile(thisAppletProfile);
+
+            // Updated for new Applet Module format
+            let appletModuleCode = await thisDRPClient.xrSession.FetchURLResource(thisDRPClient.xrSession.appletPath + '/xr-app-' + thisAppletProfile.appletName + '.js');
+            let appletModule = new XRAppletModule();
+            await appletModule.LoadFromString(appletModuleCode);
+
+            if (!appletModule.AppletProfile) {
+                continue;
+            }
+
+            await thisDRPClient.xrSession.AddAppletModule(appletModule);
         }
 
-        await thisDRPClient.xrSession.loadAppletProfiles();
+        await thisDRPClient.xrSession.PopulateMenu();
     }
 
     async CloseHandler(closeCode) {

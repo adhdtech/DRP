@@ -1,9 +1,0 @@
-{
-  "appletName": "Forest",
-  "title": "Forest",
-  "appletIcon": "fa-book",
-  "showInMenu": true,
-  "appletScript": "xr-app-Forest.js",
-  "preReqs": [
-  ]
-}

@@ -1,10 +1,10 @@
-﻿(class extends XRApplet {
+class AppletClass extends XRApplet {
     constructor(appletProfile, xrSession) {
         super(appletProfile, xrSession);
         let thisApplet = this;
     }
 
-    async runStartup() {
+    async RunStartup() {
         let thisApplet = this;
         let engine = thisApplet.xrSession.babylonEngine;
 
@@ -367,5 +367,15 @@
         });
 
     }
-});
+}
+
+let AppletProfile = {
+    "appletName": "Forest",
+    "title": "Forest",
+    "appletIcon": "fa-book",
+    "showInMenu": true,
+    "dependencies": []
+}
+
+export { AppletProfile, AppletClass }
 //# sourceURL=xr-app-Forest.js
