@@ -374,7 +374,7 @@ class VDMDesktop {
                         break;
                     case 'JS-Runtime':
 
-                        // Cache for execution at runtime (executes before runStartup)
+                        // Cache for execution at runtime (executes before RunStartup)
                         let resourceText = await thisVDMDesktop.FetchURLResource(dependencyValue);
                         appletProfile.startupScript = resourceText;
 
