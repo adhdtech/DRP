@@ -40,7 +40,7 @@ COPY drpProvider-Test.js .
 COPY drpProvider-Test-NoListener.js .
 COPY drpProvider-Test-Authenticator.js .
 
-RUN npm ci
+RUN npm install
 
 LABEL cisco.info.name="drp-nodejs" \
       cisco.info.description="DRP Node.js Server" \
