@@ -58,7 +58,7 @@ class VDMServer extends DRP_Service {
         this.expressApp.use(express.static(clientDirectory));
 
         // Get default
-        this.expressApp.get('/', (req, res) => {
+        this.expressApp.get('/', async (req, res) => {
             // Set Stric Transport Security header
             res.setHeader('Strict-Transport-Security', 'max-age=31536000');
 
