@@ -1,6 +1,6 @@
 {
   "name": "drp-service-sidecar",
-  "version": "1.0.0",
+  "version": "1.0.5",
   "description": "DRP Sidecar Service",
   "main": "index.js",
   "scripts": {
@@ -14,6 +14,7 @@
   "author": "Pete Brown <jpbrown@adhdtech.com>",
   "license": "ISC",
   "dependencies": {
-    "drp-mesh": "*"
+    "drp-mesh": "*",
+    "axios": "*"
   }
 }
