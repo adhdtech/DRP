@@ -21,6 +21,7 @@ const { DRP_Permission, DRP_PermissionSet, DRP_Securable, DRP_VirtualFunction, D
 const Express_Request = express.request;
 const Express_Response = express.response;
 const { v4: uuidv4 } = require('uuid');
+const DRPVersion = "1.0.5"
 
 class DRP_RemotePath {
     /**
@@ -180,7 +181,7 @@ class DRP_Node extends DRP_Securable {
         let localDRPEndpoint = new DRP_Endpoint(null, this, "Local");
         this.ApplyNodeEndpointMethods(localDRPEndpoint);
 
-        let DRPService = new DRP_Service("DRP", this, "DRP", null, false, 10, 10, this.Zone, "local", null, ["Console", "TopologyTracker"], 1);
+        let DRPService = new DRP_Service("DRP", this, "DRP", null, false, 10, 10, this.Zone, "local", null, ["Console", "TopologyTracker"], 1, DRPVersion);
         DRPService.ClientCmds = localDRPEndpoint.EndpointCmds;
 
         DRPService.Streams['Console'].MaxHistoryLength = 1000;
@@ -1594,7 +1595,7 @@ class DRP_Node extends DRP_Securable {
         if (serviceObj && serviceObj.serviceName && serviceObj.ClientCmds) {
             thisNode.Services[serviceObj.serviceName] = serviceObj;
 
-            let newServiceEntry = new DRP_ServiceTableEntry(thisNode.NodeID, null, serviceObj.serviceName, serviceObj.Type, serviceObj.InstanceID, serviceObj.Zone, serviceObj.Sticky, serviceObj.Priority, serviceObj.Weight, serviceObj.Scope, serviceObj.Dependencies, Object.keys(serviceObj.Streams), serviceObj.Status);
+            let newServiceEntry = new DRP_ServiceTableEntry(thisNode.NodeID, null, serviceObj.serviceName, serviceObj.Type, serviceObj.InstanceID, serviceObj.Zone, serviceObj.Sticky, serviceObj.Priority, serviceObj.Weight, serviceObj.Scope, serviceObj.Dependencies, Object.keys(serviceObj.Streams), serviceObj.Status, serviceObj.Version);
             let addServicePacket = new DRP_TopologyPacket(thisNode.NodeID, "add", "service", newServiceEntry.InstanceID, newServiceEntry.Scope, newServiceEntry.Zone, newServiceEntry);
             thisNode.TopologyTracker.ProcessPacket(addServicePacket, thisNode.NodeID);
         }
@@ -4241,10 +4242,11 @@ class DRP_ServiceTableEntry extends DRP_TrackingTableEntry {
      * @param {string[]} serviceDependencies Services required for this one to operate
      * @param {string[]} streams Streams provided by this service
      * @param {number} serviceStatus Service status (0 down|1 up|2 pending)
+     * @param {string} serviceVersion Service version
      * @param {string} learnedFrom NodeID that sent us this record
      * @param {string} lastModified Last Modified Timestamp
      */
-    constructor(nodeID, proxyNodeID, serviceName, serviceType, instanceID, zone, serviceSticky, servicePriority, serviceWeight, scope, serviceDependencies, streams, serviceStatus, learnedFrom, lastModified) {
+    constructor(nodeID, proxyNodeID, serviceName, serviceType, instanceID, zone, serviceSticky, servicePriority, serviceWeight, scope, serviceDependencies, streams, serviceStatus, serviceVersion, learnedFrom, lastModified) {
         super(nodeID, proxyNodeID, scope, zone, learnedFrom, lastModified);
         this.Name = serviceName;
         this.Type = serviceType;
@@ -4255,6 +4257,7 @@ class DRP_ServiceTableEntry extends DRP_TrackingTableEntry {
         this.Dependencies = serviceDependencies || [];
         this.Streams = streams || [];
         this.Status = serviceStatus;
+        this.Version = serviceVersion || null;
     }
 }
 

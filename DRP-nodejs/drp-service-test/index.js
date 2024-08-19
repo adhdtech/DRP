@@ -6,6 +6,7 @@ const { DRP_VirtualFunction, DRP_VirtualFunction_Switch } = require('drp-mesh').
 const DRP_UMLAttribute = require('drp-mesh').UML.Attribute;
 const DRP_UMLFunction = require('drp-mesh').UML.Function;
 const DRP_UMLClass = require('drp-mesh').UML.Class;
+const ServiceVersion = "1.0.5";
 
 // Define OpenAPI Doc
 let openAPIDoc = {
@@ -13,7 +14,7 @@ let openAPIDoc = {
     "info": {
         "title": "TestService",
         "description": "This is a Test Service API",
-        "version": "1.0.1"
+        "version": ServiceVersion
     },
     "servers": [
         {
@@ -120,7 +121,7 @@ let openAPIDoc = {
 // Create test service class
 class TestService extends DRP_Service {
     constructor(serviceName, drpNode, priority, weight, scope) {
-        super(serviceName, drpNode, "TestService", null, false, priority, weight, drpNode.Zone, scope, null, ["TestStream"], 1);
+        super(serviceName, drpNode, "TestService", null, false, priority, weight, drpNode.Zone, scope, null, ["TestStream"], 1, ServiceVersion);
         let thisService = this;
 
         // Define global methods

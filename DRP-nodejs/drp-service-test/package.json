@@ -1,6 +1,6 @@
 {
   "name": "drp-service-test",
-  "version": "1.0.0",
+  "version": "1.0.5",
   "description": "DRP Test Service",
   "main": "index.js",
   "scripts": {
