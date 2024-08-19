@@ -49,7 +49,7 @@ class Logger extends DRP_Service {
                     }
                     writeResult = await thisService.InsertDoc(params.serviceName, params.logData);
                 } catch (ex) {
-                    thisService.DRPNode.TopicManager.SendToTopic("LoggingErrors", { err: ex.message, serviceName: params.serviceName, logData: params.logData });
+                    thisService.DRPNode.TopicManager.SendToTopic(thisService.serviceName, "LoggingErrors", { err: ex.message, serviceName: params.serviceName, logData: params.logData });
                     throw (ex);
                 }
                 return writeResult;

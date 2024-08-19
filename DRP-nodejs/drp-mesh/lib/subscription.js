@@ -4,11 +4,13 @@ class DRP_SubscribableSource {
     /**
      * Tracker for a local or remote source which can be subscribed to
      * @param {string} sourceNodeID Source NodeID
+     * @param {string} serviceName Source Service Name
      * @param {string} topicName Source Topic Name
      */
-    constructor(sourceNodeID, topicName) {
-        this.NodeID = sourceNodeID;
-        this.TopicName = topicName;
+    constructor(sourceNodeID, serviceName, topicName) {
+        this.__NodeID = sourceNodeID;
+        this.__ServiceName = serviceName;
+        this.__TopicName = topicName;
         /** @type {Set<DRP_Subscriber>} */
         this.Subscriptions = new Set();
     }
@@ -52,6 +54,7 @@ class DRP_SubscribableSource {
 
 class DRP_Subscriber {
     /**
+     * @param {string} serviceName Topic name
      * @param {string} topicName Topic name
      * @param {string} scope local|zone|global
      * @param {Object.<string,object>} filter Filter
@@ -60,7 +63,8 @@ class DRP_Subscriber {
      * @param {function(Object)} sendFunction Send function
      * @param {function} sendFailCallback Send fail callback
      */
-    constructor(topicName, scope, filter, targetNodeID, singleInstance, sendFunction, sendFailCallback) {
+    constructor(serviceName, topicName, scope, filter, targetNodeID, singleInstance, sendFunction, sendFailCallback) {
+        this.serviceName = serviceName;
         this.topicName = topicName;
         this.scope = scope || "local";
         this.filter = filter || null;

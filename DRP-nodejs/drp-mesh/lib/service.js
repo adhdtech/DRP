@@ -1,6 +1,7 @@
 'use strict';
 
 const { DRP_MethodParams, DRP_GetParams } = require("./params");
+const { DRP_TopicManager, DRP_TopicManager_Topic } = require("./topicmanager");
 const UMLClass = require('./uml').Class;
 //const DRP_Node = require('./node');
 
@@ -23,8 +24,9 @@ class DRP_Service {
      * @param {string[]} dependencies Peer service dependencies
      * @param {string[]} streams Streams provided
      * @param {number} status Service status [0|1|2]
+     * @param {string} version Instance Version
      */
-    constructor(serviceName, drpNode, type, instanceID, sticky, priority, weight, zone, scope, dependencies, streams, status) {
+    constructor(serviceName, drpNode, type, instanceID, sticky, priority, weight, zone, scope, dependencies, streams, status, version) {
         this.serviceName = serviceName;
         this.DRPNode = drpNode;
         this.GetParams = DRP_GetParams;
@@ -32,6 +34,7 @@ class DRP_Service {
         /** @type Object.<string,UMLClass> */
         this.Classes = {};
         this.Type = type;
+        this.Version = version || null;
         this.InstanceID = instanceID || `${this.DRPNode.NodeID}-${serviceName}-${getRandomInt(9999)}`;
         this.Sticky = sticky;
         this.Priority = priority || 10;
@@ -39,8 +42,15 @@ class DRP_Service {
         this.Zone = zone || "DEFAULT";
         this.Scope = scope || "global";
         this.Dependencies = dependencies || [];
-        this.Streams = streams || [];
+        /** @type Object.<string,DRP_TopicManager_Topic> */
+        this.Streams = {};
         this.Status = status || 0;
+
+        if (streams && streams.length) {
+            for (let thisStreamName of streams) {
+                this.Streams[thisStreamName] = this.DRPNode.TopicManager.CreateTopic(serviceName, thisStreamName, 100);
+            }
+        }
     }
 
     /**
@@ -51,17 +61,23 @@ class DRP_Service {
         this.Classes[umlClass.Name] = umlClass;
     }
 
+    AddStream(streamName, historyLength) {
+        let newStream = this.DRPNode.TopicManager.CreateTopic(this.serviceName, streamName, historyLength);
+        this.Streams[streamName] = newStream;
+    }
+
     GetDefinition() {
         let thisService = this;
         let serviceDefinition = {
             InstanceID: thisService.InstanceID,
             Name: thisService.serviceName,
             Type: thisService.Type,
+            Version: thisService.Version,
             Scope: thisService.Scope,
             Zone: thisService.Zone,
             Classes: {},
             ClientCmds: Object.keys(thisService.ClientCmds),
-            Streams: thisService.Streams,
+            Streams: Object.keys(thisService.Streams),
             Status: thisService.Status,
             Sticky: thisService.Sticky,
             Weight: thisService.Weight,

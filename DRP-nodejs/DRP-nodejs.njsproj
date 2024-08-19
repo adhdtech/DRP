@@ -37,7 +37,6 @@
   <ItemGroup>
     <Content Include=".env" />
     <Content Include="activation.json" />
-    <Content Include="Dockerfile" />
     <Content Include="Dockerfile-base" />
     <Content Include="Dockerfile-full" />
     <Content Include="drp-mesh\index.js" />
@@ -169,9 +168,7 @@
     <Content Include="webroot\vdmapplets\vdm-app-HiveBrowser.js" />
     <Content Include="webroot\vdmapplets\vdm-app-RickRoll.js" />
     <Content Include="webroot\xrapplets\xr-app-Forest.js" />
-    <Content Include="webroot\xrapplets\xr-app-Forest.json" />
     <Content Include="webroot\xrapplets\xr-app-Grid.js" />
-    <Content Include="webroot\xrapplets\xr-app-Grid.json" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="drp-mesh\" />

@@ -10,7 +10,7 @@ const express = require('express');
 const DRP_Endpoint = require("./endpoint");
 const DRP_Client = require("./client");
 const DRP_Service = require("./service");
-const DRP_TopicManager = require("./topicmanager");
+const { DRP_TopicManager, DRP_TopicManager_Topic } = require("./topicmanager");
 const DRP_RouteHandler = require("./routehandler");
 const { DRP_MethodParams, DRP_GetParams } = require("./params");
 const { DRP_WebServer, DRP_WebServerConfig } = require("./webserver");
@@ -139,17 +139,16 @@ class DRP_Node extends DRP_Securable {
         /** @type {Object.<string,DRP_NodeClient>} */
         this.ConsumerEndpoints = {};
 
-        // Create topic manager
+        // Create topic manager - Handles stream messaging
         this.TopicManager = new DRP_TopicManager(thisNode);
-        this.TopicManager.CreateTopic("Console", 1000);
-        this.TopicManager.CreateTopic("TopologyTracker", 1000);
 
-        // Create subscription manager
+        // Create subscription manager - Handles client subscriptions
         this.SubscriptionManager = new DRP_SubscriptionManager(thisNode);
 
-        // Create topology tracker
+        // Create topology tracker - Processes changes in mesh topology
         this.TopologyTracker = new DRP_TopologyTracker(thisNode);
 
+        // Add this node to TopologyTracker
         let newNodeEntry = new DRP_NodeTableEntry(thisNode.NodeID, null, nodeRoles, this.ListeningURL, "global", this.Zone, this.NodeID, this.HostID);
         let addNodePacket = new DRP_TopologyPacket(newNodeEntry.NodeID, "add", "node", newNodeEntry.NodeID, newNodeEntry.Scope, newNodeEntry.Zone, newNodeEntry);
         thisNode.TopologyTracker.ProcessPacket(addNodePacket, this.NodeID);
@@ -183,6 +182,15 @@ class DRP_Node extends DRP_Securable {
 
         let DRPService = new DRP_Service("DRP", this, "DRP", null, false, 10, 10, this.Zone, "local", null, ["Console", "TopologyTracker"], 1);
         DRPService.ClientCmds = localDRPEndpoint.EndpointCmds;
+
+        DRPService.Streams['Console'].MaxHistoryLength = 1000;
+        DRPService.Streams['TopologyTracker'].MaxHistoryLength = 1000;
+
+        // Add hook for watching topology for Subscription Manager
+        let topologySubscription = new DRP_Subscriber("DRP", "TopologyTracker", "local", null, null, false, (topologyPacket) => {
+            this.SubscriptionManager.ProcessTopologyPacket(topologyPacket.Message);
+        }, null);
+        this.TopicManager.SubscribeToTopic(topologySubscription);
 
         this.AddService(DRPService);
     }
@@ -234,7 +242,7 @@ class DRP_Node extends DRP_Securable {
         let outputMsg = `${this.getTimestamp()} [${paddedNodeID}] -> ${message}`;
         console.log(outputMsg);
         if (this.TopicManager) {
-            this.TopicManager.SendToTopic("Console", outputMsg);
+            this.TopicManager.SendToTopic("DRP", "Console", outputMsg);
         }
     }
     getTimestamp() {
@@ -530,7 +538,7 @@ class DRP_Node extends DRP_Securable {
                 delete logMessage.req.headers["authorization"];
 
                 // Send log to RESTLogs topic
-                thisNode.TopicManager.SendToTopic("RESTLogs", logMessage);
+                thisNode.TopicManager.SendToTopic("DRP", "RESTLogs", logMessage);
 
                 // Write to Logger service if flag is set
                 if (writeToLogger) {
@@ -1586,13 +1594,7 @@ class DRP_Node extends DRP_Securable {
         if (serviceObj && serviceObj.serviceName && serviceObj.ClientCmds) {
             thisNode.Services[serviceObj.serviceName] = serviceObj;
 
-            // Create topics for service
-            for (let i = 0; i < serviceObj.Streams.length; i++) {
-                let streamName = serviceObj.Streams[i];
-                if (!thisNode.TopicManager.Topics[streamName]) thisNode.TopicManager.CreateTopic(streamName, 1000);
-            }
-
-            let newServiceEntry = new DRP_ServiceTableEntry(thisNode.NodeID, null, serviceObj.serviceName, serviceObj.Type, serviceObj.InstanceID, serviceObj.Zone, serviceObj.Sticky, serviceObj.Priority, serviceObj.Weight, serviceObj.Scope, serviceObj.Dependencies, serviceObj.Streams, serviceObj.Status);
+            let newServiceEntry = new DRP_ServiceTableEntry(thisNode.NodeID, null, serviceObj.serviceName, serviceObj.Type, serviceObj.InstanceID, serviceObj.Zone, serviceObj.Sticky, serviceObj.Priority, serviceObj.Weight, serviceObj.Scope, serviceObj.Dependencies, Object.keys(serviceObj.Streams), serviceObj.Status);
             let addServicePacket = new DRP_TopologyPacket(thisNode.NodeID, "add", "service", newServiceEntry.InstanceID, newServiceEntry.Scope, newServiceEntry.Zone, newServiceEntry);
             thisNode.TopologyTracker.ProcessPacket(addServicePacket, thisNode.NodeID);
         }
@@ -2756,7 +2758,7 @@ class DRP_Node extends DRP_Securable {
         });
 
         targetEndpoint.RegisterMethod("sendToTopic", function (params, srcEndpoint, token) {
-            thisNode.TopicManager.SendToTopic(params.topicName, params.topicData);
+            thisNode.TopicManager.SendToTopic(params.serviceName, params.topicName, params.topicData);
         });
 
         targetEndpoint.RegisterMethod("getTopology", async function (...args) {
@@ -2841,7 +2843,7 @@ class DRP_Node extends DRP_Securable {
                 // Failed to send; may have already disconnected, take no further action
             };
 
-            let thisSubscription = new DRP_Subscriber(params.topicName, params.scope, params.filter, params.targetNodeID, thisNode.IsTrue(params.singleInstance), sendFunction, sendFailCallback);
+            let thisSubscription = new DRP_Subscriber(params.serviceName || null, params.topicName, params.scope, params.filter, params.targetNodeID, thisNode.IsTrue(params.singleInstance), sendFunction, sendFailCallback);
             srcEndpoint.Subscriptions[params.streamToken] = thisSubscription;
             let results = await thisNode.SubscriptionManager.RegisterSubscription(thisSubscription);
             return results;
@@ -2908,6 +2910,7 @@ class DRP_Node extends DRP_Securable {
 
     /**
      * Register new subscription
+     * @param {string} serviceName Topic name to subscribe to
      * @param {string} topicName Topic name to subscribe to
      * @param {string} scope Subscription scope [local,zone,global]
      * @param {Object<string,string>} filter Subscription filter
@@ -2916,10 +2919,10 @@ class DRP_Node extends DRP_Securable {
      * @param {function} msgCb Function to execute on message receipt
      * @param {function} failCb Function to execute on message fail
      */
-    async Subscribe(topicName, scope, filter, targetNodeID, singleInstance, msgCb, failCb) {
+    async Subscribe(serviceName, topicName, scope, filter, targetNodeID, singleInstance, msgCb, failCb) {
         let thisNode = this;
 
-        let thisSubscription = new DRP_Subscriber(topicName, scope, filter, targetNodeID, thisNode.IsTrue(singleInstance), msgCb, failCb);
+        let thisSubscription = new DRP_Subscriber(serviceName, topicName, scope, filter, targetNodeID, thisNode.IsTrue(singleInstance), msgCb, failCb);
         let subscriptionSuccessful = await thisNode.SubscriptionManager.RegisterSubscription(thisSubscription);
         return subscriptionSuccessful ? thisSubscription : null;
     }
@@ -2932,7 +2935,7 @@ class DRP_Node extends DRP_Securable {
      * @param {function} streamProcessor Function for processing stream data
      * @returns {string} Subscription token
      */
-    async SubscribeRemote(targetNodeID, topicName, scope, streamProcessor) {
+    async SubscribeRemote(targetNodeID, serviceName, topicName, scope, streamProcessor) {
         let thisNode = this;
         let returnVal = null;
         // Subscribe to a remote topic
@@ -2945,7 +2948,7 @@ class DRP_Node extends DRP_Securable {
         let sourceStreamToken = thisNodeEndpoint.AddReplyHandler(streamProcessor);
 
         // Await for command from source node
-        let successful = await thisNodeEndpoint.SendCmd("DRP", "subscribe", { "topicName": topicName, "streamToken": sourceStreamToken, "scope": scope }, true, null);
+        let successful = await thisNodeEndpoint.SendCmd("DRP", "subscribe", { serviceName: serviceName, topicName: topicName, streamToken: sourceStreamToken, scope: scope }, true, null);
         if (successful) returnVal = sourceStreamToken;
         return returnVal;
     }
@@ -3375,7 +3378,7 @@ class DRP_TopologyTracker {
         }
 
         // Send to TopicManager
-        thisNode.TopicManager.SendToTopic("TopologyTracker", topologyPacket);
+        thisNode.TopicManager.SendToTopic("DRP", "TopologyTracker", topologyPacket);
 
         thisNode.log(`Imported topology packet from [${topologyPacket.originNodeID}] -> ${topologyPacket.cmd} ${topologyPacket.type}[${topologyPacket.id}]`, true);
 
@@ -3759,6 +3762,10 @@ class DRP_TopologyTracker {
         let proxyNodeEntry = thisTopologyTracker.NodeTable[proxyNodeID];
 
         try {
+            // Always skip the local node
+            if (targetNodeID === localNodeID) {
+                return false;
+            }
 
             // We don't recognize the target node; give them everything by default
             if (!targetNodeEntry) return true;
@@ -4281,8 +4288,8 @@ class DRP_RemoteSubscription extends DRP_SubscribableSource {
      * @param {string} streamToken Stream Token
      * @param {function} noSubscribersCallback Last subscriber disconnected callback
      */
-    constructor(targetNodeID, topicName, streamToken, noSubscribersCallback) {
-        super(targetNodeID, topicName);
+    constructor(targetNodeID, serviceName, topicName, streamToken, noSubscribersCallback) {
+        super(targetNodeID, serviceName, topicName);
         this.StreamToken = streamToken;
         this.NoSubscribersCallback = noSubscribersCallback;
     }
@@ -4313,8 +4320,6 @@ class DRP_SubscriptionManager {
 
         /** @type Object.<string, DRP_RemoteSubscription> */
         this.RemoteSubscriptions = {};
-
-        this.DRPNode.TopicManager.SubscribeToTopic(new DRP_Subscriber("TopologyTracker", null, null, null, false, (topologyPacket) => { this.ProcessTopologyPacket(topologyPacket.Message); }, null));
     }
 
     /**
@@ -4355,7 +4360,7 @@ class DRP_SubscriptionManager {
 
             for (let subscriber of thisSubMgr.Subscribers) {
                 // Does the newly discovered service provide what this subscription is asking for?
-                if (!thisSubMgr.EvaluateServiceTableEntry(serviceEntry, subscriber.topicName, subscriber.scope, thisNode.Zone)) continue;
+                if (!thisSubMgr.EvaluateServiceTableEntryForSubscription(serviceEntry, subscriber)) continue;
 
                 // Is this a single instance subscriber?
                 if (subscriber.singleInstance) {
@@ -4409,7 +4414,7 @@ class DRP_SubscriptionManager {
                 let thisRemoteSub = thisSubMgr.RemoteSubscriptions[remoteSubscriptionID];
 
                 // Skip subscriptions for other Nodes
-                if (checkNodeID !== thisRemoteSub.NodeID) continue;
+                if (checkNodeID !== thisRemoteSub.__NodeID) continue;
 
                 // The subscription matches, process it
                 for (let thisLocalSub of thisRemoteSub.Subscriptions) {
@@ -4447,43 +4452,26 @@ class DRP_SubscriptionManager {
 
         thisSubMgr.Subscribers.add(subscriber);
 
-        if (!subscriber.targetNodeID && subscriber.scope === "local") {
-            subscriber.targetNodeID = thisNode.NodeID;
-        }
+        // Get all services with the specified stream
+        let candidateList = this.GetStreamsForSubscriber(subscriber);
 
-        if (subscriber.targetNodeID) {
-            if (!thisNode.TopologyTracker.NodeTable[subscriber.targetNodeID]) {
-                // We don't recognize the targetNodeID
-                //thisNode.log(`Subscriber provided an invalid targetNodeID for a subscription: [${subscriber.targetNodeID}]`, true);
-                return false;
+        // Subscribe to candidates
+        if (subscriber.singleInstance) {
+            // The subscriber only wants a single instance, get the first one
+            if (candidateList.length > 0) {
+                let subList = candidateList.map(svcEntry => `<${svcEntry.Zone}> ${svcEntry.NodeID}`);
+                this.DRPNode.log(`Single instance subscriber added, subscribing to first in list: ${subList.join(",")}`, true);
+                await this.RegisterSubscriberWithTargetSource(candidateList[0], subscriber);
             }
-            // The subscriber has specified a targetNodeID that is in the Node Table
-            await this.RegisterSubscriberWithTargetSource({ NodeID: subscriber.targetNodeID }, subscriber);
-            //thisNode.log(`Subscriber successfully registered a targetNodeID subscription: [${subscriber.targetNodeID}]`, true);
-            return true;
         } else {
-
-            // Get all services with the specified stream
-            let candidateList = this.GetStreamsForSubscriber(subscriber);
-
-            // Subscribe to candidates
-            if (subscriber.singleInstance) {
-                // The subscriber only wants a single instance, get the first one
-                if (candidateList.length > 0) {
-                    let subList = candidateList.map(svcEntry => `<${svcEntry.Zone}> ${svcEntry.NodeID}`);
-                    this.DRPNode.log(`Single instance subscriber added, subscribing to first in list: ${subList.join(",")}`, true);
-                    await this.RegisterSubscriberWithTargetSource(candidateList[0], subscriber);
-                }
-            } else {
-                // Subscribe to all
-                for (let serviceEntry of candidateList) {
-                    // Register subscriber with target node
-                    await this.RegisterSubscriberWithTargetSource(serviceEntry, subscriber);
-                }
+            // Subscribe to all
+            for (let serviceEntry of candidateList) {
+                // Register subscriber with target node
+                await this.RegisterSubscriberWithTargetSource(serviceEntry, subscriber);
             }
-
-            return true;
         }
+
+        return true;
     }
 
     /**
@@ -4505,7 +4493,7 @@ class DRP_SubscriptionManager {
             let serviceEntry = serviceTable[serviceEntryIDList[i]];
 
             // Does the service provide what this subscription is asking for?
-            if (!thisSubMgr.EvaluateServiceTableEntry(serviceEntry, subscriber.topicName, subscriber.scope, thisSubMgr.DRPNode.Zone)) continue;
+            if (!thisSubMgr.EvaluateServiceTableEntryForSubscription(serviceEntry, subscriber)) continue;
 
             // Add to candidate list in order of preference
             let spliceIndex = 0;
@@ -4535,20 +4523,24 @@ class DRP_SubscriptionManager {
     /**
      * 
      * @param {DRP_ServiceTableEntry} serviceEntry Service to check
-     * @param {string} streamName Stream Name
-     * @param {string} subscriptionScope Subscription Scope
-     * @param {string} subscriptionZone Subscription Zone
+     * @param {DRP_Subscriber} subscriber Service to check
      * @returns {boolean} Successful Match
      */
-    EvaluateServiceTableEntry(serviceEntry, streamName, subscriptionScope, subscriptionZone) {
+    EvaluateServiceTableEntryForSubscription(serviceEntry, subscriber) {
+        // Return false if the targetNodeID is specified and doesn't match
+        if (subscriber.targetNodeID && serviceEntry.NodeID !== subscriber.targetNodeID) return false;
+
+        // Return false if the service name is specified and doesn't match
+        if (subscriber.serviceName && serviceEntry.Name !== subscriber.serviceName) return false;
+
         // Return false if the service doesn't provide the topic
-        if (serviceEntry.Streams.indexOf(streamName) < 0) return false;
+        if (serviceEntry.Streams.indexOf(subscriber.topicName) < 0) return false;
 
         // Return false if the service scope is local and isn't on this node
-        if (serviceEntry.Scope === "local" && serviceEntry.NodeID !== this.DRPNode.NodeID) return false;
+        if (subscriber.scope === "local" && serviceEntry.NodeID !== this.DRPNode.NodeID) return false;
 
         // Return false if we're looking in a specific zone and it doesn't match
-        if (subscriptionScope === "zone" && subscriptionZone !== serviceEntry.Zone) return false;
+        if (subscriber.zone === "zone" && subscriber.zone !== serviceEntry.Zone) return false;
 
         // Must be good
         return true;
@@ -4574,10 +4566,10 @@ class DRP_SubscriptionManager {
 
         // Is this local or remote?
         if (serviceEntry.NodeID === thisNode.NodeID) {
-            targetSource = thisNode.TopicManager.GetTopic(subscriber.topicName);
+            targetSource = thisNode.TopicManager.GetTopic(serviceEntry.Name, subscriber.topicName);
         } else {
             // Verify we have a RemoteSubscription
-            targetSource = await thisSubMgr.VerifyRemoteSubscription(serviceEntry.NodeID, subscriber.topicName);
+            targetSource = await thisSubMgr.VerifyRemoteSubscription(serviceEntry.NodeID, serviceEntry.Name, subscriber.topicName);
         }
 
         // Are we aready subscribed?
@@ -4595,18 +4587,18 @@ class DRP_SubscriptionManager {
      * @param {string} topicName Topic Name
      * @returns {DRP_RemoteSubscription} Remote Subscription
      */
-    async VerifyRemoteSubscription(targetNodeID, topicName) {
+    async VerifyRemoteSubscription(targetNodeID, serviceName, topicName) {
         let thisSubMgr = this;
         let returnSubscription = null;
-        let remoteSubscriptionID = `${targetNodeID}-${topicName}`;
+        let remoteSubscriptionID = `${targetNodeID}-${serviceName}.${topicName}`;
         if (!thisSubMgr.RemoteSubscriptions[remoteSubscriptionID]) {
-            let newRemoteSubscription = new DRP_RemoteSubscription(targetNodeID, topicName, null, () => {
+            let newRemoteSubscription = new DRP_RemoteSubscription(targetNodeID, serviceName, topicName, null, () => {
                 // No Subscribers Callback
                 delete thisSubMgr.RemoteSubscriptions[remoteSubscriptionID];
-                thisSubMgr.DRPNode.UnsubscribeRemote(newRemoteSubscription.NodeID, newRemoteSubscription.StreamToken);
+                thisSubMgr.DRPNode.UnsubscribeRemote(newRemoteSubscription.__NodeID, newRemoteSubscription.StreamToken);
             });
             thisSubMgr.RemoteSubscriptions[remoteSubscriptionID] = newRemoteSubscription;
-            let streamToken = await thisSubMgr.DRPNode.SubscribeRemote(targetNodeID, topicName, "local", (streamPacket) => {
+            let streamToken = await thisSubMgr.DRPNode.SubscribeRemote(targetNodeID, serviceName, topicName, "local", (streamPacket) => {
                 // TODO - use streamPacket.status to see if this is the last packet?
 
                 // If we're relaying a message from a topic, add the local NodeID to the route
