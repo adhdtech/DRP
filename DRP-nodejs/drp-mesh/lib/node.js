@@ -4587,7 +4587,7 @@ class DRP_SubscriptionManager {
         if (subscriber.scope === "local" && serviceEntry.NodeID !== this.DRPNode.NodeID) return false;
 
         // Return false if we're looking in a specific zone and it doesn't match
-        if (subscriber.zone === "zone" && subscriber.zone !== serviceEntry.Zone) return false;
+        if (subscriber.scope === "zone" && this.DRPNode.Zone !== serviceEntry.Zone) return false;
 
         // Must be good
         return true;
