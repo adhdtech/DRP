@@ -496,7 +496,8 @@ class AppletClass extends DRPApplet {
                                         `<span style="${headerStyle}">Instance ID:</span><span style="${dataStyle}">${serviceObj.InstanceID}</span>` +
                                         `<span style="${headerStyle}">Node ID:</span><span style="${dataStyle}">${drpNode.NodeID}</span>` +
                                         `<span style="${headerStyle}">Scope:</span><span style="${dataStyle}">${serviceObj.Scope}</span>` +
-                                        `<span style="${headerStyle}">Zone:</span><span style="${dataStyle}">${serviceObj.Zone}</span>`;
+                                        `<span style="${headerStyle}">Zone:</span><span style="${dataStyle}">${serviceObj.Zone}</span>` +
+                                        `<span style="${headerStyle}">Version:</span><span style="${dataStyle}">${serviceObj.Version}</span>`;
                                     return returnVal;
                                 }
                             },
