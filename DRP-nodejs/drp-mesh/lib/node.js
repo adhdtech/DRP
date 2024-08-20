@@ -1927,6 +1927,13 @@ class DRP_Node extends DRP_Securable {
                 return null;
             }
 
+            // Did this node just connect to itself?
+            if (declaration.NodeID === thisNode.NodeID) {
+                thisNode.log(`Node received a Hello from itself, closing... thisNode.ListeningURL: ${thisNode.ListeningURL}`, true);
+                sourceEndpoint.Close();
+                return null;
+            }
+
             let sourceIsRegistry = declaration.NodeRoles.indexOf("Registry") >= 0;
 
             // Should we redirect this Node to a Registry in another Zone?
@@ -3170,6 +3177,42 @@ class DRP_TopologyTracker {
         this.ListConnectedRegistryNodes = this.ListConnectedRegistryNodes;
         this.FindRegistriesInZone = this.FindRegistriesInZone;
         this.FindInstanceOfService = this.FindInstanceOfService;
+
+        // Start WatchDog on NodeTable
+        let checkFrequencyMs = 60000;
+        setInterval(() => {
+            this.WatchDog();
+        }, checkFrequencyMs);
+    }
+
+    WatchDog() {
+        // Skip if we're waiting on re-connection to control plane
+        if (this.DRPNode.isConnectedToControlPlane) {
+
+            let runCleanup = false;
+
+            // Loop over NodeTable entries
+            for (let thisNodeEntry of Object.values(this.NodeTable)) {
+
+                // Skip local node
+                if (thisNodeEntry.NodeID === this.DRPNode.NodeID) {
+                    continue;
+                }
+
+                // Skip if LearnedFrom node is connected
+                if (this.DRPNode.NodeEndpoints[thisNodeEntry.LearnedFrom]) {
+                    continue;
+                }
+
+                // Delete entry
+                delete this.DRPNode.NodeEndpoints[thisNodeEntry.LearnedFrom];
+                runCleanup = true;
+            }
+
+            if (runCleanup) {
+                this.StaleEntryCleanup();
+            }
+        }
     }
 
     /**
