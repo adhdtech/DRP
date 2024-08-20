@@ -171,7 +171,7 @@ class SwaggerRouter {
         };
 
         // Watch Topology for new Service
-        thisNode.TopicManager.SubscribeToTopic(new DRP_Subscriber("TopologyTracker", null, null, null, false, (topologyPacket) => {
+        thisNode.TopicManager.SubscribeToTopic(new DRP_Subscriber("DRP", "TopologyTracker", null, null, null, false, (topologyPacket) => {
             WatchTopologyForServices(topologyPacket.Message);
         }, null));
 
