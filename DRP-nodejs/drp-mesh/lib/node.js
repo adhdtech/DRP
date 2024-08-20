@@ -3205,7 +3205,8 @@ class DRP_TopologyTracker {
                 }
 
                 // Delete entry
-                delete this.DRPNode.NodeEndpoints[thisNodeEntry.LearnedFrom];
+                thisNode.log(`Watchdog deleting disconnected node from NodeTable: [${thisNodeEntry.LearnedFrom}]`, true);
+                delete this.NodeTable[thisNodeEntry.LearnedFrom];
                 runCleanup = true;
             }
 
