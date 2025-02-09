@@ -7,4 +7,4 @@ require (
 	github.com/mroth/weightedrand v1.0.0
 )
 
-require golang.org/x/net v0.23.0 // indirect
+require golang.org/x/net v0.33.0 // indirect
