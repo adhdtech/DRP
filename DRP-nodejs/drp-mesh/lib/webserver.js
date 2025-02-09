@@ -39,10 +39,12 @@ class DRP_WebServer {
 
         // Is SSL enabled?
         if (thisDRPWebServer.config.SSLEnabled) {
-            var optionsExpress = {
+            let optionsExpress = {
                 key: fs.readFileSync(thisDRPWebServer.config.SSLKeyFile),
                 cert: fs.readFileSync(thisDRPWebServer.config.SSLCrtFile),
-                passphrase: thisDRPWebServer.config.SSLCrtFilePwd
+                passphrase: thisDRPWebServer.config.SSLCrtFilePwd,
+                requestCert: true,
+                rejectUnauthorized: false
             };
             let httpsServer = https.createServer(optionsExpress, thisDRPWebServer.expressApp);
             expressWs(thisDRPWebServer.expressApp, httpsServer, { wsOptions: { maxPayload: wsMaxPayload } });
@@ -58,6 +60,10 @@ class DRP_WebServer {
             extended: true
         }));
         thisDRPWebServer.expressApp.use(bodyParser.json());
+
+        if (webServerConfig.AuthHook) {
+            webServerConfig.AuthHook(thisDRPWebServer.expressApp)
+        }
     }
 
     start() {

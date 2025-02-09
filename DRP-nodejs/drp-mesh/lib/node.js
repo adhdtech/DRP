@@ -1,6 +1,7 @@
 'use strict';
 
 const os = require('os');
+const fs = require('fs');
 const util = require('util');
 const tcpp = require('tcp-ping');
 const tcpPing = util.promisify(tcpp.ping);
@@ -70,6 +71,7 @@ class DRP_NodeDeclaration {
 
 class DRP_Node extends DRP_Securable {
     #MeshKey
+    #mTLS
     #debug
     #registrySet
     #useSwagger
@@ -96,8 +98,9 @@ class DRP_Node extends DRP_Securable {
 
         this.drpRoute = drpRoute || "/";
         this.DomainName = domainName;
-        this.#MeshKey = meshKey;
-        if (!this.#MeshKey) this.Die("No MeshKey provided");
+        this.#MeshKey = meshKey || null;
+        this.#mTLS = null;
+        //if (!this.#MeshKey) this.Die("No MeshKey provided");
         this.Zone = zone || "default";
         /** @type{string} */
         this.RegistryUrl = null;
@@ -220,6 +223,18 @@ class DRP_Node extends DRP_Securable {
             };
             return map;
         }, {});
+    }
+
+    get mTLS() { return this.#mTLS }
+    set mTLS(val) {
+        if (!val || !val.certFile || !val.keyFile) {
+            this.#mTLS = null;
+            return;
+        }
+        this.#mTLS = {
+            cert: fs.readFileSync(val.certFile),
+            key: fs.readFileSync(val.keyFile)
+        }
     }
 
     /** @type boolean */
@@ -1813,9 +1828,10 @@ class DRP_Node extends DRP_Securable {
     /**
      * Validate node declaration against local node
      * @param {DRP_NodeDeclaration} declaration Node declaration to check
+     * @param {object} peerCert Peer certificate
      * @returns {boolean} Successful [true/false]
      */
-    async ValidateNodeDeclaration(declaration) {
+    async ValidateNodeDeclaration(declaration, peerCert) {
         let thisNode = this;
 
         // Is the NodeID specified?
@@ -1831,11 +1847,20 @@ class DRP_Node extends DRP_Securable {
             return false;
         }
 
-        // Do the domainKeys match?
-        let meshKeysMatch = (!thisNode.#MeshKey && !declaration.MeshKey || thisNode.#MeshKey === declaration.MeshKey);
-        if (!meshKeysMatch) {
-            thisNode.log(`Rejecting declaration from [${declaration.NodeID}] - DomainName doesn't match, local[${thisNode.#MeshKey}] remote[${declaration.MeshKey}]`, true);
-            return false;
+        // Verify MeshKey or mTLS
+        if (peerCert) {
+            // Make sure the peerCert contains the declared domain name
+            if (peerCert.subject.CN.toLowerCase() !== declaration.DomainName.toLowerCase()) {
+                thisNode.log(`Rejecting declaration from [${declaration.NodeID}] - DomainName doesn't match, local[${thisNode.DomainName}] mTLS[${peerCert.subject.CN}]`, true);
+                return false;
+            }
+        } else {
+            // Do the domain MeshKeys match?
+            let meshKeysMatch = (thisNode.#MeshKey && thisNode.#MeshKey.length > 0 && thisNode.#MeshKey === declaration.MeshKey);
+            if (!meshKeysMatch) {
+                thisNode.log(`Rejecting declaration from [${declaration.NodeID}] - MeshKey doesn't match, local[${thisNode.#MeshKey}] remote[${declaration.MeshKey}]`, true);
+                return false;
+            }
         }
 
         // If the peer has a NodeURL and RejectUnreachable is set, make sure it's reachable
@@ -1916,7 +1941,7 @@ class DRP_Node extends DRP_Securable {
             thisNode.log(`Remote node client sent Hello [${declaration.NodeID}]`, true);
 
             // Validate the remote node's domain and key (if applicable)
-            let isDeclarationValid = await thisNode.ValidateNodeDeclaration(declaration);
+            let isDeclarationValid = await thisNode.ValidateNodeDeclaration(declaration, sourceEndpoint.peerCert);
             if (!isDeclarationValid) {
                 // The remote node did not offer a MeshKey or the key does not match
                 thisNode.log(`Node [${declaration.NodeID}] declaration could not be validated`);

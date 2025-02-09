@@ -1,6 +1,6 @@
 {
   "name": "drp-project",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "DRP Project Files",
   "main": "server.js",
   "scripts": {
