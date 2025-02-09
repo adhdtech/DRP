@@ -1626,7 +1626,7 @@ class DRP_Node extends DRP_Securable {
      * @param {boolean} execParams.useControlPlane Force use of control plane?
      * @param {boolean} execParams.sendOnly Do not expect a response
      * @param {DRP_Endpoint} execParams.callingEndpoint Endpoint initiating the call
-     * @param {boolean} execParams.limitScope Limit scope to local or zone
+     * @param {string} execParams.limitScope Limit scope to local or zone
      */
     async ServiceCmd(serviceName, methodName, methodParams, execParams) {
         let thisNode = this;
@@ -2226,8 +2226,8 @@ class DRP_Node extends DRP_Securable {
 
                 // Dirty check to see if the port is SSL; are the last three digits 44x?
                 let portString = closestRegistry.port.toString();
-                let checkString = portString.slice(-3, 3);
-                if (checkString === "44") {
+                let isSecure = /44\d$/.test(portString);
+                if (isSecure) {
                     protocol = "wss";
                 }
 
@@ -4437,7 +4437,9 @@ class DRP_SubscriptionManager {
                     }
                 }
                 try {
+                    thisNode.log(`Register subscription [${subscriber.serviceName}.${subscriber.topicName}, ${subscriber.scope}] with target [${serviceEntry.InstanceID}] - START`, true)
                     await this.RegisterSubscriberWithTargetSource(serviceEntry, subscriber);
+                    thisNode.log(`Register subscription [${subscriber.serviceName}.${subscriber.topicName}, ${subscriber.scope}] with target [${serviceEntry.InstanceID}] - END`, true)
                 } catch (ex) {
                     // Failed to subscribe
                     thisNode.log(`Failed to subscribe to target -> ${ex}`);

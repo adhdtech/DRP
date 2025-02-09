@@ -46,7 +46,7 @@ global
 	standalone	yes						# Force standalone mode, no inbound or outbound connections allowed
     #authenticator  SomeAuthSvc         # Force a specific authenticator service for Consumers
     usetestauth yes                     # Enable test authentication (any user pass allowed)
-	#registries	ws://somehost1:8080		# Force the use of a fixed set of Registry nodes (comma delimited)
+	#registries	somehost1:8080,somehost2:8080	# Force the use of a fixed set of Registry nodes (comma delimited)
 
 # Web interface required for Registry,Broker roles
 webserver
@@ -188,7 +188,7 @@ global
 	domain	%DOMAINNAME%  				# Mesh domain to join
 	zone	%ZONENAME%					# Zone this node will be in
     meshkey	%MESHKEY%					# Use a security key to join the mesh (use ENV variable MESHKEY)
-    registries  %REGISTRYURL%           # Specify a Registry
+    registries  %REGISTRYSET%           # Specify a Registry
 	roles	Provider                	# Declare one or more node roles [registry,broker,provider,sidecar,consumer]
     debug	yes							# Enable debugging for node
 
@@ -275,7 +275,7 @@ class DRPLinkConfig {
         },
         registries: (data) => {
             // Set registries
-            this.Global.registries = data.split(',');
+            this.Global.registries = data;
             console.log(`Set global.registries to ${data}`);
         }
     }
@@ -698,7 +698,7 @@ class DRPLinkConfig {
         let newNode = new DRP_Node(this.Global.roles, this.Global.hostid || os.hostname(), this.Global.domain, this.Global.meshkey, this.Global.zone, webServerConfig, drpWSRoute);
         newNode.Debug = this.Global.debug;
         newNode.AuthenticationServiceName = this.Global.authenticator;
-        newNode.RegistryUrl = (this.Global.registries && this.Global.registries.length > 0) ? this.Global.registries[0] : null;
+        newNode.RegistrySet = this.Global.registries;
         if (this.Global.usetestauth) {
             // Test Authentication Service
             let myAuthenticator = new DRP_Authenticator("TestAuthenticator", newNode, 10, 10, "global", 1);
