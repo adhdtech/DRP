@@ -2207,7 +2207,7 @@ class DRPShell {
             } else {
                 // Replace char at index
                 thisShell.lineBuffer = thisShell.lineBuffer.substr(0, thisShell.lineCursorIndex) + newText + thisShell.lineBuffer.substr(thisShell.lineCursorIndex + newText.length);
-                tthisShell.term.write(newText);
+                thisShell.term.write(newText);
             }
         } else {
             thisShell.lineBuffer += newText;
