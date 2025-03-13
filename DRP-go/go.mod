@@ -1,10 +1,11 @@
 module adhdtech/drpmesh
 
 go 1.22.3
+toolchain go1.23.7
 
 require (
 	github.com/gorilla/websocket v1.5.1
 	github.com/mroth/weightedrand v1.0.0
 )
 
-require golang.org/x/net v0.23.0 // indirect
+require golang.org/x/net v0.36.0 // indirect
