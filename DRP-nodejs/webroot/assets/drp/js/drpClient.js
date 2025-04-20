@@ -5,7 +5,6 @@ class DRP_Endpoint_Browser {
         /** @type WebSocket */
         this.wsConn = null;
         this.ReplyHandlerQueue = {};
-        this.StreamHandlerQueue = {};
         this.TokenNum = 1;
         this.RegisterMethod("getCmds", "GetCmds");
     }
@@ -203,31 +202,6 @@ class DRP_Endpoint_Browser {
         }
     }
 
-    async ProcessStream(wsConn, streamPacket) {
-        let thisEndpoint = this;
-
-        //console.dir(message, {"depth": 10})
-
-        // Yes - do we have the token?
-        if (thisEndpoint.StreamHandlerQueue.hasOwnProperty(streamPacket.token)) {
-
-            // We have the token - execute the reply callback
-            thisEndpoint.StreamHandlerQueue[streamPacket.token](streamPacket);
-
-            // Is this the last item in the stream?
-            if (streamPacket.status < 2) {
-
-                // Yes - delete the handler
-                delete thisEndpoint.StreamHandlerQueue[streamPacket.token];
-            }
-
-        } else {
-            // We do not have the token - tell the sender we do not honor this token
-            let unsubResults = await thisEndpoint.SendCmd("DRP", "unsubscribe", { "streamToken": streamPacket.token }, true, null);
-            //console.log("Send close request for unknown stream");
-        }
-    }
-
     async ReceiveMessage(wsConn, rawMessage) {
         let thisEndpoint = this;
         let message;
@@ -246,9 +220,6 @@ class DRP_Endpoint_Browser {
                 break;
             case 'reply':
                 thisEndpoint.ProcessReply(wsConn, message);
-                break;
-            case 'stream':
-                thisEndpoint.ProcessStream(wsConn, message);
                 break;
             default:
                 console.log("Invalid message.type; here's the JSON data..." + rawMessage);
@@ -490,15 +461,6 @@ class DRP_Client_Reply {
         this.token = token;
         this.status = status;
         this.err = err;
-        this.payload = payload;
-    }
-}
-
-class DRP_Client_Stream {
-    constructor(token, status, payload) {
-        this.type = "stream";
-        this.token = token;
-        this.status = status;
         this.payload = payload;
     }
 }
