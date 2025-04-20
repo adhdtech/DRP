@@ -1,7 +1,6 @@
 'use strict';
 
 const https = require('https');
-const bodyParser = require('body-parser');
 const express = require('express');
 const expressWs = require('express-ws');
 const cors = require('cors');
@@ -54,12 +53,6 @@ class DRP_WebServer {
             expressWs(thisDRPWebServer.expressApp, null, { wsOptions: { maxPayload: wsMaxPayload } });
             thisDRPWebServer.server = thisDRPWebServer.expressApp;
         }
-
-        thisDRPWebServer.expressApp.get('env');
-        thisDRPWebServer.expressApp.use(bodyParser.urlencoded({
-            extended: true
-        }));
-        thisDRPWebServer.expressApp.use(bodyParser.json());
 
         if (webServerConfig.AuthHook) {
             webServerConfig.AuthHook(thisDRPWebServer.expressApp)

@@ -8,6 +8,7 @@ const tcpPing = util.promisify(tcpp.ping);
 const ping = require('ping');
 const dns = require('dns').promises;
 const express = require('express');
+const bodyParser = require('body-parser');
 const DRP_Endpoint = require("./endpoint");
 const DRP_Client = require("./client");
 const DRP_Service = require("./service");
@@ -577,8 +578,9 @@ class DRP_Node extends DRP_Securable {
             }
         };
 
-        webServer.expressApp.all(`${restRoute}`, nodeRestHandler);
-        webServer.expressApp.all(`${restRoute}/*`, nodeRestHandler);
+        // Assign REST handler
+        webServer.expressApp.all(`${restRoute}`, bodyParser.urlencoded({ extended: true }), bodyParser.json(), nodeRestHandler);
+        webServer.expressApp.all(`${restRoute}/*`, bodyParser.urlencoded({ extended: true }), bodyParser.json(), nodeRestHandler);
 
         // Get Token
         webServer.expressApp.post('/token', async (req, res) => {
