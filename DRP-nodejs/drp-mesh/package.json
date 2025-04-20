@@ -1,6 +1,6 @@
 {
   "name": "drp-mesh",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "DRP Mesh",
   "main": "index.js",
   "scripts": {
@@ -23,7 +23,7 @@
   "dependencies": {
     "ws": "*",
     "body-parser": "*",
-    "express": "*",
+    "express": "4.21.2",
     "express-ws": "*",
     "express-http-proxy": "*",
     "cors": "*",
