@@ -11,10 +11,7 @@ const { DRP_PermissionSet, DRP_Permission, DRP_VirtualFunction, DRP_VirtualFunct
 
 require('dotenv').config()
 
-let protocol = "ws";
-if (process.env.SSL_ENABLED) {
-    protocol = "wss";
-}
+let protocol = process.env.SSL_ENABLED && DRP_Node.prototype.IsTrue(process.env.SSL_ENABLED) ? "wss" : "ws";
 let drpWSRoute = "";
 let port = process.env.PORT || 8080;
 let listeningName = process.env.LISTENINGNAME || os.hostname();

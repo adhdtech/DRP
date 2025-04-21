@@ -6,10 +6,7 @@ const os = require("os");
 
 require('dotenv').config()
 
-var protocol = "ws";
-if (process.env.SSL_ENABLED) {
-    protocol = "wss";
-}
+let protocol = process.env.SSL_ENABLED && DRP_Node.prototype.IsTrue(process.env.SSL_ENABLED) ? "wss" : "ws";
 let port = process.env.PORT || 8080;
 let listeningName = process.env.LISTENINGNAME || os.hostname();
 let hostID = process.env.HOSTID || os.hostname();

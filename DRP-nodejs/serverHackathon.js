@@ -9,11 +9,8 @@ const DRP_Authenticator = require('drp-mesh').Auth.DRP_Authenticator;
 const FedExAPIMgr = require('drp-service-fedex');
 const os = require("os");
 
-var protocol = "ws";
-if (process.env.SSL_ENABLED) {
-    protocol = "wss";
-}
-var port = process.env.PORT || 8080;
+let protocol = process.env.SSL_ENABLED && DRP_Node.prototype.IsTrue(process.env.SSL_ENABLED) ? "wss" : "ws";
+let port = process.env.PORT || 8080;
 let listeningName = process.env.LISTENINGNAME || os.hostname();
 let hostID = process.env.HOSTID || os.hostname();
 let domainName = process.env.DOMAINNAME || null;
