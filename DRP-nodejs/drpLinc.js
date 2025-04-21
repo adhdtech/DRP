@@ -38,8 +38,8 @@ global
 	#domain	foo.local   				# Mesh domain to join
 	zone	Test						# Zone this node will be in
     meshkey	%{MESHKEY}					# Use a security key to join the mesh (use ENV variable MESHKEY)
-	#mtlscert	idfile.crt				# Use mTLS cert to join the mesh (Not yet implemented)
-	#mtlskey	idfile.key
+	#mtlscert	somefile.crt			# Use mTLS cert to join the mesh, same cert/key should be used for the webserver
+	#mtlskey	somefile.key
 	roles	Provider,Registry,Broker	# Declare one or more node roles [registry,broker,provider,sidecar,consumer]
 	ignoresslerrors	yes			    	# Directive to ignore SSL client errors
     debug	yes							# Enable debugging for node
@@ -86,11 +86,10 @@ service TestService1
 		source file somefile.csv
 	attribute AnotherRawFile				# Accessing this attribute returns raw file contents (explicit cat)
 		type string
-		exec cat somefile.csv
+		source exec cat somefile.csv
 	attribute CompleteFlag
 		type boolean
 		source exec cat /path/to/flagfile  # Get data from a function
-		exec cat /path/to/flagfile
 	clientcmd sayHi
 		paramList userName
 		exec node sayHi.js *				# Execute command and send parameters in JSON format (modern)
