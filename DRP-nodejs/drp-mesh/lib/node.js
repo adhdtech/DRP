@@ -139,9 +139,6 @@ class DRP_Node extends DRP_Securable {
         this.ReconnectWaitTimeSeconds = 0;
 
         /** @type {Object.<string,DRP_NodeClient>} */
-        this.NodeEndpoints = {};
-
-        /** @type {Object.<string,DRP_NodeClient>} */
         this.ConsumerEndpoints = {};
 
         // Create topic manager - Handles stream messaging
@@ -916,13 +913,12 @@ class DRP_Node extends DRP_Securable {
                         oReturnObject = await thisNode.SendPathCmdToNode(targetNodeID, params);
 
                     } else {
-                        // Return list of NodeEndpoints
+                        // Return list of directly connected nodes
                         oReturnObject = {};
-                        let aNodeKeys = Object.keys(thisNode.NodeEndpoints);
+                        let aNodeKeys = thisNode.GetConnectedNodeIDs();
                         for (let i = 0; i < aNodeKeys.length; i++) {
                             oReturnObject[aNodeKeys[i]] = {
-                                "ConsumerType": "SomeType1",
-                                "Status": "Unknown"
+                                "PeerType": "Node"
                             };
                         }
                     }
@@ -1471,7 +1467,13 @@ class DRP_Node extends DRP_Securable {
         if (!thisNodeEntry) return null;
 
         /** @type {DRP_Endpoint} */
-        let thisNodeEndpoint = thisNode.NodeEndpoints[remoteNodeID];
+        let thisNodeEndpoint = thisNode.GetNodeEndpoint(remoteNodeID);
+
+        // If there is an existing endpoint, return it
+        if (thisNodeEndpoint) {
+            // Found endpoint - return it
+            return thisNodeEndpoint;
+        }
 
         // Is the remote node listening?  If so, try to connect
         if (!thisNodeEndpoint && thisNodeEntry.NodeURL) {
@@ -1480,7 +1482,6 @@ class DRP_Node extends DRP_Securable {
             // We have a target URL, wait a few seconds for connection to initiate
             thisNode.log(`Connecting to Node [${remoteNodeID}] @ '${targetNodeURL}'`, true);
             thisNodeEndpoint = new DRP_NodeClient(targetNodeURL, thisNode.WebProxyURL, thisNode, remoteNodeID);
-            thisNode.NodeEndpoints[remoteNodeID] = thisNodeEndpoint;
 
             for (let i = 0; i < 50; i++) {
 
@@ -1493,96 +1494,70 @@ class DRP_Node extends DRP_Securable {
                     break;
                 }
             }
+
+            // If this outbound connection was successful, return it
+            if (thisNodeEndpoint.IsReady()) {
+                thisNode.log(`Connection attempt to Node [${remoteNodeID}] @ '${targetNodeURL}' succeeded`, true);
+                return thisNodeEndpoint;
+            }
+
+            thisNode.log(`Connection attempt to Node [${remoteNodeID}] @ '${targetNodeURL}' failed`, true);
         }
 
         // If this node is listening, try sending a back connection request to the remote node via the registry
         if (thisNode.ListeningURL) {
 
-            if (thisNodeEndpoint) {
-                // Wait for inbound connection to complete
-                for (let i = 0; i < 50; i++) {
+            thisNode.log("Sending back request...", true);
 
-                    // Are we still trying?
-                    if (!thisNode.NodeEndpoints[remoteNodeID] || !thisNode.NodeEndpoints[remoteNodeID].IsReady()) {
-                        // Yes - wait
-                        await thisNode.Sleep(100);
-                    } else {
-                        // No - break the for loop
-                        //thisNode.log(`Waited ${(i*100)}mS for connection from remote node [${remoteNodeID}]`, true);
-                        i = 50;
-                    }
+            // Let's try having the Provider call us; send command through Registry
+            try {
+                // Get next hop
+                let nextHopNodeID = thisNode.TopologyTracker.GetNextHop(remoteNodeID);
+
+                let nextHopEndpoint = thisNode.GetNodeEndpoint(nextHopNodeID);
+                if (!nextHopEndpoint) {
+                    let errMsg = `Error sending back request to ${remoteNodeID}, next hop ${nextHopNodeID} is unavailable`;
+                    thisNode.log(errMsg);
+                    throw errMsg;
                 }
 
-                if (thisNode.NodeEndpoints[remoteNodeID] && thisNode.NodeEndpoints[remoteNodeID].IsReady()) {
-                    return thisNode.NodeEndpoints[remoteNodeID];
+                if (nextHopNodeID) {
+                    // Found the next hop
+                    thisNode.log(`Sending back request to ${remoteNodeID} to connect to this node @[${thisNode.ListeningURL}], relaying to [${nextHopNodeID}]`, true);
+                    let routeOptions = {
+                        srcNodeID: thisNode.NodeID,
+                        tgtNodeID: remoteNodeID,
+                        routeHistory: []
+                    };
+                    nextHopEndpoint.SendCmd("DRP", "connectToNode", { "targetNodeID": thisNode.NodeID, "targetURL": thisNode.ListeningURL }, false, null, routeOptions);
                 } else {
-                    return null;
-                }
-            } else {
-
-                thisNode.log("Sending back request...", true);
-
-                // Add placeholder, will be overwritten by inbound connection
-                thisNode.NodeEndpoints[remoteNodeID] = new DRP_Endpoint();
-
-                // Let's try having the Provider call us; send command through Registry
-                try {
-                    // Get next hop
-                    let nextHopNodeID = thisNode.TopologyTracker.GetNextHop(remoteNodeID);
-
-                    if (!thisNode.NodeEndpoints[nextHopNodeID]) {
-                        let errMsg = `Error sending back request to ${remoteNodeID}, next hop ${nextHopNodeID} is unavailable`;
-                        thisNode.log(errMsg);
-                        throw errMsg;
-                    }
-
-                    if (nextHopNodeID) {
-                        // Found the next hop
-                        thisNode.log(`Sending back request to ${remoteNodeID} to connect to this node @[${thisNode.ListeningURL}], relaying to [${nextHopNodeID}]`, true);
-                        let routeOptions = {
-                            srcNodeID: thisNode.NodeID,
-                            tgtNodeID: remoteNodeID,
-                            routeHistory: []
-                        };
-                        thisNode.NodeEndpoints[nextHopNodeID].SendCmd("DRP", "connectToNode", { "targetNodeID": thisNode.NodeID, "targetURL": thisNode.ListeningURL }, false, null, routeOptions);
-                    } else {
-                        // Could not find the next hop
-                        thisNode.log(`Could not find next hop to [${remoteNodeID}]`);
-                    }
-
-                } catch (err) {
-                    thisNode.log(`ERR!!!! [${err}]`);
+                    // Could not find the next hop
+                    thisNode.log(`Could not find next hop to [${remoteNodeID}]`);
                 }
 
-                this.log("Starting wait...", true);
-                // Wait a few seconds
-                for (let i = 0; i < 50; i++) {
+            } catch (err) {
+                thisNode.log(`ERR!!!! [${err}]`);
+            }
 
-                    // Are we still trying?
-                    if (!thisNode.NodeEndpoints[remoteNodeID] || !thisNode.NodeEndpoints[remoteNodeID].IsReady()) {
-                        // Yes - wait
-                        await thisNode.Sleep(100);
-                    } else {
-                        // No - break the for loop
-                        thisNode.log(`Received back connection from remote node [${remoteNodeID}]`, true);
-                        i = 50;
-                    }
-                }
+            this.log("Starting wait...", true);
+            // Wait a few seconds
+            for (let i = 0; i < 50; i++) {
 
-                // If still not successful, delete DRP_NodeClient
-                if (!thisNode.NodeEndpoints[remoteNodeID] || !thisNode.NodeEndpoints[remoteNodeID].IsReady()) {
-                    thisNode.log(`Could not open connection to Node [${remoteNodeID}]`, true);
-                    if (thisNode.NodeEndpoints[remoteNodeID]) {
-                        delete thisNode.NodeEndpoints[remoteNodeID];
-                    }
-                    //throw new Error(`Could not get connection to Provider ${remoteNodeID}`);
+                // Are we still trying?
+                let waitingEndpoint = thisNode.GetNodeEndpoint(remoteNodeID);
+                if (!waitingEndpoint || !waitingEndpoint.IsReady()) {
+                    // Yes - wait
+                    await thisNode.Sleep(100);
                 } else {
-                    thisNodeEndpoint = thisNode.NodeEndpoints[remoteNodeID];
+                    // No - received connection
+                    thisNode.log(`Received back connection from remote node [${remoteNodeID}]`, true);
+                    return waitingEndpoint;
                 }
             }
         }
 
-        return thisNodeEndpoint;
+        // Could not establish connection, return null
+        return null;
     }
 
     /**
@@ -1789,12 +1764,12 @@ class DRP_Node extends DRP_Securable {
                 }
 
                 // If the local Node is not a Registry and the remote Node is a non-connected Registry, route via control plane
-                if (!useControlPlane && !localNodeEntry.IsRegistry() && remoteNodeEntry.IsRegistry() && !thisNode.NodeEndpoints[targetNodeID]) {
+                if (!useControlPlane && !localNodeEntry.IsRegistry() && remoteNodeEntry.IsRegistry() && !thisNode.HasNodeEndpoint(targetNodeID)) {
                     useControlPlane = true;
                 }
 
                 // If the local Node is a Registry and the remote Node is a non-connected non-Registry, route via control plane
-                if (!useControlPlane && localNodeEntry.IsRegistry() && !remoteNodeEntry.IsRegistry() && !thisNode.NodeEndpoints[targetNodeID]) {
+                if (!useControlPlane && localNodeEntry.IsRegistry() && !remoteNodeEntry.IsRegistry() && !thisNode.HasNodeEndpoint(targetNodeID)) {
                     useControlPlane = true;
                 }
             }
@@ -2002,9 +1977,8 @@ class DRP_Node extends DRP_Securable {
                 }
             }
 
-            // Add to NodeEndpoints
+            // Assign EndpointID from remote Node
             sourceEndpoint.EndpointID = declaration.NodeID;
-            thisNode.NodeEndpoints[declaration.NodeID] = sourceEndpoint;
 
             // Apply all Node Endpoint commands
             thisNode.ApplyNodeEndpointMethods(sourceEndpoint);
@@ -2016,6 +1990,7 @@ class DRP_Node extends DRP_Securable {
                 localNodeIsProxy = true;
             }
 
+            // Get remote registry and ingest into TopologyTracker
             await thisNode.TopologyTracker.ProcessNodeConnect(sourceEndpoint, declaration, localNodeIsProxy);
 
         } else if (declaration.userAgent) {
@@ -2134,29 +2109,24 @@ class DRP_Node extends DRP_Securable {
     async RegistryClientHandler(nodeClient, registryURL) {
         let thisNode = this;
         // Get peer info
-        let getDeclarationResponse = await nodeClient.SendCmd("DRP", "getNodeDeclaration", null, true, null);
-        if (!getDeclarationResponse || !getDeclarationResponse.NodeID) {
+        let declaration = await nodeClient.SendCmd("DRP", "getNodeDeclaration", null, true, null);
+        if (!declaration || !declaration.NodeID) {
             thisNode.log(`Tried connecting to Registry at ${registryURL}, but getNodeDeclaration failed`);
             return false;
         }
 
-        // Get Peer Declaration
-        let peerDeclaration = getDeclarationResponse;
-
         // Verify the Peer is a Registry
-        if (peerDeclaration.NodeRoles.indexOf("Registry") < 0) {
+        if (declaration.NodeRoles.indexOf("Registry") < 0) {
             // Peer is not a Registry; disconnect
             thisNode.log(`Tried connecting to Registry at ${registryURL}, but isConnectedToControlPlane == false`);
             return false;
         }
 
-        // Add to Endpoints
-        let registryNodeID = peerDeclaration.NodeID;
-        nodeClient.EndpointID = registryNodeID;
-        thisNode.NodeEndpoints[registryNodeID] = nodeClient;
+        // Assign endpoint ID from remote node
+        nodeClient.EndpointID = declaration.NodeID;
 
         // Get Registry
-        await thisNode.TopologyTracker.ProcessNodeConnect(nodeClient, peerDeclaration);
+        await thisNode.TopologyTracker.ProcessNodeConnect(nodeClient, declaration);
 
         thisNode.log(`Connected to Registry at ${registryURL}`);
 
@@ -2357,7 +2327,7 @@ class DRP_Node extends DRP_Securable {
                         // For each attempt, increase the wait time by 10 seconds up to 5 minutes
                         await thisNode.Sleep(thisNode.ReconnectWaitTimeSeconds * 1000);
                         let targetNodeID = thisNode.TopologyTracker.GetNodeWithURL(registryURL);
-                        if (!targetNodeID || !thisNode.NodeEndpoints[targetNodeID]) {
+                        if (!targetNodeID || !thisNode.HasNodeEndpoint(targetNodeID)) {
                             // We're still not connected to the remote Registry, try again
                             thisNode.ConnectToRegistry(registryURL, null, registryDisconnectCallback, connTrackingObj);
                             if (thisNode.ReconnectWaitTimeSeconds < 300) thisNode.ReconnectWaitTimeSeconds += 10;
@@ -2376,7 +2346,7 @@ class DRP_Node extends DRP_Securable {
     async EvacuateNode(targetNodeID) {
         let thisNode = this;
         /** @type DRP_Endpoint */
-        let remoteEndpoint = thisNode.NodeEndpoints[targetNodeID];
+        let remoteEndpoint = thisNode.GetNodeEndpoint(targetNodeID);
         let remoteNodeEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
         if (!remoteNodeEntry.IsRegistry()) {
             // We need to find another Registry for the client
@@ -2431,8 +2401,8 @@ class DRP_Node extends DRP_Securable {
     async Evacuate() {
         let thisNode = this;
 
-        // Loop over NodeEndpoints
-        let nodeIDList = Object.keys(thisNode.NodeEndpoints);
+        // Loop over directly connected Nodes
+        let nodeIDList = thisNode.GetConnectedNodeIDs();
         thisNode.log(`Attempting to evacuate Nodes [${nodeIDList}]`, true);
 
         // Get topology from all nodes
@@ -2508,12 +2478,19 @@ class DRP_Node extends DRP_Securable {
         let targetURL = params.targetURL;
 
         // Initiate Node Connection
-        if (thisNode.NodeEndpoints[targetNodeID] && thisNode.NodeEndpoints[targetNodeID].wsConn.readyState < 2) {
+        let existingEndpoint = thisNode.GetNodeEndpoint(targetNodeID);
+        if (existingEndpoint && existingEndpoint.wsConn && existingEndpoint.wsConn.readyState < 2) {
             // We already have this NodeEndpoint registered and the wsConn is opening or open
-            thisNode.log(`Received back request, already have NodeEndpoints[${targetNodeID}]`, true);
+            thisNode.log(`Received back request, already have a direct connection to [${targetNodeID}]`, true);
         } else {
             thisNode.log(`Received back request, connecting to [${targetNodeID}] @ ${targetURL}`, true);
-            thisNode.NodeEndpoints[targetNodeID] = new DRP_NodeClient(targetURL, thisNode.WebProxyURL, thisNode, targetNodeID, false, null, null);
+            let newNodeClient = new DRP_NodeClient(targetURL, thisNode.WebProxyURL, thisNode, targetNodeID, false, async () => {
+                let thisNodeEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
+                if (thisNodeEntry) {
+                    thisNodeEntry.AddEndpoint(newNodeClient);
+                }
+            }, null);
+            return newNodeClient;
         }
     }
 
@@ -2619,7 +2596,7 @@ class DRP_Node extends DRP_Securable {
     IsConnectedTo(checkNodeID) {
         let thisNode = this;
         let isConnected = false;
-        let checkNodeEntry = thisNode.NodeEndpoints[checkNodeID];
+        let checkNodeEntry = thisNode.GetNodeEndpoint(checkNodeID);
         if (checkNodeEntry) {
             isConnected = true;
         }
@@ -2689,12 +2666,12 @@ class DRP_Node extends DRP_Securable {
             consumerClients: {}
         };
 
-        // Loop over NodeEndpoints
-        let nodeIDList = Object.keys(thisNode.NodeEndpoints);
+        // Loop over directly connected Nodes
+        let nodeIDList = thisNode.GetConnectedNodeIDs();
         for (let i = 0; i < nodeIDList.length; i++) {
             let nodeID = nodeIDList[i];
             /** @type DRP_Endpoint */
-            let nodeEndpoint = thisNode.NodeEndpoints[nodeID];
+            let nodeEndpoint = thisNode.GetNodeEndpoint(nodeID);
             if (nodeEndpoint.IsServer()) {
                 nodeClientConnections.nodeClients[nodeID] = nodeEndpoint.ConnectionStats();
             }
@@ -2728,10 +2705,11 @@ class DRP_Node extends DRP_Securable {
         if (staleEndpointID) {
             switch (staleEndpoint.EndpointType) {
                 case "Node":
-                    if (thisNode.NodeEndpoints[staleEndpointID]) {
+                    // Remove from new node table structure
+                    if (thisNode.TopologyTracker.NodeTable[staleEndpointID]) {
                         thisNode.log(`Removing disconnected node [${staleEndpointID}]`, true);
-                        thisNode.NodeEndpoints[staleEndpointID].RemoveSubscriptions();
-                        delete thisNode.NodeEndpoints[staleEndpointID];
+                        staleEndpoint.RemoveSubscriptions();
+                        thisNode.TopologyTracker.NodeTable[staleEndpointID].RemoveEndpoint(staleEndpoint);
                         thisNode.TopologyTracker.ProcessNodeDisconnect(staleEndpointID);
                     }
                     break;
@@ -2747,6 +2725,59 @@ class DRP_Node extends DRP_Securable {
         if (callback && typeof callback === 'function') {
             callback();
         }
+    }
+
+    /**
+     * Get active endpoint for a node (backward compatible)
+     * @param {string} nodeID Node ID
+     * @returns {DRP_Endpoint} Active endpoint or null
+     */
+    GetNodeEndpoint(nodeID) {
+        let thisNode = this;
+
+        // Try new node table structure first
+        if (thisNode.TopologyTracker.NodeTable[nodeID]) {
+            let activeEndpoint = thisNode.TopologyTracker.NodeTable[nodeID].GetActiveEndpoint();
+            if (activeEndpoint) {
+                return activeEndpoint;
+            }
+        }
+
+        // No match
+        return null;
+    }
+
+    /**
+     * Check if node has any endpoints
+     * @param {string} nodeID Node ID
+     * @returns {boolean} True if node has endpoints
+     */
+    HasNodeEndpoint(nodeID) {
+        let thisNode = this;
+
+        // Check new node table structure first
+        if (thisNode.TopologyTracker.NodeTable[nodeID] &&
+            thisNode.TopologyTracker.NodeTable[nodeID].HasEndpoints()) {
+            return true;
+        }
+    }
+
+    /**
+     * Get all node IDs that have endpoints (backward compatible)
+     * @returns {string[]} Array of node IDs
+     */
+    GetConnectedNodeIDs() {
+        let thisNode = this;
+        let nodeIDs = new Set();
+
+        // Collect from new node table structure
+        for (let nodeID in thisNode.TopologyTracker.NodeTable) {
+            if (thisNode.TopologyTracker.NodeTable[nodeID].HasEndpoints()) {
+                nodeIDs.add(nodeID);
+            }
+        }
+
+        return Array.from(nodeIDs);
     }
 
     /**
@@ -2973,17 +3004,25 @@ class DRP_Node extends DRP_Securable {
     async SubscribeRemote(targetNodeID, serviceName, topicName, scope, streamProcessor) {
         let thisNode = this;
         let returnVal = null;
-        // Subscribe to a remote topic
-        let thisNodeEndpoint = await thisNode.VerifyNodeConnection(targetNodeID);
-        if (!thisNodeEndpoint) {
-            // Could not contact remote endpoint
-            thisNode.log(`Could not connect to Node [${targetNodeID}] to subscribe to topic ${topicName}`)
+
+        // Attempt a direct connection
+        try {
+            await thisNode.VerifyNodeConnection(targetNodeID);
+        } catch (ex) {
+            // Could not make a direct connection
+        }
+
+        // Use node-level reply handler instead of endpoint-level
+        let sourceStreamToken = null;
+        if (thisNode.TopologyTracker.NodeTable[targetNodeID]) {
+            sourceStreamToken = thisNode.TopologyTracker.NodeTable[targetNodeID].AddReplyHandler(streamProcessor);
+        } else {
+            // Subscription not found
             return returnVal;
         }
-        let sourceStreamToken = thisNodeEndpoint.AddReplyHandler(streamProcessor);
 
         // Await for command from source node
-        let successful = await thisNodeEndpoint.SendCmd("DRP", "subscribe", { serviceName: serviceName, topicName: topicName, streamToken: sourceStreamToken, scope: scope }, true, null);
+        let successful = await thisNode.ServiceCmd("DRP", "subscribe", { serviceName: serviceName, topicName: topicName, streamToken: sourceStreamToken, scope: scope }, { targetNodeID: targetNodeID, sendOnly: false });
         if (successful) returnVal = sourceStreamToken;
         return returnVal;
     }
@@ -2995,18 +3034,17 @@ class DRP_Node extends DRP_Securable {
      */
     async UnsubscribeRemote(targetNodeID, streamToken) {
         let thisNode = this;
-        let returnVal = null;
-        // Unsubscribe from a remote topic
-        let thisNodeEndpoint = await thisNode.VerifyNodeConnection(targetNodeID);
 
-        // If thisNodeEndpoint is null, it means the connection has already been terminated
-        if (!thisNodeEndpoint) return;
-
-        // Delete the reply handler
-        thisNodeEndpoint.DeleteReplyHandler(streamToken);
+        // Delete the reply handler from node-level first, then endpoint-level for backward compatibility
+        if (thisNode.TopologyTracker.NodeTable[targetNodeID]) {
+            thisNode.TopologyTracker.NodeTable[targetNodeID].DeleteReplyHandler(streamToken);
+        } else {
+            // Subscription not found
+            return returnVal;
+        }
 
         // Tell remote node this streamToken is no longer valid
-        await thisNodeEndpoint.SendCmd("DRP", "unsubscribe", { "streamToken": streamToken }, true, null);
+        await thisNode.ServiceCmd("DRP", "unsubscribe", { streamToken: streamToken }, { targetNodeID: targetNodeID, sendOnly: false });
     }
 
     async Authenticate(userName, password, token) {
@@ -3195,6 +3233,8 @@ class DRP_TopologyTracker {
         this.NodeTable = new DRP_NodeTable();
         /** @type {Object.<string,DRP_ServiceTableEntry>} */
         this.ServiceTable = new DRP_ServiceTable();
+        /** @type {Object.<string,DRP_ConsumerTableEntry>} */
+        this.ConsumerTable = new DRP_ConsumerTable();
 
         this.GetNextHop = this.GetNextHop;
         this.GetServicesWithProviders = this.GetServicesWithProviders;
@@ -3227,7 +3267,7 @@ class DRP_TopologyTracker {
                 }
 
                 // Skip if LearnedFrom node is connected
-                if (this.DRPNode.NodeEndpoints[thisNodeEntry.LearnedFrom]) {
+                if (this.DRPNode.HasNodeEndpoint(thisNodeEntry.LearnedFrom)) {
                     continue;
                 }
 
@@ -3359,8 +3399,8 @@ class DRP_TopologyTracker {
                     // If this is a Registry, the new node is a Registry for another zone and we have connected endpoints for that zone, evacuate them
                     if (thisNode.IsRegistry() && topologyPacket.type === "node" && topologyPacket.data.Roles.indexOf("Registry") >= 0 && srcNodeID === advertisedEntry.NodeID && thisNode.Zone !== topologyPacket.zone) {
                         // Loop over connected Endpoints, see if any are non-registry and in the same zone as the new Registry
-                        let endpointList = Object.keys(thisNode.NodeEndpoints);
-                        for (let checkNodeId of endpointList) {
+                        let connectedNodeList = thisNode.GetConnectedNodeIDs();
+                        for (let checkNodeId of connectedNodeList) {
                             thisNode.log(`Evaluating connected Node [${checkNodeId}] for possible evacuation...`, true);
                             let checkNodeEntry = thisTopologyTracker.NodeTable[checkNodeId];
                             if (!checkNodeEntry) {
@@ -3461,7 +3501,7 @@ class DRP_TopologyTracker {
         }
 
         // Loop over all connected node endpoints
-        let nodeIDList = Object.keys(thisTopologyTracker.DRPNode.NodeEndpoints);
+        let nodeIDList = thisTopologyTracker.DRPNode.GetConnectedNodeIDs();
         for (let i = 0; i < nodeIDList.length; i++) {
 
             // By default, do not relay the packet
@@ -3474,8 +3514,11 @@ class DRP_TopologyTracker {
             relayPacket = thisTopologyTracker.AdvertiseOutCheck(topologyEntry, targetNodeID);
 
             if (relayPacket) {
-                thisTopologyTracker.DRPNode.NodeEndpoints[targetNodeID].SendCmd("DRP", "topologyUpdate", topologyPacket, false, null);
-                thisNode.log(`Relayed topology packet to node: [${targetNodeID}]`, true);
+                let relayEndpoint = thisTopologyTracker.DRPNode.GetNodeEndpoint(targetNodeID);
+                if (relayEndpoint) {
+                    relayEndpoint.SendCmd("DRP", "topologyUpdate", topologyPacket, false, null);
+                    thisNode.log(`Relayed topology packet to node: [${targetNodeID}]`, true);
+                }
             } else {
                 if (targetNodeID !== thisNode.NodeID) {
                     //thisNode.log(`Not relaying packet to node[${targetNodeID}], roles ${thisTopologyTracker.NodeTable[targetNodeID].Roles}`);
@@ -3920,7 +3963,16 @@ class DRP_TopologyTracker {
                 let relayPacket = thisTopologyTracker.AdvertiseOutCheck(advertisedNodeEntry, requestingNodeID);
 
                 if (relayPacket) {
-                    returnNodeTable[advertisedNodeID] = advertisedNodeEntry;
+                    let excludedAttributes = ['Endpoints','Subscriptions','ReplyHandlerQueue'];
+                    const returnEntry = Object.keys(advertisedNodeEntry).reduce((acc, key) => {
+                        if (!excludedAttributes.includes(key)) {
+                            acc[key] = advertisedNodeEntry[key];
+                        }
+                        return acc;
+                    }, {});
+
+                    returnNodeTable[advertisedNodeID] = returnEntry;
+
                 } else {
                     //thisNode.log(`Not relaying to Node[${requestingNodeID}]`);
                     //console.dir(advertisedNodeEntry);
@@ -3979,6 +4031,11 @@ class DRP_TopologyTracker {
             if (localNodeIsProxy) thisNodeEntry.ProxyNodeID = thisNode.NodeID;
             let nodeAddPacket = new DRP_TopologyPacket(declaration.NodeID, "add", "node", thisNodeEntry.NodeID, thisNodeEntry.Scope, thisNodeEntry.Zone, thisNodeEntry);
             thisNode.TopologyTracker.ProcessPacket(nodeAddPacket, sourceEndpoint.EndpointID, sourceIsRegistry);
+
+            // This is the caller's record
+            if (thisNodeEntry.NodeID === declaration.NodeID) {
+                thisTopologyTracker.NodeTable[thisNodeEntry.NodeID].AddEndpoint(sourceEndpoint);
+            }
         }
 
         // Import Services
@@ -4133,7 +4190,7 @@ class DRP_TopologyTracker {
             let thisNodeID = thisTopologyTracker.DRPNode.NodeID;
             let checkNodeID = nodeIDList[i];
             let checkNodeEntry = thisTopologyTracker.NodeTable[checkNodeID];
-            if (checkNodeEntry.NodeID !== thisNodeID && checkNodeEntry.IsRegistry() && thisTopologyTracker.DRPNode.NodeEndpoints[checkNodeID]) {
+            if (checkNodeEntry.NodeID !== thisNodeID && checkNodeEntry.IsRegistry() && thisTopologyTracker.DRPNode.HasNodeEndpoint(checkNodeID)) {
                 // Remote Node is a Registry and we are connected to it
                 connectedRegistryList.push(checkNodeID);
             }
@@ -4239,6 +4296,11 @@ class DRP_NodeTableEntry extends DRP_TrackingTableEntry {
         this.Roles = roles;
         this.NodeURL = nodeURL;
         this.HostID = hostID;
+        /** @type Object<number,function> */
+        this.ReplyHandlerQueue = {};
+        this.TokenNum = Math.floor(Math.random() * 32768) + 100000; // Use higher range to avoid conflicts with endpoint tokens
+        /** @type {DRP_Endpoint[]} */
+        this.Endpoints = [];
     }
 
     IsRegistry() {
@@ -4272,6 +4334,102 @@ class DRP_NodeTableEntry extends DRP_TrackingTableEntry {
         }
 
         return usesProxy;
+    }
+
+    GetToken() {
+        let token = this.TokenNum;
+        this.TokenNum++;
+        return token;
+    }
+
+    AddReplyHandler(callback) {
+        let token = this.GetToken();
+        this.ReplyHandlerQueue[token] = callback;
+        return token;
+    }
+
+    DeleteReplyHandler(token) {
+        delete this.ReplyHandlerQueue[token];
+    }
+
+    async ProcessReply(replyPacket) {
+        let thisNodeTableEntry = this;
+
+        // Check if we have the token
+        if (thisNodeTableEntry.ReplyHandlerQueue.hasOwnProperty(replyPacket.token)) {
+
+            // Execute the reply callback
+            thisNodeTableEntry.ReplyHandlerQueue[replyPacket.token](replyPacket);
+
+            // Delete if the status < 2 (0: fail, 1: success, 2: more data coming)
+            if (replyPacket.status < 2) {
+                delete thisNodeTableEntry.ReplyHandlerQueue[replyPacket.token];
+            }
+
+        } else {
+            // We do not have the token - this should be handled by the calling code
+            return false;
+        }
+        return true;
+    }
+
+    AddEndpoint(endpoint) {
+        let thisNodeEntry = this;
+
+        if (endpoint && !thisNodeEntry.Endpoints.includes(endpoint)) {
+            this.Endpoints.push(endpoint);
+        }
+
+        // Transfer any existing reply handlers from endpoint to node level
+        if (Object.keys(endpoint.ReplyHandlerQueue).length > 0) {
+
+            // Transfer handlers
+            for (let token in endpoint.ReplyHandlerQueue) {
+                thisNodeEntry.ReplyHandlerQueue[token] = endpoint.ReplyHandlerQueue[token];
+            }
+
+            // Clear endpoint-level handlers
+            endpoint.ReplyHandlerQueue = {};
+        }
+    }
+
+    RemoveEndpoint(endpoint) {
+        let index = this.Endpoints.indexOf(endpoint);
+        if (index !== -1) {
+            this.Endpoints.splice(index, 1);
+        }
+    }
+
+    GetActiveEndpoint() {
+        // Return the first ready endpoint, or null if none are ready
+        for (let endpoint of this.Endpoints) {
+            if (endpoint && endpoint.IsReady && endpoint.IsReady()) {
+                return endpoint;
+            }
+        }
+        return null;
+    }
+
+    GetAllEndpoints() {
+        return this.Endpoints.slice(); // Return a copy
+    }
+
+    HasEndpoints() {
+        return this.Endpoints.length > 0;
+    }
+
+    GetEndpointCount() {
+        return this.Endpoints.length;
+    }
+
+    GetReadyEndpointCount() {
+        let count = 0;
+        for (let endpoint of this.Endpoints) {
+            if (endpoint && endpoint.IsReady && endpoint.IsReady()) {
+                count++;
+            }
+        }
+        return count;
     }
 }
 
@@ -4329,6 +4487,134 @@ class DRP_ServiceTableEntry extends DRP_TrackingTableEntry {
         this.Streams = streams || [];
         this.Status = serviceStatus;
         this.Version = serviceVersion || null;
+    }
+}
+
+class DRP_ConsumerTable {
+    /**
+     * Add Consumer Table Entry
+     * @param {string} entryID New table entry ID
+     * @param {DRP_ConsumerTableEntry} entryData New table entry data
+     * @param {string} lastModified Last Modified Timestamp
+     */
+    AddEntry(entryID, entryData, lastModified) {
+        let thisTable = this;
+        let newTableRecord = new DRP_ConsumerTableEntry();
+        Object.assign(newTableRecord, entryData);
+        thisTable[entryID] = newTableRecord;
+        if (lastModified) thisTable[entryID].LastModified = lastModified;
+    }
+
+    UpdateEntry(entryID, updateData, lastModified) {
+        let thisTable = this;
+        Object.assign(thisTable[entryID], updateData);
+        if (lastModified) thisTable[entryID].LastModified = lastModified;
+    }
+}
+
+// Details of Consumer
+class DRP_ConsumerTableEntry {
+    /**
+     * 
+     * @param {string} consumerID Consumer ID (assigned by Broker)
+     * @param {string} userID User ID
+     * @param {string} fullName User full name
+     * @param {string[]} groups User groups
+     * @param {string} lastModified Last Modified Timestamp
+     */
+    constructor(consumerID, userID, fullName, groups, lastModified, endpoint) {
+        this.ConsumerID = consumerID;
+        this.UserID = userID;
+        this.FullName = fullName;
+        this.Groups = groups;
+        this.LastModified = lastModified;
+        /** @type Object<number,function> */
+        this.ReplyHandlerQueue = {};
+        this.TokenNum = Math.floor(Math.random() * 32768) + 100000; // Use higher range to avoid conflicts with endpoint tokens
+        /** @type {DRP_Endpoint[]} */
+        this.Endpoints = [endpoint];
+    }
+
+    GetToken() {
+        let token = this.TokenNum;
+        this.TokenNum++;
+        return token;
+    }
+
+    AddReplyHandler(callback) {
+        let token = this.GetToken();
+        this.ReplyHandlerQueue[token] = callback;
+        return token;
+    }
+
+    DeleteReplyHandler(token) {
+        delete this.ReplyHandlerQueue[token];
+    }
+
+    async ProcessReply(replyPacket) {
+        let thisNodeTableEntry = this;
+
+        // Check if we have the token
+        if (thisNodeTableEntry.ReplyHandlerQueue.hasOwnProperty(replyPacket.token)) {
+
+            // Execute the reply callback
+            thisNodeTableEntry.ReplyHandlerQueue[replyPacket.token](replyPacket);
+
+            // Delete if the status < 2 (0: fail, 1: success, 2: more data coming)
+            if (replyPacket.status < 2) {
+                delete thisNodeTableEntry.ReplyHandlerQueue[replyPacket.token];
+            }
+
+        } else {
+            // We do not have the token - this should be handled by the calling code
+            return false;
+        }
+        return true;
+    }
+
+    AddEndpoint(endpoint) {
+        if (endpoint && !this.Endpoints.includes(endpoint)) {
+            this.Endpoints.push(endpoint);
+        }
+    }
+
+    RemoveEndpoint(endpoint) {
+        let index = this.Endpoints.indexOf(endpoint);
+        if (index !== -1) {
+            this.Endpoints.splice(index, 1);
+        }
+    }
+
+    GetActiveEndpoint() {
+        // Return the first ready endpoint, or null if none are ready
+        for (let endpoint of this.Endpoints) {
+            if (endpoint && endpoint.IsReady && endpoint.IsReady()) {
+                return endpoint;
+            }
+        }
+        return null;
+    }
+
+    GetAllEndpoints() {
+        return this.Endpoints.slice(); // Return a copy
+    }
+
+    HasEndpoints() {
+        return this.Endpoints.length > 0;
+    }
+
+    GetEndpointCount() {
+        return this.Endpoints.length;
+    }
+
+    GetReadyEndpointCount() {
+        let count = 0;
+        for (let endpoint of this.Endpoints) {
+            if (endpoint && endpoint.IsReady && endpoint.IsReady()) {
+                count++;
+            }
+        }
+        return count;
     }
 }
 

@@ -124,20 +124,46 @@ class DRP_Endpoint {
         let returnVal = null;
         let token = null;
 
+        // Determine target NodeID for reply handling
+        let targetNodeID = null;
+        if (routeOptions && routeOptions.tgtNodeID) {
+            targetNodeID = routeOptions.tgtNodeID;
+        } else if (thisEndpoint.EndpointID && thisEndpoint.EndpointType === "Node") {
+            // This is a direct node-to-node connection
+            targetNodeID = thisEndpoint.EndpointID;
+        }
+
         if (promisify) {
             // We expect a response, using await; add 'resolve' to queue
             returnVal = new Promise(function (resolve, reject) {
-                token = thisEndpoint.AddReplyHandler((cmdResponse) => {
-                    if (cmdResponse.err) {
-                        reject(cmdResponse.err)
-                    }
-                    resolve(cmdResponse.payload);
-                });
+                if (targetNodeID && thisEndpoint.DRPNode && thisEndpoint.DRPNode.TopologyTracker.NodeTable[targetNodeID]) {
+                    // Use node-level reply handler
+                    token = thisEndpoint.DRPNode.TopologyTracker.NodeTable[targetNodeID].AddReplyHandler((cmdResponse) => {
+                        if (cmdResponse.err) {
+                            reject(cmdResponse.err)
+                        }
+                        resolve(cmdResponse.payload);
+                    });
+                } else {
+                    // Fall back to endpoint-level reply handler for backward compatibility
+                    token = thisEndpoint.AddReplyHandler((cmdResponse) => {
+                        if (cmdResponse.err) {
+                            reject(cmdResponse.err)
+                        }
+                        resolve(cmdResponse.payload);
+                    });
+                }
             });
         } else if (callback) {
             // We expect a response, using callback; add callback to queue
             if (typeof callback !== 'function') throw { message: 'Callback is not a function', name: 'SendCmd' }
-            token = thisEndpoint.AddReplyHandler(callback);
+            if (targetNodeID && thisEndpoint.DRPNode && thisEndpoint.DRPNode.TopologyTracker.NodeTable[targetNodeID]) {
+                // Use node-level reply handler
+                token = thisEndpoint.DRPNode.TopologyTracker.NodeTable[targetNodeID].AddReplyHandler(callback);
+            } else {
+                // Fall back to endpoint-level reply handler for backward compatibility
+                token = thisEndpoint.AddReplyHandler(callback);
+            }
         } else {
             // We don't expect a response; leave reply token null
         }
@@ -180,7 +206,7 @@ class DRP_Endpoint {
     async ProcessCmd(cmdPacket) {
         let thisEndpoint = this;
 
-        var cmdResults = {
+        let cmdResults = {
             status: 1,
             err: null,
             output: null
@@ -247,8 +273,26 @@ class DRP_Endpoint {
 
         //console.dir(replyPacket, { "depth": 10 });
 
-        // Yes - do we have the token?
-        if (thisEndpoint.ReplyHandlerQueue.hasOwnProperty(replyPacket.token)) {
+        let handlerFound = false;
+
+        // Default to connection EndpointID
+        let srcNodeID = thisEndpoint.EndpointID;
+
+        // If the packet originated from another Node, use that Node ID
+        if (replyPacket.routeOptions && replyPacket.routeOptions.srcNodeID) {
+            srcNodeID = replyPacket.routeOptions.srcNodeID;
+        }
+
+        // First try node-level reply handler if this is a node endpoint
+        if (srcNodeID && thisEndpoint.EndpointType === "Node" &&
+            thisEndpoint.DRPNode && thisEndpoint.DRPNode.TopologyTracker.NodeTable[srcNodeID]) {
+            
+            let nodeTableEntry = thisEndpoint.DRPNode.TopologyTracker.NodeTable[srcNodeID];
+            handlerFound = await nodeTableEntry.ProcessReply(replyPacket);
+        }
+
+        // If not found at node level, try endpoint-level reply handler for backward compatibility
+        if (!handlerFound && thisEndpoint.ReplyHandlerQueue.hasOwnProperty(replyPacket.token)) {
 
             // We have the token - execute the reply callback
             thisEndpoint.ReplyHandlerQueue[replyPacket.token](replyPacket);
@@ -257,9 +301,11 @@ class DRP_Endpoint {
             if (replyPacket.status < 2) {
                 delete thisEndpoint.ReplyHandlerQueue[replyPacket.token];
             }
+            handlerFound = true;
 
-        } else {
+        } else if (!handlerFound) {
             // We do not have the token - tell the sender we do not honor this token
+            thisEndpoint.DRPNode.log(`Received reply for unknown token ${replyPacket.token} from endpoint ${thisEndpoint.EndpointID}`, true);
         }
     }
 
