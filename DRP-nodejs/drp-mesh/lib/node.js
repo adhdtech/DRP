@@ -2609,7 +2609,6 @@ class DRP_Node extends DRP_Securable {
 
         // Define function to get topology per node
         let GetTopologyInfoFromNode = async (targetNodeID) => {
-            let topologyNode = {};
 
             let nodeTableEntry = thisNode.TopologyTracker.NodeTable[targetNodeID];
             let nodeClientConnections = await thisNode.ServiceCmd("DRP", "listClientConnections", null, {
@@ -2624,7 +2623,13 @@ class DRP_Node extends DRP_Securable {
             });
 
             // Assign Node Table Entry attributes
-            Object.assign(topologyNode, nodeTableEntry);
+            let excludedAttributes = ['Endpoints', 'Subscriptions', 'ReplyHandlerQueue'];
+            let topologyNode = Object.keys(nodeTableEntry).reduce((acc, key) => {
+                if (!excludedAttributes.includes(key)) {
+                    acc[key] = nodeTableEntry[key];
+                }
+                return acc;
+            }, {});
 
             // Assign Client Connections
             topologyNode.NodeClients = nodeClientConnections.nodeClients;
