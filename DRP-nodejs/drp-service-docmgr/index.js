@@ -289,7 +289,7 @@ class DocManager extends DRP_Service {
             returnData = docCollectionList.map(collectionProfile => { return collectionProfile["name"]; });
         } else {
             dirData = await fs.readdir(thisDocMgr.basePath);
-            for (var i = 0; i < dirData.length; i++) {
+            for (let i = 0; i < dirData.length; i++) {
                 let serviceName = dirData[i];
 
                 // Make sure this is a file
@@ -319,7 +319,7 @@ class DocManager extends DRP_Service {
         } else {
             try {
                 dirData = await fs.readdir(thisDocMgr.basePath + '/' + serviceName);
-                for (var i = 0; i < dirData.length; i++) {
+                for (let i = 0; i < dirData.length; i++) {
                     let docName = dirData[i];
 
                     // Make sure this is a file
