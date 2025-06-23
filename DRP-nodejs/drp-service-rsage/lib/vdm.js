@@ -63,7 +63,7 @@ class VDMServer extends DRP_Service {
             res.setHeader('Strict-Transport-Security', 'max-age=31536000');
 
             let userAgentString = req.headers['user-agent'];
-            if (userAgentString.includes(" Quest") || req.query.forceVR) {
+            if ((userAgentString && userAgentString.includes(" Quest")) || req.query.forceVR) {
                 // Return anonymous token for VR clients
                 let userToken = await thisVDMServer.DRPNode.GetConsumerTokenAnon();
 
