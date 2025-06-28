@@ -855,7 +855,7 @@ class VDMAppletModule {
         URL.revokeObjectURL(url) // GC objectURLs
 
         // Validate module format
-        let appletPackagePattern = /^(class AppletClass extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*})\r?\n\r?\nlet AppletProfile = ({(?:\s+.*\r?\n)+})\r?\n\r?\n?export { AppletProfile, AppletClass };?\r?\n\/\/# sourceURL=vdm-app-\w+\.js$/gm;
+        let appletPackagePattern = /^((?:(?:.*\r?\n)+)?class AppletClass extends (?:VDMApplet|DRPApplet) {(?:.|\r?\n)*}(?:(?:.*\r?\n)+)?;?)\r?\n\r?\nlet AppletProfile = ({(?:\s+.*\r?\n)+})\r?\n\r?\n?export { AppletProfile, AppletClass };?\r?\n\/\/# sourceURL=vdm-app-\w+\.js$/gm;
         let appletPackageParts = appletPackagePattern.exec(appletModuleCode);
 
         if (!appletPackageParts) {
