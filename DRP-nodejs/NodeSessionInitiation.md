@@ -102,7 +102,7 @@ sequenceDiagram
 
 ### Security Features
 
-- **Domain Isolation**: Only nodes with matching domain names can connect
+- **Domain Isolation**: Nodes are segmented by domain and optionally by zone
 - **mTLS Authentication** (preferred): mTLS certs used for mesh participation
 - **Mesh Key Authentication** (lab): Shared secret used for mesh participation
 - **Network Reachability**: Optional TCP ping validation to prevent unreachable nodes
