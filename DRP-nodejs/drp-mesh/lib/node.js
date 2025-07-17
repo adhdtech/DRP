@@ -2715,7 +2715,9 @@ class DRP_Node extends DRP_Securable {
                         thisNode.log(`Removing disconnected node [${staleEndpointID}]`, true);
                         staleEndpoint.RemoveSubscriptions();
                         thisNode.TopologyTracker.NodeTable[staleEndpointID].RemoveEndpoint(staleEndpoint);
-                        thisNode.TopologyTracker.ProcessNodeDisconnect(staleEndpointID);
+                        if (! thisNode.TopologyTracker.NodeTable[staleEndpointID].HasEndpoints()) {
+                            thisNode.TopologyTracker.ProcessNodeDisconnect(staleEndpointID);
+                        }
                     }
                     break;
                 case "Consumer":
@@ -4492,6 +4494,15 @@ class DRP_ServiceTableEntry extends DRP_TrackingTableEntry {
         this.Streams = streams || [];
         this.Status = serviceStatus;
         this.Version = serviceVersion || null;
+
+        // Sanity checks
+        if (!Array.isArray(this.Streams)) {
+            this.Streams = [];
+        }
+
+        if (!Array.isArray(this.Dependencies)) {
+            this.Dependencies = [];
+        }
     }
 }
 
