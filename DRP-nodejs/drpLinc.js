@@ -768,7 +768,7 @@ class DRPLinkConfig {
                     thisLinkConfig.Global.zone,
                     thisServiceDef.scope,
                     thisServiceDef.dependencies,
-                    thisServiceDef.streams,
+                    Object.keys(thisServiceDef.streams),
                     1
                 );
 
