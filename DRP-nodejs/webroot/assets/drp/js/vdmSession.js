@@ -25,9 +25,6 @@ class DRPApplet extends VDMApplet {
 
         let thisApplet = this;
 
-        // Handler for asynchronous commands received from the VDM Server
-        this.recvCmd = {};
-
         // To track stream handlers for when window closes
         this.streamHandlerTokens = [];
 
