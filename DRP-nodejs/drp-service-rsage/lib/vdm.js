@@ -245,6 +245,7 @@ class VDMServer extends DRP_Service {
 
     <!-- External CSS -->
     <link rel="stylesheet" href="assets/fontawesome/font-awesome.min.css">
+    <link rel="stylesheet" href="assets/jquery-contextmenu/jquery.contextMenu.min.css">
 
     <!-- VDM -->
     <link rel="stylesheet" href="assets/drp/css/vdm.css">
@@ -255,6 +256,7 @@ class VDMServer extends DRP_Service {
     <!-- External Scripts -->
     <script src="assets/jquery/jquery.min.js"></script>
     <script src="assets/jquery-ui/jquery-ui.min.js"></script>
+    <script src="assets/jquery-contextmenu/jquery.contextMenu.min.js"></script>
 
     <!-- VDM -->
     <script src="assets/drp/js/drpClient.js"></script>
